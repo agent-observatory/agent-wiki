@@ -508,6 +508,12 @@ function AutomationContent() {
                         {r.prompt_version} · {statuses[r.status] ?? r.status} ·{" "}
                         {r.usage?.total_tokens ?? "미집계"} 토큰
                       </p>
+                      {r.diagnostics?.skippedReason ===
+                        "omitted_fields_only" && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          모델 호출 생략 · 정제 대상 텍스트 없음
+                        </p>
+                      )}
                       {r.diagnostics?.requestedAt && (
                         <p className="text-xs text-muted-foreground mt-1">
                           시도 {r.diagnostics.attempt} ·{" "}

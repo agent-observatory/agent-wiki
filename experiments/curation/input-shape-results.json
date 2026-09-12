@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-09-13",
+  "scope": "Three latest confirmed L1 parts from the existing personal workspace; read-only, no model calls",
+  "sessions": 3,
+  "partsAtCheck": 993,
+  "sampleResults": [
+    {
+      "lines": 375,
+      "originalBytes": 130367,
+      "projectedBytes": 94001,
+      "omittedBytes": 36366,
+      "previousUnknownRoleLines": 353,
+      "rolesAfter": {
+        "unknown": 284,
+        "user": 16,
+        "assistant": 19,
+        "tool": 56
+      }
+    },
+    {
+      "lines": 417,
+      "originalBytes": 131021,
+      "projectedBytes": 131021,
+      "omittedBytes": 0,
+      "previousUnknownRoleLines": 417,
+      "rolesAfter": {
+        "unknown": 180,
+        "tool": 60,
+        "user": 177
+      }
+    },
+    {
+      "lines": 844,
+      "originalBytes": 131068,
+      "projectedBytes": 131068,
+      "omittedBytes": 0,
+      "previousUnknownRoleLines": 844,
+      "rolesAfter": {
+        "user": 844
+      }
+    }
+  ],
+  "limits": [
+    "Sample is not representative of the whole archive.",
+    "Role recognition follows structural fields, not semantic truth.",
+    "Compaction snapshots are retained; semantic deduplication is not implemented.",
+    "Raw contents, resource identifiers and credentials are excluded from this report."
+  ]
+}

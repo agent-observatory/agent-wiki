@@ -151,6 +151,7 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET /refinements` | 작업·실행·오늘 사용량·수집 상태 |
 | `GET /refinement-sessions` | 세션별 작업 상태 집계. `sessionsPage`·`pageSize` |
 | `GET /refinement-sessions/:id/jobs` | 진단용 세션별 작업 조회. 웹 펼침 목록에는 사용하지 않음. `detailPage`·`pageSize` |
+| `POST /curation/rebuild` | 웹 로그인 전용. `{requestId}`로 Workspace 지식·정제 결과 초기화, L1·호출 이력 유지. 중지·진행 작업 없음 조건 |
 | `POST /refinements/:id/retry` | 실패 작업 재시도. 이전 실행 보존 |
 | `GET /source-sessions` | 세션별로 묶은 수집 자료 목록 |
 | `GET /source-records/:id/info` | 보관 정보·확정 수집 횟수·마지막 수집·누적 줄 수 |

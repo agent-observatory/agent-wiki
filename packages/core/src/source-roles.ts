@@ -1,77 +1,114 @@
 // Read transport structure, never a role mentioned inside message text.
 export type SourceRole = "user" | "assistant" | "tool" | "unknown";
-export function sourceRoles(text: string): SourceRole[] {
-  const rows = text.split("\n").map((line) => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  });
-  const roles = new Map<unknown, SourceRole>(),
-    tools = new Map<unknown, string[]>();
-  for (const row of rows) {
-    if (!row || row.event === undefined || typeof row.field !== "string")
-      continue;
-    let path: unknown;
-    try {
+type Field = {
+  event: string | number;
+  path: (string | number)[];
+  text: unknown;
+};
+function field(line: string): Field | null {
+  try {
+    const row = JSON.parse(line),
       path = JSON.parse(row.field);
-    } catch {
-      continue;
-    }
-    if (!Array.isArray(path)) continue;
+    if (
+      !["string", "number"].includes(typeof row.event) ||
+      !Array.isArray(path) ||
+      !path.every((p) => typeof p === "string" || typeof p === "number")
+    )
+      return null;
+    return { event: row.event, path, text: row.text };
+  } catch {
+    return null;
+  }
+}
+function scope(path: Field["path"]) {
+  if (
+    path[0] === "payload" &&
+    path[1] === "replacement_history" &&
+    typeof path[2] === "number"
+  )
+    return path.slice(0, 3);
+  if (path[0] === "payload" && path[1] === "item") return path.slice(0, 2);
+  return [];
+}
+export function sourceRoles(text: string): SourceRole[] {
+  const rows = text.split("\n").map(field);
+  const roles = new Map<string, SourceRole>(),
+    tools = new Map<string, string[]>();
+  const executions = new Set<string>();
+  const key = (row: Field) => JSON.stringify([row.event, scope(row.path)]);
+  for (const row of rows) {
+    if (!row) continue;
+    const id = key(row),
+      path = row.path.slice(scope(row.path).length),
+      encoded = JSON.stringify(path);
     let role: SourceRole | undefined;
     if (
       ['["role"]', '["payload","role"]', '["message","role"]'].includes(
-        JSON.stringify(path),
+        encoded,
       ) &&
-      ["user", "assistant", "tool"].includes(row.text)
+      ["user", "assistant", "tool"].includes(String(row.text))
     )
-      role = row.text;
-    if (['["type"]', '["payload","type"]'].includes(JSON.stringify(path))) {
-      if (["user", "user_message"].includes(row.text)) role = "user";
-      if (["assistant", "agent_message"].includes(row.text)) role = "assistant";
-      if (["function_call_output", "tool_result"].includes(row.text))
+      role = row.text as SourceRole;
+    if (['["type"]', '["payload","type"]'].includes(encoded)) {
+      if (["user", "user_message", "UserMessage"].includes(String(row.text)))
+        role = "user";
+      if (
+        ["assistant", "agent_message", "AgentMessage", "Reasoning"].includes(
+          String(row.text),
+        )
+      )
+        role = "assistant";
+      if (
+        [
+          "function_call_output",
+          "custom_tool_call_output",
+          "tool_result",
+        ].includes(String(row.text))
+      )
         role = "tool";
+      if (row.path[1] === "item" && row.text === "CommandExecution")
+        executions.add(id);
     }
     if (role) {
-      const previous = roles.get(row.event);
-      roles.set(row.event, previous && previous !== role ? "unknown" : role);
+      const previous = roles.get(id);
+      roles.set(id, previous && previous !== role ? "unknown" : role);
     }
     if (path.at(-1) === "type" && row.text === "tool_result") {
       const prefix = path.slice(0, -1);
       if (
         (prefix.length === 2 && prefix[0] === "content") ||
         (prefix.length === 3 &&
-          ["message", "payload"].includes(prefix[0]) &&
+          ["message", "payload"].includes(String(prefix[0])) &&
           prefix[1] === "content")
       )
-        tools.set(row.event, [
-          ...(tools.get(row.event) ?? []),
-          JSON.stringify(prefix),
-        ]);
+        tools.set(id, [...(tools.get(id) ?? []), JSON.stringify(prefix)]);
     }
   }
   return rows.map((row) => {
     if (!row) return "unknown";
-    if (row.event !== undefined && typeof row.field === "string") {
-      let path;
-      try {
-        path = JSON.parse(row.field);
-      } catch {
-        return "unknown";
-      }
-      if (
-        Array.isArray(path) &&
-        (tools.get(row.event) ?? []).some(
-          (prefix) =>
-            JSON.stringify(path.slice(0, JSON.parse(prefix).length)) === prefix,
-        )
+    const id = key(row),
+      path = row.path.slice(scope(row.path).length);
+    if (
+      (tools.get(id) ?? []).some(
+        (prefix) =>
+          JSON.stringify(path.slice(0, JSON.parse(prefix).length)) === prefix,
       )
-        return "tool";
-      return roles.get(row.event) ?? "unknown";
-    }
-    return "unknown";
+    )
+      return "tool";
+    // A command's output is observed data; its submitted command/arguments are
+    // not proof of execution. Do not assign a tool role to the entire wrapper.
+    if (
+      executions.has(id) &&
+      [
+        "stdout",
+        "stderr",
+        "aggregated_output",
+        "formatted_output",
+        "exit_code",
+      ].includes(String(path[0]))
+    )
+      return "tool";
+    return roles.get(id) ?? "unknown";
   });
 }
 export function roleRanges(roles: SourceRole[], start: number, end: number) {

@@ -55,6 +55,16 @@ test("health compares measured attempts, excludes legacy and preflight failures,
       ["running", null, { ...d, durationMs: undefined }],
       ["failed", "AI_LINE_TOO_LARGE", { version: 1, stage: "prepare" }],
       ["completed", null, {}],
+      [
+        "completed",
+        null,
+        {
+          version: 1,
+          skippedReason: "omitted_fields_only",
+          httpRequests: 0,
+          durationMs: 0,
+        },
+      ],
     ])
       await c.query(
         "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status,error_code,diagnostics) VALUES($1,$2,$3,$4,'test',$5,$6,$7)",

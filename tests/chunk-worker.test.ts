@@ -416,3 +416,69 @@ test("incremental curation sees prior claim context and adds a grounded replacem
   assert.equal(guarded.relations, 0);
   assert.equal(guarded.diagnostics.unconfirmedClaims, 1);
 });
+test("encrypted-only input finishes without an AI call and records the omitted coverage", async () => {
+  await tx(owner, ws, (c) =>
+    c.query(
+      "UPDATE ai_settings SET config=jsonb_set(config,'{enabled}','false') WHERE workspace_id=$1",
+      [ws],
+    ),
+  );
+  const space = randomUUID(),
+    sourceId = randomUUID(),
+    jobId = randomUUID();
+  const text = JSON.stringify({
+    event: 0,
+    field: JSON.stringify(["payload", "encrypted_content"]),
+    text: "synthetic opaque content",
+  });
+  const h = hash(text),
+    key = space + "/" + h + ".txt.gz";
+  await putSource(key, text);
+  await admin.query(
+    "INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,'Omitted fields fixture')",
+    [space, owner],
+  );
+  await tx(owner, space, async (c) => {
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'fixture','conversation','fixture',$3,$3,$4,1,'fixture',true)",
+      [sourceId, space, h, key],
+    );
+    await c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [jobId, space, sourceId],
+    );
+    await c.query(
+      "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+      [
+        space,
+        { ...defaults, enabled: true },
+        encryptSecret("metadata-fixture"),
+      ],
+    );
+  });
+  let called = false;
+  await runOne(owner, new AbortController().signal, async () => {
+    called = true;
+    return { output: { changes: [] }, usage: { total_tokens: 1 } };
+  });
+  assert.equal(called, false);
+  const job = (
+    await admin.query(
+      "SELECT status,chunk_index FROM refinement_jobs WHERE id=$1",
+      [jobId],
+    )
+  ).rows[0];
+  assert.equal(job.status, "completed");
+  assert.equal(job.chunk_index, 1);
+  const run = (
+    await admin.query(
+      "SELECT input,diagnostics,usage FROM refinement_runs WHERE job_id=$1",
+      [jobId],
+    )
+  ).rows[0];
+  assert.equal(run.input.source.text, "");
+  assert.equal(run.input.source.omittedLines[0].start, 1);
+  assert.equal(run.diagnostics.skippedReason, "omitted_fields_only");
+  assert.equal(run.diagnostics.httpRequests, 0);
+  assert.equal(run.usage.total_tokens, 0);
+});

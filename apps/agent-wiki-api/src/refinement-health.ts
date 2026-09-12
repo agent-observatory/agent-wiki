@@ -16,6 +16,7 @@ export async function refinementHealth(c: PoolClient, ws: string) {
       round(avg((diagnostics->>'durationMs')::numeric))::int AS average_ms,
       (percentile_cont(0.95) WITHIN GROUP (ORDER BY (diagnostics->>'durationMs')::float8))::int AS p95_ms
     FROM refinement_runs WHERE workspace_id=$1 AND created_at>=now()-interval '7 days'
+      AND diagnostics->>'skippedReason' IS DISTINCT FROM 'omitted_fields_only'
     GROUP BY settings->>'provider',settings->>'model' ORDER BY attempts DESC,model
   `,
       [ws],
@@ -28,6 +29,7 @@ export async function refinementHealth(c: PoolClient, ws: string) {
       error_code,COALESCE(diagnostics->>'stage','unknown') AS stage,
       count(*)::int AS count,min(created_at) AS first_seen,max(created_at) AS last_seen
     FROM refinement_runs WHERE workspace_id=$1 AND created_at>=now()-interval '7 days'
+      AND diagnostics->>'skippedReason' IS DISTINCT FROM 'omitted_fields_only'
       AND error_code IS NOT NULL
     GROUP BY settings->>'provider',settings->>'model',error_code,diagnostics->>'stage'
     ORDER BY count DESC,last_seen DESC LIMIT 10
@@ -43,6 +45,7 @@ export async function refinementHealth(c: PoolClient, ws: string) {
       count(*) FILTER (WHERE diagnostics ? 'requestedAt' AND status='completed')::int AS completed,
       count(*) FILTER (WHERE diagnostics ? 'requestedAt' AND status IN ('failed','interrupted'))::int AS failed
     FROM refinement_runs WHERE workspace_id=$1 AND created_at>=now()-interval '7 days'
+      AND diagnostics->>'skippedReason' IS DISTINCT FROM 'omitted_fields_only'
     GROUP BY day ORDER BY day DESC
   `,
       [ws],
