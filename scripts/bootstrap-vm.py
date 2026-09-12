@@ -4,6 +4,8 @@ import argparse
 import ipaddress
 import json
 import os
+import re
+import shlex
 from pathlib import Path
 import subprocess
 import urllib.parse
@@ -26,10 +28,17 @@ subprocess.run(ssh+['sudo /usr/local/sbin/wiki-mount && sudo chmod 755 /srv/agen
 scp = ['scp', '-i', str(key), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(known)]
 private = root/'.runtime/deploy'
 names = ['.env','api.env','worker.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
-subprocess.run(scp+[str(private/n) for n in names]+['ubuntu@'+host+':/opt/agent-wiki/'], check=True)
-# The CA signing key stays on the developer machine.
-subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+['ubuntu@'+host+':/opt/agent-wiki/'], check=True)
-subprocess.run(ssh+['sudo install -o 999 -g 999 -m 600 /opt/agent-wiki/server.key /srv/agent-wiki/data/tls/server.key && sudo install -m 644 /opt/agent-wiki/server.crt /opt/agent-wiki/ca.crt /srv/agent-wiki/data/tls/ && sudo chown 999:999 /opt/agent-wiki/init-db.sql && sudo chmod 600 /opt/agent-wiki/init-db.sql && sudo chown -R 999:999 /srv/agent-wiki/data/postgres && rm /opt/agent-wiki/server.key /opt/agent-wiki/server.crt /opt/agent-wiki/ca.crt'], check=True)
+stage = subprocess.check_output(ssh+['mktemp -d /opt/agent-wiki/.bootstrap.XXXXXXXX'], text=True).strip()
+if not re.fullmatch(r'/opt/agent-wiki/\.bootstrap\.[A-Za-z0-9]+', stage):
+    raise SystemExit('Unexpected remote staging directory')
+try:
+    subprocess.run(scp+[str(private/n) for n in names]+['ubuntu@'+host+':'+stage+'/'], check=True)
+    # The CA signing key stays on the developer machine.
+    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), 'ubuntu@'+host+':'+stage+'/'], check=True)
+    subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/install-runtime.sh')+' '+shlex.quote(stage)], check=True)
+finally:
+    subprocess.run(ssh+['rm -rf -- '+shlex.quote(stage)], check=False)
+
 env = {}
 for line in (root/'.env.local').read_text().splitlines():
     if '=' in line and not line.startswith('#'):

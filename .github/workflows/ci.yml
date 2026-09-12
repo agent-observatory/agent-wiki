@@ -25,6 +25,18 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.2"
+      - name: Validate infrastructure without OCI access
+        working-directory: infra/terraform
+        run: |
+          terraform init -backend=false -input=false
+          terraform fmt -check -recursive
+          terraform validate
+          terraform test
+      - name: Check runtime installation permissions and reruns
+        run: scripts/test-runtime-install.sh
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

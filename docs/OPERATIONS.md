@@ -43,10 +43,15 @@
 
 Terraform은 `infra/terraform/`에 있다. 로컬 state에는 생성된 자원이 기록돼 있으므로 새로 중복 생성하지 않고 같은 state로 이어간다. VM·데이터 볼륨·원문 버킷에는 `prevent_destroy`를 적용했다. 운영 환경 변경 전 계정 전체 무료 사용량과 plan을 확인한다.
 
+2026-09-12 재확인 결과, VM 생성은 `LaunchInstance`의 `Out of host capacity`로 실패했다. Terraform과 별개인 OCI capacity report도 2 OCPU·12GB, 2 OCPU·6GB, 1 OCPU·6GB 모두 `OUT_OF_HOST_CAPACITY`였다. 작은 사양은 조회만 했으며 실제 구성은 2 OCPU·12GB를 유지한다. 이는 Osaka에서 계정에 할당 가능한 A1 호스트 용량 부족이며, 디스크 부족이나 계정의 A1 사용량 초과가 아니다. 당시 VM 사용량은 0, 부트 볼륨은 0GB, 데이터 볼륨은 50GB였다. 서비스 한도 여유는 무료 제공량을 의미하지 않는다. [OCI 용량 부족 안내](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/troubleshooting-out-of-host-capacity.htm)
+
+Terraform 문법 검증과 모의 plan 검사를 통과했다. 실제 plan은 기존 자원을 유지하고 VM·볼륨 부착·동적 그룹만 추가한다. cloud-init과 실제 OCI 앱 배포 검증은 VM 확보 뒤 진행한다.
+
 ## 확인한 것과 남은 것
 
 - 브라우저에서 Workspace 생성, 문서 저장·읽기, 키워드 검색, 근거 Context 표시를 확인했다. 모바일 390px에서 가로 넘침이 없다.
 - 실제 Docker 이미지에서 TLS로 PostgreSQL에 연결하고 마이그레이션·API readiness 200·미인증 401·정상 종료 코드 0을 확인했다. DataGrip 전용 계정은 신뢰한 CA로 TLS 접속되고 평문·미신뢰 CA 접속은 거부된다. 이는 로컬 컨테이너 검증이며 실제 OCI 접속 검증은 남아 있다.
+- 초기 설치에서 PostgreSQL이 `pg_hba.conf`를 읽지 못하는 권한 문제와 재실행 시 기존 DB 초기화 파일을 덮어쓰지 못하는 문제를 수정했다. 비공개 임시 경로로 전달한 뒤 파일별 소유자·권한을 지정한다. 실제 PostgreSQL 컨테이너에서 첫 설치·재실행·비밀 파일 접근 제한을 검증하며 CI에도 포함했다.
 - 실제 API 프로세스에 SIGTERM을 보내 DB 처리 중인 요청이 200으로 끝나고 종료 코드 0으로 내려가는 것을 확인했다. 남아 있던 keep-alive 연결이 종료를 막던 문제를 수정했다.
 - 강제 종료 등으로 큐가 최종 실패하면 자료 목록 조회 때 실패 상태를 맞추고 수동 재시도를 허용한다. 새 작업 ID가 생긴 뒤 늦게 도착한 옛 작업은 반영하지 않는다. 실제 VM 컨테이너의 강제 종료·복구 검증은 배포 후 남아 있다.
 - Kimi/DeepSeek는 응답 시간 초과 후 유한 재시도·최종 실패까지 확인했다. 인용 검증과 중복 반영 방지는 합성 모델 응답을 주입해 검증했으며, 이를 실제 NVIDIA 추론 성공으로 표현하지 않는다.
