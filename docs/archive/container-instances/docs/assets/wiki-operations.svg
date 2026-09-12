@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1220" viewBox="0 0 1560 1220" role="img" aria-labelledby="title desc"><title id="title">App CI와 DB VM 운영</title><desc id="desc">Terraform과 Resource Manager는 OCI 네트워크, DB VM과 볼륨, 원문·인증서 버킷, IAM을 관리한다. cloud-init과 systemd로 DB VM을 초기 구성한다. 스키마는 앱 마이그레이션으로 관리하고 OCI CLI/API는 App CI 실행 정의를 관리한다. OS와 DB 업데이트는 직접 관리한다. 앱은 로그만 남기고 독립 수집기와 OCI Logging, Connector Hub를 거쳐 별도 알림 Function이 Slack으로 전달한다. 백업은 초기 범위에서 제외한다.</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#59769B" stroke-width="1.8"/></marker><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="1220" fill="#FFFFFF"/>
+<text x="42" y="50" font-size="15" font-weight="700" fill="#48627F">OPERATIONS AS CODE</text>
+<text x="42" y="112" font-size="38" font-weight="700" fill="#172C4B">App CI + DB VM · 간단한 운영</text>
+<path d="M42 149 H1518" stroke="#172C4B" stroke-width="2"/>
+<text x="42" y="235" font-size="19" font-weight="700" fill="#6852A4">01</text>
+<text x="42" y="271" font-size="26" font-weight="700" fill="#172C4B">인프라</text>
+<rect x="237" y="204" width="388" height="146" rx="6" fill="#E7ECFC" stroke="#CDD9E7"/>
+<rect x="237" y="204" width="5" height="146" rx="3" fill="#6852A4"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="257" y="220" width="27" height="27" color="#172C4B"><path fill="#5c4ee5" d="M6 0v31.563l27.181 15.793V15.788zm57.344 33.4L36.156 17.619V49.18l27.188 15.794zm-.007 66.6-27.18-15.787V52.65l27.18 15.781z" /><path fill="#4040b2" d="M66.319 33.4v31.575L93.5 49.18V17.62z" /></svg>
+<text x="296" y="244" font-size="21" font-weight="700" fill="#172C4B">Terraform / HCL</text>
+<text x="261" y="286" font-size="19" font-weight="400" fill="#172C4B">네트워크 · DB VM · 볼륨 · IAM</text>
+<text x="261" y="323" font-size="17" font-weight="400" fill="#526A86">원문·인증서 버킷 · 삭제 보호</text>
+<path d="M627 277 H667" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="672" y="204" width="388" height="146" rx="6" fill="#E7ECFC" stroke="#CDD9E7"/>
+<rect x="672" y="204" width="5" height="146" rx="3" fill="#6852A4"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="692" y="220" width="27" height="27" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
+<text x="731" y="244" font-size="21" font-weight="700" fill="#172C4B">OCI Resource Manager</text>
+<text x="696" y="286" font-size="19" font-weight="400" fill="#172C4B">plan → apply · state 보관</text>
+<text x="696" y="323" font-size="17" font-weight="400" fill="#526A86">OCI 인프라 적용</text>
+<path d="M1062 277 H1102" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="1107" y="204" width="388" height="146" rx="6" fill="#E7ECFC" stroke="#CDD9E7"/>
+<rect x="1107" y="204" width="5" height="146" rx="3" fill="#6852A4"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1127" y="220" width="27" height="27" color="#172C4B"><path fill="#e95420" d="M81.018 0H18v100h63.018z" /><path fill="#fff" d="M32.408 70.555c3.602 0 6.524-2.944 6.524-6.576 0-3.63-2.922-6.574-6.524-6.574-3.603 0-6.523 2.943-6.523 6.575 0 3.63 2.92 6.575 6.523 6.575m27.17-14.418c3.604 0 6.524-2.943 6.524-6.575 0-3.63-2.92-6.575-6.524-6.575-3.602 0-6.523 2.944-6.523 6.575s2.921 6.575 6.523 6.575M47.122 80.905c-4.7-1.015-8.626-4.04-10.834-8.33a9.3 9.3 0 0 1-5.578.69C33.38 79.877 39.045 84.68 46 86.183c1.526.33 3.08.49 4.633.48a9.45 9.45 0 0 1-1.91-5.498 16 16 0 0 1-1.6-.263zm10.99 6.61c3.603 0 6.523-2.944 6.523-6.575s-2.92-6.575-6.523-6.575-6.524 2.943-6.524 6.575c0 3.63 2.921 6.575 6.523 6.575m9.078-8.99a21.62 21.62 0 0 0 4.241-17.358 21.7 21.7 0 0 0-3.173-7.882 9.45 9.45 0 0 1-3.668 4.33 16.2 16.2 0 0 1 1.508 10.918 16.2 16.2 0 0 1-2.029 5.094 9.45 9.45 0 0 1 3.123 4.9zM31.906 54.55a9.2 9.2 0 0 1 2.465.2 9.2 9.2 0 0 1 2.979 1.21c2.937-4.258 7.676-6.812 12.811-6.908a9.53 9.53 0 0 1 1.98-5.333c-8.205-.654-16.178 3.614-20.238 10.833z" /></svg>
+<text x="1166" y="244" font-size="21" font-weight="700" fill="#172C4B">cloud-init / systemd</text>
+<text x="1131" y="286" font-size="19" font-weight="400" fill="#172C4B">PostgreSQL 설치 · 볼륨 마운트</text>
+<text x="1131" y="323" font-size="17" font-weight="400" fill="#526A86">DB VM 최초 구성 · 서비스 실행</text>
+<text x="42" y="426" font-size="19" font-weight="700" fill="#936522">02</text>
+<text x="42" y="462" font-size="26" font-weight="700" fill="#172C4B">실행 정의</text>
+<rect x="237" y="395" width="388" height="146" rx="6" fill="#FFF3DC" stroke="#CDD9E7"/>
+<rect x="237" y="395" width="5" height="146" rx="3" fill="#936522"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="257" y="411" width="27" height="27" color="#172C4B"><path fill="#161614" d="M50 1C22.39 1 0 23.386 0 51c0 22.092 14.327 40.834 34.193 47.446 2.499.462 3.417-1.085 3.417-2.406 0-1.192-.047-5.131-.068-9.309-13.91 3.025-16.846-5.9-16.846-5.9-2.274-5.779-5.551-7.315-5.551-7.315-4.537-3.104.341-3.04.341-3.04 5.022.353 7.665 5.153 7.665 5.153 4.46 7.644 11.697 5.434 14.55 4.156.449-3.232 1.745-5.437 3.175-6.686-11.106-1.264-22.78-5.552-22.78-24.71 0-5.459 1.953-9.92 5.151-13.42-.519-1.26-2.23-6.346.485-13.233 0 0 4.198-1.344 13.753 5.125 3.988-1.108 8.266-1.663 12.515-1.682 4.25.019 8.53.574 12.526 1.682 9.544-6.469 13.736-5.125 13.736-5.125 2.722 6.887 1.01 11.973.49 13.232 3.206 3.502 5.146 7.962 5.146 13.42 0 19.205-11.697 23.434-22.83 24.671 1.793 1.552 3.391 4.595 3.391 9.26 0 6.69-.058 12.074-.058 13.721 0 1.33.9 2.89 3.435 2.399C85.692 91.819 100 73.085 100 51c0-27.614-22.386-50-50-50" /><path fill="#161614" d="M18.727 72.227c-.11.248-.502.322-.857.152-.363-.163-.567-.502-.45-.751.109-.256.5-.327.862-.156.363.163.57.505.445.755m2.46 2.194c-.24.221-.706.118-1.022-.231-.327-.349-.388-.814-.146-1.04.246-.22.698-.117 1.026.232.327.353.39.816.14 1.04zm1.687 2.808c-.307.213-.808.013-1.118-.432-.306-.444-.306-.977.007-1.191.31-.214.804-.021 1.118.42.305.452.305.985-.008 1.203m2.853 3.252c-.274.302-.858.22-1.285-.192-.437-.403-.56-.975-.284-1.277.277-.303.864-.218 1.295.191.434.403.566.979.274 1.278m3.688 1.098c-.12.391-.683.57-1.25.403-.565-.171-.935-.63-.821-1.026.118-.394.682-.58 1.253-.401.565.17.936.625.818 1.024m4.197.465c.014.413-.466.755-1.06.762-.599.013-1.082-.32-1.088-.726 0-.416.469-.755 1.067-.765.594-.012 1.081.32 1.081.73m4.123-.158c.071.403-.342.816-.932.926-.58.106-1.118-.143-1.192-.541-.072-.413.35-.826.928-.933.592-.103 1.12.14 1.196.548" /></svg>
+<text x="296" y="435" font-size="21" font-weight="700" fill="#172C4B">버전 관리 JSON</text>
+<text x="261" y="477" font-size="19" font-weight="400" fill="#172C4B">이미지 digest · 포트 · 마운트</text>
+<text x="261" y="514" font-size="17" font-weight="400" fill="#526A86">App CI 1개 · 앱 4 + 수집기 1</text>
+<path d="M627 468 H667" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="672" y="395" width="388" height="146" rx="6" fill="#FFF3DC" stroke="#CDD9E7"/>
+<rect x="672" y="395" width="5" height="146" rx="3" fill="#936522"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="692" y="411" color="#172C4B">
+  <path d="M8 9l3 3l-3 3" />
+  <path d="M13 15l3 0" />
+  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+</svg>
+<text x="731" y="435" font-size="21" font-weight="700" fill="#172C4B">OCI CLI / API</text>
+<text x="696" y="477" font-size="19" font-weight="400" fill="#172C4B">App CI 생성·관리</text>
+<text x="696" y="514" font-size="17" font-weight="400" fill="#526A86">Terraform과 실행 소유권 분리</text>
+<path d="M1062 468 H1102" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="1107" y="395" width="388" height="146" rx="6" fill="#FFF3DC" stroke="#CDD9E7"/>
+<rect x="1107" y="395" width="5" height="146" rx="3" fill="#936522"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1127" y="411" width="27" height="27" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
+<text x="1166" y="435" font-size="21" font-weight="700" fill="#172C4B">Container Instances</text>
+<text x="1131" y="477" font-size="19" font-weight="400" fill="#172C4B">자원 제한 · health check</text>
+<text x="1131" y="514" font-size="17" font-weight="400" fill="#526A86">재시작 정책 · 정상 종료 유예</text>
+<text x="42" y="617" font-size="19" font-weight="700" fill="#237964">03</text>
+<text x="42" y="653" font-size="26" font-weight="700" fill="#172C4B">앱 배포</text>
+<rect x="237" y="586" width="388" height="146" rx="6" fill="#E4F4F0" stroke="#CDD9E7"/>
+<rect x="237" y="586" width="5" height="146" rx="3" fill="#237964"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="257" y="602" width="27" height="27" color="#172C4B"><path fill="#161614" d="M50 1C22.39 1 0 23.386 0 51c0 22.092 14.327 40.834 34.193 47.446 2.499.462 3.417-1.085 3.417-2.406 0-1.192-.047-5.131-.068-9.309-13.91 3.025-16.846-5.9-16.846-5.9-2.274-5.779-5.551-7.315-5.551-7.315-4.537-3.104.341-3.04.341-3.04 5.022.353 7.665 5.153 7.665 5.153 4.46 7.644 11.697 5.434 14.55 4.156.449-3.232 1.745-5.437 3.175-6.686-11.106-1.264-22.78-5.552-22.78-24.71 0-5.459 1.953-9.92 5.151-13.42-.519-1.26-2.23-6.346.485-13.233 0 0 4.198-1.344 13.753 5.125 3.988-1.108 8.266-1.663 12.515-1.682 4.25.019 8.53.574 12.526 1.682 9.544-6.469 13.736-5.125 13.736-5.125 2.722 6.887 1.01 11.973.49 13.232 3.206 3.502 5.146 7.962 5.146 13.42 0 19.205-11.697 23.434-22.83 24.671 1.793 1.552 3.391 4.595 3.391 9.26 0 6.69-.058 12.074-.058 13.721 0 1.33.9 2.89 3.435 2.399C85.692 91.819 100 73.085 100 51c0-27.614-22.386-50-50-50" /><path fill="#161614" d="M18.727 72.227c-.11.248-.502.322-.857.152-.363-.163-.567-.502-.45-.751.109-.256.5-.327.862-.156.363.163.57.505.445.755m2.46 2.194c-.24.221-.706.118-1.022-.231-.327-.349-.388-.814-.146-1.04.246-.22.698-.117 1.026.232.327.353.39.816.14 1.04zm1.687 2.808c-.307.213-.808.013-1.118-.432-.306-.444-.306-.977.007-1.191.31-.214.804-.021 1.118.42.305.452.305.985-.008 1.203m2.853 3.252c-.274.302-.858.22-1.285-.192-.437-.403-.56-.975-.284-1.277.277-.303.864-.218 1.295.191.434.403.566.979.274 1.278m3.688 1.098c-.12.391-.683.57-1.25.403-.565-.171-.935-.63-.821-1.026.118-.394.682-.58 1.253-.401.565.17.936.625.818 1.024m4.197.465c.014.413-.466.755-1.06.762-.599.013-1.082-.32-1.088-.726 0-.416.469-.755 1.067-.765.594-.012 1.081.32 1.081.73m4.123-.158c.071.403-.342.816-.932.926-.58.106-1.118-.143-1.192-.541-.072-.413.35-.826.928-.933.592-.103 1.12.14 1.196.548" /></svg>
+<text x="296" y="626" font-size="21" font-weight="700" fill="#172C4B">Actions → GHCR</text>
+<text x="261" y="668" font-size="19" font-weight="400" fill="#172C4B">ARM64 · Caddy S3 모듈 포함</text>
+<text x="261" y="705" font-size="17" font-weight="400" fill="#526A86">외부 빌드 · 단일 배포 잠금</text>
+<path d="M627 659 H667" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="672" y="586" width="388" height="146" rx="6" fill="#E4F4F0" stroke="#CDD9E7"/>
+<rect x="672" y="586" width="5" height="146" rx="3" fill="#237964"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="692" y="602" color="#172C4B">
+  <path d="M8 9l3 3l-3 3" />
+  <path d="M13 15l3 0" />
+  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+</svg>
+<text x="731" y="626" font-size="21" font-weight="700" fill="#172C4B">OCI API · 앱 갱신</text>
+<text x="696" y="668" font-size="19" font-weight="400" fill="#172C4B">작업 drain · 스키마 변경 잠금</text>
+<text x="696" y="705" font-size="17" font-weight="400" fill="#526A86">재시작 / 필요 시 App CI 교체</text>
+<path d="M1062 659 H1102" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="1107" y="586" width="388" height="146" rx="6" fill="#E4F4F0" stroke="#CDD9E7"/>
+<rect x="1107" y="586" width="5" height="146" rx="3" fill="#237964"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1127" y="602" color="#172C4B">
+  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+  <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+  <path d="M9 14l2 2l4 -4" />
+</svg>
+<text x="1166" y="626" font-size="21" font-weight="700" fill="#172C4B">배포 검증</text>
+<text x="1131" y="668" font-size="19" font-weight="400" fill="#172C4B">DNS · HTTPS · 검색 · 근거</text>
+<text x="1131" y="705" font-size="17" font-weight="400" fill="#526A86">DB VM·데이터 유지 · 앱 복구</text>
+<text x="42" y="808" font-size="19" font-weight="700" fill="#28589E">04</text>
+<text x="42" y="844" font-size="26" font-weight="700" fill="#172C4B">오류 로그</text>
+<rect x="237" y="777" width="388" height="146" rx="6" fill="#EAF1FF" stroke="#CDD9E7"/>
+<rect x="237" y="777" width="5" height="146" rx="3" fill="#28589E"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="257" y="793" color="#172C4B">
+  <path d="M8 9l3 3l-3 3" />
+  <path d="M13 15l3 0" />
+  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+</svg>
+<text x="296" y="817" font-size="21" font-weight="700" fill="#172C4B">앱 JSON 로그 → 수집기</text>
+<text x="261" y="859" font-size="19" font-weight="400" fill="#172C4B">공유 파일 · 로테이션 · 읽은 위치</text>
+<text x="261" y="896" font-size="17" font-weight="400" fill="#526A86">독립 수집 sidecar → OCI Logging</text>
+<path d="M627 850 H667" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="672" y="777" width="388" height="146" rx="6" fill="#EAF1FF" stroke="#CDD9E7"/>
+<rect x="672" y="777" width="5" height="146" rx="3" fill="#28589E"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="692" y="793" width="27" height="27" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
+<text x="731" y="817" font-size="21" font-weight="700" fill="#172C4B">Logging → Connector Hub</text>
+<text x="696" y="859" font-size="19" font-weight="400" fill="#172C4B">최종 실패·서버 오류 필터</text>
+<text x="696" y="896" font-size="17" font-weight="400" fill="#526A86">재시도 중 warn은 경보 제외</text>
+<path d="M1062 850 H1102" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="1107" y="777" width="388" height="146" rx="6" fill="#EAF1FF" stroke="#CDD9E7"/>
+<rect x="1107" y="777" width="5" height="146" rx="3" fill="#28589E"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1127" y="793" color="#172C4B">
+  <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
+  <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+</svg>
+<text x="1166" y="817" font-size="21" font-weight="700" fill="#172C4B">알림 Function → Slack</text>
+<text x="1131" y="859" font-size="19" font-weight="400" fill="#172C4B">봇 토큰은 알림 Function만 보유</text>
+<text x="1131" y="896" font-size="17" font-weight="400" fill="#526A86">업무 API·Worker는 로그만 기록</text>
+<text x="42" y="999" font-size="19" font-weight="700" fill="#526A86">05</text>
+<text x="42" y="1035" font-size="26" font-weight="700" fill="#172C4B">중단·자원</text>
+<rect x="237" y="968" width="388" height="146" rx="6" fill="#F0F3F8" stroke="#CDD9E7"/>
+<rect x="237" y="968" width="5" height="146" rx="3" fill="#526A86"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="257" y="984" color="#172C4B">
+  <path d="M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+  <path d="M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+  <path d="M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+  <path d="M4 20h14" />
+</svg>
+<text x="296" y="1008" font-size="21" font-weight="700" fill="#172C4B">OCI 지표 · 외부 HTTP 점검</text>
+<text x="261" y="1050" font-size="19" font-weight="400" fill="#172C4B">CPU·메모리 · /readyz 15분</text>
+<text x="261" y="1087" font-size="17" font-weight="400" fill="#526A86">로그 없는 전체 중단도 감지</text>
+<path d="M627 1041 H667" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="672" y="968" width="388" height="146" rx="6" fill="#F0F3F8" stroke="#CDD9E7"/>
+<rect x="672" y="968" width="5" height="146" rx="3" fill="#526A86"/>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="692" y="984" width="27" height="27" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
+<text x="731" y="1008" font-size="21" font-weight="700" fill="#172C4B">OCI Notifications</text>
+<text x="696" y="1050" font-size="19" font-weight="400" fill="#172C4B">Alarm / 외부 점검 이벤트 수신</text>
+<text x="696" y="1087" font-size="17" font-weight="400" fill="#526A86">알림 Function 구독으로 전달</text>
+<path d="M1062 1041 H1102" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
+<rect x="1107" y="968" width="388" height="146" rx="6" fill="#F0F3F8" stroke="#CDD9E7"/>
+<rect x="1107" y="968" width="5" height="146" rx="3" fill="#526A86"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1127" y="984" color="#172C4B">
+  <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
+  <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+</svg>
+<text x="1166" y="1008" font-size="21" font-weight="700" fill="#172C4B">같은 알림 Function → Slack</text>
+<text x="1131" y="1050" font-size="19" font-weight="400" fill="#172C4B">배치 중복 제거 · 전송 실패 처리</text>
+<text x="1131" y="1087" font-size="17" font-weight="400" fill="#526A86">앱 중단과 독립된 전송 경로</text>
+<text x="42" y="1170" font-size="17" font-weight="400" fill="#526A86">후속 연동 설계 · 로그 수집과 알림은 앱 밖에서 처리 · OCI 서비스별 무료 계정 자격 확인 후 구축</text>
+</g></svg>

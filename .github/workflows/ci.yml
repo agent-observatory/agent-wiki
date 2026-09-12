@@ -1,0 +1,96 @@
+name: Validate and publish
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17.9-bookworm
+        env:
+          POSTGRES_USER: wiki_owner
+          POSTGRES_PASSWORD: local-test-password
+          POSTGRES_DB: agent_wiki
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wiki_owner -d agent_wiki"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci && npm --prefix apps/web ci
+      - name: Prepare test roles
+        env:
+          PGPASSWORD: local-test-password
+        run: |
+          psql -h localhost -p 55432 -U wiki_owner -d agent_wiki -v ON_ERROR_STOP=1 -c "CREATE ROLE wiki_app LOGIN PASSWORD 'local-app-password'; CREATE ROLE wiki_admin LOGIN BYPASSRLS PASSWORD 'local-admin-password';"
+      - run: npm run typecheck
+      - run: scripts/test-local.sh
+      - run: npm run build
+      - name: Check diagrams
+        run: python3 scripts/generate-wiki-diagrams.py && git diff --exit-code -- docs/assets
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: app
+            context: .
+            file: Dockerfile
+          - name: web
+            context: apps/web
+            file: apps/web/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/agent-observatory/agent-wiki-${{ matrix.name }}:${{ github.sha }}
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy selected app containers
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/wiki
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes scripts/deploy.sh ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/deploy.sh
+          ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" "bash /opt/agent-wiki/deploy.sh '$IMAGE_TAG'"
