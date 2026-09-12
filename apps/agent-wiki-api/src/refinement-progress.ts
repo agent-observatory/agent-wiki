@@ -81,6 +81,8 @@ export async function refinementProgress(
   const storage = (
     await c.query(
       `SELECT (SELECT count(*)::int FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL) AS sources,
+      (SELECT count(DISTINCT CASE WHEN kind='conversation' AND origin<>'' THEN 'conversation:'||origin ELSE 'source:'||id::text END)::int FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL) AS source_groups,
+      (SELECT count(*)::int FROM articles WHERE workspace_id=$1 AND deleted_at IS NULL) AS articles,
       count(*) FILTER(WHERE status='completed')::int AS uploads_completed,
       count(*) FILTER(WHERE status IN ('uploading','queued','verifying'))::int AS uploads_pending
      FROM collection_uploads WHERE workspace_id=$1`,
@@ -114,7 +116,7 @@ export async function refinementProgress(
   }
   const lastProgressAt = (
     await c.query(
-      "SELECT max(finished_at) AS at FROM refinement_runs WHERE workspace_id=$1 AND status='completed'",
+      "SELECT max(r.finished_at) AS at FROM refinement_runs r JOIN refinement_jobs j ON j.id=r.job_id AND j.workspace_id=r.workspace_id WHERE r.workspace_id=$1 AND r.status='completed' AND COALESCE((r.diagnostics->>'generation')::int,0)=j.generation",
       [ws],
     )
   ).rows[0].at;

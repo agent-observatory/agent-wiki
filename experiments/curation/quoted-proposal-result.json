@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-09-12T22:05:56.774Z",
+  "case": "quoted-proposal",
+  "model": "deepseek-ai/deepseek-v4-flash-0731",
+  "reasoning": "none",
+  "status": "response",
+  "ms": 517,
+  "requests": 1,
+  "usage": {
+    "prompt_tokens": 129,
+    "completion_tokens": 30,
+    "total_tokens": 159
+  },
+  "output": {
+    "state": "unconfirmed",
+    "replacesPrior": false,
+    "reason": "제안만 인용했고 수용 여부는 미정"
+  },
+  "expected": { "state": "proposed", "replacesPrior": false },
+  "writesKnowledge": false
+}

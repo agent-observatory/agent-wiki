@@ -32,6 +32,8 @@ export type RefinementProgressData = {
   };
   storage: {
     sources: number;
+    source_groups: number;
+    articles: number;
     uploads_completed: number;
     uploads_pending: number;
   };
@@ -58,14 +60,15 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               {layerLabel("L1")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
-              {storage.sources.toLocaleString()}
+              {storage.source_groups.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                자료
+                세션·문서
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              검증 완료 업로드 {storage.uploads_completed.toLocaleString()}건 ·
-              전송·검증 중 {storage.uploads_pending.toLocaleString()}건
+              보관 조각 {storage.sources.toLocaleString()}개 · 검증 완료 업로드{" "}
+              {storage.uploads_completed.toLocaleString()}건 · 전송·검증 중{" "}
+              {storage.uploads_pending.toLocaleString()}건
             </p>
           </CardContent>
         </Card>
@@ -90,7 +93,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
             )}
             <p className="text-xs text-muted-foreground">
               {s.chunks_total > 0 ? `분할된 청크 기준 ${percent}% · ` : ""}분할
-              대기 {s.unplanned.toLocaleString()}자료
+              대기 {s.unplanned.toLocaleString()}개 조각
             </p>
           </CardContent>
         </Card>
@@ -101,13 +104,14 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               {layerLabel("L3")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
-              {s.completed.toLocaleString()}
+              {storage.articles.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                / {s.total.toLocaleString()} 자료
+                지식
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              모든 청크 검증·반영 완료 · 새 지식이 없는 자료 포함
+              정제 완료 {s.completed.toLocaleString()} /{" "}
+              {s.total.toLocaleString()}개 조각
             </p>
           </CardContent>
         </Card>

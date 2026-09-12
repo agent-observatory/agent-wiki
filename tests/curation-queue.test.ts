@@ -53,6 +53,9 @@ test("same-upload parts are ordered numerically; retrying or failed head blocks 
     assert.equal(await nextCurationJob(c, ws), null);
     const progress = await refinementProgress(c, ws, 0);
     assert.equal(progress.summary.eligible, 0);
+    assert.equal(progress.storage.source_groups, 1);
+    assert.equal(progress.storage.sources, 4);
+    assert.equal(progress.storage.articles, 0);
     const source = randomUUID(),
       job = randomUUID();
     await c.query(
@@ -64,6 +67,7 @@ test("same-upload parts are ordered numerically; retrying or failed head blocks 
       [job, ws, source],
     );
     assert.equal((await nextCurationJob(c, ws)).id, job);
+    assert.equal((await refinementProgress(c, ws, 0)).storage.source_groups, 2);
     await c.query("UPDATE refinement_jobs SET status='completed' WHERE id=$1", [
       job,
     ]);

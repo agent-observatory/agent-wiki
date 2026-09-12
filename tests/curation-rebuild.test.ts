@@ -7,6 +7,7 @@ import { pool, tx } from "../packages/core/src/db.js";
 import { hash, getSource } from "../packages/core/src/storage.js";
 import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 import { defaults, encryptSecret } from "../packages/core/src/ai.js";
+import { refinementProgress } from "../apps/agent-wiki-api/src/refinement-progress.js";
 import { rebuildCuration } from "../apps/agent-wiki-api/src/curation-rebuild.js";
 const owner = "rebuild-" + randomUUID(),
   token = randomUUID();
@@ -80,7 +81,7 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
       [first.jobId],
     );
     await c.query(
-      "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status,usage) VALUES($1,$2,$3,'{}','old','completed','{\"total_tokens\":17}')",
+      "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status,usage,finished_at) VALUES($1,$2,$3,'{}','old','completed','{\"total_tokens\":17}',now())",
       [run, ws, first.jobId],
     );
     await c.query(
@@ -134,6 +135,9 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
       owner,
     ])
   ).rows;
+  assert.ok(
+    (await tx(owner, ws, (c) => refinementProgress(c, ws, 0))).lastProgressAt,
+  );
   const requestId = randomUUID();
   const r = await call(ws, "/curation/rebuild", { requestId });
   assert.equal(r.statusCode, 200, r.body);
@@ -193,6 +197,10 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
     ])
   ).rows[0];
   assert.equal(job.generation, 1);
+  assert.equal(
+    (await tx(owner, ws, (c) => refinementProgress(c, ws, 0))).lastProgressAt,
+    null,
+  );
   assert.equal(job.status, "pending");
   assert.equal(job.chunk_index, 0);
   assert.equal(job.output, null);
