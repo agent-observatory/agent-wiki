@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   mkdtemp,
+  mkdir,
   writeFile,
   appendFile,
   readFile,
@@ -288,4 +289,50 @@ test("native event IDs deduplicate shifted records and repeated IDs within an up
   ).rows[0].result;
   assert.equal(shifted.accepted, 1);
   assert.equal(shifted.duplicate, 2);
+});
+
+test("an interrupted upload keeps its exact range when new messages are appended", async () => {
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const dir = join(root, "resume");
+  await mkdir(dir);
+  const file = join(dir, "session.jsonl"),
+    state = { files: {} },
+    t = transport();
+  const c = { ...config(), roots: [{ client: "claude", path: dir }] };
+  await writeFile(
+    file,
+    JSON.stringify({
+      sessionId: "resume-session",
+      cwd: "/allowed",
+      text: "first",
+    }) + "\n",
+  );
+  const initial = (await stat(file)).size;
+  assert.equal(
+    (
+      await collect(
+        c,
+        state,
+        t.request,
+        async () => {},
+        async () => {
+          throw new Error("offline");
+        },
+      )
+    ).failed,
+    1,
+  );
+  await appendFile(
+    file,
+    JSON.stringify({ uuid: "added", text: "appended" }) + "\n",
+  );
+  await collect(c, state, t.request, async () => {}, t.transfer);
+  assert.equal(t.manifests.length, 2);
+  assert.equal(t.manifests[1].end, initial);
+  assert.deepEqual(t.manifests[1], t.manifests[0]);
+  while (await processUpload(owner, new AbortController().signal)) {}
+  await collect(c, state, t.request, async () => {}, t.transfer);
+  assert.equal(t.manifests[2].start, initial);
+  assert.equal(t.manifests[2].recordEnd, 2);
+  while (await processUpload(owner, new AbortController().signal)) {}
 });

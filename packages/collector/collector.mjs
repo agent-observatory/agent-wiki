@@ -152,6 +152,7 @@ export async function collect(
             end: 0,
             prefixHash: digest(""),
             pending: undefined,
+            pendingRange: undefined,
           };
         }
         state.files[file] = local;
@@ -179,6 +180,29 @@ export async function collect(
             stats.duplicate += status.result.duplicate;
             delete local.pending;
             delete local.parts;
+            delete local.pendingRange;
+          } else if (status.status === "uploading" && local.pendingRange) {
+            const range = local.pendingRange;
+            const check = await scanFile(file, range.end);
+            if (
+              snapshot.end < range.end ||
+              check.previousHash !== range.prefixHash
+            ) {
+              local.generation = randomUUID();
+              local.end = 0;
+              local.prefixHash = digest("");
+              delete local.pending;
+              delete local.pendingRange;
+              delete local.parts;
+              await checkpoint();
+              continue;
+            }
+            snapshot = {
+              ...snapshot,
+              end: range.end,
+              records: range.recordEnd,
+              prefixHash: range.prefixHash,
+            };
           } else if (["queued", "verifying"].includes(status.status)) {
             stats.pending++;
             continue;
@@ -240,6 +264,11 @@ export async function collect(
         const upload = await request("/uploads", payload);
         if (local.pending !== upload.id) local.parts = [];
         local.pending = upload.id;
+        local.pendingRange = {
+          end: payload.end,
+          recordEnd: payload.recordEnd,
+          prefixHash: payload.prefixHash,
+        };
         local.parts ??= [];
         await checkpoint();
         if (upload.status === "uploading") {
