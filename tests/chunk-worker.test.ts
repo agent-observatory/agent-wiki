@@ -10,7 +10,11 @@ import {
   encryptSecret,
   ModelError,
 } from "../packages/core/src/ai.js";
-import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
+import {
+  runOne,
+  MODEL_TIMEOUT_MS,
+  JOB_LEASE_SECONDS,
+} from "../apps/agent-wiki-worker/src/worker.js";
 const owner = "chunk-worker-" + randomUUID(),
   ws = randomUUID(),
   source = randomUUID(),
@@ -59,6 +63,21 @@ after(async () => {
 test("successful chunks survive a later failure and resume at the failed chunk with exact coverage", async () => {
   const starts: number[] = [];
   const model = async (_c: any, _k: any, m: any) => {
+    const lease = await tx(
+      owner,
+      ws,
+      async (c) =>
+        (
+          await c.query(
+            "SELECT extract(epoch FROM(j.lease_until-clock_timestamp()))::float8 AS remaining,r.diagnostics FROM refinement_jobs j JOIN refinement_runs r ON r.id=j.run_id WHERE j.id=$1",
+            [job],
+          )
+        ).rows[0],
+    );
+    assert.equal(MODEL_TIMEOUT_MS, 330_000);
+    assert.equal(lease.diagnostics.modelTimeoutMs, 330_000);
+    assert.equal(lease.diagnostics.leaseSeconds, JOB_LEASE_SECONDS);
+    assert.ok(lease.remaining > MODEL_TIMEOUT_MS / 1000 + 60);
     const input = JSON.parse(
       z.object({ content: z.string() }).parse(m[1]).content,
     );

@@ -116,7 +116,15 @@ export async function callModel(
         max_tokens: config.maxTokens,
         ...(config.reasoning === "default"
           ? {}
-          : { reasoning_effort: config.reasoning }),
+          : config.provider === "nvidia" &&
+              config.model.startsWith("deepseek-ai/deepseek-v4-")
+            ? {
+                chat_template_kwargs:
+                  config.reasoning === "none"
+                    ? { thinking: false }
+                    : { thinking: true, reasoning_effort: config.reasoning },
+              }
+            : { reasoning_effort: config.reasoning }),
       }),
     },
   );
@@ -129,7 +137,9 @@ export async function callModel(
     const id = headerId ?? pending.requestId;
     if (!id || !/^[a-f0-9-]{36}$/i.test(id))
       throw new ModelError("AI_PENDING_ID_MISSING");
-    for (let poll = 0; poll < 40 && response.status === 202; poll++) {
+    // The caller owns the total deadline. A fixed poll count would end a slow
+    // pending request before that deadline and start another inference later.
+    while (response.status === 202) {
       await new Promise<void>((resolve, reject) => {
         const aborted = () => {
           clearTimeout(timer);

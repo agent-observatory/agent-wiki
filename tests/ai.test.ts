@@ -128,3 +128,119 @@ test("daily limit is optional and explicit limits remain positive bounded intege
   for (const dailyCalls of [0, -1, 1.5, 1001, "unlimited"])
     assert.equal(aiConfig.safeParse({ dailyCalls }).success, false);
 });
+
+test("NVIDIA DeepSeek reasoning uses the documented chat template controls", async () => {
+  const original = globalThis.fetch;
+  const bodies: any[] = [];
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({
+        choices: [
+          { finish_reason: "stop", message: { content: '{"changes":[]}' } },
+        ],
+      }),
+    );
+  };
+  try {
+    for (const reasoning of ["none", "high", "max", "default"] as const)
+      await callModel(
+        { ...defaults, reasoning },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      );
+    assert.deepEqual(bodies[0].chat_template_kwargs, { thinking: false });
+    assert.deepEqual(bodies[1].chat_template_kwargs, {
+      thinking: true,
+      reasoning_effort: "high",
+    });
+    assert.deepEqual(bodies[2].chat_template_kwargs, {
+      thinking: true,
+      reasoning_effort: "max",
+    });
+    assert.equal(bodies[3].chat_template_kwargs, undefined);
+    assert.ok(bodies.every((b) => b.reasoning_effort === undefined));
+    await callModel(
+      { ...defaults, provider: "openai-compatible", reasoning: "none" },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies[4].reasoning_effort, "none");
+    assert.equal(bodies[4].chat_template_kwargs, undefined);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("pending inference can keep polling past 40 results within the caller deadline", async (t) => {
+  const original = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return requests <= 41
+      ? new Response(
+          JSON.stringify({ requestId: "12345678-1234-1234-1234-123456789abc" }),
+          { status: 202 },
+        )
+      : new Response(
+          JSON.stringify({
+            choices: [
+              { finish_reason: "stop", message: { content: '{"changes":[]}' } },
+            ],
+          }),
+        );
+  };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const call = callModel(
+      defaults,
+      "synthetic",
+      [],
+      new AbortController().signal,
+    );
+    let outcome: any;
+    void call.then(
+      (value) => {
+        outcome = { value };
+      },
+      (error) => {
+        outcome = { error };
+      },
+    );
+    for (let i = 0; i < 60 && !outcome; i++) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      t.mock.timers.tick(2001);
+    }
+    const result = await call;
+    assert.equal(requests, 42);
+    assert.deepEqual(result.output, { changes: [] });
+  } finally {
+    t.mock.timers.reset();
+    globalThis.fetch = original;
+  }
+});
+
+test("the caller can abort a pending inference without a new inference request", async () => {
+  const original = globalThis.fetch,
+    controller = new AbortController();
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    controller.abort();
+    return new Response(
+      JSON.stringify({ requestId: "12345678-1234-1234-1234-123456789abc" }),
+      { status: 202 },
+    );
+  };
+  try {
+    await assert.rejects(
+      callModel(defaults, "synthetic", [], controller.signal),
+      { name: "AbortError" },
+    );
+    assert.equal(requests, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
