@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel } from "@/lib/layers";
 import { Database, ListChecks, FileCheck2, Clock3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           <CardContent className="space-y-3">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Database className="size-4" />
-              L1 · 원문 보관
+              {layerLabel("L1")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
               {storage.sources.toLocaleString()}
@@ -72,7 +73,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           <CardContent className="space-y-3">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <ListChecks className="size-4" />
-              L2 · 청크 정제·반영
+              {layerLabel("L2")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
               {s.chunks_done.toLocaleString()}
@@ -97,7 +98,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           <CardContent className="space-y-3">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <FileCheck2 className="size-4" />
-              L3 · 처리 완료
+              {layerLabel("L3")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
               {s.completed.toLocaleString()}
