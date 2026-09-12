@@ -82,10 +82,10 @@ legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변'
 box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',22,True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',19,True,'#FFFFFF')
 rows=[
  (5,240,'Answers','개인 에이전트','조회한 근거로 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
- (4,420,'Query','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → memory:m1@r1 · source:s1@r1#L1','app'),
- (3,600,'Wiki','Wiki 서버','Memory · Article · Glossary','m1@r1: 단일 VM 결정 / 분류: 사용자 결정 · 검토 미완료','data'),
- (2,780,'Ingest','개인 에이전트 → API','원문·기존 지식 비교 → 근거 연결 → 구조 검증·반영','정제 p1: s1@r1#L1 → 주장 c1 → m1@r1','ingest'),
- (1,960,'Raw sources','Wiki 보관 · CLI 등록','선택한 대화·문서·코드의 고정 보관본','s1@r1#L1: “지금은 단일 VM으로 운영하자.”','ops')]
+ (4,420,'Query','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
+ (3,600,'Wiki','Wiki 서버','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
+ (2,780,'Ingest','개인 에이전트 → API','원문·기존 지식 비교 → 근거 연결 → 구조 검증·반영','정제·반영 기록: 원문 A의 1행 → 단일 VM 운영 주장 → 지식 A','ingest'),
+ (1,960,'Raw sources','Wiki 보관 · CLI 등록','선택한 대화·문서·코드의 고정 보관본','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
 for n,y,name,who,title,example,role in rows:
  component(40,y,1480,145,role)
  box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',31,True,'#FFFFFF')
@@ -99,17 +99,17 @@ end('docs/assets/wiki-layers.svg')
 canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 실제 개인 에이전트 정제 실행의 입력이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')
 legend(1140,43,'정제·반영','ingest');legend(1140,78,'조회·활용','query');legend(1140,113,'근거 참조','relation')
 group(40,190,430,380);text(62,226,'1 · 입력의 고정 보관본',23,True,'#FFFFFF')
-card(72,284,366,118,'Source s1@r1',['L1 · “단일 VM으로 운영하자.”'],'data')
-card(72,426,366,112,'기존 지식 m1@r1',['현재 구성 · 미완료 작업'],'data')
+card(72,284,366,118,'원문 A · 첫 번째 개정',['1행 · “단일 VM으로 운영하자.”'],'data')
+card(72,426,366,112,'지식 A · 첫 번째 개정',['현재 구성 · 미완료 작업'],'data')
 group(540,190,430,380);text(562,226,'2 · 개인 에이전트 정제',23,True,'#FFFFFF')
-card(572,284,366,254,'정제 실행 p2',['입력: s1@r1 · m1@r1','비교·정정·주장별 근거 선택','주체 · Skill 버전 · 시점','새 결과: m1@r2'],'ingest')
+card(572,284,366,254,'정제·반영 기록',['입력: 원문 A · 지식 A의 첫 개정','비교·정정·주장별 근거 선택','주체 · Skill 버전 · 시점','새 결과: 지식 A의 두 번째 개정'],'ingest')
 path('M470 380 H540',flow='ingest')
 group(1040,190,480,380);text(1062,226,'3 · Wiki 원자적 반영',23,True,'#FFFFFF')
-card(1072,284,416,254,'Knowledge m1@r2',['주장 c1: 단일 VM 운영','유형: 사용자 결정','작성: 에이전트 / 확인: 미완료','c1 → s1@r1#L1'],'data')
+card(1072,284,416,254,'지식 A · 두 번째 개정',['주장: 단일 VM 운영','유형: 사용자 결정','작성: 에이전트 / 확인: 미완료','근거: 원문 A · 첫 번째 개정 · 1행'],'data')
 path('M970 380 H1040',flow='ingest')
 # Evidence returns under the three cards, independently from processing flow.
 path('M1270 570 V632 H250 V570',flow='relation');text(550,618,'주장별 근거 · 보관본 개정·구간을 고정',20,True,FLOW_COLORS['relation'])
-card(1040,750,480,210,'Context · 고정 개정 인용',['“왜 VM으로 시작했지?”','m1@r2 · c1 · s1@r1#L1','조회 시점 · 대체·미확인 상태'],'app')
+card(1040,750,480,210,'Context · 고정 개정 인용',['“왜 VM으로 시작했지?”','지식 A의 두 번째 개정','근거: 원문 A · 첫 번째 개정 · 1행','조회 시점 · 대체·미확인 상태'],'app')
 path('M1340 570 V750',flow='query')
 card(540,750,430,210,'다음 세션의 에이전트',['Context를 읽고 답변·작업','근거가 부족하면 추가 조회','현재 작업에 필요한 내용만'],'app','tabler-terminal-2')
 path('M1040 855 H970',flow='query')

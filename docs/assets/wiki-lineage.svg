@@ -12,38 +12,39 @@
 <path d="M46 190 H464 Q470 190 470 196 V244 H40 V196 Q40 190 46 190" fill="#344256"/>
 <text x="62" y="226" font-size="23" font-weight="700" fill="#FFFFFF">1 · 입력의 고정 보관본</text>
 <rect x="72" y="284" width="366" height="118" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="92" y="326" font-size="23" font-weight="700" fill="#172C4B">Source s1@r1</text>
-<text x="92" y="364" font-size="18" font-weight="400" fill="#172C4B">L1 · “단일 VM으로 운영하자.”</text>
+<text x="92" y="326" font-size="23" font-weight="700" fill="#172C4B">원문 A · 첫 번째 개정</text>
+<text x="92" y="364" font-size="18" font-weight="400" fill="#172C4B">1행 · “단일 VM으로 운영하자.”</text>
 <rect x="72" y="426" width="366" height="112" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="92" y="468" font-size="23" font-weight="700" fill="#172C4B">기존 지식 m1@r1</text>
+<text x="92" y="468" font-size="23" font-weight="700" fill="#172C4B">지식 A · 첫 번째 개정</text>
 <text x="92" y="506" font-size="18" font-weight="400" fill="#172C4B">현재 구성 · 미완료 작업</text>
 <rect x="540" y="190" width="430" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M546 190 H964 Q970 190 970 196 V244 H540 V196 Q540 190 546 190" fill="#344256"/>
 <text x="562" y="226" font-size="23" font-weight="700" fill="#FFFFFF">2 · 개인 에이전트 정제</text>
 <rect x="572" y="284" width="366" height="254" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
-<text x="592" y="326" font-size="23" font-weight="700" fill="#172C4B">정제 실행 p2</text>
-<text x="592" y="364" font-size="18" font-weight="400" fill="#172C4B">입력: s1@r1 · m1@r1</text>
+<text x="592" y="326" font-size="23" font-weight="700" fill="#172C4B">정제·반영 기록</text>
+<text x="592" y="364" font-size="18" font-weight="400" fill="#172C4B">입력: 원문 A · 지식 A의 첫 개정</text>
 <text x="592" y="395" font-size="18" font-weight="400" fill="#172C4B">비교·정정·주장별 근거 선택</text>
 <text x="592" y="426" font-size="18" font-weight="400" fill="#172C4B">주체 · Skill 버전 · 시점</text>
-<text x="592" y="457" font-size="18" font-weight="400" fill="#172C4B">새 결과: m1@r2</text>
+<text x="592" y="457" font-size="18" font-weight="400" fill="#172C4B">새 결과: 지식 A의 두 번째 개정</text>
 <path d="M470 380 H540" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="1040" y="190" width="480" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M1046 190 H1514 Q1520 190 1520 196 V244 H1040 V196 Q1040 190 1046 190" fill="#344256"/>
 <text x="1062" y="226" font-size="23" font-weight="700" fill="#FFFFFF">3 · Wiki 원자적 반영</text>
 <rect x="1072" y="284" width="416" height="254" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="1092" y="326" font-size="23" font-weight="700" fill="#172C4B">Knowledge m1@r2</text>
-<text x="1092" y="364" font-size="18" font-weight="400" fill="#172C4B">주장 c1: 단일 VM 운영</text>
+<text x="1092" y="326" font-size="23" font-weight="700" fill="#172C4B">지식 A · 두 번째 개정</text>
+<text x="1092" y="364" font-size="18" font-weight="400" fill="#172C4B">주장: 단일 VM 운영</text>
 <text x="1092" y="395" font-size="18" font-weight="400" fill="#172C4B">유형: 사용자 결정</text>
 <text x="1092" y="426" font-size="18" font-weight="400" fill="#172C4B">작성: 에이전트 / 확인: 미완료</text>
-<text x="1092" y="457" font-size="18" font-weight="400" fill="#172C4B">c1 → s1@r1#L1</text>
+<text x="1092" y="457" font-size="18" font-weight="400" fill="#172C4B">근거: 원문 A · 첫 번째 개정 · 1행</text>
 <path d="M970 380 H1040" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M1270 570 V632 H250 V570" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
 <text x="550" y="618" font-size="20" font-weight="700" fill="#8054A3">주장별 근거 · 보관본 개정·구간을 고정</text>
 <rect x="1040" y="750" width="480" height="210" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <text x="1060" y="792" font-size="23" font-weight="700" fill="#172C4B">Context · 고정 개정 인용</text>
 <text x="1060" y="830" font-size="18" font-weight="400" fill="#172C4B">“왜 VM으로 시작했지?”</text>
-<text x="1060" y="861" font-size="18" font-weight="400" fill="#172C4B">m1@r2 · c1 · s1@r1#L1</text>
-<text x="1060" y="892" font-size="18" font-weight="400" fill="#172C4B">조회 시점 · 대체·미확인 상태</text>
+<text x="1060" y="861" font-size="18" font-weight="400" fill="#172C4B">지식 A의 두 번째 개정</text>
+<text x="1060" y="892" font-size="18" font-weight="400" fill="#172C4B">근거: 원문 A · 첫 번째 개정 · 1행</text>
+<text x="1060" y="923" font-size="18" font-weight="400" fill="#172C4B">조회 시점 · 대체·미확인 상태</text>
 <path d="M1340 570 V750" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="540" y="750" width="430" height="210" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="560" y="769" color="#172C4B">

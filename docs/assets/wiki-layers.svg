@@ -24,7 +24,7 @@
 <text x="146" y="502" font-size="18" font-weight="400" fill="#172C4B">Wiki 서버</text>
 <path d="M430 440 V545" stroke="#929EAD"/>
 <text x="456" y="463" font-size="24" font-weight="700" fill="#172C4B">시작 Context · 키워드·별칭 검색</text>
-<text x="456" y="511" font-size="21" font-weight="400" fill="#172C4B">VM 선택 이유 → memory:m1@r1 · source:s1@r1#L1</text>
+<text x="456" y="511" font-size="21" font-weight="400" fill="#172C4B">VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행</text>
 <path d="M80 420 V385" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="40" y="600" width="1480" height="145" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <rect x="40" y="600" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
@@ -33,7 +33,7 @@
 <text x="146" y="682" font-size="18" font-weight="400" fill="#172C4B">Wiki 서버</text>
 <path d="M430 620 V725" stroke="#929EAD"/>
 <text x="456" y="643" font-size="24" font-weight="700" fill="#172C4B">Memory · Article · Glossary</text>
-<text x="456" y="691" font-size="21" font-weight="400" fill="#172C4B">m1@r1: 단일 VM 결정 / 분류: 사용자 결정 · 검토 미완료</text>
+<text x="456" y="691" font-size="21" font-weight="400" fill="#172C4B">지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료</text>
 <path d="M80 600 V565" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="40" y="780" width="1480" height="145" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <rect x="40" y="780" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
@@ -42,7 +42,7 @@
 <text x="146" y="862" font-size="18" font-weight="400" fill="#172C4B">개인 에이전트 → API</text>
 <path d="M430 800 V905" stroke="#929EAD"/>
 <text x="456" y="823" font-size="24" font-weight="700" fill="#172C4B">원문·기존 지식 비교 → 근거 연결 → 구조 검증·반영</text>
-<text x="456" y="871" font-size="21" font-weight="400" fill="#172C4B">정제 p1: s1@r1#L1 → 주장 c1 → m1@r1</text>
+<text x="456" y="871" font-size="21" font-weight="400" fill="#172C4B">정제·반영 기록: 원문 A의 1행 → 단일 VM 운영 주장 → 지식 A</text>
 <path d="M80 780 V745" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="40" y="960" width="1480" height="145" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <rect x="40" y="960" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
@@ -51,7 +51,7 @@
 <text x="146" y="1042" font-size="18" font-weight="400" fill="#172C4B">Wiki 보관 · CLI 등록</text>
 <path d="M430 980 V1085" stroke="#929EAD"/>
 <text x="456" y="1003" font-size="24" font-weight="700" fill="#172C4B">선택한 대화·문서·코드의 고정 보관본</text>
-<text x="456" y="1051" font-size="21" font-weight="400" fill="#172C4B">s1@r1#L1: “지금은 단일 VM으로 운영하자.”</text>
+<text x="456" y="1051" font-size="21" font-weight="400" fill="#172C4B">원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”</text>
 <path d="M80 960 V925" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <text x="40" y="1163" font-size="20" font-weight="400" fill="#172C4B">Schema · 구조 규칙     Index · 목차·색인     Log · 실행 이력     Lint · 구조 점검 / 의미 검토는 에이전트</text>
 </g></svg>
