@@ -23,7 +23,7 @@
 
 CLI 0.3.1은 `wiki skill install --client codex|claude|all`을 지원한다. 프로젝트의 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki` 경로에 설치하며 로컬 두 경로와 통합 CLI 설치를 확인했다. Skill은 조회 판단 지침이며 매번 CLI 실행을 강제하지 않는다. 설치·공유 연결·범위 유지 합성 검사와 타입 검사·빌드를 통과했다. Markdown 상대 링크·SVG XML·재생성·변경 그림 렌더링도 확인했다. 클라이언트가 새 세션에서 지침을 선택하는 실제 행동은 별도 검증 대상이다.
 
-웹 안내 배포 확인은 후속 검증 결과로 추가한다.
+앱 `d470cd0`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34713373602)가 성공했다. 운영 웹에서 세 역할·클라이언트별 Skill 경로·설치 명령·L2 메뉴 안내를 확인했고 API·Web·Worker 건강 상태와 기존 PostgreSQL 컨테이너 유지를 확인했다. 현재 원문 804개는 모두 분리 보관 참조 형식이며 표본 2개의 해시·줄 수가 일치하고 텍스트에 이미지 본문이 없었다. 지식·정제 실행은 0개, 자동 정제는 중지 상태다. 로컬 Collector는 Agent Wiki만 10분 주기로 계속 실행한다.
 
 <details>
 <summary>이전 구현·배포 검증 기록 (당시 수치·명령)</summary>

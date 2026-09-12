@@ -18,7 +18,7 @@
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
 <text x="184" y="283" font-size="25" font-weight="700" fill="#172C4B">에이전트 답변·작업</text>
-<text x="146" y="322" font-size="18" font-weight="400" fill="#172C4B">내장 Skill · Wiki CLI로 조회</text>
+<text x="146" y="322" font-size="18" font-weight="400" fill="#172C4B">조회 Skill · Wiki CLI</text>
 <path d="M430 260 V365" stroke="#929EAD"/>
 <rect x="456" y="256" width="290" height="114" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="476" y="275" color="#172C4B">
