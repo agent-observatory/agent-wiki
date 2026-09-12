@@ -1,12 +1,22 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
-import { Agent } from "undici";
+import { createRequire } from "node:module";
+import type { Agent as ModelAgent } from "undici";
 import { AppError } from "./db.js";
+// The pinned Undici package's root entry installs a global dispatcher, which
+// breaks OCI signed requests. Load only Agent and guard this boundary in tests.
+const Agent: typeof ModelAgent = createRequire(import.meta.url)(
+  "undici/lib/dispatcher/agent.js",
+);
 // Keep HTTP inactivity limits above the Worker's total 330-second deadline.
 // Scope this dispatcher to model traffic; other application requests keep theirs.
 const modelTransport = {
-  dispatcher: new Agent().compose((dispatch) => (options, handler) =>
-    dispatch({ ...options, headersTimeout: 360_000, bodyTimeout: 360_000 }, handler),
+  dispatcher: new Agent().compose(
+    (dispatch) => (options, handler) =>
+      dispatch(
+        { ...options, headersTimeout: 360_000, bodyTimeout: 360_000 },
+        handler,
+      ),
   ),
 };
 export const aiConfig = z

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { channel } from "node:diagnostics_channel";
+import { spawnSync } from "node:child_process";
 import {
   callModel,
   defaults,
@@ -9,6 +10,26 @@ import {
   ModelError,
   parseRetryAfter,
 } from "../packages/core/src/ai.js";
+test("loading model transport does not replace the OCI SDK's HTTP dispatcher", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "--input-type=module",
+      "-e",
+      `
+    import assert from 'node:assert/strict';
+    const keys = ['undici.globalDispatcher.1', 'undici.globalDispatcher.2'].map(Symbol.for);
+    const before = keys.map(key => globalThis[key]);
+    await import('./packages/core/src/ai.ts');
+    keys.forEach((key, index) => assert.equal(globalThis[key], before[index]));
+  `,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+});
 test("model transport allows the full deadline and still aborts a silent server", async () => {
   const original = globalThis.fetch;
   const server = createServer((_request, response) => {
