@@ -1,9 +1,21 @@
 {
- "name":"@agent-observatory/wiki-cli",
- "version":"0.2.0",
- "private":true,
- "type":"module",
- "bin":{"wiki":"./wiki.mjs"},
- "engines":{"node":">=22"},
- "files":["wiki.mjs","skill"]
+  "name": "@agent-observatory/wiki-cli",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "wiki": "./wiki.mjs"
+  },
+  "engines": {
+    "node": ">=22.21"
+  },
+  "dependencies": {
+    "stream-json": "1.9.1"
+  },
+  "files": [
+    "wiki.mjs",
+    "config.mjs",
+    "collector",
+    "skill"
+  ]
 }

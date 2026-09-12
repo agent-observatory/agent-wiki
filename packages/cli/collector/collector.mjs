@@ -16,6 +16,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { createReadStream } from "node:fs";
+import { readConfig, writeConfig, loadToken } from "../config.mjs";
 import { prepareUpload, scanFile, MASK_VERSION } from "./transport.mjs";
 const digest = (x) => createHash("sha256").update(x).digest("hex");
 export function redact(value, preserveImages = false) {
@@ -376,49 +377,65 @@ export function collectionInterval(value = 10) {
     );
   return minutes;
 }
-async function main() {
-  const args = process.argv.slice(2),
-    command = args.shift() ?? "help";
+export async function collectorMain(args, configPath, cliPath) {
+  const command = args.shift() ?? "status";
   const opt = (key, fallback) => {
     const i = args.indexOf("--" + key);
-    return i < 0 ? fallback : args[i + 1];
+    if (i < 0) return fallback;
+    if (!args[i + 1] || args[i + 1].startsWith("--"))
+      throw new Error("Missing --" + key);
+    return args[i + 1];
   };
-  const configPath = resolve(
-    opt("config", join(homedir(), ".agent-wiki", "collector.json")),
-  );
-  if (command === "init") {
-    const workspace = opt("workspace"),
-      project = opt("project"),
-      server = opt("server", "https://agent-wiki.duckdns.org");
-    if (!workspace)
-      throw new Error(
-        "Use init --workspace UUID [--project /absolute/project] [--server URL]",
-      );
-    try {
-      await stat(configPath);
-      throw new Error("Config already exists; edit it to add projects");
-    } catch (e) {
-      if (e.code !== "ENOENT") throw e;
-    }
-    await atomic(configPath, {
-      server,
-      workspace,
-      name: opt("name", "Agent Wiki"),
-      machine: randomUUID(),
-      envFile: resolve(opt("env", ".env.local")),
-      projects: project ? [resolve(project)] : [],
-      intervalMinutes: collectionInterval(opt("interval", 10)),
-      exclude: [],
-      roots: [
-        { client: "codex", path: join(homedir(), ".codex", "sessions") },
-        { client: "claude", path: join(homedir(), ".claude", "projects") },
-      ],
-    });
-    console.log("Collector configured: " + configPath);
+  if (!["run", "start", "stop", "status"].includes(command))
+    throw new Error(
+      "Use wiki collector run|start|stop|status [--interval MINUTES]",
+    );
+  const settings = await readConfig(configPath);
+  const connection = settings.projects[settings.collector?.connection];
+  if (!connection || !settings.collector)
+    throw new Error("Run wiki setup to configure collection");
+  const config = { ...settings.collector, ...connection };
+  const label = "org.agent-observatory.wiki-collector";
+  const domain = "gui/" + process.getuid?.();
+  if (command === "status") {
+    const current =
+      process.platform === "darwin"
+        ? spawnSync("launchctl", ["print", domain + "/" + label], {
+            encoding: "utf8",
+          })
+        : null;
+    console.log(
+      JSON.stringify({
+        projects: config.projects?.length ? config.projects : "all",
+        intervalMinutes: config.intervalMinutes ?? 10,
+        scheduled: current?.status === 0,
+        scheduledIntervalMinutes:
+          Number(
+            current?.stdout?.match(/run interval = (\d+) seconds/)?.[1] ?? 0,
+          ) / 60 || null,
+        config: configPath,
+      }),
+    );
     return;
   }
-  if (command === "install") {
-    const config = JSON.parse(await readFile(configPath, "utf8"));
+  if (command === "stop") {
+    if (process.platform !== "darwin")
+      throw new Error("Stop the scheduler that runs wiki collector run");
+    const exists = spawnSync("launchctl", ["print", domain + "/" + label], {
+      stdio: "ignore",
+    });
+    if (exists.status === 0) {
+      const stopped = spawnSync(
+        "launchctl",
+        ["bootout", domain + "/" + label],
+        { stdio: "ignore" },
+      );
+      if (stopped.status) throw new Error("Scheduler stop failed");
+    }
+    console.log(JSON.stringify({ scheduled: false }));
+    return;
+  }
+  if (command === "start") {
     const interval = collectionInterval(
       opt("interval", config.intervalMinutes ?? 10),
     );
@@ -426,8 +443,10 @@ async function main() {
       throw new Error(
         `Use your scheduler to run collector once every ${interval} minutes`,
       );
-    await atomic(configPath, { ...config, intervalMinutes: interval });
-    const label = "org.agent-observatory.wiki-collector";
+    await writeConfig(configPath, {
+      ...settings,
+      collector: { ...settings.collector, intervalMinutes: interval },
+    });
     const log = join(dirname(configPath), "collector.log");
     const escape = (s) =>
       s
@@ -441,10 +460,9 @@ async function main() {
     await chmod(log, 0o600);
     await writeFile(
       plist,
-      `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array>${[process.execPath, fileURLToPath(import.meta.url), "once", "--config", configPath].map((s) => "<string>" + escape(s) + "</string>").join("")}</array><key>StartInterval</key><integer>${interval * 60}</integer><key>RunAtLoad</key><true/><key>StandardOutPath</key><string>${escape(log)}</string><key>StandardErrorPath</key><string>${escape(log)}</string></dict></plist>`,
+      `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array>${[process.execPath, cliPath, "collector", "run", "--config", configPath].map((s) => "<string>" + escape(s) + "</string>").join("")}</array><key>StartInterval</key><integer>${interval * 60}</integer><key>RunAtLoad</key><true/><key>StandardOutPath</key><string>${escape(log)}</string><key>StandardErrorPath</key><string>${escape(log)}</string></dict></plist>`,
       { mode: 0o600 },
     );
-    const domain = "gui/" + process.getuid();
     spawnSync("launchctl", ["bootout", domain + "/" + label], {
       stdio: "ignore",
     });
@@ -455,13 +473,6 @@ async function main() {
     console.log(`Collector scheduled every ${interval} minutes`);
     return;
   }
-  if (command !== "once") {
-    console.log(
-      "wiki-collector init --workspace UUID [--project PATH] [--interval MINUTES] [--env .env.local]\nwiki-collector once [--config PATH]\nwiki-collector install [--config PATH] [--interval MINUTES]",
-    );
-    return;
-  }
-  const config = JSON.parse(await readFile(configPath, "utf8"));
   const url = new URL(config.server);
   if (
     url.protocol !== "https:" &&
@@ -473,9 +484,7 @@ async function main() {
     throw new Error("HTTPS required");
   if (url.username || url.password)
     throw new Error("URL credentials forbidden");
-  if (config.envFile) process.loadEnvFile(config.envFile);
-  const token = process.env.WIKI_COLLECTOR_TOKEN ?? process.env.WIKI_TOKEN;
-  if (!token) throw new Error("WIKI_COLLECTOR_TOKEN required");
+  const token = await loadToken(connection, "collector");
   const lockPath = configPath + ".lock";
   let lock;
   try {
@@ -491,7 +500,8 @@ async function main() {
     } catch (e) {
       if (e.code !== "ESRCH") throw e;
       await unlink(lockPath);
-      throw new Error("Removed stale lock; run again");
+      lock = await open(lockPath, "wx", 0o600);
+      await lock.writeFile(String(process.pid));
     }
   }
   const statePath = configPath + ".state";
@@ -559,11 +569,3 @@ async function main() {
     await unlink(lockPath);
   }
 }
-if (
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-)
-  main().catch((e) => {
-    console.error(e instanceof Error ? e.message : "Collector failed");
-    process.exitCode = 1;
-  });

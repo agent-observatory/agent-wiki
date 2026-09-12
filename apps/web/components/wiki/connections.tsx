@@ -245,19 +245,20 @@ export function Guide() {
         </section>
         <section className="rounded-lg border p-5 space-y-3">
           <h2 className="font-bold">처음 연결하기 · 한 번만 설정</h2>
-          <p>저장소에서 CLI를 연결한 뒤 에이전트에 Wiki Skill을 설치합니다.</p>
-          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/cli\nwiki init --project agent-wiki --workspace ${workspaceId} --tag agent-wiki\nwiki skill install\nwiki recall --project agent-wiki`}</pre>
-          <p className="text-muted-foreground">
-            인증 키는 에이전트 연결에서 발급해 로컬의 Git 제외 .env.local에
-            WIKI_TOKEN으로 보관합니다. Skill은 조회·수동 관리 방법을 설명하는
-            지침이며 설치만으로 자동 수집을 실행하지 않습니다.
+          <p>
+            Wiki CLI 하나에 조회 Skill과 백그라운드 수집이 함께 들어 있습니다.
           </p>
-          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/collector\nwiki-collector init --workspace ${workspaceId} --project /absolute/project --env /absolute/project/.env.local\nwiki-collector once\nwiki-collector install`}</pre>
+          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm install --global ./packages/cli\nwiki setup --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nwiki collector start\nwiki recall --project agent-wiki`}</pre>
           <p className="text-muted-foreground">
-            Collector 키는 WIKI_COLLECTOR_TOKEN으로 저장합니다. macOS에서는 기본
-            10분마다 기록을 전송합니다. install --interval 10으로 주기를 바꿀 수
-            있습니다. 기본은 전체 프로젝트이며, --project로 수집 범위를 제한할
-            수 있습니다.
+            인증 키는 에이전트 연결에서 발급해 Git 제외 .env.local에
+            WIKI_TOKEN으로 보관합니다. 조회와 수집을 함께 쓰려면 원문 보관
+            권한이 필요합니다. setup은 내장 Skill과 연결 설정을 준비하고,
+            collector start가 자동 수집을 켭니다.
+          </p>
+          <p className="text-muted-foreground">
+            기본은 전체 프로젝트·10분 주기입니다. --path로 수집 범위를 제한하고,
+            wiki collector start --interval 20으로 주기를 바꿉니다. wiki
+            collector status로 확인하거나 wiki collector stop으로 중지합니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

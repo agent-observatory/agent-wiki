@@ -1,9 +1,18 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir, cp } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import {
+  readConfig,
+  writeConfig,
+  defaultConfigPath,
+  loadToken,
+  validateServer,
+} from "./config.mjs";
+import { collectorMain, collectionInterval } from "./collector/collector.mjs";
+import { homedir } from "node:os";
 const args = process.argv.slice(2);
 const command = args.shift();
 function option(name, fallback) {
@@ -15,15 +24,24 @@ function option(name, fallback) {
   args.splice(i, 2);
   return value;
 }
-const project = option("project", "agent-wiki");
-const configPath = resolve(option("config", ".agent-wiki.json"));
+const configPath = resolve(option("config", defaultConfigPath()));
 const jsonFile = async (p) => JSON.parse(await readFile(p, "utf8"));
 const output = (x) => process.stdout.write(JSON.stringify(x, null, 2) + "\n");
+async function installSkill(force) {
+  const target = resolve(".agents/skills/agent-wiki");
+  await mkdir(target, { recursive: true });
+  await cp(fileURLToPath(new URL("./skill/", import.meta.url)), target, {
+    recursive: true,
+    force,
+  });
+  return target;
+}
 async function main() {
   if (!command || command === "help" || command === "--help") {
     output({
       commands: [
-        "init --project NAME --workspace ID --tag TAG [--server URL]",
+        "setup --workspace ID [--project NAME --tag TAG --path PATH --interval MINUTES --env FILE]",
+        "collector start [--interval MINUTES] | stop | status | run",
         "recall --project NAME",
         'search "question" [--tag TAG]',
         "source add FILE [--kind conversation|document|code|note] [--origin LOCATION]",
@@ -34,70 +52,95 @@ async function main() {
         "skill install",
       ],
       configuration:
-        ".agent-wiki.json (nonsecret); WIKI_TOKEN in environment or adjacent .env.local",
+        "~/.agent-wiki/config.json; credentials in the configured env file",
     });
     return;
   }
-  if (command === "init") {
-    let config = { projects: {} };
+  if (command === "collector")
+    return collectorMain(args, configPath, fileURLToPath(import.meta.url));
+  if (command === "setup") {
+    let config = { version: 1, projects: {} };
     try {
-      config = await jsonFile(configPath);
+      config = await readConfig(configPath);
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }
-    const workspace = option("workspace");
-    const tag = option("tag", project);
-    const server = option("server", "https://agent-wiki.duckdns.org").replace(
-      /\/$/,
-      "",
+    const project = option(
+      "project",
+      config.defaultProject ?? basename(process.cwd()),
     );
+    const previous = config.projects[project] ?? {};
+    const workspace = option("workspace", previous.workspace);
     if (!/^[\da-f-]{36}$/.test(workspace ?? ""))
       throw new Error("Workspace UUID is required");
-    const url = new URL(server);
+    const server = validateServer(
+      option("server", previous.server ?? "https://agent-wiki.duckdns.org"),
+    );
+    const envFile = resolve(option("env", previous.envFile ?? ".env.local"));
+    const tag = option("tag", previous.tag ?? project);
+    const selectedPath = option("path");
+    const all = args.includes("--all-projects");
+    if (all && selectedPath) throw new Error("Choose --path or --all-projects");
+    const oldCollector = config.collector ?? {};
+    const destination = config.projects[oldCollector.connection];
     if (
-      url.protocol !== "https:" &&
-      !["localhost", "127.0.0.1"].includes(url.hostname)
+      destination &&
+      (destination.workspace !== workspace || destination.server !== server)
     )
-      throw new Error("HTTPS required");
-    config.projects[project] = { server, workspace, tag };
-    await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", {
-      mode: 0o600,
+      throw new Error(
+        "Collector destination differs; use a separate --config for another Workspace",
+      );
+    config.defaultProject ??= project;
+    config.projects[project] = { server, workspace, tag, envFile };
+    config.collector = {
+      ...oldCollector,
+      connection: project,
+      machine: oldCollector.machine ?? randomUUID(),
+      name: oldCollector.name ?? "Agent Wiki",
+      projects: selectedPath
+        ? [resolve(selectedPath)]
+        : all
+          ? []
+          : (oldCollector.projects ?? []),
+      intervalMinutes: collectionInterval(
+        option("interval", oldCollector.intervalMinutes ?? 10),
+      ),
+      exclude: oldCollector.exclude ?? [],
+      roots: oldCollector.roots ?? [
+        { client: "codex", path: join(homedir(), ".codex", "sessions") },
+        { client: "claude", path: join(homedir(), ".claude", "projects") },
+      ],
+    };
+    await writeConfig(configPath, config);
+    if (!args.includes("--no-skill")) await installSkill(false);
+    output({
+      configured: project,
+      config: configPath,
+      collection: {
+        projects: config.collector.projects.length
+          ? config.collector.projects
+          : "all",
+        intervalMinutes: config.collector.intervalMinutes,
+      },
+      next: "wiki collector start",
     });
-    output({ configured: project, config: configPath });
     return;
   }
   if (command === "skill" && args[0] === "install") {
-    const target = resolve(".agents/skills/agent-wiki");
-    await mkdir(target, { recursive: true });
-    await cp(fileURLToPath(new URL("./skill/", import.meta.url)), target, {
-      recursive: true,
-    });
+    const target = await installSkill(true);
     output({
       installed: target,
-      note: "프로젝트 지침에서 시작·재개 시 wiki recall을 호출하도록 연결하세요.",
+      note: "필요한 지식을 조회할 때 사용합니다. 수집은 wiki collector start로 별도 실행합니다.",
     });
     return;
   }
-  const config = await jsonFile(configPath);
+  const config = await readConfig(configPath);
+  const project = option("project", config.defaultProject);
   const connection = config.projects[project];
   if (!connection)
-    throw new Error("Project connection missing. Run wiki init.");
-  let token = process.env.WIKI_TOKEN;
-  if (!token) {
-    try {
-      const file = await readFile(
-        resolve(dirname(configPath), ".env.local"),
-        "utf8",
-      );
-      for (const line of file.split(/\r?\n/)) {
-        const match = line.match(/^WIKI_TOKEN=(.*)$/);
-        if (match) token = match[1].trim().replace(/^['"]|['"]$/g, "");
-      }
-    } catch (e) {
-      if (e.code !== "ENOENT") throw e;
-    }
-  }
-  if (!token) throw new Error("Set WIKI_TOKEN in environment or .env.local");
+    throw new Error("Project connection missing. Run wiki setup.");
+  validateServer(connection.server);
+  const token = await loadToken(connection);
   const base = connection.server + "/api/workspaces/" + connection.workspace;
   async function request(path, { method = "GET", body, key } = {}) {
     const serialized = body === undefined ? undefined : JSON.stringify(body);

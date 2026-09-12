@@ -98,6 +98,6 @@
 <text x="60" y="830" font-size="18" font-weight="400" fill="#172C4B">인용된 원문 구간·과거 개정</text>
 <text x="60" y="861" font-size="18" font-weight="400" fill="#172C4B">작성 주체와 확인 상태 구분</text>
 <text x="60" y="892" font-size="18" font-weight="400" fill="#172C4B">관련 문서 링크 ≠ 근거</text>
-<text x="40" y="1040" font-size="21" font-weight="400" fill="#172C4B">Collector가 원문을 먼저 보관한다. 정제는 원격 Worker가 외부 AI API로 처리하며 사용자 조회와 분리한다.</text>
+<text x="40" y="1040" font-size="21" font-weight="400" fill="#172C4B">Wiki CLI의 백그라운드 수집이 원문을 먼저 보관한다. 정제는 원격 Worker가 외부 AI API로 처리하며 사용자 조회와 분리한다.</text>
 <text x="40" y="1080" font-size="20" font-weight="400" fill="#172C4B">원문과 과거 개정·정제 기록은 덮어쓰지 않는다.</text>
 </g></svg>

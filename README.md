@@ -9,7 +9,7 @@ A personal knowledge space for you and your agents. Store decisions, edit linked
 
 **First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Agent-curated knowledge, source lineage, and URL-based pages are live. See [implementation and deployment status](docs/OPERATIONS.md).
 
-A read-only Collector and remote AI Worker run outside the active conversation. Workspace settings control the provider, model, credentials and daily limits. The CLI and Skill are in `packages/cli`; collection is in `packages/collector`. Development mode allows a clean data reset; backward compatibility is not required.
+A read-only Collector and remote AI Worker run outside the active conversation. Workspace settings control the provider, model, credentials and daily limits. One CLI package in `packages/cli` includes retrieval, the Skill and background collection. Install once; use `wiki setup` and `wiki collector start`. Development mode allows a clean data reset; backward compatibility is not required.
 
 ## Development
 

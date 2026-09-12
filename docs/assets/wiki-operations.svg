@@ -100,7 +100,7 @@
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Collector → Storage</text>
+<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Wiki CLI · 수집 → Storage</text>
 <text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">허가 후 zstd 증분 직접 업로드</text>
 <text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">기기별 위치 · 실패 시 재시도</text>
 <path d="M613 1045 H657" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1330" viewBox="0 0 1920 1330" role="img" aria-labelledby="title desc"><title id="title">로컬에서 수집 · 원격에서 정제</title><desc id="desc">Collector는 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1920" height="1330" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1330" viewBox="0 0 1920 1330" role="img" aria-labelledby="title desc"><title id="title">로컬에서 수집 · 원격에서 정제</title><desc id="desc">단일 설치하는 Agent Wiki CLI의 백그라운드 수집이 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1920" height="1330" fill="#FFFFFF"/>
 <text x="40" y="42" font-size="15" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">로컬에서 수집 · 원격에서 정제</text>
 <path d="M40 137 H1880" stroke="#172C4B" stroke-width="2"/>
@@ -78,37 +78,31 @@
 <text x="92" y="751" font-size="18" font-weight="400" fill="#172C4B">필요한 지식 조회 · 사용자와 작업</text>
 <path d="M155 825 V780" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <path d="M355 780 V825" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
-<rect x="72" y="825" width="166" height="170" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<rect x="72" y="825" width="366" height="425" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="844" color="#172C4B">
-  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
-  <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
-  <path d="M9 14l2 2l4 -4" />
-</svg>
-<text x="130" y="867" font-size="23" font-weight="700" fill="#172C4B">조회 Skill</text>
-<text x="92" y="905" font-size="18" font-weight="400" fill="#172C4B">조회·생략 판단</text>
-<text x="92" y="936" font-size="18" font-weight="400" fill="#172C4B">근거 선택·인용</text>
-<text x="92" y="967" font-size="18" font-weight="400" fill="#172C4B">자동·항상·생략</text>
-<rect x="272" y="825" width="166" height="170" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="292" y="844" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="330" y="867" font-size="23" font-weight="700" fill="#172C4B">Wiki CLI</text>
-<text x="292" y="905" font-size="18" font-weight="400" fill="#172C4B">명령줄 도구</text>
-<text x="292" y="936" font-size="18" font-weight="400" fill="#172C4B">검색·원문 조회</text>
-<text x="292" y="967" font-size="18" font-weight="400" fill="#172C4B">원격 API 호출</text>
-<rect x="72" y="1050" width="366" height="200" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1069" color="#172C4B">
+<text x="130" y="867" font-size="23" font-weight="700" fill="#172C4B">Agent Wiki CLI</text>
+<text x="92" y="905" font-size="18" font-weight="400" fill="#172C4B">한 번 설치 · 인증·설정 통합</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="937" color="#172C4B">
+  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+  <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+  <path d="M9 14l2 2l4 -4" />
+</svg>
+<text x="130" y="959" font-size="23" font-weight="700" fill="#172C4B">조회 · 내장 Skill</text>
+<text x="92" y="994" font-size="18" font-weight="400" fill="#172C4B">wiki recall · wiki search</text>
+<path d="M92 1020 H418" stroke="#929EAD"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1055" color="#172C4B">
   <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="130" y="1092" font-size="23" font-weight="700" fill="#172C4B">Collector</text>
-<text x="92" y="1130" font-size="18" font-weight="400" fill="#172C4B">세션 ID · 파일별 수신 위치</text>
-<text x="92" y="1161" font-size="18" font-weight="400" fill="#172C4B">마스킹 · 텍스트·이미지 분리</text>
-<text x="92" y="1192" font-size="18" font-weight="400" fill="#172C4B">Object Storage 직접 전송</text>
-<text x="92" y="1223" font-size="18" font-weight="400" fill="#172C4B">중복·등록 판단은 서버</text>
+<text x="130" y="1077" font-size="23" font-weight="700" fill="#172C4B">백그라운드 수집</text>
+<text x="92" y="1115" font-size="18" font-weight="400" fill="#172C4B">wiki collector · 기본 10분</text>
+<text x="92" y="1146" font-size="18" font-weight="400" fill="#172C4B">마스킹 · 텍스트·이미지 분리</text>
+<text x="92" y="1177" font-size="18" font-weight="400" fill="#172C4B">압축 증분 직접 전송</text>
 <path d="M438 1120 H520 V885 H630" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
 <text x="535" y="1030" font-size="18" font-weight="700" fill="#B35C00">수집 제어</text>
 <path d="M860 885 H940" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
@@ -197,8 +191,8 @@
 <text x="312" y="457" font-size="17" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
 <rect x="300" y="624" width="124" height="32" rx="6" fill="#344256" stroke="#344256"/>
 <text x="312" y="647" font-size="17" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
-<rect x="90" y="1034" width="130" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="102" y="1057" font-size="17" font-weight="700" fill="#FFFFFF">L1 · 수집</text>
+<rect x="285" y="1200" width="130" height="32" rx="6" fill="#344256" stroke="#344256"/>
+<text x="297" y="1223" font-size="17" font-weight="700" fill="#FFFFFF">L1 · 수집</text>
 <rect x="960" y="954" width="112" height="32" rx="6" fill="#344256" stroke="#344256"/>
 <text x="972" y="977" font-size="17" font-weight="700" fill="#FFFFFF">L2 · 정제</text>
 <rect x="1420" y="624" width="126" height="32" rx="6" fill="#344256" stroke="#344256"/>

@@ -21,7 +21,7 @@ wiki search "단일 VM" --project agent-wiki
 | 로컬 Collector | 허용 기록 읽기·마스킹·증분 압축, 허가받은 Object Storage 경로에 직접 업로드 |
 | Wiki API·수신 검증 작업 | 업로드 허가·실제 내용 검증·중복 판단, L1 등록·수신 위치 확정·정제 작업 등록 |
 | 원격 Worker | 원문과 관련 지식 비교 → 외부 AI → 구조·인용 검사 → 지식 개정 |
-| Skill·CLI | 조회·수동 관리 지침과 통신 도구. 자동 훅이나 정제 스케줄러가 아님 |
+| Wiki CLI·내장 Skill | 한 번 설치·설정, 조회·수동 관리와 백그라운드 수집 관리. 작업 대화에 자동 훅을 넣지 않음 |
 
 Collector는 개인 에이전트 CLI·모델 인증을 요구하지 않는다. Workspace별 원문 보관 키만 사용한다. L2는 서버에 저장한 별도 AI 키를 사용하며 사용자의 작업 대화 플랜과 분리된다.
 
@@ -51,7 +51,7 @@ Collector는 개인 에이전트 CLI·모델 인증을 요구하지 않는다. W
 | 업로드·완료 통지 응답이 유실됨 | 같은 업로드 ID로 상태부터 조회. 재전송돼도 원문·정제 작업은 중복 등록하지 않음 |
 | 뒤 구간이 먼저 도착함 | 받은 구간은 기록하되 중간 누락이 메워지기 전에는 연속 수신 위치를 건너뛰지 않음 |
 
-Collector는 원본을 수정하지 않는다. 기본은 전체 프로젝트 수집이며, `projects`에 경로를 지정하면 해당 프로젝트·하위 경로만 읽는다. 경로를 확인할 수 없는 기록은 범위를 제한했을 때 제외한다. 현재 검증 환경은 `agent-wiki` 프로젝트 하나만 수집한다. 줄바꿈까지 기록된 JSON 이벤트를 대상으로 하고 마지막 미완성 줄은 다음 스캔으로 미룬다. 파일 전체를 메모리에 올리지 않으며, 한 이벤트가 매우 큰 경우에도 전송을 바이트 단위로 나눌 수 있어야 한다. 전송 조각 경계와 완전한 이벤트 경계는 다르므로 서버가 재조립·검증한 이벤트 끝에서만 수신 위치를 확정한다. 한 업로드가 128조각을 넘으면 전송 범위를 이벤트 경계에서 줄여 보낸다. 서버 확인 후 나머지 범위를 다음 실행에서 이어 보낸다. 단일 이벤트 자체가 한도를 넘는 경우는 오류로 남기며 처리 완료로 표시하지 않는다.
+Collector는 원본을 수정하지 않는다. 기본은 전체 프로젝트 수집이며, `collector.projects`에 경로를 지정하면 해당 프로젝트·하위 경로만 읽는다. 경로를 확인할 수 없는 기록은 범위를 제한했을 때 제외한다. 현재 검증 환경은 `agent-wiki` 프로젝트 하나만 수집한다. 줄바꿈까지 기록된 JSON 이벤트를 대상으로 하고 마지막 미완성 줄은 다음 스캔으로 미룬다. 파일 전체를 메모리에 올리지 않으며, 한 이벤트가 매우 큰 경우에도 전송을 바이트 단위로 나눌 수 있어야 한다. 전송 조각 경계와 완전한 이벤트 경계는 다르므로 서버가 재조립·검증한 이벤트 끝에서만 수신 위치를 확정한다. 한 업로드가 128조각을 넘으면 전송 범위를 이벤트 경계에서 줄여 보낸다. 서버 확인 후 나머지 범위를 다음 실행에서 이어 보낸다. 단일 이벤트 자체가 한도를 넘는 경우는 오류로 남기며 처리 완료로 표시하지 않는다.
 
 파일 크기·수정 시각은 변경 후보를 찾는 보조 정보다. 확인한 구간의 지문을 보관하고 과거 구간도 대조해 동일 크기 수정·축소·교체를 감지한다. 뒤에 추가됐다고 확인되는 경우에만 증분 위치를 재사용한다. 과거 내용이 바뀌면 새 파일 세대로 대조·수집하고 기존 L1은 보존한다. 구간 지문의 크기·점검 주기는 구현 때 정하며, 단순 끝부분 검사만으로 과거 전체가 불변이라고 보장하지 않는다.
 
@@ -94,7 +94,7 @@ OCI의 직접 업로드 URL은 **PAR(Pre-Authenticated Request)**로 발급한�
 
 서버가 재구성하는 텍스트 투영본의 각 줄에는 `event`·`field`·`segment`를 붙인다. 원문 참조에는 `rawUploadId`, `originalRange`, 마스킹 버전을 연결해 **지식 근거 → 고정 텍스트 줄 → 업로드·이벤트·필드·구간 → 마스킹 L1 조각**으로 역추적한다. 이미지 본문·이미지 URL은 투영에서 제외하고 `imageAnalysis: skipped`, 원문 이미지 보존 범위를 기록한다. 단순 텍스트 투영을 전체 원본이라고 표시하지 않는다.
 
-macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalMinutes`로 1~1,440분 범위를 설정한다. `wiki-collector install --interval 10`은 설정과 실행 주기를 함께 갱신하며, 설정 파일만 수정했다면 `install`을 다시 실행해야 적용된다. 실행이 길어져도 잠금으로 중복 실행을 막는다. 로그에는 처리 상태·성공·중복·실패 개수만 남긴다. 원문·URL·비밀은 남기지 않고 실패를 사용자 대화에 주입하지 않는다. 삭제된 로컬 파일을 원격 삭제 지시로 취급하지 않는다. 기기별 전송 상태만 로컬에 두고 프로젝트 역사·리니지는 원격에 쌓는다.
+macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalMinutes`로 1~1,440분 범위를 설정한다. `wiki collector start --interval 10`은 설정과 실행 주기를 함께 갱신하며, 설정 파일만 수정했다면 `wiki collector start`를 다시 실행해야 적용된다. 실행이 길어져도 잠금으로 중복 실행을 막는다. 로그에는 처리 상태·성공·중복·실패 개수만 남긴다. 원문·URL·비밀은 남기지 않고 실패를 사용자 대화에 주입하지 않는다. 삭제된 로컬 파일을 원격 삭제 지시로 취급하지 않는다. 기기별 전송 상태만 로컬에 두고 프로젝트 역사·리니지는 원격에 쌓는다.
 
 웹의 **수집·AI 정제**에서 최근 원본 업로드의 접수·검증·등록 상태, 압축 크기, 신규·중복 기록 수를 확인한다. 기기별 검증된 바이트 위치·기록 위치와 L2 청크 진행 상태는 별도로 표시한다.
 
@@ -176,30 +176,27 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 
 ## 연결과 지침
 
-에이전트 조회 연결:
+**Wiki CLI 패키지 하나에 조회 명령·Skill·Collector를 포함한다.** 설정은 `~/.agent-wiki/config.json` 하나로 공유한다. 프로젝트 연결 별칭과 수집할 로컬 경로는 구분한다.
 
 ```sh
-npm link ./packages/cli
-wiki init --project agent-wiki --workspace <Workspace-ID> --tag agent-wiki
-wiki skill install
+npm install --global ./packages/cli
+wiki setup --workspace <Workspace-ID> --project agent-wiki --path /absolute/project --env /absolute/project/.env.local
+wiki collector start
+wiki recall --project agent-wiki
 ```
 
-Collector는 **에이전트 연결**에서 원문 보관 권한의 키를 발급하고 Git 제외 `.env.local`에 `WIKI_COLLECTOR_TOKEN`으로 저장한다. 최초 한 번 설정한다.
+`setup`은 현재 프로젝트에 내장 조회 Skill도 설치하지만 자동 수집을 켜지는 않는다. 기존 Skill 파일은 보존하며 명시적인 갱신은 `wiki skill install`로 한다. 키는 웹의 **에이전트 연결**에서 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 조회와 수집을 같은 키로 사용할 경우 원문 보관 권한이 필요하다. 수집 권한을 따로 제한하려면 같은 env 파일에 `WIKI_COLLECTOR_TOKEN`을 추가한다. 비밀 값은 설정 JSON에 넣지 않는다.
+
+새 설정은 전체 프로젝트·10분 주기가 기본이다. `setup --path <경로>`는 해당 프로젝트·하위 경로로 제한하고, `setup --all-projects`는 전체로 되돌린다. 기존 설정으로 `setup`을 다시 실행하면 수집 범위·기기 식별자를 유지한다. 현재 검증 환경은 Agent Wiki만 수집한다. 설정 JSON의 `collector.projects`에는 여러 경로를 넣을 수 있다.
 
 ```sh
-npm link ./packages/collector
-wiki-collector init --workspace <Workspace-ID> --project /absolute/project --env /absolute/project/.env.local
-wiki-collector once
-wiki-collector install
+wiki collector status
+wiki collector run
+wiki collector start --interval 20
+wiki collector stop
 ```
 
-설정은 `~/.agent-wiki/collector.json`, 전송 상태·로그는 같은 디렉터리에 둔다. `--project`를 생략하면 전체 프로젝트를 수집한다. 설정의 `projects`가 없거나 빈 배열이면 전체, 경로 배열이면 해당 프로젝트만 수집한다. 여러 프로젝트는 배열에 추가한다. Linux 등에서는 `once`를 스케줄러에 연결한다. Skill 설치만으로 Collector가 켜지지 않는다. npm 공개 배포·MCP 연결은 별도다.
-
-macOS 자동 실행 중지:
-
-```sh
-launchctl bootout gui/$(id -u)/org.agent-observatory.wiki-collector
-```
+`run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `wiki collector run`을 운영체제 스케줄러에 연결한다. npm 공개 배포·MCP 연결은 별도다.
 
 ## 검증 기준
 

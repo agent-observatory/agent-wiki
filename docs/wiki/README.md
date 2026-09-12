@@ -2,7 +2,7 @@
 
 [문서 안내](../README.md) · [아키텍처](architecture.md) · [수집·정제 계약](agent-memory.md)
 
-**그림은 작업 에이전트, 읽기 전용 Collector, 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
+**그림은 단일 Wiki CLI의 조회·백그라운드 수집과 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
 
 ![작업 에이전트·별도 Collector·원격 Wiki와 DNS·인증서](../assets/wiki-deployment.svg)
 
