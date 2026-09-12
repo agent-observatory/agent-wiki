@@ -58,8 +58,8 @@ export async function waitForModelSlot(
 
 export function retryDelay(retryAfter = 0, random = Math.random()) {
   // Retain failure counts for diagnosis without making this personal wiki wait
-  // exponentially longer. Provider Retry-After remains a strict minimum.
-  return Math.max(retryAfter, Math.ceil(120 * (1 + 0.2 * random)));
+  // exponentially longer. Keep a five-second margin beyond the provider Retry-After.
+  return Math.max(retryAfter + 5, Math.ceil(120 * (1 + 0.2 * random)));
 }
 
 export async function coolDownModel(

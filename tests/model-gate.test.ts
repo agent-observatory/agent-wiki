@@ -88,5 +88,7 @@ test("retry delay stays near two minutes and honors longer Retry-After", () => {
   assert.equal(retryDelay(0, 0), 120);
   assert.equal(retryDelay(0, 1), 144);
   assert.equal(retryDelay(60, 0), 120);
-  assert.equal(retryDelay(99999, 0), 99999);
+  assert.equal(retryDelay(120, 0), 125);
+  assert.equal(retryDelay(180, 0), 185);
+  assert.equal(retryDelay(99999, 0), 100004);
 });
