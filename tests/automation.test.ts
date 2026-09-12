@@ -559,3 +559,98 @@ test("unlimited setting persists and processes work beyond the former daily cap"
     version: latest.version,
   });
 });
+
+test("Curation groups sessions before pagination and pages only selected session jobs", async () => {
+  const space = (
+    await app.inject({
+      method: "POST",
+      url: "/api/workspaces",
+      headers,
+      payload: { name: "Grouped curation" },
+    })
+  ).json().id;
+  await tx(owner, space, async (c) => {
+    await c.query(
+      `WITH seeded AS (
+      INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+      SELECT gen_random_uuid(),$1,'Session '||session,'conversation','codex:group-'||session,'hash','hash','unused',1,session||'-'||part,true
+      FROM generate_series(0,26) session CROSS JOIN LATERAL generate_series(1,CASE WHEN session=0 THEN 30 ELSE 1 END) part
+      RETURNING id,origin,idempotency_key
+    ) INSERT INTO refinement_jobs(id,workspace_id,source_id,status,chunk_count,chunk_index,error_code)
+      SELECT gen_random_uuid(),$1,id,
+      CASE WHEN origin<>'codex:group-0' THEN 'pending' ELSE (ARRAY['pending','pending','running','failed','completed'])[(split_part(idempotency_key,'-',2)::int-1)%5+1] END,
+      2,1,CASE WHEN origin='codex:group-0' AND (split_part(idempotency_key,'-',2)::int-1)%5=1 THEN 'AI_HTTP_429' END FROM seeded`,
+      [space],
+    );
+  });
+  const get = async (path: string) => {
+    const r = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${space}` + path,
+      headers,
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    return r.json();
+  };
+  const first = await get("/refinement-sessions");
+  assert.equal(first.total, 27);
+  assert.equal(first.items.length, 25);
+  assert.equal(first.pagination.hasNext, true);
+  const session = first.items.find((x: any) => x.name === "Session 0");
+  assert.deepEqual(
+    [
+      session.total,
+      session.pending,
+      session.running,
+      session.failed,
+      session.completed,
+      session.retrying,
+    ],
+    [30, 12, 6, 6, 6, 6],
+  );
+  assert.equal(session.chunks_done, 30);
+  assert.equal(session.chunks_total, 60);
+  const second = await get("/refinement-sessions?sessionsPage=2");
+  assert.equal(second.items.length, 2);
+  assert.equal(second.pagination.hasNext, false);
+  assert.equal(
+    new Set([...first.items, ...second.items].map((x: any) => x.id)).size,
+    27,
+  );
+  const empty = await get("/refinement-sessions?sessionsPage=3");
+  assert.equal(empty.total, 27);
+  assert.equal(empty.items.length, 0);
+  const jobs = await get(`/refinement-sessions/${session.id}/jobs`);
+  const next = await get(
+    `/refinement-sessions/${session.id}/jobs?detailPage=2`,
+  );
+  assert.equal(jobs.items.length, 25);
+  assert.equal(next.items.length, 5);
+  assert.equal(jobs.pagination.hasNext, true);
+  assert.equal(next.pagination.hasNext, false);
+  assert.equal(
+    new Set([...jobs.items, ...next.items].map((x: any) => x.id)).size,
+    30,
+  );
+  assert.ok(
+    [...jobs.items, ...next.items].every(
+      (x: any) =>
+        x.name === "Session 0" && !("output" in x) && !("chunk_plan" in x),
+    ),
+  );
+  assert.equal(
+    (await request("GET", `/refinement-sessions/${session.id}/jobs`))
+      .statusCode,
+    404,
+  );
+  await tx(owner, space, (c) =>
+    c.query(
+      "UPDATE sources SET deleted_at=now() WHERE workspace_id=$1 AND id=$2",
+      [space, jobs.items[0].source_id],
+    ),
+  );
+  const changed = (await get("/refinement-sessions")).items.find(
+    (x: any) => x.name === "Session 0",
+  );
+  assert.equal(changed.total, 29);
+});

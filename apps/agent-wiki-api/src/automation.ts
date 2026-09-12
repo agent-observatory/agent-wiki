@@ -1,3 +1,7 @@
+import {
+  refinementSessions,
+  refinementSessionJobs,
+} from "./refinement-sessions.js";
 import { pagination, paged } from "./pagination.js";
 import { refinementHealth } from "./refinement-health.js";
 import { refinementProgress } from "./refinement-progress.js";
@@ -215,6 +219,24 @@ export function registerAutomation(
       ).rows[0];
       return { enabled: body.enabled, version: row.version };
     });
+  });
+  app.get(base + "/refinement-sessions", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) => refinementSessions(c, ws, r.query));
+  });
+  app.get(base + "/refinement-sessions/:id/jobs", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) =>
+      refinementSessionJobs(
+        c,
+        ws,
+        z
+          .string()
+          .uuid()
+          .parse((r.params as any).id),
+        r.query,
+      ),
+    );
   });
   app.get(base + "/refinements", (r) => {
     sessionOnly(r);

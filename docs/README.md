@@ -5,14 +5,15 @@
 | 읽을 문서 | 내용 |
 | --- | --- |
 | [그림과 레퍼런스](wiki/README.md) | 계층도·배포도·운영도·원문 링크 |
-| [아키텍처](wiki/architecture.md) | 지식 모델·검색 예제·기술 선택·자원 배분·운영 기준 |
+| [아키텍처](wiki/architecture.md) | 전체 구성·계층·앱·인프라·조회 |
+| [Curation](wiki/curation.md) | 그림 4장: 증분 맥락·결정 관계·비교 실험·재생성 |
 | [에이전트 사용법·계약](wiki/agent-memory.md) | 사용자 조회와 별도 수집·정제의 경계, 원문·반영 계약 |
 | [디자인 규칙](DESIGN.md) | UI·문서·SVG 기준 |
 | [작업 원칙](../AGENTS.md) | 범위·데이터 보호·검증·Git |
 
 ## 읽는 순서
 
-처음에는 `wiki/architecture.md`로 전체 구조를 보고, 설치·명령·데이터 계약이 필요하면 `wiki/agent-memory.md`를 읽는다. 그림만 볼 때는 `wiki/README.md`, 현재 배포와 검증 결과는 `OPERATIONS.md`다.
+처음에는 `wiki/architecture.md`로 전체 구조를 보고, 정제 방식은 `wiki/curation.md`의 그림 4장으로 본다. 설치·명령·데이터 계약이 필요하면 `wiki/agent-memory.md`를 읽는다. 그림만 볼 때는 `wiki/README.md`, 현재 배포와 검증 결과는 `OPERATIONS.md`다.
 
 ## 유지할 원칙
 

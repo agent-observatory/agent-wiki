@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Save, RefreshCw, Play, Pause, Cpu, Activity } from "lucide-react";
 import { RefinementProgress, waitingReasons } from "./refinement-progress";
-import { Progress } from "@/components/ui/progress";
+import { RefinementSessions } from "./refinement-sessions";
 import { api, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -488,152 +488,13 @@ function AutomationContent() {
           </form>
         </TabsContent>
         <TabsContent value="jobs" className="pt-6">
-          <p className="mb-4 text-xs text-muted-foreground">
-            전체 {jobs.data.progress.summary.total.toLocaleString()}자료 중{" "}
-            {jobs.data.items.length}개 표시 · 진행·재시도·확인 필요 작업 우선
-          </p>
-          {!jobs.data.items.length ? (
-            <Empty>수집한 원문이 들어오면 정제 작업이 표시됩니다.</Empty>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>원문</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>청크 반영</TableHead>
-                    <TableHead>시도</TableHead>
-                    <TableHead>다음 시도 / 최근 변경</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.data.items.map((job: any) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="max-w-xs whitespace-normal break-words">
-                        <Link
-                          className="underline"
-                          href={`/workspaces/${workspaceId}/sources/${job.source_id}`}
-                        >
-                          {job.name}
-                        </Link>
-                        {job.error_code && (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {reasons[job.error_code] ?? job.error_code}
-                          </p>
-                        )}
-                        {job.result?.items?.map((a: any) => (
-                          <Link
-                            key={a.id}
-                            className="block mt-2 text-xs underline"
-                            href={`/workspaces/${workspaceId}/knowledge/${a.id}?revision=${a.revision}`}
-                          >
-                            반영한 지식 · Version {a.revision}
-                          </Link>
-                        ))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            job.status === "failed"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                        >
-                          {job.status === "failed"
-                            ? "확인 필요"
-                            : job.status === "pending" && job.error_code
-                              ? "재시도 대기"
-                              : statuses[job.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {job.chunk_count ? (
-                          <div className="min-w-28 space-y-2">
-                            <span className="text-xs tabular-nums">
-                              {job.chunk_index} / {job.chunk_count}
-                            </span>
-                            <Progress
-                              value={(job.chunk_index / job.chunk_count) * 100}
-                              aria-label={`${job.name} 청크 반영률`}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            분할 대기
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{job.attempts}</TableCell>
-                      <TableCell className="text-xs">
-                        {job.status === "pending" ? (
-                          <div className="space-y-1">
-                            <p>
-                              {
-                                waitingReasons[
-                                  jobs.data.progress.schedule.reason
-                                ]
-                              }
-                            </p>
-                            {!["paused", "key_missing"].includes(
-                              jobs.data.progress.schedule.reason,
-                            ) &&
-                              (new Date(job.available_at).getTime() >
-                                Date.now() ||
-                                jobs.data.progress.schedule.nextAttemptAt) && (
-                                <p className="text-muted-foreground">
-                                  <When
-                                    value={new Date(
-                                      Math.max(
-                                        new Date(job.available_at).getTime(),
-                                        new Date(
-                                          jobs.data.progress.schedule
-                                            .nextAttemptAt ?? 0,
-                                        ).getTime(),
-                                      ),
-                                    ).toISOString()}
-                                  />{" "}
-                                  이후
-                                </p>
-                              )}
-                          </div>
-                        ) : (
-                          <When value={job.updated_at} />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {job.status === "failed" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              try {
-                                await api(
-                                  base + "/refinements/" + job.id + "/retry",
-                                  { method: "POST", body: "{}" },
-                                );
-                                jobs.reload();
-                              } catch (e) {
-                                setFailure(e);
-                              }
-                            }}
-                          >
-                            재시도
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          <Pagination
-            data={jobs.data.pagination.jobs}
-            pageKey="jobsPage"
-            label={LAYER_NAMES.L2}
+          <RefinementSessions
+            workspaceId={workspaceId}
+            schedule={jobs.data.progress.schedule}
+            reasons={reasons}
+            statuses={statuses}
+            onRetry={jobs.reload}
           />
-          {!!failure && <Failure error={failure} />}
           <RefinementHealth data={jobs.data.health} />
           {!!jobs.data.runs.length && (
             <section className="mt-8">

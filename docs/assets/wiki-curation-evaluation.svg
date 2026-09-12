@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="880" viewBox="0 0 1680 880" role="img" aria-labelledby="title desc"><title id="title">청킹·맥락·리랭킹은 하나씩 비교</title><desc id="desc">같은 평가 자료와 모델 예산을 고정해 고정 분할, 구조 청킹, 세션 맥락, 규칙 재정렬, 모델 리랭커를 순차 비교한다. 정정·근거 정확도와 비용을 측정한다. 후보 검색에서 빠진 자료는 리랭커만으로 복구할 수 없다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1680" height="880" fill="#FFFFFF"/>
+<text x="40" y="42" font-size="16" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
+<text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">청킹·맥락·리랭킹은 하나씩 비교</text>
+<path d="M40 137 H1640" stroke="#172C4B" stroke-width="2"/>
+<rect x="40" y="180" width="1600" height="68" rx="6" fill="#344256" stroke="#344256"/>
+<text x="64" y="222" font-size="24" font-weight="700" fill="#FFFFFF">같은 평가 자료 · 같은 모델·입출력 한도 · 한 번에 한 요소만 변경</text>
+<rect x="40" y="320" width="288" height="160" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
+<text x="60" y="362" font-size="20" font-weight="700" fill="#172C4B">기준선</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="380" color="#172C4B">
+  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+  <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+  <path d="M9 14l2 2l4 -4" />
+</svg>
+<text x="94" y="400" font-size="18" font-weight="400" fill="#172C4B">고정 크기로 분할</text>
+<text x="60" y="431" font-size="18" font-weight="400" fill="#172C4B">키워드 검색 결과 사용</text>
+<path d="M328 400 H368" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<rect x="368" y="320" width="288" height="160" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
+<text x="388" y="362" font-size="20" font-weight="700" fill="#172C4B">대화 구조 청킹</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="388" y="380" color="#172C4B">
+  <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
+  <path d="M9 9h6v6h-6z" />
+  <path d="M3 10h2" />
+  <path d="M3 14h2" />
+  <path d="M10 3v2" />
+  <path d="M14 3v2" />
+  <path d="M21 10h-2" />
+  <path d="M21 14h-2" />
+  <path d="M14 21v-2" />
+  <path d="M10 21v-2" />
+</svg>
+<text x="422" y="400" font-size="18" font-weight="400" fill="#172C4B">요청·도구 관계로 묶기</text>
+<text x="388" y="431" font-size="18" font-weight="400" fill="#172C4B">나머지는 기준선과 동일</text>
+<path d="M656 400 H696" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<rect x="696" y="320" width="288" height="160" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
+<text x="716" y="362" font-size="20" font-weight="700" fill="#172C4B">세션 맥락 추가</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="716" y="380" color="#172C4B">
+  <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
+  <path d="M9 9h6v6h-6z" />
+  <path d="M3 10h2" />
+  <path d="M3 14h2" />
+  <path d="M10 3v2" />
+  <path d="M14 3v2" />
+  <path d="M21 10h-2" />
+  <path d="M21 14h-2" />
+  <path d="M14 21v-2" />
+  <path d="M10 21v-2" />
+</svg>
+<text x="750" y="400" font-size="18" font-weight="400" fill="#172C4B">직전 결정·미해결 연결</text>
+<text x="716" y="431" font-size="18" font-weight="400" fill="#172C4B">이전 증분의 근거 참조</text>
+<path d="M984 400 H1024" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<rect x="1024" y="320" width="288" height="160" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<text x="1044" y="362" font-size="20" font-weight="700" fill="#172C4B">규칙 재정렬 추가</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1044" y="380" color="#172C4B">
+  <path d="M19 4v16h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12z" />
+  <path d="M19 16h-12a2 2 0 0 0 -2 2" />
+  <path d="M9 8h6" />
+</svg>
+<text x="1078" y="400" font-size="18" font-weight="400" fill="#172C4B">대상·범위·명시 참조</text>
+<text x="1044" y="431" font-size="18" font-weight="400" fill="#172C4B">본문 관련도 · 관계 확인</text>
+<path d="M1312 400 H1352" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<rect x="1352" y="320" width="288" height="160" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
+<text x="1372" y="362" font-size="20" font-weight="700" fill="#172C4B">모델 리랭커 비교</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1372" y="380" color="#172C4B">
+  <path d="M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878" />
+</svg>
+<text x="1406" y="400" font-size="18" font-weight="400" fill="#172C4B">질문·후보 본문 쌍 평가</text>
+<text x="1372" y="431" font-size="18" font-weight="400" fill="#172C4B">효과·지연·호출량 비교</text>
+<path d="M840 480 V545" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<rect x="40" y="545" width="1600" height="240" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
+<path d="M46 545 H1634 Q1640 545 1640 551 V599 H40 V551 Q40 545 46 545" fill="#344256"/>
+<text x="64" y="581" font-size="24" font-weight="700" fill="#FFFFFF">선택 기준 · 예쁜 요약보다 올바른 결정과 근거</text>
+<rect x="64" y="620" width="490" height="136" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<text x="84" y="662" font-size="20" font-weight="700" fill="#172C4B">검색 후보에 근거가 없음</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="84" y="680" color="#172C4B">
+  <path d="M19 4v16h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12z" />
+  <path d="M19 16h-12a2 2 0 0 0 -2 2" />
+  <path d="M9 8h6" />
+</svg>
+<text x="118" y="700" font-size="18" font-weight="400" fill="#172C4B">후보 검색 · 별칭·분류 개선</text>
+<text x="84" y="731" font-size="18" font-weight="400" fill="#172C4B">후속: 임베딩·혼합 검색 평가</text>
+<rect x="575" y="620" width="490" height="136" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<text x="595" y="662" font-size="20" font-weight="700" fill="#172C4B">후보는 있지만 뒤로 밀림</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="595" y="680" color="#172C4B">
+  <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+  <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+  <path d="M9 14l2 2l4 -4" />
+</svg>
+<text x="629" y="700" font-size="18" font-weight="400" fill="#172C4B">재정렬·리랭커 비교</text>
+<text x="595" y="731" font-size="18" font-weight="400" fill="#172C4B">검색 적합도 ≠ 사실의 진실성</text>
+<rect x="1086" y="620" width="530" height="136" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
+<text x="1106" y="662" font-size="20" font-weight="700" fill="#172C4B">대상이 끊기거나 오대체됨</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1106" y="680" color="#172C4B">
+  <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
+  <path d="M9 9h6v6h-6z" />
+  <path d="M3 10h2" />
+  <path d="M3 14h2" />
+  <path d="M10 3v2" />
+  <path d="M14 3v2" />
+  <path d="M21 10h-2" />
+  <path d="M21 14h-2" />
+  <path d="M14 21v-2" />
+  <path d="M10 21v-2" />
+</svg>
+<text x="1140" y="700" font-size="18" font-weight="400" fill="#172C4B">청킹 · 맥락 · 관계 규칙 개선</text>
+<text x="1106" y="731" font-size="18" font-weight="400" fill="#172C4B">결정 누락·오대체·근거·비용 측정</text>
+</g></svg>

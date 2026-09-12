@@ -1,6 +1,6 @@
 # Agent Wiki 그림과 레퍼런스
 
-[문서 안내](../README.md) · [아키텍처](architecture.md) · [수집·정제 계약](agent-memory.md)
+[문서 안내](../README.md) · [아키텍처](architecture.md) · [정제 알고리즘 · 그림 4장](curation.md) · [사용법·수집 계약](agent-memory.md)
 
 **그림은 agent-wiki-client에 포함된 조회 Skill·CLI·Collector와 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
 

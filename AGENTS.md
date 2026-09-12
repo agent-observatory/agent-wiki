@@ -2,7 +2,7 @@
 
 ## 시작과 범위
 
-- 먼저 [docs/README.md](docs/README.md), [Wiki 문서 안내](docs/wiki/README.md), [아키텍처](docs/wiki/architecture.md)를 읽는다. 디자인 작업 전에는 [docs/DESIGN.md](docs/DESIGN.md)를 읽는다.
+- 먼저 [docs/README.md](docs/README.md), [Wiki 문서 안내](docs/wiki/README.md), [아키텍처](docs/wiki/architecture.md)를 읽는다. 정제·청킹·기억 통합 작업 전에는 [Curation](docs/wiki/curation.md)을 읽는다. 디자인 작업 전에는 [docs/DESIGN.md](docs/DESIGN.md)를 읽는다.
 - 제품은 독립 Agent Wiki다. 설계·구현·검증·실제 배포 상태는 `docs/OPERATIONS.md`에 구분해서 기록한다.
 - 기존 Agent Observatory의 Sessions는 참고 구현이다. 포털 통합·세션 평가 기능과 기존 Collector·계약·DB·하위 호환성을 새 제품의 제약으로 삼지 않는다.
 - 사용자와 정한 독립 제품 방향이 이관 문서의 오래된 전제보다 우선한다. 설계 변경은 관련 문서와 그림에 함께 반영한다.
@@ -58,6 +58,8 @@
 - 로컬 서비스 토큰은 루트 `.env.local`에 보관하고 Git에서 제외한다. `.env.example`에는 변수 이름과 비밀이 아닌 기본값만 둔다. 토큰 값을 출력하거나 문서·그림에 넣지 않는다.
 
 ## 문서와 그림
+
+- 전체 구조는 `docs/wiki/architecture.md`, 증분 맥락·청킹·주장 관계·리랭킹 실험 설계는 `docs/wiki/curation.md`, 설치·수집/API 계약은 `docs/wiki/agent-memory.md`에 둔다. 사람은 그림 중심으로 읽고 구현 에이전트는 접힌 규칙을 읽는다. 실행·검증 상태는 운영 현황에만 기록하고 목표 그림에 진행 상태 배지를 붙이지 않는다.
 
 - 계층 이름은 L1 · Raw Sources, L2 · Curation, L3 · Knowledge, L4 · Query, L5 · Answers로 통일한다. 메뉴·제목·그림에는 같은 영어 이름을 쓰고 설명은 한국어로 쓸 수 있다. 웹·그림의 공통 이름 정의는 `apps/agent-wiki-web/lib/layer-names.json`이며 아키텍처의 계층 표와 함께 갱신한다.
 
