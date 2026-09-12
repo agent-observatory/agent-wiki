@@ -1,4 +1,5 @@
 import { pagination, paged } from "./pagination.js";
+import { refinementHealth } from "./refinement-health.js";
 import { refinementProgress } from "./refinement-progress.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
@@ -232,6 +233,7 @@ export function registerAutomation(
       );
       const result = {
         progress: await refinementProgress(c, ws, today.calls),
+        health: await refinementHealth(c, ws),
         items: (
           await c.query(
             "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 AND s.deleted_at IS NULL ORDER BY CASE WHEN j.status='running' THEN 0 WHEN j.status='pending' AND j.error_code IS NOT NULL THEN 1 WHEN j.status='failed' THEN 2 WHEN j.status='pending' THEN 3 ELSE 4 END,j.created_at,j.id LIMIT $2 OFFSET $3",
@@ -240,7 +242,7 @@ export function registerAutomation(
         ).rows.map(({ output, chunk_plan, chunk_results, ...job }) => job),
         runs: (
           await c.query(
-            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3",
+            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,diagnostics,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3",
             [ws, pages.runs.size + 1, pages.runs.offset],
           )
         ).rows,

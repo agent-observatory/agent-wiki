@@ -10,6 +10,7 @@ test("NVIDIA pending responses poll the same request without resubmitting infere
   const original = globalThis.fetch;
   const urls: string[] = [];
   let reservations = 0;
+  const observations: any[] = [];
   globalThis.fetch = async (input) => {
     urls.push(String(input));
     return urls.length === 1
@@ -35,10 +36,19 @@ test("NVIDIA pending responses poll the same request without resubmitting infere
       async () => {
         reservations++;
       },
+      (event) => observations.push(event),
     );
     assert.deepEqual(r.output, { changes: [] });
     assert.equal(urls.length, 2);
     assert.equal(reservations, 1);
+    assert.deepEqual(
+      observations.map((e) => e.type),
+      ["response", "poll", "response", "usage"],
+    );
+    assert.deepEqual(
+      observations.filter((e) => e.type === "response").map((e) => e.status),
+      [202, 200],
+    );
     assert.ok(urls[1].endsWith("/status/12345678-1234-1234-1234-123456789abc"));
   } finally {
     globalThis.fetch = original;
@@ -71,4 +81,41 @@ test("Retry-After accepts seconds and HTTP dates without shortening provider coo
   assert.equal(parseRetryAfter(new Date(now + 90000).toUTCString(), now), 90);
   assert.equal(parseRetryAfter(new Date(now - 90000).toUTCString(), now), 0);
   assert.equal(parseRetryAfter("invalid", now), 60);
+});
+
+test("invalid model JSON still reports HTTP success and consumed tokens without leaking output", async () => {
+  const original = globalThis.fetch;
+  const observations: any[] = [];
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: { content: "synthetic-private-output" },
+          },
+        ],
+        usage: { total_tokens: 91 },
+      }),
+    );
+  try {
+    await assert.rejects(
+      callModel(
+        defaults,
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+        undefined,
+        (event) => observations.push(event),
+      ),
+      (e: any) => e.code === "AI_INVALID_JSON",
+    );
+    assert.deepEqual(observations, [
+      { type: "response", status: 200 },
+      { type: "usage", usage: { total_tokens: 91 } },
+    ]);
+    assert.ok(!JSON.stringify(observations).includes("private-output"));
+  } finally {
+    globalThis.fetch = original;
+  }
 });

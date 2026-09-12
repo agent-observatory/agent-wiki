@@ -88,6 +88,17 @@ test("successful chunks survive a later failure and resume at the failed chunk w
   assert.equal(row.status, "failed");
   assert.equal(row.chunk_index, 2);
   assert.equal(row.chunk_results.length, 2);
+  const failedRun = (
+    await tx(owner, ws, (c) =>
+      c.query("SELECT * FROM refinement_runs WHERE id=$1", [row.run_id]),
+    )
+  ).rows[0];
+  assert.equal(failedRun.diagnostics.stage, "validate");
+  assert.equal(failedRun.diagnostics.retryable, false);
+  assert.equal(failedRun.diagnostics.retryAt, null);
+  assert.ok(failedRun.diagnostics.durationMs >= 0);
+  assert.ok(failedRun.diagnostics.requestedAt);
+
   await tx(owner, ws, (c) =>
     c.query(
       "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now() WHERE id=$1",
@@ -115,3 +126,47 @@ async function releaseGate() {
     [owner],
   );
 }
+
+test("publish-only recovery preserves the failed execution and makes no model call", async () => {
+  const originalRun = randomUUID();
+  await tx(owner, ws, async (c) => {
+    await c.query(
+      "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status,error_code,diagnostics) VALUES($1,$2,$3,$4,'test','failed','WORKER_STOPPED',$5)",
+      [
+        originalRun,
+        ws,
+        job,
+        defaults,
+        {
+          version: 1,
+          stage: "publish",
+          requestedAt: new Date().toISOString(),
+          httpStatus: 200,
+          durationMs: 1000,
+        },
+      ],
+    );
+    await c.query(
+      "UPDATE refinement_jobs SET status='pending',output=$2,run_id=$3,chunk_index=0,chunk_count=1,available_at=now() WHERE id=$1",
+      [job, { changes: [] }, originalRun],
+    );
+  });
+  await runOne(owner, new AbortController().signal, async () => {
+    throw new Error("recovery must not invoke provider");
+  });
+  const runs = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT id,status,error_code,diagnostics FROM refinement_runs WHERE job_id=$1 ORDER BY created_at DESC",
+        [job],
+      ),
+    )
+  ).rows;
+  assert.equal(runs[0].status, "completed");
+  assert.equal(runs[0].diagnostics.recoveryOf, originalRun);
+  assert.equal(runs[0].diagnostics.requestedAt, undefined);
+  const original = runs.find((r) => r.id === originalRun);
+  assert.equal(original.status, "failed");
+  assert.equal(original.error_code, "WORKER_STOPPED");
+  assert.equal(original.diagnostics.durationMs, 1000);
+});

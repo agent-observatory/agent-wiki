@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS refinement_jobs(id uuid PRIMARY KEY,workspace_id uuid
 CREATE TABLE IF NOT EXISTS refinement_runs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,job_id uuid NOT NULL REFERENCES refinement_jobs(id),settings jsonb NOT NULL,prompt_version text NOT NULL,input jsonb NOT NULL DEFAULT '{}',output jsonb,usage jsonb,status text NOT NULL DEFAULT 'running',error_code text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz);
 ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS output jsonb;
 ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS chunk_index int;
+ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS diagnostics jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_plan jsonb;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_index int NOT NULL DEFAULT 0;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DEFAULT 0;

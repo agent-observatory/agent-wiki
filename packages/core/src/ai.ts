@@ -86,12 +86,17 @@ export function parseRetryAfter(value: string | null, now = Date.now()) {
     : (Date.parse(value) - now) / 1000;
   return Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : 60;
 }
+export type ModelObservation =
+  | { type: "poll" }
+  | { type: "response"; status: number }
+  | { type: "usage"; usage: Record<string, number | undefined> };
 export async function callModel(
   config: AiConfig,
   secret: string,
   messages: unknown[],
   signal: AbortSignal,
   beforePoll?: () => Promise<void>,
+  observe?: (event: ModelObservation) => void,
 ) {
   validateEndpoint(config);
   let response = await fetch(
@@ -115,6 +120,7 @@ export async function callModel(
       }),
     },
   );
+  observe?.({ type: "response", status: response.status });
   if (response.status === 202 && config.provider === "nvidia") {
     const headerId = response.headers.get("nvcf-reqid");
     const pending = (await response.json().catch(() => ({}))) as {
@@ -138,6 +144,7 @@ export async function callModel(
       });
       await beforePoll?.();
       signal.throwIfAborted();
+      observe?.({ type: "poll" });
       response = await fetch(
         config.baseUrl.replace(/\/$/, "") + "/status/" + id,
         {
@@ -146,6 +153,7 @@ export async function callModel(
           signal,
         },
       );
+      observe?.({ type: "response", status: response.status });
       if (response.status === 202) await response.body?.cancel();
     }
   }
@@ -173,6 +181,14 @@ export async function callModel(
   } catch {
     throw new ModelError("AI_INVALID_RESPONSE");
   }
+  const usage = z
+    .object({
+      prompt_tokens: z.number().nonnegative().optional(),
+      completion_tokens: z.number().nonnegative().optional(),
+      total_tokens: z.number().nonnegative().optional(),
+    })
+    .parse(data.usage ?? {});
+  observe?.({ type: "usage", usage });
   const choice = data.choices?.[0];
   if (choice?.finish_reason === "length")
     throw new ModelError("AI_OUTPUT_LIMIT");
@@ -189,12 +205,5 @@ export async function callModel(
   } catch {
     throw new ModelError("AI_INVALID_JSON");
   }
-  const usage = z
-    .object({
-      prompt_tokens: z.number().nonnegative().optional(),
-      completion_tokens: z.number().nonnegative().optional(),
-      total_tokens: z.number().nonnegative().optional(),
-    })
-    .parse(data.usage ?? {});
   return { output, usage };
 }

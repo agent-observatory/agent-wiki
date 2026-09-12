@@ -344,6 +344,37 @@ test("transient errors pause the key without exhausting jobs and expired leases 
   assert.equal(stillPending.attempts, 6);
   assert.equal(stillPending.chunk_index, 0);
   assert.equal(calls, 5);
+  const histories = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT diagnostics,error_code FROM refinement_runs WHERE job_id=$1 ORDER BY created_at",
+        [row.id],
+      ),
+    )
+  ).rows;
+  assert.equal(histories.length, 5);
+  assert.equal(histories[0].diagnostics.httpStatus, 429);
+  assert.equal(histories[0].diagnostics.stage, "model");
+  assert.ok(histories[0].diagnostics.retryDelaySeconds >= 120);
+  assert.ok(histories[0].diagnostics.retryDelaySeconds <= 144);
+  assert.ok(
+    histories[4].diagnostics.retryDelaySeconds >
+      histories[0].diagnostics.retryDelaySeconds,
+  );
+  assert.ok(
+    histories.every(
+      (r) =>
+        r.diagnostics.requestedAt &&
+        r.diagnostics.retryAt &&
+        r.diagnostics.durationMs >= 0,
+    ),
+  );
+  const exposed = (await request("GET", "/refinements")).json();
+  assert.ok(
+    exposed.health.errors.some(
+      (e: any) => e.error_code === "AI_HTTP_429" && e.count === 5,
+    ),
+  );
 });
 
 test("collection rate limits do not consume the interactive API budget", async () => {
@@ -402,8 +433,15 @@ test("live pause/resume changes only enabled, preserves drafts through versions,
     "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
     [owner],
   );
-  await admin.query("UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'", [ws]);
-  await request("POST", "/collection", { ...source, sessionId:"pause-control-session", start:0 });
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  await request("POST", "/collection", {
+    ...source,
+    sessionId: "pause-control-session",
+    start: 0,
+  });
   const saved = (await request("GET", "/ai-settings")).json();
   let calls = 0;
   await runOne(owner, new AbortController().signal, async () => {

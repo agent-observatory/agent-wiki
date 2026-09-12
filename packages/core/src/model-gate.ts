@@ -63,7 +63,7 @@ export function retryDelay(
 ) {
   const backoff = Math.min(
     3600,
-    60 * 2 ** Math.min(6, Math.max(0, failures - 1)),
+    120 * 2 ** Math.min(6, Math.max(0, failures - 1)),
   );
   // Retry-After is a minimum, including values longer than our backoff cap.
   return Math.max(retryAfter, Math.ceil(backoff * (1 + 0.2 * random)));

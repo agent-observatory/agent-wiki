@@ -77,19 +77,28 @@ export async function runOne(
         )
       ).rows[0].n;
       if (!job.output && calls >= config.dailyCalls) return null;
-      const runId = job.output ? job.run_id : randomUUID();
-      if (!job.output)
-        await c.query(
-          "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,chunk_index) VALUES($1,$2,$3,$4,$5,$6)",
-          [
-            runId,
-            ws,
-            job.id,
-            JSON.stringify({ ...config, version: settings.version }),
-            PROMPT_VERSION,
-            job.chunk_index,
-          ],
-        );
+      // A publish-only recovery is its own execution; preserve the failed attempt.
+      const runId = randomUUID();
+      const diagnostics = {
+        version: 1,
+        stage: job.output ? "publish" : "prepare",
+        attempt: job.attempts + 1,
+        minIntervalMs: 3000,
+        concurrency: 1,
+        ...(job.output ? { recoveryOf: job.run_id } : {}),
+      };
+      await c.query(
+        "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,chunk_index,diagnostics) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [
+          runId,
+          ws,
+          job.id,
+          JSON.stringify({ ...config, version: settings.version }),
+          PROMPT_VERSION,
+          job.chunk_index,
+          JSON.stringify(diagnostics),
+        ],
+      );
       await c.query(
         "UPDATE refinement_jobs SET status='running',attempts=attempts+1,lease_until=now()+interval '5 minutes',run_id=$3,updated_at=now() WHERE workspace_id=$1 AND id=$2",
         [ws, job.id, runId],
@@ -100,10 +109,12 @@ export async function runOne(
         runId,
         secret,
         gateKey,
+        diagnostics,
         attempts: job.attempts + 1,
       };
     });
     if (!task) continue;
+    const diagnostics: Record<string, unknown> = task.diagnostics;
     try {
       let payload = task.output;
       if (!payload) {
@@ -185,16 +196,56 @@ export async function runOne(
           AbortSignal.timeout(150000),
         ]);
         await waitForModelSlot(owner, task.gateKey, callSignal);
-        const response = await modelCall(
-          task.config,
-          task.secret,
-          [
-            { role: "system", content: instruction },
-            { role: "user", content: JSON.stringify(input) },
-          ],
-          callSignal,
-          () => waitForModelSlot(owner, task.gateKey, callSignal),
+        diagnostics.stage = "model";
+        diagnostics.requestedAt = new Date().toISOString();
+        diagnostics.httpRequests = 1;
+        await tx(owner, ws, (c) =>
+          c.query(
+            "UPDATE refinement_runs SET diagnostics=diagnostics||$3::jsonb WHERE workspace_id=$1 AND id=$2",
+            [ws, task.runId, JSON.stringify(diagnostics)],
+          ),
         );
+        const started = performance.now();
+        let response: Awaited<ReturnType<typeof callModel>>;
+        let reportedUsage: Record<string, number | undefined> | undefined;
+        try {
+          response = await modelCall(
+            task.config,
+            task.secret,
+            [
+              { role: "system", content: instruction },
+              { role: "user", content: JSON.stringify(input) },
+            ],
+            callSignal,
+            () => waitForModelSlot(owner, task.gateKey, callSignal),
+            (event) => {
+              if (event.type === "poll")
+                diagnostics.httpRequests = Number(diagnostics.httpRequests) + 1;
+              if (event.type === "response")
+                diagnostics.httpStatus = event.status;
+              if (event.type === "usage") reportedUsage = event.usage;
+            },
+          );
+          diagnostics.httpStatus ??= 200;
+          reportedUsage = response.usage;
+        } catch (error) {
+          if (callSignal.aborted && !signal.aborted)
+            throw new ModelError("AI_TIMEOUT", true, 0);
+          throw error;
+        } finally {
+          diagnostics.durationMs = Math.round(performance.now() - started);
+          await tx(owner, ws, (c) =>
+            c.query(
+              "UPDATE refinement_runs SET diagnostics=diagnostics||$3::jsonb,usage=COALESCE($4::jsonb,usage) WHERE workspace_id=$1 AND id=$2",
+              [
+                ws,
+                task.runId,
+                JSON.stringify(diagnostics),
+                reportedUsage ? JSON.stringify(reportedUsage) : null,
+              ],
+            ),
+          );
+        }
         await modelResponded(owner, task.gateKey);
         await tx(owner, ws, (c) =>
           c.query(
@@ -207,6 +258,7 @@ export async function runOne(
             ],
           ),
         );
+        diagnostics.stage = "validate";
         const result = z
           .object({ changes: z.array(changeInput).max(3) })
           .strict()
@@ -259,6 +311,7 @@ export async function runOne(
           ),
         );
       }
+      diagnostics.stage = "publish";
       await tx(owner, ws, async (c) => {
         const job = (
           await c.query(
@@ -293,11 +346,20 @@ export async function runOne(
           ],
         );
         await c.query(
-          "UPDATE refinement_runs SET status='completed',finished_at=now() WHERE workspace_id=$1 AND id=$2",
-          [ws, task.runId],
+          "UPDATE refinement_runs SET status='completed',finished_at=now(),diagnostics=diagnostics||$3::jsonb WHERE workspace_id=$1 AND id=$2",
+          [
+            ws,
+            task.runId,
+            JSON.stringify({ ...diagnostics, stage: "completed" }),
+          ],
         );
       });
-      log("info", "refinement_completed", { job_id: task.id });
+      log("info", "refinement_completed", {
+        job_id: task.id,
+        run_id: task.runId,
+        model: task.config.model,
+        duration_ms: diagnostics.durationMs,
+      });
     } catch (e) {
       const code =
         e instanceof ModelError
@@ -308,16 +370,29 @@ export async function runOne(
               ? "AI_INVALID_OUTPUT"
               : signal.aborted
                 ? "WORKER_STOPPED"
-                : e instanceof Error &&
-                    ["TimeoutError", "AbortError", "TypeError"].includes(e.name)
-                  ? "AI_CONNECTION_FAILED"
-                  : e instanceof Error && e.message === "AI_LINE_TOO_LARGE"
-                    ? "AI_LINE_TOO_LARGE"
-                    : "REFINEMENT_FAILED";
+                : e instanceof Error && e.name === "TimeoutError"
+                  ? "AI_TIMEOUT"
+                  : e instanceof Error &&
+                      ["AbortError", "TypeError"].includes(e.name)
+                    ? "AI_CONNECTION_FAILED"
+                    : e instanceof Error && e.message === "AI_LINE_TOO_LARGE"
+                      ? "AI_LINE_TOO_LARGE"
+                      : "REFINEMENT_FAILED";
+      if (
+        [
+          "AI_INVALID_RESPONSE",
+          "AI_INVALID_JSON",
+          "AI_EMPTY_RESPONSE",
+          "AI_OUTPUT_LIMIT",
+          "AI_RESPONSE_TOO_LARGE",
+        ].includes(code)
+      )
+        diagnostics.stage = "validate";
       const retry =
         signal.aborted ||
         (e instanceof ModelError && e.retryable) ||
-        code === "AI_CONNECTION_FAILED";
+        code === "AI_CONNECTION_FAILED" ||
+        code === "AI_TIMEOUT";
       await tx(owner, ws, async (c) => {
         // Transient provider failures pause all work using this key, not just
         // the failing source. Shutdown does not imply a provider outage.
@@ -330,13 +405,22 @@ export async function runOne(
                 e instanceof ModelError ? e.retryAfter : 0,
               )
             : retryDelay(task.attempts);
+        diagnostics.retryable = retry;
+        diagnostics.retryDelaySeconds = retry ? delay : null;
+        diagnostics.retryAt = retry
+          ? new Date(Date.now() + delay * 1000).toISOString()
+          : null;
+        if (e instanceof ModelError && e.retryable)
+          diagnostics.providerRetryAfterSeconds = e.retryAfter;
+        if (/^AI_HTTP_\d{3}$/.test(code))
+          diagnostics.httpStatus = Number(code.slice(-3));
         await c.query(
           "UPDATE refinement_jobs SET status=$3,error_code=$4,available_at=now()+make_interval(secs=>$5),lease_until=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND run_id=$6 AND status='running'",
           [ws, task.id, retry ? "pending" : "failed", code, delay, task.runId],
         );
         await c.query(
-          "UPDATE refinement_runs SET status='failed',error_code=$3,finished_at=now() WHERE workspace_id=$1 AND id=$2 AND status='running'",
-          [ws, task.runId, code],
+          "UPDATE refinement_runs SET status='failed',error_code=$3,finished_at=now(),diagnostics=diagnostics||$4::jsonb WHERE workspace_id=$1 AND id=$2 AND status='running'",
+          [ws, task.runId, code, JSON.stringify(diagnostics)],
         );
       });
       log(
@@ -344,6 +428,11 @@ export async function runOne(
         retry ? "refinement_deferred" : "refinement_failed",
         {
           job_id: task.id,
+          run_id: task.runId,
+          model: task.config.model,
+          stage: diagnostics.stage,
+          duration_ms: diagnostics.durationMs,
+          retry_delay_seconds: diagnostics.retryDelaySeconds,
           error_code: code,
           retry,
         },

@@ -67,6 +67,7 @@ const reasons: Record<string, string> = {
   AI_CONNECTION_FAILED: "모델 연결이 끊기거나 시간이 초과됐습니다.",
   WORKER_STOPPED: "배포 또는 종료로 중단됐습니다.",
   LEASE_EXPIRED: "중단된 작업을 복구했습니다.",
+  AI_TIMEOUT: "모델 응답 시간이 초과됐습니다.",
   REVISION_CONFLICT: "기존 지식의 Version이 변경됐습니다.",
 };
 export function Automation() {
@@ -575,6 +576,7 @@ function AutomationContent() {
             label="정제 작업"
           />
           {!!failure && <Failure error={failure} />}
+          <RefinementHealth data={jobs.data.health} />
           {!!jobs.data.runs.length && (
             <section className="mt-8">
               <h2 className="font-semibold mb-4">호출 이력</h2>
@@ -592,6 +594,35 @@ function AutomationContent() {
                         {r.prompt_version} · {statuses[r.status] ?? r.status} ·{" "}
                         {r.usage?.total_tokens ?? "미집계"} 토큰
                       </p>
+                      {r.diagnostics?.requestedAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          시도 {r.diagnostics.attempt} ·{" "}
+                          {r.diagnostics.durationMs != null
+                            ? `${(r.diagnostics.durationMs / 1000).toFixed(1)}초`
+                            : "소요 시간 미집계"}
+                          {r.diagnostics.httpStatus != null &&
+                            ` · HTTP ${r.diagnostics.httpStatus}`}
+                          {r.diagnostics.httpRequests != null &&
+                            ` · HTTP 요청 ${r.diagnostics.httpRequests}회`}
+                        </p>
+                      )}
+                      {r.error_code && (
+                        <p className="text-xs mt-1 break-all">
+                          {stages[r.diagnostics?.stage] ?? "단계 미집계"} ·{" "}
+                          {reasons[r.error_code] ?? r.error_code}
+                          <span className="text-muted-foreground">
+                            {" "}
+                            ({r.error_code})
+                          </span>
+                        </p>
+                      )}
+                      {r.diagnostics?.retryAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          당시 재시도 예약 ·{" "}
+                          <When value={r.diagnostics.retryAt} /> · 대기{" "}
+                          {Math.round(r.diagnostics.retryDelaySeconds)}초
+                        </p>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">
                       <When value={r.created_at} />
@@ -696,5 +727,132 @@ function AutomationContent() {
         </TabsContent>
       </Tabs>
     </>
+  );
+}
+
+const stages: Record<string, string> = {
+  prepare: "입력 준비",
+  model: "모델 호출",
+  validate: "응답 검증",
+  publish: "지식 반영",
+  completed: "완료",
+};
+function RefinementHealth({ data }: { data: any }) {
+  if (!data) return null;
+  const attempts = data.models.reduce((n: number, m: any) => n + m.attempts, 0);
+  const unmeasured = data.models.reduce(
+    (n: number, m: any) => n + m.unmeasured,
+    0,
+  );
+  return (
+    <section className="mt-8" aria-label="최근 7일 정제 상태">
+      <h2 className="font-semibold mb-3">최근 7일 정제 상태</h2>
+      {!attempts && (
+        <p className="text-sm text-muted-foreground">
+          아직 측정된 모델 호출이 없습니다.
+        </p>
+      )}
+      {!!attempts && (
+        <div className="overflow-x-auto border-y">
+          <table className="w-full text-sm min-w-[620px]">
+            <thead className="text-muted-foreground">
+              <tr>
+                {[
+                  "모델",
+                  "호출 시도",
+                  "정제 성공률",
+                  "자동 재시도",
+                  "평균 / 95% 소요 시간",
+                ].map((x) => (
+                  <th key={x} className="text-left font-normal py-3 pr-4">
+                    {x}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.models
+                .filter((m: any) => m.attempts > 0)
+                .map((m: any) => (
+                  <tr key={`${m.provider}/${m.model}`} className="border-t">
+                    <td className="py-3 pr-4">
+                      <span className="block text-xs text-muted-foreground">
+                        {m.provider}
+                      </span>
+                      {m.model}
+                    </td>
+                    <td className="pr-4">{m.attempts}회</td>
+                    <td className="pr-4">
+                      {m.completed + m.failed
+                        ? `${Math.round((100 * m.completed) / (m.completed + m.failed))}%`
+                        : "—"}
+                      <span className="block text-xs text-muted-foreground">
+                        완료 {m.completed} · 실패 {m.failed} · 진행 {m.running}
+                      </span>
+                    </td>
+                    <td className="pr-4">{m.retries}회</td>
+                    <td>
+                      {m.average_ms == null
+                        ? "—"
+                        : `${(m.average_ms / 1000).toFixed(1)}초 / ${(m.p95_ms / 1000).toFixed(1)}초`}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground mt-2">
+        성공률은 모델 호출 후 정제 완료 여부로 계산하며 진행 중인 실행은
+        제외합니다. 소요 시간은 모델 응답·결과 조회 대기를 포함합니다.
+        {unmeasured > 0 &&
+          ` 이전 기록 ${unmeasured}건은 측정값이 없어 통계에서 제외합니다.`}
+      </p>
+      {!!data.errors.length && (
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-medium">반복 오류 · 상위 10개</h3>
+          {data.errors.map((e: any) => (
+            <div
+              key={`${e.provider}/${e.model}/${e.error_code}/${e.stage}`}
+              className="flex flex-wrap justify-between gap-2 text-xs border-b pb-2"
+            >
+              <div className="min-w-0 break-words">
+                <span className="font-medium">
+                  {reasons[e.error_code] ?? e.error_code}
+                </span>{" "}
+                · {e.count}회{" "}
+                <span className="text-muted-foreground">
+                  · {stages[e.stage] ?? "단계 미집계"} · {e.provider} /{" "}
+                  {e.model}
+                </span>
+              </div>
+              <span className="text-muted-foreground">
+                최근 <When value={e.last_seen} />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!!attempts && (
+        <details className="mt-4 text-sm">
+          <summary className="cursor-pointer text-muted-foreground">
+            일별 기록
+          </summary>
+          <div className="mt-2 divide-y">
+            {data.daily.map((d: any) => (
+              <div
+                key={d.day}
+                className="flex flex-wrap justify-between gap-2 py-2 text-xs"
+              >
+                <span>{d.day} (UTC)</span>
+                <span>
+                  시도 {d.attempts} · 완료 {d.completed} · 실패 {d.failed}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
   );
 }
