@@ -256,7 +256,11 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
   assert.equal(article.claims[0].evidence[0].source_id, job.source_id);
   assert.equal(article.producer.client, "remote-worker");
 });
-test("transient model errors are bounded and interrupted leases recover without losing work", async () => {
+test("transient errors pause the key without exhausting jobs and expired leases remain recoverable", async () => {
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
   await request("PUT", "/ai-settings", {
     config: { ...defaults, enabled: true, dailyCalls: 24 },
     version: 2,
@@ -277,6 +281,12 @@ test("transient model errors are bounded and interrupted leases recover without 
   ).rows[0];
   assert.equal(row.status, "pending");
   assert.ok(new Date(row.available_at) > new Date());
+  // Other ready jobs must not issue requests during the shared cooldown.
+  assert.equal(
+    await runOne(owner, new AbortController().signal, failed),
+    false,
+  );
+  assert.equal(calls, 1);
   await tx(owner, ws, async (c) => {
     await c.query(
       "UPDATE refinement_jobs SET status='failed' WHERE workspace_id=$1 AND id<>$2 AND status='pending'",
@@ -287,6 +297,19 @@ test("transient model errors are bounded and interrupted leases recover without 
       [row.id],
     );
   });
+  // Lease recovery itself does not immediately replay an interrupted request.
+  assert.equal(
+    await runOne(owner, new AbortController().signal, failed),
+    false,
+  );
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now() WHERE id=$1",
+    [row.id],
+  );
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
   await runOne(owner, new AbortController().signal, failed);
   const end = (
     await tx(owner, ws, (c) =>
@@ -295,9 +318,32 @@ test("transient model errors are bounded and interrupted leases recover without 
       ]),
     )
   ).rows[0];
-  assert.equal(end.status, "failed");
+  assert.equal(end.status, "pending");
   assert.equal(end.attempts, 3);
   assert.equal(calls, 2);
+  for (let i = 0; i < 3; i++) {
+    await admin.query(
+      "UPDATE refinement_jobs SET available_at=now() WHERE id=$1",
+      [row.id],
+    );
+    await admin.query(
+      "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+      [owner],
+    );
+    await runOne(owner, new AbortController().signal, failed);
+  }
+  const stillPending = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT status,attempts,chunk_index FROM refinement_jobs WHERE id=$1",
+        [row.id],
+      ),
+    )
+  ).rows[0];
+  assert.equal(stillPending.status, "pending");
+  assert.equal(stillPending.attempts, 6);
+  assert.equal(stillPending.chunk_index, 0);
+  assert.equal(calls, 5);
 });
 
 test("collection rate limits do not consume the interactive API budget", async () => {
@@ -306,4 +352,38 @@ test("collection rate limits do not consume the interactive API budget", async (
     assert.equal(response.statusCode, 200);
   }
   assert.equal((await request("GET", "/ai-settings")).statusCode, 200);
+});
+
+test("progress totals cover all workspace jobs, not just the displayed 100, without exposing credentials", async () => {
+  await tx(owner, ws, (c) =>
+    c.query(
+      `WITH copied AS (
+      INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+      SELECT gen_random_uuid(),$1,'Progress sample','conversation','synthetic',s.content_hash,s.payload_hash,s.object_key,s.line_count,'progress-'||n,true
+      FROM (SELECT * FROM sources WHERE workspace_id=$1 LIMIT 1) s CROSS JOIN generate_series(1,101) n RETURNING id
+    ) INSERT INTO refinement_jobs(id,workspace_id,source_id,chunk_index,chunk_count)
+      SELECT gen_random_uuid(),$1,id,1,2 FROM copied`,
+      [ws],
+    ),
+  );
+  const response = await request("GET", "/refinements");
+  assert.equal(response.statusCode, 200, response.body);
+  const data = response.json();
+  const actual = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT count(*)::int AS total,sum(chunk_index)::int AS done,sum(chunk_count)::int AS chunks FROM refinement_jobs WHERE workspace_id=$1",
+        [ws],
+      ),
+    )
+  ).rows[0];
+  assert.equal(data.items.length, 100);
+  assert.equal(data.progress.summary.total, actual.total);
+  assert.equal(data.progress.summary.chunks_done, actual.done);
+  assert.equal(data.progress.summary.chunks_total, actual.chunks);
+  assert.ok(data.progress.summary.unplanned > 0);
+  assert.equal(data.progress.schedule.reason, "provider_cooldown");
+  assert.ok(data.progress.schedule.nextAttemptAt);
+  assert.ok(!response.body.includes("encrypted_key"));
+  assert.ok(!response.body.includes("key_hash"));
 });

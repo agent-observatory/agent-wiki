@@ -33,6 +33,11 @@ ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DE
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_results jsonb NOT NULL DEFAULT '[]';
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
 CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);
+CREATE TABLE IF NOT EXISTS model_request_gates(owner_id text NOT NULL REFERENCES users(id),key_hash text NOT NULL,next_allowed_at timestamptz NOT NULL DEFAULT now(),failures int NOT NULL DEFAULT 0,PRIMARY KEY(owner_id,key_hash));
+ALTER TABLE model_request_gates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE model_request_gates FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS gate_owner ON model_request_gates;
+CREATE POLICY gate_owner ON model_request_gates USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;

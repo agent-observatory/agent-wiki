@@ -1,3 +1,4 @@
+import { refinementProgress } from "./refinement-progress.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
@@ -186,38 +187,42 @@ export function registerAutomation(
   });
   app.get(base + "/refinements", (r) => {
     sessionOnly(r);
-    return scoped(r, async (c, ws) => ({
-      items: (
-        await c.query(
-          "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 ORDER BY j.created_at DESC LIMIT 100",
-          [ws],
-        )
-      ).rows.map(({ output, chunk_plan, chunk_results, ...job }) => job),
-      runs: (
-        await c.query(
-          "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 100",
-          [ws],
-        )
-      ).rows,
-      today: (
+    return scoped(r, async (c, ws) => {
+      const today = (
         await c.query(
           "SELECT count(*)::int AS calls,COALESCE(sum((usage->>'total_tokens')::bigint),0)::text AS tokens FROM refinement_runs WHERE workspace_id=$1 AND created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'",
           [ws],
         )
-      ).rows[0],
-      uploads: (
-        await c.query(
-          "SELECT id,manifest->>'name' AS name,status,compressed_bytes,result,error_code,updated_at FROM collection_uploads WHERE workspace_id=$1 ORDER BY updated_at DESC LIMIT 20",
-          [ws],
-        )
-      ).rows,
-      streams: (
-        await c.query(
-          "SELECT s.id,s.client,s.name,s.last_position,s.updated_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('machine',o.machine,'bytes',o.byte_end,'records',o.record_end)) FROM collection_origins o WHERE o.workspace_id=s.workspace_id AND o.stream_id=s.id),'[]'::jsonb) AS origins FROM collection_streams s WHERE s.workspace_id=$1 ORDER BY s.updated_at DESC LIMIT 30",
-          [ws],
-        )
-      ).rows,
-    }));
+      ).rows[0];
+      return {
+        progress: await refinementProgress(c, ws, today.calls),
+        items: (
+          await c.query(
+            "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 AND s.deleted_at IS NULL ORDER BY CASE WHEN j.status='running' THEN 0 WHEN j.status='pending' AND j.error_code IS NOT NULL THEN 1 WHEN j.status='failed' THEN 2 WHEN j.status='pending' THEN 3 ELSE 4 END,j.created_at LIMIT 100",
+            [ws],
+          )
+        ).rows.map(({ output, chunk_plan, chunk_results, ...job }) => job),
+        runs: (
+          await c.query(
+            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 100",
+            [ws],
+          )
+        ).rows,
+        today,
+        uploads: (
+          await c.query(
+            "SELECT id,manifest->>'name' AS name,status,compressed_bytes,result,error_code,updated_at FROM collection_uploads WHERE workspace_id=$1 ORDER BY updated_at DESC LIMIT 20",
+            [ws],
+          )
+        ).rows,
+        streams: (
+          await c.query(
+            "SELECT s.id,s.client,s.name,s.last_position,s.updated_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('machine',o.machine,'bytes',o.byte_end,'records',o.record_end)) FROM collection_origins o WHERE o.workspace_id=s.workspace_id AND o.stream_id=s.id),'[]'::jsonb) AS origins FROM collection_streams s WHERE s.workspace_id=$1 ORDER BY s.updated_at DESC LIMIT 30",
+            [ws],
+          )
+        ).rows,
+      };
+    });
   });
   app.post(base + "/refinements/:id/retry", (r) => {
     sessionOnly(r);

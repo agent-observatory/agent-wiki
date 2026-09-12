@@ -66,6 +66,7 @@ test("successful chunks survive a later failure and resume at the failed chunk w
     return { output: { changes: [] }, usage: { total_tokens: 50 } };
   };
   await runOne(owner, new AbortController().signal, model);
+  await releaseGate();
   await runOne(owner, new AbortController().signal, model);
   let row = (
     await tx(owner, ws, (c) =>
@@ -75,6 +76,7 @@ test("successful chunks survive a later failure and resume at the failed chunk w
   assert.equal(row.chunk_index, 2);
   assert.equal(row.status, "pending");
   assert.ok(row.chunk_count > 2);
+  await releaseGate();
   await runOne(owner, new AbortController().signal, async () => {
     throw new ModelError("AI_INVALID_JSON");
   });
@@ -92,7 +94,10 @@ test("successful chunks survive a later failure and resume at the failed chunk w
       [job],
     ),
   );
-  while (await runOne(owner, new AbortController().signal, model)) {}
+  await releaseGate();
+  while (await runOne(owner, new AbortController().signal, model)) {
+    await releaseGate();
+  }
   row = (
     await tx(owner, ws, (c) =>
       c.query("SELECT * FROM refinement_jobs WHERE id=$1", [job]),
@@ -103,3 +108,10 @@ test("successful chunks survive a later failure and resume at the failed chunk w
   assert.equal(new Set(starts).size, starts.length);
   assert.equal(starts.length, row.chunk_count);
 });
+
+async function releaseGate() {
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+}

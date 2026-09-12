@@ -25,7 +25,7 @@ export async function api<T = any>(
     throw new ApiError(response.status, data.error ?? "REQUEST_FAILED");
   return data;
 }
-export function useApi<T = any>(url: string | null) {
+export function useApi<T = any>(url: string | null, refreshMs = 0) {
   const [state, set] = useState<{
     url: string | null;
     data?: T;
@@ -35,7 +35,9 @@ export function useApi<T = any>(url: string | null) {
   useEffect(() => {
     if (!url) return;
     const controller = new AbortController();
-    set({ url });
+    set((previous) =>
+      previous.url === url ? { ...previous, error: undefined } : { url },
+    );
     api<T>(url, { signal: controller.signal })
       .then((data) => set({ url, data }))
       .catch((error) => {
@@ -43,13 +45,21 @@ export function useApi<T = any>(url: string | null) {
       });
     return () => controller.abort();
   }, [url, version]);
+  useEffect(() => {
+    if (!url || !refreshMs) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") bump((x) => x + 1);
+    }, refreshMs);
+    return () => clearInterval(timer);
+  }, [url, refreshMs]);
   return {
     ...(state.url === url ? state : {}),
     reload: () => bump((x) => x + 1),
   };
 }
 const messages: Record<string, string> = {
-  AI_ENDPOINT_NOT_ALLOWED: "허용된 API 호스트를 입력하세요. 추가 호스트는 서버에서 허용해야 합니다.",
+  AI_ENDPOINT_NOT_ALLOWED:
+    "허용된 API 호스트를 입력하세요. 추가 호스트는 서버에서 허용해야 합니다.",
   AI_KEY_REQUIRED: "자동 정제를 활성화하려면 API 키가 필요합니다.",
   AI_ENCRYPTION_NOT_CONFIGURED: "서버의 API 키 암호화 설정이 필요합니다.",
   REVISION_CONFLICT:

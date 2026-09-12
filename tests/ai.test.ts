@@ -1,9 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { callModel, defaults, ModelError } from "../packages/core/src/ai.js";
+import {
+  callModel,
+  defaults,
+  ModelError,
+  parseRetryAfter,
+} from "../packages/core/src/ai.js";
 test("NVIDIA pending responses poll the same request without resubmitting inference", async () => {
   const original = globalThis.fetch;
   const urls: string[] = [];
+  let reservations = 0;
   globalThis.fetch = async (input) => {
     urls.push(String(input));
     return urls.length === 1
@@ -26,15 +32,19 @@ test("NVIDIA pending responses poll the same request without resubmitting infere
       "synthetic",
       [],
       AbortSignal.timeout(5000),
+      async () => {
+        reservations++;
+      },
     );
     assert.deepEqual(r.output, { changes: [] });
     assert.equal(urls.length, 2);
+    assert.equal(reservations, 1);
     assert.ok(urls[1].endsWith("/status/12345678-1234-1234-1234-123456789abc"));
   } finally {
     globalThis.fetch = original;
   }
 });
-test("provider rate limiting keeps a bounded retry delay and does not expose response bodies", async () => {
+test("provider rate limiting respects the provider retry delay and does not expose response bodies", async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async () =>
     new Response("synthetic-secret", {
@@ -47,10 +57,18 @@ test("provider rate limiting keeps a bounded retry delay and does not expose res
       (e: any) =>
         e instanceof ModelError &&
         e.code === "AI_HTTP_429" &&
-        e.retryAfter === 3600 &&
+        e.retryAfter === 99999 &&
         !e.message.includes("synthetic-secret"),
     );
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("Retry-After accepts seconds and HTTP dates without shortening provider cooldowns", () => {
+  const now = Date.UTC(2026, 8, 13);
+  assert.equal(parseRetryAfter("120", now), 120);
+  assert.equal(parseRetryAfter(new Date(now + 90000).toUTCString(), now), 90);
+  assert.equal(parseRetryAfter(new Date(now - 90000).toUTCString(), now), 0);
+  assert.equal(parseRetryAfter("invalid", now), 60);
 });

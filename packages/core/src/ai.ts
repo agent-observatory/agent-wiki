@@ -79,11 +79,19 @@ export class ModelError extends Error {
     super(code);
   }
 }
+export function parseRetryAfter(value: string | null, now = Date.now()) {
+  if (!value) return 60;
+  const seconds = /^\d+(?:\.\d+)?$/.test(value.trim())
+    ? Number(value)
+    : (Date.parse(value) - now) / 1000;
+  return Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : 60;
+}
 export async function callModel(
   config: AiConfig,
   secret: string,
   messages: unknown[],
   signal: AbortSignal,
+  beforePoll?: () => Promise<void>,
 ) {
   validateEndpoint(config);
   let response = await fetch(
@@ -128,6 +136,8 @@ export async function callModel(
         signal.addEventListener("abort", aborted, { once: true });
         if (signal.aborted) aborted();
       });
+      await beforePoll?.();
+      signal.throwIfAborted();
       response = await fetch(
         config.baseUrl.replace(/\/$/, "") + "/status/" + id,
         {
@@ -143,11 +153,11 @@ export async function callModel(
     await response.body?.cancel();
     throw new ModelError(
       "AI_HTTP_" + response.status,
-      response.status === 429 || response.status >= 500,
-      Math.min(
-        3600,
-        Math.max(30, Number(response.headers.get("retry-after")) || 60),
-      ),
+      response.status === 202 ||
+        response.status === 408 ||
+        response.status === 429 ||
+        response.status >= 500,
+      parseRetryAfter(response.headers.get("retry-after")),
     );
   }
   const chunks: Uint8Array[] = [];

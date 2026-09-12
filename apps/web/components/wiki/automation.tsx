@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Save, RefreshCw, Play, Pause, Cpu, Activity } from "lucide-react";
+import { RefinementProgress, waitingReasons } from "./refinement-progress";
+import { Progress } from "@/components/ui/progress";
 import { api, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +73,7 @@ export function Automation() {
   const base = "/api/workspaces/" + workspaceId;
   const [tab, setTab] = useState("jobs");
   const settings = useApi(base + "/ai-settings"),
-    jobs = useApi(base + "/refinements");
+    jobs = useApi(base + "/refinements", 15000);
   const [config, setConfig] = useState<Config>(),
     [apiKey, setKey] = useState(""),
     [busy, setBusy] = useState(false),
@@ -131,6 +133,7 @@ export function Automation() {
           </Button>
         }
       />
+      <RefinementProgress data={jobs.data.progress} />
       <div className="grid gap-4 sm:grid-cols-3 mb-8">
         <section className="rounded-lg border p-5">
           <p className="text-sm text-muted-foreground">자동 정제</p>
@@ -144,7 +147,7 @@ export function Automation() {
           </div>
         </section>
         <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">오늘 호출 / 한도</p>
+          <p className="text-sm text-muted-foreground">오늘 정제 시도 / 한도</p>
           <p className="mt-3 text-xl font-semibold">
             {jobs.data.today.calls} / {settings.data.dailyCalls}
           </p>
@@ -381,6 +384,10 @@ export function Automation() {
           </form>
         </TabsContent>
         <TabsContent value="jobs" className="pt-6">
+          <p className="mb-4 text-xs text-muted-foreground">
+            전체 {jobs.data.progress.summary.total.toLocaleString()}자료 중{" "}
+            {jobs.data.items.length}개 표시 · 진행·재시도·확인 필요 작업 우선
+          </p>
           {!jobs.data.items.length ? (
             <Empty>수집한 원문이 들어오면 정제 작업이 표시됩니다.</Empty>
           ) : (
@@ -392,14 +399,14 @@ export function Automation() {
                     <TableHead>상태</TableHead>
                     <TableHead>청크 반영</TableHead>
                     <TableHead>시도</TableHead>
-                    <TableHead>최근 변경</TableHead>
+                    <TableHead>다음 시도 / 최근 변경</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {jobs.data.items.map((job: any) => (
                     <TableRow key={job.id}>
-                      <TableCell className="max-w-sm">
+                      <TableCell className="max-w-xs whitespace-normal break-words">
                         <Link
                           className="underline"
                           href={`/workspaces/${workspaceId}/sources/${job.source_id}`}
@@ -429,15 +436,66 @@ export function Automation() {
                               : "secondary"
                           }
                         >
-                          {statuses[job.status]}
+                          {job.status === "failed"
+                            ? "확인 필요"
+                            : job.status === "pending" && job.error_code
+                              ? "재시도 대기"
+                              : statuses[job.status]}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {job.chunk_index} / {job.chunk_count || "분할 대기"}
+                        {job.chunk_count ? (
+                          <div className="min-w-28 space-y-2">
+                            <span className="text-xs tabular-nums">
+                              {job.chunk_index} / {job.chunk_count}
+                            </span>
+                            <Progress
+                              value={(job.chunk_index / job.chunk_count) * 100}
+                              aria-label={`${job.name} 청크 반영률`}
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            분할 대기
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{job.attempts}</TableCell>
                       <TableCell className="text-xs">
-                        <When value={job.updated_at} />
+                        {job.status === "pending" ? (
+                          <div className="space-y-1">
+                            <p>
+                              {
+                                waitingReasons[
+                                  jobs.data.progress.schedule.reason
+                                ]
+                              }
+                            </p>
+                            {!["paused", "key_missing"].includes(
+                              jobs.data.progress.schedule.reason,
+                            ) &&
+                              (new Date(job.available_at).getTime() >
+                                Date.now() ||
+                                jobs.data.progress.schedule.nextAttemptAt) && (
+                                <p className="text-muted-foreground">
+                                  <When
+                                    value={new Date(
+                                      Math.max(
+                                        new Date(job.available_at).getTime(),
+                                        new Date(
+                                          jobs.data.progress.schedule
+                                            .nextAttemptAt ?? 0,
+                                        ).getTime(),
+                                      ),
+                                    ).toISOString()}
+                                  />{" "}
+                                  이후
+                                </p>
+                              )}
+                          </div>
+                        ) : (
+                          <When value={job.updated_at} />
+                        )}
                       </TableCell>
                       <TableCell>
                         {job.status === "failed" && (
