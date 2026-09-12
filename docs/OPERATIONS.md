@@ -12,6 +12,8 @@
 
 ## 첫 버전 요약
 
+웹 디자인은 OpenGateway Docs를 참고해 중성 검정·회색과 파란 포인트, 구분선 중심의 목록·본문으로 갱신했다. 앱 `1b633cf`의 [CI·배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34684581721)가 성공했다. 로컬 합성 자료로 1440px·390px의 다크/라이트와 가로 넘침 없음, 주요 글자 대비를 확인했으며 운영에서도 기존 지식 5개와 역사 문서의 새 화면을 확인했다. 문서 그림의 색상 규칙은 유지한다.
+
 첫 버전을 OCI에 배포했다. **https://agent-wiki.duckdns.org 에서 HTTPS 접속·GitHub 소유자 로그인을 확인했다.** 비용·오류 모니터링은 아래 별도 검증 기록을 따른다. 실제 NVIDIA 추출 성공은 미완료 항목이다.
 
 ## 현재 상태
