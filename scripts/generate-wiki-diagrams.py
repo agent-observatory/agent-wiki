@@ -263,7 +263,7 @@ end('docs/assets/wiki-curation-evaluation.svg')
 
 canvas(1560,760,'원문은 그대로 · 기억은 다시 만들기','L1과 수집 위치는 유지한다. 정제를 중지하고 실행 세대를 바꿔 기존 실행의 쓰기를 막는다. 재생성할 L1 범위를 고정하고 L2·L3의 파생 상태를 초기화한 뒤 같은 정제 알고리즘으로 다시 처리한다. 새로 수집한 증분은 고정 범위 뒤에 처리한다.')
 legend(1250,78,'재생성 흐름','ingest')
-items=[('정제 중지',['진행 작업 종료 확인','이전 실행의 반영 차단'],'ops'),('입력 범위 고정',['불변 L1 · 원문 ID 유지','원래 순서·근거로 재생'],'data'),('파생 상태 초기화',['L2 · L3 · 세션 맥락','정제 위치 · 조회 캐시'],'ingest'),('새 실행으로 재정제',['알고리즘·모델 설정 고정','같은 증분 흐름으로 처리'],'ingest')]
+items=[('정제 중지',['진행 작업 종료 확인','이전 실행의 반영 차단'],'ops'),('입력 범위 고정',['불변 L1 · 원문 ID 유지','원래 순서·근거로 재생'],'data'),('파생 상태 초기화',['지식 · 근거 · 정제 결과','원문부터 다시 대기'],'ingest'),('새 실행으로 재정제',['재개하면 정제 시작','호출 이력·대기 시간 유지'],'ingest')]
 for i,(title,lines,role) in enumerate(items):
  x=40+i*380;card(x,240,340,170,title,lines,role)
  if i<3:path(f'M{x+340} 325 H{x+380}',flow='ingest')
@@ -272,5 +272,5 @@ text(64,531,'유지하는 것',FONT['group'],True,'#FFFFFF')
 card(64,568,450,82,layer_label(1),[],'data','oracle')
 card(537,568,450,82,'Collector 수신 위치',[],'ops','tabler-cloud-upload')
 card(1010,568,486,82,'Workspace · 로그인 · AI 설정',[],'ops','tabler-clipboard-check')
-text(40,722,'초기 범위는 Workspace 전체 · 새 증분은 계속 보관하고 재생성 범위 뒤에 처리',FONT['body'])
+text(40,722,'개인 위키 · Workspace 전체를 다시 만들고 원문·수집 위치·호출 이력은 유지',FONT['body'])
 end('docs/assets/wiki-curation-rebuild.svg')

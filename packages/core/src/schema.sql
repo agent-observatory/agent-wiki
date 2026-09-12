@@ -33,6 +33,8 @@ ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_plan jsonb;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_index int NOT NULL DEFAULT 0;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DEFAULT 0;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_results jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS generation int NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS curation_rebuilds(id uuid NOT NULL,workspace_id uuid NOT NULL REFERENCES workspaces(id),result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
 CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
@@ -50,7 +52,7 @@ ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations'] LOOP
+ FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);

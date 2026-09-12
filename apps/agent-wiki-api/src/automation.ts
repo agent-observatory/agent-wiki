@@ -1,3 +1,4 @@
+import { rebuildCuration } from "./curation-rebuild.js";
 import {
   refinementSessions,
   retryRefinementSession,
@@ -220,6 +221,14 @@ export function registerAutomation(
       ).rows[0];
       return { enabled: body.enabled, version: row.version };
     });
+  });
+  app.post(base + "/curation/rebuild", (r) => {
+    sessionOnly(r);
+    const body = z
+      .object({ requestId: z.string().uuid() })
+      .strict()
+      .parse(r.body);
+    return scoped(r, (c, ws) => rebuildCuration(c, ws, body.requestId));
   });
   app.get(base + "/refinement-sessions", (r) => {
     sessionOnly(r);

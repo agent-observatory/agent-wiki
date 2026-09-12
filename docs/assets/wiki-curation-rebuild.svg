@@ -38,8 +38,8 @@
   <path d="M14 21v-2" />
   <path d="M10 21v-2" />
 </svg>
-<text x="854" y="320" font-size="18" font-weight="400" fill="#172C4B">L2 · L3 · 세션 맥락</text>
-<text x="820" y="351" font-size="18" font-weight="400" fill="#172C4B">정제 위치 · 조회 캐시</text>
+<text x="854" y="320" font-size="18" font-weight="400" fill="#172C4B">지식 · 근거 · 정제 결과</text>
+<text x="820" y="351" font-size="18" font-weight="400" fill="#172C4B">원문부터 다시 대기</text>
 <path d="M1140 325 H1180" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="1180" y="240" width="340" height="170" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <text x="1200" y="282" font-size="20" font-weight="700" fill="#172C4B">새 실행으로 재정제</text>
@@ -55,8 +55,8 @@
   <path d="M14 21v-2" />
   <path d="M10 21v-2" />
 </svg>
-<text x="1234" y="320" font-size="18" font-weight="400" fill="#172C4B">알고리즘·모델 설정 고정</text>
-<text x="1200" y="351" font-size="18" font-weight="400" fill="#172C4B">같은 증분 흐름으로 처리</text>
+<text x="1234" y="320" font-size="18" font-weight="400" fill="#172C4B">재개하면 정제 시작</text>
+<text x="1200" y="351" font-size="18" font-weight="400" fill="#172C4B">호출 이력·대기 시간 유지</text>
 <rect x="40" y="495" width="1480" height="180" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M46 495 H1514 Q1520 495 1520 501 V549 H40 V501 Q40 495 46 495" fill="#344256"/>
 <text x="64" y="531" font-size="24" font-weight="700" fill="#FFFFFF">유지하는 것</text>
@@ -77,5 +77,5 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="40" y="722" font-size="18" font-weight="400" fill="#172C4B">초기 범위는 Workspace 전체 · 새 증분은 계속 보관하고 재생성 범위 뒤에 처리</text>
+<text x="40" y="722" font-size="18" font-weight="400" fill="#172C4B">개인 위키 · Workspace 전체를 다시 만들고 원문·수집 위치·호출 이력은 유지</text>
 </g></svg>

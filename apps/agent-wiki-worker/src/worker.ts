@@ -52,6 +52,9 @@ export async function runOne(
     if (signal.aborted) return false;
     const ws = space.id;
     const task = await tx(owner, ws, async (c) => {
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        ws + "settings",
+      ]);
       const settings = (
         await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
       ).rows[0];
@@ -90,6 +93,7 @@ export async function runOne(
       const runId = randomUUID();
       const diagnostics = {
         version: 1,
+        generation: job.generation,
         stage: job.output ? "publish" : "prepare",
         attempt: job.attempts + 1,
         minIntervalMs: 3000,
@@ -185,10 +189,11 @@ export async function runOne(
             task.config.maxInputTokens
           )
             throw new ModelError("AI_INPUT_LIMIT");
-          await c.query(
-            "UPDATE refinement_jobs SET chunk_plan=$3,chunk_count=$4 WHERE workspace_id=$1 AND id=$2",
-            [ws, task.id, JSON.stringify(plan), plan.chunks.length],
+          const planned = await c.query(
+            "UPDATE refinement_jobs SET chunk_plan=$3,chunk_count=$4 WHERE workspace_id=$1 AND id=$2 AND run_id=$5 AND status='running'",
+            [ws, task.id, JSON.stringify(plan), plan.chunks.length, task.runId],
           );
+          if (!planned.rowCount) throw new ModelError("LEASE_LOST");
           return input;
         });
         await tx(owner, ws, (c) =>
@@ -354,7 +359,13 @@ export async function runOne(
             skillVersion: PROMPT_VERSION,
           },
           reason: "원격 정제 · 실행 " + task.runId,
-          idempotencyKey: "refine-" + task.id + "-" + task.chunk_index,
+          idempotencyKey:
+            "refine-" +
+            task.id +
+            "-generation-" +
+            task.generation +
+            "-" +
+            task.chunk_index,
         };
         await tx(owner, ws, (c) =>
           c.query(
@@ -371,7 +382,7 @@ export async function runOne(
             [ws, task.id],
           )
         ).rows[0];
-        if (job.status !== "running" || job.run_id !== task.runId)
+        if (!job || job.status !== "running" || job.run_id !== task.runId)
           throw new ModelError("LEASE_LOST");
         const result = payload.changes.length
           ? await publish(c, ws, payload, { userId: owner, scope: "publish" })

@@ -60,6 +60,8 @@ export function useApi<T = any>(url: string | null, refreshMs = 0) {
 const messages: Record<string, string> = {
   AI_ENDPOINT_NOT_ALLOWED:
     "허용된 API 호스트를 입력하세요. 추가 호스트는 서버에서 허용해야 합니다.",
+  CURATION_PAUSE_REQUIRED: "자동 정제를 먼저 중지해 주세요.",
+  CURATION_STILL_RUNNING: "진행 중인 정제가 마무리된 뒤 다시 시도해 주세요.",
   AI_KEY_REQUIRED: "자동 정제를 활성화하려면 API 키가 필요합니다.",
   AI_ENCRYPTION_NOT_CONFIGURED: "서버의 API 키 암호화 설정이 필요합니다.",
   REVISION_CONFLICT:

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Save, RefreshCw, Play, Pause, Cpu, Activity } from "lucide-react";
 import { RefinementProgress, waitingReasons } from "./refinement-progress";
+import { CurationRebuild } from "./curation-rebuild";
 import { RefinementSessions } from "./refinement-sessions";
 import { api, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -639,6 +640,15 @@ function AutomationContent() {
           />
         </TabsContent>
       </Tabs>
+      <CurationRebuild
+        base={base}
+        enabled={liveControl.enabled}
+        running={jobs.data.progress.summary.running}
+        onRebuilt={() => {
+          jobs.reload();
+          router.refresh();
+        }}
+      />
     </>
   );
 }
