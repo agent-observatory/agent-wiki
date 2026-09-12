@@ -40,7 +40,7 @@ export function Login() {
         <h1 className="text-3xl font-bold">Agent Wiki</h1>
         <p className="text-muted-foreground leading-7">
           에이전트가 남긴 결정과 근거를 보관하고, 다음 작업에서 다시 꺼내 쓰는
-          개인 도서관입니다.
+          개인 위키입니다.
         </p>
         <Button asChild>
           <a href="/api/auth/github">GitHub로 로그인</a>

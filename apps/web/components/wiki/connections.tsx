@@ -188,7 +188,7 @@ export function Guide() {
   return (
     <>
       <Heading
-        title="이 도서관을 쓰는 방법"
+        title="위키 사용법"
         description="웹을 계속 켜 둘 필요는 없습니다. 작업하는 에이전트가 읽고 기록합니다."
       />
       <div className="max-w-3xl space-y-8">
