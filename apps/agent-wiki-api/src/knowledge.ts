@@ -1,3 +1,8 @@
+import {
+  sourceInfo,
+  collectionSummary,
+  collectionHistory,
+} from "./source-history.js";
 import { pagination, paged } from "./pagination.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
@@ -380,16 +385,21 @@ export function registerKnowledge(
     }),
   );
   app.get(base + "/source-records/:id/info", (r) =>
-    scoped(r, async (c, ws) =>
-      requireRow(
-        (
-          await c.query(
-            "SELECT id,name,kind,origin,revision,line_count,metadata,masked,created_at FROM sources WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL",
-            [ws, uuid.parse(params(r).id)],
-          )
-        ).rows[0],
-      ),
-    ),
+    scoped(r, async (c, ws) => {
+      const source = await sourceInfo(c, ws, uuid.parse(params(r).id));
+      return { ...source, collection: await collectionSummary(c, ws, source) };
+    }),
+  );
+  app.get(base + "/source-records/:id/collection-history", (r) =>
+    scoped(r, async (c, ws) => {
+      const source = await sourceInfo(c, ws, uuid.parse(params(r).id));
+      return collectionHistory(
+        c,
+        ws,
+        source,
+        pagination(r.query, "historyPage"),
+      );
+    }),
   );
   app.get(base + "/source-records/:id/session-text", (r) =>
     scoped(r, async (c, ws) => {

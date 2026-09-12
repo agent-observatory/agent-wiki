@@ -4,7 +4,7 @@ import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApi } from "@/lib/api";
@@ -71,6 +71,31 @@ export function SourceDetail() {
         {layerLabel("L1")}
       </Link>
       <Heading title={s.name} description="보관된 기록과 근거를 확인합니다." />
+      <dl className="mb-6 flex flex-wrap gap-x-8 gap-y-4 border-y py-4 text-sm">
+        <div>
+          <dt className="text-muted-foreground">수집 횟수</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {s.collection.count.toLocaleString()}회
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">마지막 수집</dt>
+          <dd className="mt-1 font-medium">
+            {s.collection.last_collected_at ? (
+              <When value={s.collection.last_collected_at} />
+            ) : (
+              "기록 없음"
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">누적 기록량</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {s.collection.line_count.toLocaleString()}줄
+          </dd>
+        </div>
+      </dl>
+      <SourceHistory key={id} base={base} />
       <div className="mb-6 space-y-2 text-sm text-muted-foreground">
         <Badge variant="outline">보관 Version {s.revision}</Badge>
         <p className="break-all">원래 위치: {s.origin || "미기록"}</p>
@@ -92,12 +117,81 @@ export function SourceDetail() {
         )}
       </div>
       <SourceReader
-        key={id + q.toString()}
+        key={[id, q.get("start"), q.get("end"), q.get("revision")].join(":")}
         base={base}
         evidence={q.has("start") ? q.toString() : null}
         revision={q.get("revision") ?? "1"}
       />
     </>
+  );
+}
+type CollectionHistory = {
+  items: {
+    id: string;
+    collected_at: string;
+    line_count: number;
+    initial: boolean;
+  }[];
+  pagination: { page: number; pageSize: number; hasNext: boolean };
+};
+function SourceHistory({ base }: { base: string }) {
+  const query = useSearchParams();
+  const [opened, setOpened] = useState(false);
+  const { data, error } = useApi<CollectionHistory>(
+    opened
+      ? `${base}/collection-history?historyPage=${query.get("historyPage") ?? "1"}&pageSize=${query.get("pageSize") ?? "25"}`
+      : null,
+  );
+  return (
+    <section className="mb-6 border-b pb-4">
+      <Button
+        variant="ghost"
+        className="-ml-3"
+        aria-expanded={opened}
+        aria-controls="collection-history"
+        onClick={() => setOpened(!opened)}
+      >
+        <ChevronDown
+          className={`size-4 transition-transform ${opened ? "rotate-180" : ""}`}
+        />
+        수집 이력
+      </Button>
+      {opened && (
+        <div id="collection-history" className="pt-2">
+          {error ? (
+            <Failure error={error} />
+          ) : !data ? (
+            <Loading />
+          ) : !data.items.length ? (
+            <Empty>수집 이력이 없습니다.</Empty>
+          ) : (
+            <>
+              <ul className="divide-y">
+                {data.items.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      <When value={item.collected_at} />
+                    </span>
+                    {item.initial && <Badge variant="outline">최초 수집</Badge>}
+                    <span className="tabular-nums">
+                      {item.line_count.toLocaleString()}줄 추가
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Pagination
+                data={data.pagination}
+                pageKey="historyPage"
+                label="수집 이력"
+              />
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 function SourceReader({

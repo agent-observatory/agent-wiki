@@ -194,6 +194,36 @@ test("direct upload does not advance until verified; only appended bytes travel;
   assert.ok(rows.every((x) => x.metadata.rawUploadId));
   for (const row of rows)
     assert.ok(!(await getSource(row.object_key)).includes("synthetic-secret"));
+  const session = (
+    await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/source-sessions`,
+      headers,
+    })
+  ).json().items[0];
+  const summary = (
+    await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/source-records/${session.id}/info`,
+      headers,
+    })
+  ).json().collection;
+  assert.equal(
+    summary.count,
+    2,
+    "duplicate machine upload is not a new collection",
+  );
+  assert.equal(summary.line_count, session.line_count);
+  const history = (
+    await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/source-records/${session.id}/collection-history`,
+      headers,
+    })
+  ).json();
+  assert.equal(history.items.length, 2);
+  assert.equal(history.items[0].initial, false);
+  assert.equal(history.items[1].initial, true);
   const info = await stat(file);
   await writeFile(
     file,
@@ -524,4 +554,99 @@ test("every source reference keeps its cumulative projection offset across batch
     assert.equal(hash(text), source.content_hash);
     assert.equal(text.split("\n").length, source.line_count);
   }
+});
+
+test("collection history counts committed uploads, pages newest first, and reads metadata only", async () => {
+  const session = randomUUID(),
+    sourceId = randomUUID();
+  const otherWs = (
+    await app.inject({
+      method: "POST",
+      url: "/api/workspaces",
+      headers,
+      payload: { name: "Other history workspace" },
+    })
+  ).json().id;
+  await tx(owner, ws, async (c) => {
+    await c.query(
+      "INSERT INTO collection_streams(workspace_id,id,client,session_id,name) VALUES($1,$2,'codex',$2,'History')",
+      [ws, session],
+    );
+    await c.query(
+      "INSERT INTO collection_origins(workspace_id,stream_id,id,machine,file_id,generation) VALUES($1,$2,$2,'test','test',$3)",
+      [ws, session, randomUUID()],
+    );
+    // 27 successful increments, two unfinished/failed uploads, and one completed
+    // duplicate-only upload. An increment split into two L1 records counts once.
+    for (let i = 0; i < 30; i++) {
+      const upload = randomUUID(),
+        date = new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString();
+      const status = i === 27 ? "queued" : i === 28 ? "failed" : "completed";
+      await c.query(
+        "INSERT INTO collection_uploads(id,workspace_id,stream_id,origin_id,fingerprint,manifest,compressed_bytes,status,created_at,updated_at) VALUES($1::uuid,$2,$3,$3,$1::text,'{}',1,$4,$5,$5)",
+        [upload, ws, session, status, date],
+      );
+      if (i === 29) continue;
+      for (let part = 0; part < (i === 0 ? 2 : 1); part++) {
+        await c.query(
+          "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked,metadata,created_at) VALUES($1::uuid,$2,'History','conversation',$3,'hash','hash','intentionally-missing-object',10,$1::text,true,$4,$5)",
+          [
+            i === 0 && part === 0 ? sourceId : randomUUID(),
+            ws,
+            "codex:" + session,
+            JSON.stringify({ rawUploadId: upload }),
+            date,
+          ],
+        );
+      }
+    }
+  });
+  const base = `/api/workspaces/${ws}/source-records/${sourceId}`;
+  const get = async (path: string) => {
+    const r = await app.inject({ method: "GET", url: base + path, headers });
+    assert.equal(r.statusCode, 200, r.body);
+    return r.json();
+  };
+  const summary = (await get("/info")).collection;
+  assert.equal(summary.count, 27);
+  assert.equal(summary.line_count, 280);
+  assert.equal(summary.last_collected_at, "2026-01-01T00:26:00.000Z");
+  const first = await get("/collection-history");
+  assert.equal(first.items.length, 25);
+  assert.equal(first.pagination.hasNext, true);
+  assert.ok(first.items.every((x: any) => !x.initial));
+  assert.equal(first.items[0].collected_at, summary.last_collected_at);
+  const second = await get("/collection-history?historyPage=2");
+  assert.equal(second.items.length, 2);
+  assert.equal(second.pagination.hasNext, false);
+  assert.equal(second.items[1].initial, true);
+  assert.equal(second.items[1].line_count, 20);
+  assert.equal(
+    new Set([...first.items, ...second.items].map((x: any) => x.id)).size,
+    27,
+  );
+  assert.equal(
+    (await get("/collection-history?historyPage=3")).items.length,
+    0,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "GET",
+        url: base + "/collection-history?historyPage=0",
+        headers,
+      })
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "GET",
+        url: `/api/workspaces/${otherWs}/source-records/${sourceId}/collection-history`,
+        headers,
+      })
+    ).statusCode,
+    404,
+  );
 });

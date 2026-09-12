@@ -208,6 +208,10 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET/PUT /ai-settings` | 웹 소유자 세션 전용 설정. 변경 버전 검사, 키 읽기 금지 |
 | `GET /refinements` | 작업·실행·오늘 사용량·수집 상태 |
 | `POST /refinements/:id/retry` | 실패 작업 재시도. 이전 실행 보존 |
+| `GET /source-sessions` | 세션별로 묶은 수집 자료 목록 |
+| `GET /source-records/:id/info` | 보관 정보·확정 수집 횟수·마지막 수집·누적 줄 수 |
+| `GET /source-records/:id/collection-history` | 확정 업로드별 최신순 이력. `historyPage`·`pageSize` 페이지네이션 |
+| `GET /source-records/:id/session-text` | 요청할 때 이어진 세션 기록 읽기 |
 | `POST /source-records` | 수동 원문 보관 |
 | `GET /source-records/:id/revisions/:revision` | 고정 원문과 줄 범위 |
 | `POST /publications` | 멱등 키·입력 개정·지식 변경·근거 → 반영 개정 목록 |
