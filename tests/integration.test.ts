@@ -21,6 +21,7 @@ const headers = {
   "content-type": "application/json",
 };
 before(async () => {
+  process.env.OWNER_GITHUB_ID = "test-owner";
   await admin.query(
     "INSERT INTO users(id,login) VALUES('test-owner','test-owner'),('other-owner','other-owner') ON CONFLICT DO NOTHING",
   );
@@ -72,6 +73,105 @@ test("authentication, CSRF and Workspace isolation", async () => {
   );
   assert.equal(rows.rowCount, 0);
 });
+test("private wiki rejects existing non-owner sessions and API keys", async () => {
+  const outsider = randomUUID();
+  const outsiderKey = randomUUID();
+  await admin.query(
+    "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,'other-owner',now()+interval '1 hour')",
+    [hash(outsider)],
+  );
+  await admin.query(
+    "INSERT INTO api_keys(id,token_hash,user_id,workspace_id,name,scope) VALUES($1,$2,'other-owner',$3,'synthetic','read')",
+    [randomUUID(), hash(outsiderKey), other],
+  );
+  const denied = await app.inject({
+    method: "POST",
+    url: "/api/workspaces",
+    headers: { ...headers, cookie: "wiki_session=" + outsider },
+    payload: { name: "Must not be created" },
+  });
+  assert.equal(denied.statusCode, 403);
+  assert.equal(denied.json().error, "OWNER_ONLY");
+  const keyDenied = await app.inject({
+    url: "/api/workspaces",
+    headers: { authorization: "Bearer " + outsiderKey },
+  });
+  assert.equal(keyDenied.statusCode, 403);
+  assert.equal(
+    (
+      await admin.query(
+        "SELECT count(*) FROM workspaces WHERE owner_id='other-owner' AND name='Must not be created'",
+      )
+    ).rows[0].count,
+    "0",
+  );
+  assert.equal((await app.inject({ url: "/api/me", headers })).statusCode, 200);
+});
+
+test("OAuth checks the owner before creating a user or session", async () => {
+  process.env.GITHUB_CLIENT_ID = "synthetic-client";
+  process.env.GITHUB_CLIENT_SECRET = "synthetic-secret";
+  const oauthApp = await buildApp();
+  delete process.env.GITHUB_CLIENT_ID;
+  delete process.env.GITHUB_CLIENT_SECRET;
+  const originalFetch = globalThis.fetch;
+  try {
+    await oauthApp.ready();
+    oauthApp.githubOAuth2.getAccessTokenFromAuthorizationCodeFlow = async () =>
+      ({ token: { access_token: "synthetic-access" } }) as never;
+    const before = await admin.query(
+      "SELECT (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM sessions) AS sessions",
+    );
+    globalThis.fetch = async () =>
+      Response.json({ id: "outsider-oauth", login: "outsider" });
+    const denied = await oauthApp.inject(
+      "/api/auth/github/callback?code=synthetic",
+    );
+    assert.equal(denied.statusCode, 403);
+    assert.equal(denied.json().error, "OWNER_ONLY");
+    assert.equal(denied.headers["set-cookie"], undefined);
+    assert.deepEqual(
+      (
+        await admin.query(
+          "SELECT (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM sessions) AS sessions",
+        )
+      ).rows,
+      before.rows,
+    );
+    globalThis.fetch = async () =>
+      Response.json({ id: "test-owner", login: "test-owner" });
+    const accepted = await oauthApp.inject(
+      "/api/auth/github/callback?code=synthetic",
+    );
+    assert.equal(accepted.statusCode, 302);
+    assert.ok(String(accepted.headers["set-cookie"]).includes("wiki_session="));
+  } finally {
+    globalThis.fetch = originalFetch;
+    await oauthApp.close();
+  }
+});
+
+test("missing owner configuration fails closed including OAuth entry", async () => {
+  delete process.env.OWNER_GITHUB_ID;
+  const unconfigured = await buildApp();
+  process.env.OWNER_GITHUB_ID = "test-owner";
+  try {
+    for (const url of [
+      "/api/me",
+      "/api/workspaces",
+      "/api/auth/github",
+      "/api/auth/github/callback?code=synthetic",
+    ]) {
+      const r = await unconfigured.inject({ url, headers });
+      assert.equal(r.statusCode, 503, url);
+      assert.equal(r.json().error, "OWNER_NOT_CONFIGURED");
+    }
+    assert.equal((await unconfigured.inject("/healthz")).statusCode, 200);
+  } finally {
+    await unconfigured.close();
+  }
+});
+
 test("edits are revision-checked and glossary aliases are searchable", async () => {
   const r = await app.inject({
     method: "POST",

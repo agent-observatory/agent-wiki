@@ -30,6 +30,7 @@ test("real SIGTERM drains an accepted DB request before process exit", async () 
       env: {
         ...process.env,
         PORT: "3210",
+        OWNER_GITHUB_ID: "shutdown-owner",
         PGAPPNAME: "wiki-shutdown-test",
         GITHUB_CLIENT_ID: "",
         GITHUB_CLIENT_SECRET: "",

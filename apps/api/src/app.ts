@@ -44,6 +44,11 @@ declare module "fastify" {
   }
 }
 export async function buildApp() {
+  const ownerId = process.env.OWNER_GITHUB_ID?.trim();
+  const requireOwner = (id: string) => {
+    if (!ownerId) throw new AppError(503, "OWNER_NOT_CONFIGURED");
+    if (id !== ownerId) throw new AppError(403, "OWNER_ONLY");
+  };
   const app = Fastify({
     bodyLimit: 262144,
     logger: false,
@@ -108,8 +113,7 @@ export async function buildApp() {
       });
       if (!res.ok) throw new AppError(502, "GITHUB_UNAVAILABLE");
       const user = (await res.json()) as { id: number; login: string };
-      if (String(user.id) !== process.env.OWNER_GITHUB_ID)
-        throw new AppError(403, "OWNER_ONLY");
+      requireOwner(String(user.id));
       await pool.query(
         "INSERT INTO users(id,login) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET login=EXCLUDED.login",
         [String(user.id), user.login],
@@ -133,6 +137,8 @@ export async function buildApp() {
     reply
       .header("X-Content-Type-Options", "nosniff")
       .header("Cache-Control", "no-store");
+    if (!ownerId && req.url !== "/healthz" && req.url !== "/readyz")
+      throw new AppError(503, "OWNER_NOT_CONFIGURED");
     if (
       req.url === "/healthz" ||
       req.url === "/readyz" ||
@@ -167,6 +173,7 @@ export async function buildApp() {
       if (!row) throw new AppError(401, "SESSION_EXPIRED");
       req.identity = { userId: row.user_id, scope: "session", tokenHash: h };
     }
+    requireOwner(req.identity.userId);
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
       if (req.identity.scope === "session" && req.headers.origin !== appUrl)
         throw new AppError(403, "ORIGIN_REJECTED");

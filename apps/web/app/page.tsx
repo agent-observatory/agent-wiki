@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import ThemeToggle from "./theme-toggle";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -320,8 +321,8 @@ export default function Wiki() {
     return (
       <main className="landing">
         <div className="brand">
-          <BookOpen /> Agent Wiki{" "}
-          <span className="pill">PERSONAL KNOWLEDGE</span>
+          <BookOpen /> Agent Wiki <span className="pill">개인 위키</span>
+          <ThemeToggle />
         </div>
         <div className="landing-grid">
           <section>
@@ -337,10 +338,10 @@ export default function Wiki() {
               당신의 에이전트와 함께 사용하는 지식 공간입니다.
             </p>
             <a className="button primary" href="/api/auth/github">
-              GitHub로 시작하기 <ArrowUpRight size={18} />
+              소유자 GitHub 로그인 <ArrowUpRight size={18} />
             </a>
             <p className="muted small">
-              개인 공간 · 등록된 계정만 접근할 수 있어요
+              소유자 전용 공간이에요. 다른 계정의 가입은 받지 않아요.
             </p>
           </section>
           <div className="sample">
@@ -470,7 +471,10 @@ export default function Wiki() {
       <main className="main">
         <header>
           <div className="breadcrumb">
-            {currentSpace?.name ?? "나의 공간"} <ChevronRight size={14} />
+            <span title={currentSpace?.name}>
+              {currentSpace?.name ?? "나의 공간"}
+            </span>{" "}
+            <ChevronRight size={14} />
             <b>
               {view === "wiki"
                 ? "지식 공간"
@@ -479,9 +483,12 @@ export default function Wiki() {
                   : "에이전트 연결"}
             </b>
           </div>
-          <span className="pill">
-            <span className="dot" /> PERSONAL WORKSPACE
-          </span>
+          <div className="header-actions">
+            <span className="pill">
+              <span className="dot" /> 개인 위키
+            </span>
+            <ThemeToggle />
+          </div>
         </header>
         {error && (
           <div role="alert" className="alert">
