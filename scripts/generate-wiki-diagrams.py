@@ -1,7 +1,15 @@
 # Generate editable Wiki architecture SVGs. Run from the repository root.
 from pathlib import Path
 from html import escape
-import re, xml.etree.ElementTree as ET
+import argparse, re, shutil, subprocess, xml.etree.ElementTree as ET
+parser = argparse.ArgumentParser(description="Generate editable Wiki SVGs and optional high-resolution PNG previews.")
+parser.add_argument("--png-dir", type=Path, help="Also render PNG previews here using rsvg-convert.")
+parser.add_argument("--png-scale", type=float, default=3, help="PNG resolution multiplier (default: 3).")
+args = parser.parse_args()
+if not 1 <= args.png_scale <= 4:
+ parser.error("--png-scale must be between 1 and 4")
+if args.png_dir and not shutil.which("rsvg-convert"):
+ parser.error("PNG previews require rsvg-convert (Homebrew: librsvg)")
 ET.register_namespace('', 'http://www.w3.org/2000/svg')
 p=[]
 def a(s):p.append(s)
@@ -39,7 +47,7 @@ def canvas(w,h,title,desc):
  global p
  p=[]
  a(f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><defs></defs><g font-family="Noto Sans KR, sans-serif"><rect width="{w}" height="{h}" fill="#FFFFFF"/>')
- text(40,42,'AGENT WIKI / TARGET ARCHITECTURE',15,True,'#526A86')
+ text(40,42,'AGENT WIKI / ARCHITECTURE',15,True,'#526A86')
  text(40,98,title,34,True)
  a(f'<path d="M40 137 H{w-40}" stroke="#172C4B" stroke-width="2"/>')
 def card(x,y,w,h,title,lines,role='app',ico=None):
@@ -48,7 +56,7 @@ def card(x,y,w,h,title,lines,role='app',ico=None):
  text(x+(58 if ico else 20),y+42,title,23,True)
  for i,line in enumerate(lines):text(x+20,y+80+i*31,line,18)
 
-canvas(1940,1390,'작업은 그대로 · 수집과 정제는 별도로','설계안. 작업 에이전트와 읽기 전용 Collector를 분리한다. Collector와 별도 백그라운드 정제는 미구현이며 정제 실행 위치와 모델 연결은 미정이다. DNS와 인증서 자동 갱신, 기존 Wiki 4개 컨테이너를 유지한다.')
+canvas(1940,1330,'작업은 그대로 · 수집과 정제는 별도로','작업 에이전트와 읽기 전용 Collector, 별도 백그라운드 정제를 분리한다. DNS와 인증서 자동 갱신, 기존 Wiki 4개 컨테이너를 유지한다.')
 legend(1530,42,'수집·지식 반영','ingest');legend(1530,77,'조회·응답','query');legend(1530,112,'도메인·인증·저장','ops',True)
 # Service discovery and persistent storage are not HTTP intermediaries.
 card(72,180,366,130,'DuckDNS · 도메인',['agent-wiki.duckdns.org','도메인 조회 → VM 공인 주소'],'web','tabler-world')
@@ -80,7 +88,7 @@ card(72,640,366,140,'작업 에이전트',['Claude · Codex 등','필요한 지�
 path('M250 780 V820',flow='ops');text(267,806,'클라이언트가 기록',16)
 card(72,820,366,115,'클라이언트 세션 기록',['변경 중인 파일 · 원격 원문과 구분'],'web')
 path('M250 935 V1010',flow='ingest');text(267,976,'완성된 기록만 읽기',17,True,FLOW_COLORS['ingest'])
-card(72,1010,366,220,'Collector · Watcher',['별도 프로세스 · 미구현','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
+card(72,1010,366,220,'Collector · Watcher',['읽기 전용 · 별도 프로세스','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
 # All background traffic still enters through HTTPS/Caddy.
 path('M438 1140 H520 V975 H690 V950',flow='ingest');text(480,960,'원문 전송',18,True,FLOW_COLORS['ingest'])
 path('M860 845 H940',flow='ingest')
@@ -94,13 +102,16 @@ card(940,640,280,250,'Fastify API',['원문 보관·검색·조회','근거·권
 card(1280,640,320,250,'PostgreSQL',['지식·개정·근거 연결','원문 메타데이터','정제·반영 기록'],'data','postgresql')
 card(1660,640,240,170,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web')
 # Refining is a separate execution context; its deployment is undecided.
-card(590,1070,610,220,'백그라운드 정제 · 미구현',['작업 세션과 별도 실행 · 위치·모델 연결 미정','원격 원문·기존 지식 조회 → 군집화·정제·반영','Skill은 이 실행의 정제 지침 · 수집기 역할 아님','HTTPS로 Caddy 경유 · 모델 사용량 별도 고려'],'ingest')
-path('M1150 890 V970 H1245 V1160 H1280',True,both=True)
-card(1280,1070,320,190,'Object Storage',['원격 원문 보관본','보관한 내용은 덮어쓰지 않음','새 기록은 새 원문으로 추가'],'data','oracle')
-text(40,1330,'설계 변경: Collector·백그라운드 정제는 아직 미구현. 작업 세션에서 수집·정제를 실행하지 않는다.',22,True)
+card(590,1070,400,220,'백그라운드 정제',['원격 원문·기존 지식 조회','군집화·정제·근거 연결·반영','작업 대화와 별도 실행','Skill · 정제 방법 지침'],'ingest')
+path('M1150 890 V1070',True,both=True)
+text(1168,1025,'원문 보관·조회',18)
+card(1060,1070,360,190,'Object Storage',['원격 원문 보관본','보관한 내용은 덮어쓰지 않음','새 기록은 새 원문으로 추가'],'data','oracle')
+# Layer badges identify responsibilities, not additional runtime components.
+for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(294,994,'L1 · 수집',130),(610,1054,'L2 · 정제',124),(1460,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1260,1054,'L1 · 원문',124)]:
+ box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,label,17,True,'#FFFFFF')
 end('docs/assets/wiki-deployment.svg')
 
-canvas(1560,1210,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. 별도 Collector가 원문을 보관하고 백그라운드 실행이 정제한다. 작업 에이전트는 필요한 지식만 조회한다. Collector와 백그라운드 정제는 미구현이다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
+canvas(1560,1210,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. 별도 Collector가 원문을 보관하고 백그라운드 실행이 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
 legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변','query')
 box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',22,True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',19,True,'#FFFFFF')
 rows=[
@@ -116,10 +127,10 @@ for n,y,name,who,title,example,role in rows:
  a(f'<path d="M430 {y+20} V{y+125}" stroke="#929EAD"/>')
  text(456,y+43,title,24,True);text(456,y+91,example,21)
  if n<5:path(f'M80 {y} V{y-35}',flow='ingest' if n<=2 else 'query')
-text(40,1163,'설계안 · Collector와 백그라운드 정제는 미구현. 작업 대화에는 수집·정제 요청을 삽입하지 않는다.',20)
+text(40,1163,'수집·정제는 작업 대화와 별도로 실행한다. 작업 에이전트는 필요한 지식만 조회한다.',20)
 end('docs/assets/wiki-layers.svg')
 
-canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 별도 백그라운드 정제 실행의 입력이다. Collector와 백그라운드 정제는 미구현이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')
+canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 별도 백그라운드 정제 실행의 입력이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')
 legend(1140,43,'정제·반영','ingest');legend(1140,78,'조회·활용','query');legend(1140,113,'근거 참조','relation')
 group(40,190,430,380);text(62,226,'1 · 원격 입력 보관본',23,True,'#FFFFFF')
 card(72,284,366,118,'원문 A · 첫 번째 개정',['1행 · “단일 VM으로 운영하자.”'],'data')
@@ -138,12 +149,12 @@ card(540,750,430,210,'사용자의 작업 에이전트',['필요할 때 지식 �
 path('M1040 855 H970',flow='query')
 card(40,750,430,210,'웹에서 확인',['인용된 원문 구간·과거 개정','작성 주체와 확인 상태 구분','관련 문서 링크 ≠ 근거'],'web','user')
 text(40,1040,'Collector가 원문을 먼저 보관한다. 정제는 별도 실행하며 사용자의 질문·응답을 기다리게 하지 않는다.',21)
-text(40,1080,'설계안 · Collector·백그라운드 정제는 미구현. 원문과 과거 개정·정제 기록은 덮어쓰지 않는다.',20)
+text(40,1080,'원문과 과거 개정·정제 기록은 덮어쓰지 않는다.',20)
 end('docs/assets/wiki-lineage.svg')
 
 canvas(1560,1210,'운영 · 사용자 작업과 백그라운드 처리 분리','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
 rows=[(190,'01','인프라',[
- ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','Docker·마운트 · 부팅 시 기동','OS·Docker 업데이트 직접 관리'),('github','Compose · 4개','Caddy · Web · API · PostgreSQL','백그라운드 정제 위치는 미정')]),
+ ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','Docker·마운트 · 부팅 시 기동','OS·Docker 업데이트 직접 관리'),('github','Compose · 4개','Caddy · Web · API · PostgreSQL','사용자 작업과 별도 정제')]),
  (385,'02','앱 배포',[
  ('github','외부 ARM64 빌드','GHCR 게시 → VM 미리 pull','새 구조 검증 후 일괄 교체'),('tabler-terminal-2','외부 차단 → API 종료','진행 요청·내부 호출·DB 정리','API 30초 · Compose 유예 45초'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Caddy 유지 · 짧은 중단','쓰기 결과는 멱등 키로 확인')]),
  (580,'03','오류 로그',[
@@ -151,7 +162,7 @@ rows=[(190,'01','인프라',[
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[
- ('tabler-device-laptop','Collector · 미구현','세션 기록을 별도로 읽어 전송','대화 삽입·응답 대기 없음'),('tabler-clipboard-check','원격 원문 보관','수집한 원문은 불변 보관','전송 실패·중복은 별도 처리'),('tabler-terminal-2','백그라운드 정제 · 미구현','군집화·근거 연결·지식 반영','작업 세션과 별도 실행')])]
+ ('tabler-device-laptop','Collector','세션 기록을 별도로 읽어 전송','대화 삽입·응답 대기 없음'),('tabler-clipboard-check','원격 원문 보관','수집한 원문은 불변 보관','전송 실패·중복은 별도 처리'),('tabler-terminal-2','백그라운드 정제','군집화·근거 연결·지식 반영','작업 세션과 별도 실행')])]
 for y,n,label,items in rows:
  text(40,y+32,n,20,True);text(40,y+73,label,25,True)
  for i,(ico,title,b,c) in enumerate(items):
@@ -159,3 +170,11 @@ for y,n,label,items in rows:
   card(x,y,388,150,title,[b,c],'ops' if n in ['01','04'] else 'app',ico)
   if i<2:path(f'M{x+388} {y+75} H{x+432}')
 end('docs/assets/wiki-operations.svg')
+
+# Keep PNGs optional and outside versioned SVG sources; preview files are disposable.
+if args.png_dir:
+ args.png_dir.mkdir(parents=True, exist_ok=True)
+ for source in sorted(Path('docs/assets').glob('wiki-*.svg')):
+  target = args.png_dir / source.with_suffix('.png').name
+  subprocess.run(['rsvg-convert', '--zoom', str(args.png_scale), '--output', str(target), str(source)], check=True)
+  print(target)

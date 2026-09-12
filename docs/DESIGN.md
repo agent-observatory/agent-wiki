@@ -92,10 +92,10 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 ## Wiki 그림
 
-그림은 작업 에이전트와 별도 Collector·백그라운드 정제를 분리한 **목표**를 설명한다. 자동 수집·군집화·정제는 미구현으로 표시한다. 실제 전환 여부는 `docs/OPERATIONS.md`를 따른다. 서버 Worker 정제 시절의 그림은 `docs/archive/server-ingest/`에 보존했다.
+그림은 작업 에이전트와 별도 Collector·백그라운드 정제를 분리한 **목표**를 설명한다. 그림에는 미구현·구현 완료 같은 진행 상태를 붙이지 않는다. 구현 여부는 대화와 운영 현황으로 전달한다. 실제 전환 여부는 `docs/OPERATIONS.md`를 따른다. 서버 Worker 정제 시절의 그림은 `docs/archive/server-ingest/`에 보존했다.
 
 - `wiki-layers.svg`: L1은 아래, L5는 위. 계층별 실행 주체와 같은 합성 입력·출력 예시를 나란히 둔다. L1은 Collector가 보관한 원문, L2는 별도 정제 실행 → API 구조 검증, L5는 작업 에이전트 답변이다. Memory·Article·Glossary는 지식 유형이며 직렬 생성 단계가 아니다.
-- `wiki-deployment.svg`: 사용자 기기의 작업 에이전트·클라이언트 기록·Collector를 구분한다. 백그라운드 정제의 실행 위치는 미정으로 둔다. 원격 VM의 기존 4개 컨테이너, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다.
+- `wiki-deployment.svg`: 사용자 기기의 작업 에이전트·클라이언트 기록·Collector를 구분한다. 백그라운드 정제는 작업 세션·서버 그룹 밖에 분리해서 표시한다. 원격 VM의 기존 4개 컨테이너, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 원문·L2 정제·L3 지식·L4 조회·L5 활용 역할 라벨을 붙인다.
 - `wiki-lineage.svg`: 고정 Source·기존 지식 개정 → 별도 백그라운드 정제 실행 → 새 지식 개정·주장별 근거 → Context를 표시한다. 관련 문서 링크·사용자 확인 상태를 근거와 혼동하지 않는다.
 - `wiki-operations.svg`: 기존 인프라·배포·비용/오류 알림과 별도 수집 경로를 보여준다. 수집 → 원격 원문 보관 → 별도 정제를 사용자 작업 절차처럼 표현하지 않는다. 앱은 로그만 남긴다. 오류는 OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack, 비용·사용량은 GitHub Actions → Slack으로 구분한다.
 
@@ -106,3 +106,5 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 컴포넌트 간에는 최소 32px 여백을 두고 그룹 제목과 내용을 분리한다. Caddy → API → PostgreSQL은 같은 높이의 직선, Web → API는 세로선으로 둔다. DataGrip은 DB 옆에 두고, 볼륨과 원문 저장소는 연결선이 다른 컴포넌트를 관통하지 않는 위치에 배치한다. Caddy 영속 상태는 같은 연결 볼륨의 별도 경로임을 표시한다. DuckDNS 도메인은 웹에 표시하고 VM IP로 연결됨을 명시한다. DNS·인증서 발급 기관을 HTTP 요청이 통과하는 중계 서버처럼 그리지 않는다. 작업 에이전트의 조회와 Collector의 수집 선을 분리한다.
 
 그림은 `python3 scripts/generate-wiki-diagrams.py`로 4개를 함께 재생성한다. XML·상대 링크·재생성 일치와 실제 렌더링의 글자·겹침·잘림을 각각 확인한다. Codex 오른쪽 미리보기는 자동으로 열지 않는다.
+
+Zed에서 SVG 확대가 흐릿하면 `python3 scripts/generate-wiki-diagrams.py --png-dir .runtime/diagram-previews`로 3배 해상도 PNG를 만들고 이미지 뷰어로 연다. PNG는 임시 미리보기이며 Git에 넣지 않는다. 편집·문서 삽입의 원본은 SVG로 유지한다. 픽셀 이미지의 확대에는 한계가 있으므로 큰 배율에서의 확인은 브라우저 SVG를 사용한다.
