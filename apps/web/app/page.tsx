@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import ThemeToggle from "./theme-toggle";
+import Select from "./select";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -392,10 +393,15 @@ export default function Wiki() {
             <Plus size={16} />
           </button>
         </div>
-        <select
-          aria-label="Workspace"
+        <Select
+          label="Workspace"
           value={ws}
-          onChange={(e) => {
+          placeholder="공간을 선택하세요"
+          options={spaces.map((space) => ({
+            value: space.id,
+            label: space.name,
+          }))}
+          onValueChange={(value) => {
             generation.current++;
             setSelected(null);
             setArticles([]);
@@ -403,18 +409,9 @@ export default function Wiki() {
             setSources([]);
             setKeys([]);
             setModal(null);
-            setWs(e.target.value);
+            setWs(value);
           }}
-        >
-          <option value="" disabled>
-            공간을 선택하세요
-          </option>
-          {spaces.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        />
         <nav>
           {[
             ["wiki", "지식 공간", BookOpen],
@@ -664,17 +661,18 @@ export default function Wiki() {
                           }
                         />
                         <div className="edit-meta">
-                          <select
-                            aria-label="문서 종류"
+                          <Select
+                            label="문서 종류"
                             value={draft.kind}
-                            onChange={(e) =>
-                              setDraft({ ...draft, kind: e.target.value })
+                            onValueChange={(value) =>
+                              setDraft({ ...draft, kind: value })
                             }
-                          >
-                            <option value="article">문서</option>
-                            <option value="memory">기억</option>
-                            <option value="glossary">용어</option>
-                          </select>
+                            options={[
+                              { value: "article", label: "문서" },
+                              { value: "memory", label: "기억" },
+                              { value: "glossary", label: "용어" },
+                            ]}
+                          />
                           <input
                             aria-label="폴더"
                             placeholder="폴더"
@@ -1167,13 +1165,15 @@ export default function Wiki() {
                     {modal === "key" && (
                       <label className="field">
                         권한
-                        <select
+                        <Select
+                          label="권한"
                           value={keyScope}
-                          onChange={(e) => setKeyScope(e.target.value)}
-                        >
-                          <option value="read">조회 전용</option>
-                          <option value="ingest">조회 + 자료 접수</option>
-                        </select>
+                          onValueChange={setKeyScope}
+                          options={[
+                            { value: "read", label: "조회 전용" },
+                            { value: "ingest", label: "조회 + 자료 접수" },
+                          ]}
+                        />
                       </label>
                     )}
                     <button

@@ -344,7 +344,7 @@ a svg {
   padding-left: 10px;
   margin-bottom: 4px;
 }
-.shell aside select {
+.shell aside .select-trigger {
   width: 100%;
   background: var(--paper);
   border-color: var(--line);
@@ -745,7 +745,7 @@ a svg {
   gap: 10px;
   margin-bottom: 12px;
 }
-.edit-meta select {
+.edit-meta .select-trigger {
   font-size: 12px;
 }
 .edit-meta input {
@@ -1032,7 +1032,7 @@ a svg {
   .shell nav button svg:last-child {
     display: none;
   }
-  .shell aside select {
+  .shell aside .select-trigger {
     font-size: 11px;
   }
   .main {
@@ -1171,4 +1171,91 @@ textarea::placeholder {
 .breadcrumb > svg,
 .header-actions {
   flex-shrink: 0;
+}
+
+.select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+  font-size: 13px;
+}
+.select-trigger > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.select-trigger:hover,
+.select-trigger[data-state="open"] {
+  border-color: var(--accent);
+}
+.select-trigger[data-placeholder] {
+  color: var(--muted);
+}
+.select-chevron {
+  display: flex;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.select-trigger[data-state="open"] .select-chevron {
+  transform: rotate(180deg);
+}
+.select-content {
+  z-index: 100;
+  min-width: var(--radix-select-trigger-width);
+  max-width: calc(100vw - 24px);
+  max-height: min(320px, var(--radix-select-content-available-height));
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+.select-viewport {
+  padding: 5px;
+}
+.select-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 9px 34px 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+.select-item[data-highlighted] {
+  background: var(--soft);
+  color: var(--accent);
+}
+.select-item[data-state="checked"] {
+  color: var(--accent);
+  font-weight: 700;
+}
+.select-check {
+  position: absolute;
+  right: 10px;
+  display: flex;
+}
+.select-scroll {
+  display: flex;
+  justify-content: center;
+  padding: 4px;
+  color: var(--muted);
+}
+.edit-meta .select-trigger {
+  flex-shrink: 0;
+  min-width: 100px;
 }
