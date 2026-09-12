@@ -348,6 +348,14 @@ async function uploadPart(url, file) {
   }
   throw new Error("UPLOAD_TRANSFER_FAILED");
 }
+export function collectionInterval(value = 10) {
+  const minutes = Number(value);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440)
+    throw new Error(
+      "Collection interval must be an integer from 1 to 1440 minutes",
+    );
+  return minutes;
+}
 async function main() {
   const args = process.argv.slice(2),
     command = args.shift() ?? "help";
@@ -379,6 +387,7 @@ async function main() {
       machine: randomUUID(),
       envFile: resolve(opt("env", ".env.local")),
       projects: project ? [resolve(project)] : [],
+      intervalMinutes: collectionInterval(opt("interval", 10)),
       exclude: [],
       roots: [
         { client: "codex", path: join(homedir(), ".codex", "sessions") },
@@ -389,11 +398,15 @@ async function main() {
     return;
   }
   if (command === "install") {
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    const interval = collectionInterval(
+      opt("interval", config.intervalMinutes ?? 10),
+    );
     if (process.platform !== "darwin")
       throw new Error(
-        "Use your scheduler to run collector once every 30 minutes",
+        `Use your scheduler to run collector once every ${interval} minutes`,
       );
-    await stat(configPath);
+    await atomic(configPath, { ...config, intervalMinutes: interval });
     const label = "org.agent-observatory.wiki-collector";
     const log = join(dirname(configPath), "collector.log");
     const escape = (s) =>
@@ -408,7 +421,7 @@ async function main() {
     await chmod(log, 0o600);
     await writeFile(
       plist,
-      `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array>${[process.execPath, fileURLToPath(import.meta.url), "once", "--config", configPath].map((s) => "<string>" + escape(s) + "</string>").join("")}</array><key>StartInterval</key><integer>1800</integer><key>RunAtLoad</key><true/><key>StandardOutPath</key><string>${escape(log)}</string><key>StandardErrorPath</key><string>${escape(log)}</string></dict></plist>`,
+      `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array>${[process.execPath, fileURLToPath(import.meta.url), "once", "--config", configPath].map((s) => "<string>" + escape(s) + "</string>").join("")}</array><key>StartInterval</key><integer>${interval * 60}</integer><key>RunAtLoad</key><true/><key>StandardOutPath</key><string>${escape(log)}</string><key>StandardErrorPath</key><string>${escape(log)}</string></dict></plist>`,
       { mode: 0o600 },
     );
     const domain = "gui/" + process.getuid();
@@ -419,12 +432,12 @@ async function main() {
       stdio: "inherit",
     });
     if (r.status) throw new Error("Scheduler install failed");
-    console.log("Collector scheduled every 30 minutes");
+    console.log(`Collector scheduled every ${interval} minutes`);
     return;
   }
   if (command !== "once") {
     console.log(
-      "wiki-collector init --workspace UUID [--project PATH] [--env .env.local]\nwiki-collector once [--config PATH]\nwiki-collector install [--config PATH]",
+      "wiki-collector init --workspace UUID [--project PATH] [--interval MINUTES] [--env .env.local]\nwiki-collector once [--config PATH]\nwiki-collector install [--config PATH] [--interval MINUTES]",
     );
     return;
   }

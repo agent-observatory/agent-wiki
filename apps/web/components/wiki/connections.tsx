@@ -254,9 +254,10 @@ export function Guide() {
           </p>
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/collector\nwiki-collector init --workspace ${workspaceId} --project /absolute/project --env /absolute/project/.env.local\nwiki-collector once\nwiki-collector install`}</pre>
           <p className="text-muted-foreground">
-            Collector 키는 WIKI_COLLECTOR_TOKEN으로 저장합니다. macOS에서는
-            30분마다 기록을 전송합니다. 기본은 전체 프로젝트이며, --project로
-            수집 범위를 제한할 수 있습니다.
+            Collector 키는 WIKI_COLLECTOR_TOKEN으로 저장합니다. macOS에서는 기본
+            10분마다 기록을 전송합니다. install --interval 10으로 주기를 바꿀 수
+            있습니다. 기본은 전체 프로젝트이며, --project로 수집 범위를 제한할
+            수 있습니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

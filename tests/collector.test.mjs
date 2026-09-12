@@ -12,7 +12,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { zstdDecompressSync } from "node:zlib";
-import { collect, redact } from "../packages/collector/collector.mjs";
+import {
+  collect,
+  redact,
+  collectionInterval,
+} from "../packages/collector/collector.mjs";
 import {
   prepareUpload,
   scanFile,
@@ -176,4 +180,13 @@ test("collector defaults to all projects and an explicit scope excludes other pr
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("collection interval defaults to ten minutes and validates scheduler overrides", () => {
+  assert.equal(collectionInterval(), 10);
+  assert.equal(collectionInterval("30"), 30);
+  assert.equal(collectionInterval(1) * 60, 60);
+  assert.equal(collectionInterval(1440), 1440);
+  for (const value of [0, -1, 1.5, 1441, "bad", "", null])
+    assert.throws(() => collectionInterval(value), /interval must be/);
 });
