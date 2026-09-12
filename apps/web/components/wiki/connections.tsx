@@ -189,17 +189,17 @@ export function Guide() {
     <>
       <Heading
         title="위키 사용법"
-        description="웹을 계속 켜 둘 필요는 없습니다. 작업하는 에이전트가 읽고 기록합니다."
+        description="필요한 지식은 에이전트에서 조회합니다. 수집·정제는 작업 대화와 분리합니다."
       />
       <div className="max-w-3xl space-y-8">
         <section>
           <h2 className="text-lg font-bold mb-3">
-            1. 작업을 시작할 때, 이전 결정을 읽습니다
+            필요한 결정과 근거를 조회합니다
           </h2>
           <p className="leading-7 text-muted-foreground">
-            에이전트에게 “Agent Wiki에서 이 프로젝트의 현재 결정과 남은 일을
-            읽고 이어서 하자”라고 요청합니다. 짧은 시작 자료를 읽고 필요한
-            원문만 추가로 조회합니다.
+            “왜 단일 VM을 선택했지?”처럼 이전 결정이 필요할 때 Wiki를
+            조회합니다. 에이전트는 관련 지식과 근거를 읽고 현재 작업을
+            계속합니다. 매 작업 시작마다 조회를 요구하지 않습니다.
           </p>
           <pre className="mt-4 rounded-lg bg-muted p-4 overflow-auto">
             wiki recall --project agent-wiki
@@ -207,21 +207,21 @@ export function Guide() {
         </section>
         <section>
           <h2 className="text-lg font-bold mb-3">
-            2. 중요한 결정이 생기면 기록을 남깁니다
+            자동 수집·정제는 준비 중입니다
           </h2>
           <p className="leading-7 text-muted-foreground">
-            “방금 결정과 확인한 결과를 근거와 함께 Wiki에 남겨줘”라고
-            요청합니다. 에이전트가 대화·문서의 필요한 부분을 원문으로 보관하고
-            기존 지식과 비교해 반영합니다. 원문만 보관한 상태와 지식 반영 완료는
-            다릅니다.
+            별도 Collector가 클라이언트의 세션 기록을 읽고, 별도 실행이
+            군집화·정제하는 구조를 설계하고 있습니다. 수집을 위해 작업 대화에
+            메시지를 끼워 넣거나 응답을 기다리게 하지 않습니다. 현재는 자동
+            수집·정제가 없으며, 명시적으로 요청한 수동 등록·반영만 가능합니다.
           </p>
           <div className="mt-4 rounded-lg border p-4">
-            원문 보관 → 에이전트 정제 → 근거 연결 → 지식 반영
+            계획: 별도 Collector → 원격 원문 보관 → 백그라운드 정제 → 지식 반영
           </div>
         </section>
         <section>
           <h2 className="text-lg font-bold mb-3">
-            3. 다음 세션에서 다시 찾습니다
+            원문과 지식의 개정을 확인합니다
           </h2>
           <p className="leading-7 text-muted-foreground">
             “왜 단일 VM을 선택했지?”처럼 물으면 저장된 결정과 당시 근거를
@@ -230,13 +230,13 @@ export function Guide() {
           </p>
         </section>
         <section className="rounded-lg border p-5 space-y-3">
-          <h2 className="font-bold">처음 연결하기</h2>
+          <h2 className="font-bold">처음 연결하기 · 한 번만 설정</h2>
           <p>저장소에서 CLI를 연결한 뒤 에이전트에 Wiki Skill을 설치합니다.</p>
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/cli\nwiki init --project agent-wiki --workspace ${workspaceId} --tag agent-wiki\nwiki skill install\nwiki recall --project agent-wiki`}</pre>
           <p className="text-muted-foreground">
             인증 키는 에이전트 연결에서 발급해 로컬의 Git 제외 .env.local에
-            WIKI_TOKEN으로 보관합니다. Skill의 시작·재개 지침을 프로젝트에
-            연결해야 자동 조회할 수 있습니다.
+            WIKI_TOKEN으로 보관합니다. Skill은 조회·정제 방법을 설명하는
+            지침이며 설치만으로 자동 수집을 실행하지 않습니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

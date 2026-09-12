@@ -1,22 +1,18 @@
-# Agent Wiki 설계와 레퍼런스
+# Agent Wiki 그림과 레퍼런스
 
-[문서 안내](../README.md) · [아키텍처](architecture.md) · [디자인 규칙](../DESIGN.md)
+[문서 안내](../README.md) · [아키텍처](architecture.md) · [수집·정제 계약](agent-memory.md)
 
-주 흐름은 에이전트의 질의 → 근거 Context 조회 → 현재 에이전트의 답변·작업이다. 웹 위키는 편집·정정·출처 확인을 보조한다.
+**그림은 작업 에이전트와 Collector·백그라운드 정제를 분리한 새 설계다. 자동 수집·군집화·정제는 미구현이다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
 
-[개인 에이전트 사용법·계약](agent-memory.md)에 계약·CLI·Skill·초기화·검증 순서를 정리했다. 그림에 맞춘 새 구조를 배포하고 원문 7개·지식 6개의 등록·근거 조회를 확인했다. 실제 동작은 [운영 현황](../OPERATIONS.md)을 따른다.
+![작업 에이전트·별도 Collector·원격 Wiki와 DNS·인증서](../assets/wiki-deployment.svg)
 
-개발 모드에서는 DB·원문·기존 지식을 초기화하고 하위 호환성 없이 새로 만든다. 첫 실증은 [Atlas에서 Agent Wiki까지의 역사](project-history.md)를 실제 원문에서 다시 정제하는 것이다. 메뉴별 URL에서 지식·원문·반영 이력·연결·사용법을 연다.
+![수집·정제와 사용자 조회의 분리](../assets/wiki-layers.svg)
 
-![개인 에이전트 정제와 L1–L5](../assets/wiki-layers.svg)
+![불변 원문·별도 정제 실행·지식 개정의 리니지](../assets/wiki-lineage.svg)
 
-![개인 에이전트와 원격 Wiki 4개 컨테이너](../assets/wiki-deployment.svg)
+![사용자 작업과 별도 수집·정제의 운영](../assets/wiki-operations.svg)
 
-![원문·정제·지식 개정의 리니지](../assets/wiki-lineage.svg)
-
-![Worker 없는 운영과 기존 모니터링](../assets/wiki-operations.svg)
-
-이전 구성: [서버 Worker 정제](../archive/server-ingest/ARCHIVE.md) · [Container Instances 분리 구성](../archive/container-instances/ARCHIVE.md). 보존본은 설계 이력이며 현재 목표나 운영 데이터 백업이 아니다.
+[프로젝트 역사](project-history.md)는 원격 Wiki에서 관리한다. [서버 Worker 정제](../archive/server-ingest/ARCHIVE.md)와 [Container Instances 구성](../archive/container-instances/ARCHIVE.md)은 과거 설계 보존본이다.
 
 ## 레퍼런스
 

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1210" viewBox="0 0 1560 1210" role="img" aria-labelledby="title desc"><title id="title">운영 · 정제 Worker 없이 4개 컨테이너</title><desc id="desc">목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="1210" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1210" viewBox="0 0 1560 1210" role="img" aria-labelledby="title desc"><title id="title">운영 · 사용자 작업과 백그라운드 처리 분리</title><desc id="desc">목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="1210" fill="#FFFFFF"/>
 <text x="40" y="42" font-size="15" font-weight="700" fill="#526A86">AGENT WIKI / TARGET ARCHITECTURE</text>
-<text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">운영 · 정제 Worker 없이 4개 컨테이너</text>
+<text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">운영 · 사용자 작업과 백그라운드 처리 분리</text>
 <path d="M40 137 H1520" stroke="#172C4B" stroke-width="2"/>
 <text x="40" y="222" font-size="20" font-weight="700" fill="#172C4B">01</text>
 <text x="40" y="263" font-size="25" font-weight="700" fill="#172C4B">인프라</text>
@@ -20,7 +20,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1121" y="209" width="26" height="26" color="#172C4B"><path fill="#161614" d="M50 1C22.39 1 0 23.386 0 51c0 22.092 14.327 40.834 34.193 47.446 2.499.462 3.417-1.085 3.417-2.406 0-1.192-.047-5.131-.068-9.309-13.91 3.025-16.846-5.9-16.846-5.9-2.274-5.779-5.551-7.315-5.551-7.315-4.537-3.104.341-3.04.341-3.04 5.022.353 7.665 5.153 7.665 5.153 4.46 7.644 11.697 5.434 14.55 4.156.449-3.232 1.745-5.437 3.175-6.686-11.106-1.264-22.78-5.552-22.78-24.71 0-5.459 1.953-9.92 5.151-13.42-.519-1.26-2.23-6.346.485-13.233 0 0 4.198-1.344 13.753 5.125 3.988-1.108 8.266-1.663 12.515-1.682 4.25.019 8.53.574 12.526 1.682 9.544-6.469 13.736-5.125 13.736-5.125 2.722 6.887 1.01 11.973.49 13.232 3.206 3.502 5.146 7.962 5.146 13.42 0 19.205-11.697 23.434-22.83 24.671 1.793 1.552 3.391 4.595 3.391 9.26 0 6.69-.058 12.074-.058 13.721 0 1.33.9 2.89 3.435 2.399C85.692 91.819 100 73.085 100 51c0-27.614-22.386-50-50-50" /><path fill="#161614" d="M18.727 72.227c-.11.248-.502.322-.857.152-.363-.163-.567-.502-.45-.751.109-.256.5-.327.862-.156.363.163.57.505.445.755m2.46 2.194c-.24.221-.706.118-1.022-.231-.327-.349-.388-.814-.146-1.04.246-.22.698-.117 1.026.232.327.353.39.816.14 1.04zm1.687 2.808c-.307.213-.808.013-1.118-.432-.306-.444-.306-.977.007-1.191.31-.214.804-.021 1.118.42.305.452.305.985-.008 1.203m2.853 3.252c-.274.302-.858.22-1.285-.192-.437-.403-.56-.975-.284-1.277.277-.303.864-.218 1.295.191.434.403.566.979.274 1.278m3.688 1.098c-.12.391-.683.57-1.25.403-.565-.171-.935-.63-.821-1.026.118-.394.682-.58 1.253-.401.565.17.936.625.818 1.024m4.197.465c.014.413-.466.755-1.06.762-.599.013-1.082-.32-1.088-.726 0-.416.469-.755 1.067-.765.594-.012 1.081.32 1.081.73m4.123-.158c.071.403-.342.816-.932.926-.58.106-1.118-.143-1.192-.541-.072-.413.35-.826.928-.933.592-.103 1.12.14 1.196.548" /></svg>
 <text x="1159" y="232" font-size="23" font-weight="700" fill="#172C4B">Compose · 4개</text>
 <text x="1121" y="270" font-size="18" font-weight="400" fill="#172C4B">Caddy · Web · API · PostgreSQL</text>
-<text x="1121" y="301" font-size="18" font-weight="400" fill="#172C4B">정제는 개인 에이전트에서 실행</text>
+<text x="1121" y="301" font-size="18" font-weight="400" fill="#172C4B">백그라운드 정제 위치는 미정</text>
 <text x="40" y="417" font-size="20" font-weight="700" fill="#172C4B">02</text>
 <text x="40" y="458" font-size="25" font-weight="700" fill="#172C4B">앱 배포</text>
 <rect x="225" y="385" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
@@ -93,16 +93,15 @@
 <text x="1121" y="855" font-size="18" font-weight="400" fill="#172C4B">누적·일 사용량·전일 비교</text>
 <text x="1121" y="886" font-size="18" font-weight="400" fill="#172C4B">기존 모니터링 경로 유지</text>
 <text x="40" y="1002" font-size="20" font-weight="700" fill="#172C4B">05</text>
-<text x="40" y="1043" font-size="25" font-weight="700" fill="#172C4B">실제 사용</text>
+<text x="40" y="1043" font-size="25" font-weight="700" fill="#172C4B">별도 수집</text>
 <rect x="225" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="245" y="989" color="#172C4B">
-  <path d="M8 9l3 3l-3 3" />
-  <path d="M13 15l3 0" />
-  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+  <path d="M3 19l18 0" />
+  <path d="M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
 </svg>
-<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">개인 에이전트·CLI</text>
-<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">원문 등록 → 정제 → 반영</text>
-<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">정제 실패는 클라이언트에 표시</text>
+<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Collector · 미구현</text>
+<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">세션 기록을 별도로 읽어 전송</text>
+<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">대화 삽입·응답 대기 없음</text>
 <path d="M613 1045 H657" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="663" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="683" y="989" color="#172C4B">
@@ -110,16 +109,17 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">Wiki API 구조 검사</text>
-<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">원문 구간·권한·개정·멱등성</text>
-<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">변경 묶음 전체 반영 또는 거부</text>
+<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">원격 원문 보관</text>
+<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">수집한 원문은 불변 보관</text>
+<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">전송 실패·중복은 별도 처리</text>
 <path d="M1051 1045 H1095" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="1101" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1121" y="989" color="#172C4B">
-  <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
-  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+  <path d="M8 9l3 3l-3 3" />
+  <path d="M13 15l3 0" />
+  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">새 세션 재개</text>
-<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">시작 Context → 근거 상세</text>
-<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">정정·삭제·근거 없음 확인</text>
+<text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">백그라운드 정제 · 미구현</text>
+<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">군집화·근거 연결·지식 반영</text>
+<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">작업 세션과 별도 실행</text>
 </g></svg>

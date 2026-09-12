@@ -1,6 +1,6 @@
 # Publication contract
 
-Save this JSON locally and send it with `wiki publish file.json --project NAME`. Replace placeholders with actual IDs and the stored text returned by `source add`. The CLI never generates knowledge.
+For a separately assigned curation task or an explicit manual-recording request, save this JSON as a temporary local transport/retry file and send it with `wiki publish file.json --project NAME`. Replace placeholders with actual IDs and the stored text returned by `source add`. The CLI never generates knowledge.
 
 ```json
 {
