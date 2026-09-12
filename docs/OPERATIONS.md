@@ -2,6 +2,8 @@
 
 ## Collector·원격 정제·설정 화면 · 배포 완료
 
+2026-09-13 최종 수정본 `ae76b11`의 [검증·게시·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34700751316)가 성공했다. 운영 Edge에서 설정 저장 성공·탭 유지·정제 비활성·호출 0회를 확인했다. 로컬 Collector CLI와 30분 launchd 실행을 설치했으며 초기 과거 기록 동기화는 백그라운드에서 진행한다. 모델 호출·청킹 설계는 사용자 요청으로 보류했다. 이번 구현·배포·검증은 약 30분 걸렸다.
+
 2026-09-12 앱 `ea4a313`의 [CI·ARM64 게시·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34700430876)가 성공했다. 기존 VM·PostgreSQL 컨테이너·볼륨·인증서를 유지하고 Caddy·Web·API·Worker·PostgreSQL 5개 실행을 확인했다. 아래의 Worker 제거·미구현 기록은 이전 단계의 이력이다.
 
 - 읽기 전용 Codex·Claude Collector, 서버의 위치·해시 중복 검사, 불변 원문과 정제 작업 등록, 설정 암호화, 원격 Worker와 재시도·종료 처리를 구현했다. 원문을 실제 비공개 Object Storage에 적재했고 반복 전송에서 신규 0·중복 반환을 확인했다.

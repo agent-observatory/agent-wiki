@@ -79,6 +79,9 @@ test("failed upload does not advance local sent-state; structured secrets are ma
     assert.equal(result.failed, 1);
     assert.deepEqual(state.files, {});
     assert.equal(redact({ password: "secret" }).password, "[REDACTED]");
+    process.env.AI_ENCRYPTION_KEY = "synthetic-encryption-key";
+    assert.equal(redact("synthetic-encryption-key"), "[SECRET_REDACTED]");
+    delete process.env.AI_ENCRYPTION_KEY;
   } finally {
     await rm(root, { recursive: true, force: true });
   }

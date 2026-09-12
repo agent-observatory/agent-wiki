@@ -36,7 +36,7 @@ export function redact(value) {
   );
   for (const [name, secret] of Object.entries(process.env))
     if (
-      /TOKEN|PASSWORD|SECRET|API_KEY/.test(name) &&
+      /TOKEN|PASSWORD|SECRET|API_KEY|ENCRYPTION_KEY/.test(name) &&
       secret &&
       secret.length >= 12
     )
