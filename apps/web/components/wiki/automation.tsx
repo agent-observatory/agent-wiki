@@ -60,6 +60,7 @@ const reasons: Record<string, string> = {
 export function Automation() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const base = "/api/workspaces/" + workspaceId;
+  const [tab, setTab] = useState("jobs");
   const settings = useApi(base + "/ai-settings"),
     jobs = useApi(base + "/refinements");
   const [config, setConfig] = useState<Config>(),
@@ -101,7 +102,7 @@ export function Automation() {
   }
   if (settings.error || jobs.error)
     return <Failure error={settings.error ?? jobs.error} />;
-  if (!config || !jobs.data) return <Loading />;
+  if (!config || !jobs.data || !settings.data) return <Loading />;
   return (
     <>
       <Heading
@@ -151,7 +152,7 @@ export function Automation() {
           </p>
         </section>
       </div>
-      <Tabs defaultValue="jobs">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="jobs">
             <Activity className="size-4 mr-2" />
