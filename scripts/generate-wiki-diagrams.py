@@ -92,8 +92,8 @@ card(72,1010,366,220,'Collector · Watcher',['읽기 전용 · 별도 프로세�
 # All background traffic still enters through HTTPS/Caddy.
 path('M438 1140 H520 V975 H690 V950',flow='ingest');text(480,960,'원문 전송',18,True,FLOW_COLORS['ingest'])
 path('M860 845 H940',flow='ingest')
-path('M800 950 V1020 H825 V1070',flow='query',both=True)
-path('M880 1070 V1040 H840 V950',flow='ingest')
+path('M800 950 V1070',flow='query',both=True)
+path('M840 1070 V950',flow='ingest')
 card(630,450,230,500,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
 text(650,682,'조회 ↔ API',18,True,FLOW_COLORS['query'])
 text(650,817,'원문·지식 → API',18,True,FLOW_COLORS['ingest'])
