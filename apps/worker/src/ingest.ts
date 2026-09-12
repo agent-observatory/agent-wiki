@@ -53,16 +53,22 @@ export async function* projectEvents(
     const f = frames.at(-1);
     if (f?.kind === "array") f.index++;
   };
+  let outputBuffer = "";
+  const flushOutput = async () => {
+    if (outputBuffer) await file.write(outputBuffer);
+    outputBuffer = "";
+  };
   const emit = async (value: string) => {
-    if (value && !skip)
-      await file.write(
+    if (value && !skip) {
+      outputBuffer +=
         JSON.stringify({
           event: pos,
           field: keyPath,
           segment: segment++,
           text: mask(value),
-        }) + "\n",
-      );
+        }) + "\n";
+      if (Buffer.byteLength(outputBuffer) >= 65536) await flushOutput();
+    }
   };
   try {
     for await (const t of parser) {
@@ -137,6 +143,7 @@ export async function* projectEvents(
         frames.pop();
         advance();
         if (!frames.length) {
+          await flushOutput();
           await file.close();
           file = null;
           yield {

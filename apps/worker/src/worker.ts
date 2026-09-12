@@ -350,6 +350,17 @@ export async function workerMain(modelCall = callModel) {
     lock.release();
     throw new Error("Worker already running");
   }
+  // Liveness is independent of how long a large upload takes to finish.
+  const heartbeat = setInterval(() => {
+    void writeFile("/tmp/wiki-worker-heartbeat", String(Date.now())).catch(
+      () => {
+        stopping = true;
+        controller.abort();
+        log("error", "worker_heartbeat_failed");
+      },
+    );
+  }, 15000);
+  heartbeat.unref();
   try {
     while (!stopping) {
       await writeFile("/tmp/wiki-worker-heartbeat", String(Date.now()));
@@ -360,6 +371,7 @@ export async function workerMain(modelCall = callModel) {
         await new Promise((r) => setTimeout(r, 3000));
     }
   } finally {
+    clearInterval(heartbeat);
     if (deadline) clearTimeout(deadline);
     await lock.query("SELECT pg_advisory_unlock(821909)");
     lock.release();
