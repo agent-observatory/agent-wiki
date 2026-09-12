@@ -1,3 +1,4 @@
+import { curationHeads } from "../../../packages/core/src/curation-queue.js";
 import type { PoolClient } from "pg";
 import { decryptSecret, defaults } from "../../../packages/core/src/ai.js";
 import { modelGateKey } from "../../../packages/core/src/model-gate.js";
@@ -8,6 +9,7 @@ export function refinementSchedule(input: {
   calls: number;
   dailyCalls: number | null;
   pending: number;
+  eligible?: number;
   running: number;
   failed: number;
   earliest: string | Date | null;
@@ -21,7 +23,7 @@ export function refinementSchedule(input: {
       nextAttemptAt: null,
     };
   if (input.running) return { reason: "running", nextAttemptAt: null };
-  if (!input.pending)
+  if (!input.pending || input.eligible === 0)
     return {
       reason: input.failed ? "needs_attention" : "idle",
       nextAttemptAt: null,
@@ -61,15 +63,16 @@ export async function refinementProgress(
 ) {
   const summary = (
     await c.query(
-      `SELECT count(*)::int AS total,
+      `WITH heads AS (${curationHeads}) SELECT count(*)::int AS total,
       count(*) FILTER(WHERE j.status='completed')::int AS completed,
       count(*) FILTER(WHERE j.status='pending')::int AS pending,
+      count(*) FILTER(WHERE j.status='pending' AND j.id IN (SELECT id FROM heads WHERE queue_position=1))::int AS eligible,
       count(*) FILTER(WHERE j.status='running')::int AS running,
       count(*) FILTER(WHERE j.status='failed')::int AS failed,
       count(*) FILTER(WHERE j.chunk_count=0 AND j.status<>'completed')::int AS unplanned,
       coalesce(sum(j.chunk_index),0)::int AS chunks_done,
       coalesce(sum(j.chunk_count),0)::int AS chunks_total,
-      min(j.available_at) FILTER(WHERE j.status='pending') AS earliest
+      min(j.available_at) FILTER(WHERE j.status='pending' AND j.id IN (SELECT id FROM heads WHERE queue_position=1)) AS earliest
      FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id
      WHERE j.workspace_id=$1 AND s.deleted_at IS NULL`,
       [ws],

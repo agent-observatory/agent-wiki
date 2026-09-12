@@ -15,6 +15,7 @@ CREATE INDEX IF NOT EXISTS article_title_trgm ON articles USING gin(title gin_tr
 CREATE INDEX IF NOT EXISTS article_content_trgm ON articles USING gin(content gin_trgm_ops) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS article_workspace ON articles(workspace_id,updated_at DESC);
 CREATE INDEX IF NOT EXISTS source_workspace ON sources(workspace_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS source_session_order ON sources(workspace_id,origin,created_at,id) WHERE deleted_at IS NULL;
 CREATE TABLE IF NOT EXISTS collection_streams(workspace_id uuid NOT NULL REFERENCES workspaces(id),id text NOT NULL,client text NOT NULL,session_id text NOT NULL,name text NOT NULL,last_position int NOT NULL DEFAULT -1,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE TABLE IF NOT EXISTS collection_events(workspace_id uuid NOT NULL,stream_id text NOT NULL,position int NOT NULL,content_hash text NOT NULL,source_id uuid NOT NULL,PRIMARY KEY(workspace_id,stream_id,position,content_hash),FOREIGN KEY(workspace_id,stream_id) REFERENCES collection_streams(workspace_id,id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
 ALTER TABLE collection_events ADD COLUMN IF NOT EXISTS native_id text;
@@ -34,6 +35,11 @@ ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DE
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_results jsonb NOT NULL DEFAULT '[]';
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
 CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT '';
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
+CREATE TABLE IF NOT EXISTS claim_relations(workspace_id uuid NOT NULL,from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,publication_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,to_article_id,to_revision,to_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
+CREATE INDEX IF NOT EXISTS claim_relation_target ON claim_relations(workspace_id,to_article_id,to_revision,to_anchor);
 CREATE TABLE IF NOT EXISTS model_request_gates(owner_id text NOT NULL REFERENCES users(id),key_hash text NOT NULL,next_allowed_at timestamptz NOT NULL DEFAULT now(),failures int NOT NULL DEFAULT 0,PRIMARY KEY(owner_id,key_hash));
 ALTER TABLE model_request_gates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE model_request_gates FORCE ROW LEVEL SECURITY;
@@ -44,7 +50,7 @@ ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs'] LOOP
+ FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);

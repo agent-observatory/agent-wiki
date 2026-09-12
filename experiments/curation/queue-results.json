@@ -1,0 +1,36 @@
+{
+  "experiment": "same-session queue scheduling",
+  "date": "2026-09-13",
+  "environment": "local PostgreSQL, synthetic data, single measurement per size and variant",
+  "notAProductionSLA": true,
+  "before": "correlated predecessor existence per candidate",
+  "after": "window rank of unfinished jobs per session",
+  "beforeResults": [
+    {
+      "jobs": 1000,
+      "eligible": 1,
+      "summaryMs": 59,
+      "dequeueMs": 2339
+    },
+    {
+      "jobs": 10000,
+      "eligible": 1,
+      "summaryMs": 3532,
+      "dequeueMs": 1748
+    }
+  ],
+  "afterResults": [
+    {
+      "jobs": 1000,
+      "eligible": 1,
+      "summaryMs": 15,
+      "dequeueMs": 4
+    },
+    {
+      "jobs": 10000,
+      "eligible": 1,
+      "summaryMs": 47,
+      "dequeueMs": 20
+    }
+  ]
+}

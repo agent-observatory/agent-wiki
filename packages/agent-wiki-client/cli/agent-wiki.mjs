@@ -57,7 +57,7 @@ async function main() {
         "setup --workspace ID [--project NAME --tag TAG --path PATH --interval MINUTES --env FILE --client codex|claude|all --no-skill]",
         "collector start [--interval MINUTES] | stop | status | run",
         "recall --project NAME",
-        'search "question" [--tag TAG]',
+        'search "question" [--tag TAG --view current|history --scope SCOPE]',
         "source add FILE [--kind conversation|document|code|note] [--origin LOCATION]",
         "source get ID [--start N --end N]",
         "publish FILE.json",
@@ -192,9 +192,21 @@ async function main() {
   if (command === "recall")
     return output(await request("/recall?" + new URLSearchParams({ tag })));
   if (command === "search") {
+    const view = option("view", "current"),
+      scope = option("scope");
+    if (!["current", "history"].includes(view))
+      throw new Error("--view must be current or history");
     if (!args[0]) throw new Error("Search question required");
     return output(
-      await request("/context?" + new URLSearchParams({ q: args[0], tag })),
+      await request(
+        "/context?" +
+          new URLSearchParams({
+            q: args[0],
+            tag,
+            view,
+            ...(scope ? { scope } : {}),
+          }),
+      ),
     );
   }
   if (command === "article") {

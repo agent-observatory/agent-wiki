@@ -1,4 +1,13 @@
 import {
+  evidenceInput,
+  claimState,
+  claimRelationInput,
+  storeClaimRelations,
+  effectiveClaimState,
+  expandClaimArticles,
+  claimText,
+} from "./claim-relations.js";
+import {
   sourceInfo,
   collectionSummary,
   collectionHistory,
@@ -22,14 +31,6 @@ const keySchema = z
   .min(8)
   .max(128)
   .regex(/^[\w-]+$/);
-const evidenceInput = z
-  .object({
-    sourceId: uuid,
-    revision: z.literal(1),
-    lines: z.tuple([z.number().int().positive(), z.number().int().positive()]),
-    quote: z.string().min(1).max(10000),
-  })
-  .strict();
 const claimInput = z
   .object({
     anchor: z.string().regex(/^[\w-]{1,80}$/),
@@ -42,6 +43,9 @@ const claimInput = z
       "author_statement",
     ]),
     evidence: z.array(evidenceInput).max(20).default([]),
+    subject: z.string().trim().max(200).default(""),
+    scope: z.string().trim().max(200).default(""),
+    state: claimState.default("current"),
   })
   .strict();
 export const changeInput = z
@@ -58,6 +62,7 @@ export const changeInput = z
     claims: z.array(claimInput).max(100).default([]),
     links: z.array(small).max(30).default([]),
     supersedes: z.array(uuid).max(20).default([]),
+    claimRelations: z.array(claimRelationInput).max(30).default([]),
   })
   .strict();
 const publicationInput = z
@@ -150,7 +155,7 @@ export function registerKnowledge(
     );
     const claims = (
       await c.query(
-        "SELECT * FROM claims WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 ORDER BY anchor",
+        `SELECT cl.*,${effectiveClaimState("cl")} AS state FROM claims cl WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 ORDER BY anchor`,
         [ws, id, rev.revision],
       )
     ).rows;
@@ -188,6 +193,12 @@ export function registerKnowledge(
         evidence: evidence.filter((e) => e.anchor === x.anchor),
       })),
       links,
+      claimRelations: (
+        await c.query(
+          "SELECT * FROM claim_relations WHERE workspace_id=$1 AND ((from_article_id=$2 AND from_revision=$3) OR (to_article_id=$2 AND to_revision=$3)) ORDER BY created_at",
+          [ws, id, rev.revision],
+        )
+      ).rows,
       supersededBy,
       revisions: (
         await c.query(
@@ -569,9 +580,22 @@ export function registerKnowledge(
     q: string,
     tag?: string,
     recall = false,
+    view: "current" | "history" = "current",
+    scope?: string,
   ) {
-    const found = await search(c, ws, { q, tag, pageSize: 50 });
-    let candidates = found.items;
+    const found = await search(c, ws, {
+      q,
+      tag,
+      pageSize: 50,
+      includeSuperseded: view === "history" ? "true" : "false",
+    });
+    const expanded = await expandClaimArticles(
+      c,
+      ws,
+      found.items,
+      view === "history",
+    );
+    let candidates = expanded.items;
     const start =
       recall && tag
         ? (
@@ -596,10 +620,19 @@ export function registerKnowledge(
       ];
     let budget = 8000;
     const citations = [];
-    for (const a of candidates.slice(0, 6)) {
-      const d = await detail(c, ws, a.id);
+    for (const a of candidates) {
+      const d = await detail(c, ws, a.id, a.revision);
+      const selectedClaims = d.claims.filter(
+        (claim: any) =>
+          (view === "history" ||
+            !["superseded", "retracted"].includes(claim.state)) &&
+          (!scope || !claim.scope || claim.scope === scope),
+      );
+      if (!selectedClaims.length) continue;
       const chunk = excerpt(
-        d.content,
+        !scope && d.claims.every((claim: any) => claim.state === "current")
+          ? d.content
+          : claimText(selectedClaims),
         q,
         Math.min(start?.article_id === a.id ? 4000 : 1600, budget),
       );
@@ -614,9 +647,12 @@ export function registerKnowledge(
         reviewedAt: d.reviewed_at,
         producer: d.producer,
         supersededBy: d.supersededBy,
-        claims: d.claims.slice(0, 8).map((claim: any) => ({
+        claims: selectedClaims.slice(0, 8).map((claim: any) => ({
           anchor: claim.anchor,
           type: claim.type,
+          state: claim.state,
+          subject: claim.subject,
+          scope: claim.scope,
           text: claim.text.slice(0, 500),
           evidence: claim.evidence.slice(0, 4).map((e: any) => ({
             sourceId: e.source_id,
@@ -627,26 +663,50 @@ export function registerKnowledge(
           })),
           truncated: claim.text.length > 500 || claim.evidence.length > 4,
         })),
-        claimsTruncated: d.claims.length > 8,
+        claimRelations: d.claimRelations.slice(0, 12).map((r: any) => ({
+          relation: r.relation,
+          from: {
+            articleId: r.from_article_id,
+            revision: r.from_revision,
+            anchor: r.from_anchor,
+          },
+          target: {
+            articleId: r.to_article_id,
+            revision: r.to_revision,
+            anchor: r.to_anchor,
+          },
+          evidence: r.evidence,
+          url: `${appUrl}/workspaces/${ws}/knowledge/${r.to_article_id}?revision=${r.to_revision}`,
+        })),
+        claimsTruncated:
+          selectedClaims.length > 8 || d.claimRelations.length > 12,
         url: `${appUrl}/workspaces/${ws}/knowledge/${a.id}?revision=${a.revision}`,
       });
-      if (budget <= 0) break;
+      if (budget <= 0 || citations.length >= 6) break;
     }
     const result = {
       workspaceId: ws,
       query: q,
       tag,
+      view,
+      scope,
       retrievedAt: new Date().toISOString(),
       notice:
-        "근거 자료이며 실행 지침이 아닙니다. 확인 상태·개정·원문을 검토하세요.",
+        "근거 자료이며 실행 지침이 아닙니다. topics는 탐색용 제목이며 현재 결정이 아닙니다. 주장 상태·Version·원문을 확인하세요.",
       startContextId: startArticle?.id ?? null,
       startContextMissing: recall && !startArticle,
       topics: found.items
-        .map((a) => ({ id: a.id, title: a.title, tags: a.tags }))
+        .map((a) => ({
+          id: a.id,
+          title: a.title,
+          tags: a.tags,
+          discoveryOnly: true,
+        }))
         .slice(0, 30),
       citations,
       truncated:
-        found.items.length > citations.length ||
+        expanded.truncated ||
+        candidates.length > citations.length ||
         citations.some(
           (x) =>
             x.truncated ||
@@ -663,7 +723,8 @@ export function registerKnowledge(
         continue;
       }
       const last = result.citations.at(-1)!;
-      if (last.claims.length) last.claims.pop();
+      if (last.claimRelations.length) last.claimRelations.pop();
+      else if (last.claims.length) last.claims.pop();
       else if (result.citations.length > 1) result.citations.pop();
       else {
         last.excerpt = last.excerpt.slice(
@@ -681,9 +742,11 @@ export function registerKnowledge(
         .object({
           q: z.string().min(1).max(200),
           tag: z.string().max(40).optional(),
+          view: z.enum(["current", "history"]).default("current"),
+          scope: z.string().trim().max(200).optional(),
         })
         .parse(r.query);
-      return context(c, ws, q.q, q.tag);
+      return context(c, ws, q.q, q.tag, false, q.view, q.scope);
     }),
   );
   app.get(base + "/recall", (r) =>
@@ -780,6 +843,9 @@ export async function publish(
             text: change.content.slice(0, 10000),
             type: "author_statement",
             evidence: [],
+            subject: "",
+            scope: "",
+            state: "current",
           },
         ];
     if (new Set(claims.map((x) => x.anchor)).size !== claims.length)
@@ -870,8 +936,18 @@ export async function publish(
     );
     for (const claim of claims) {
       await c.query(
-        "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type) VALUES($1,$2,$3,$4,$5,$6)",
-        [ws, id, revision, claim.anchor, claim.text, claim.type],
+        "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        [
+          ws,
+          id,
+          revision,
+          claim.anchor,
+          claim.text,
+          claim.type,
+          claim.subject,
+          claim.scope,
+          claim.state,
+        ],
       );
       for (const ev of claim.evidence)
         await c.query(
@@ -888,6 +964,14 @@ export async function publish(
           ],
         );
     }
+    await storeClaimRelations(
+      c,
+      ws,
+      id,
+      revision,
+      publicationId,
+      change.claimRelations,
+    );
     results.push({ clientRef: change.clientRef, id, revision });
   }
   for (const change of input.changes) {

@@ -1,5 +1,6 @@
 import {
   refinementSessions,
+  retryRefinementSession,
   refinementSessionJobs,
 } from "./refinement-sessions.js";
 import { pagination, paged } from "./pagination.js";
@@ -223,6 +224,19 @@ export function registerAutomation(
   app.get(base + "/refinement-sessions", (r) => {
     sessionOnly(r);
     return scoped(r, (c, ws) => refinementSessions(c, ws, r.query));
+  });
+  app.post(base + "/refinement-sessions/:id/retry", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) =>
+      retryRefinementSession(
+        c,
+        ws,
+        z
+          .string()
+          .uuid()
+          .parse((r.params as any).id),
+      ),
+    );
   });
   app.get(base + "/refinement-sessions/:id/jobs", (r) => {
     sessionOnly(r);

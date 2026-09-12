@@ -2,6 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
+import { z } from "zod";
 import { pool, tx } from "../packages/core/src/db.js";
 import { putSource, hash } from "../packages/core/src/storage.js";
 import {
@@ -58,7 +59,9 @@ after(async () => {
 test("successful chunks survive a later failure and resume at the failed chunk with exact coverage", async () => {
   const starts: number[] = [];
   const model = async (_c: any, _k: any, m: any) => {
-    const input = JSON.parse(m[1].content);
+    const input = JSON.parse(
+      z.object({ content: z.string() }).parse(m[1]).content,
+    );
     starts.push(input.source.start);
     assert.ok(
       Buffer.byteLength(m[0].content + m[1].content) <= defaults.maxInputTokens,
@@ -169,4 +172,136 @@ test("publish-only recovery preserves the failed execution and makes no model ca
   assert.equal(original.status, "failed");
   assert.equal(original.error_code, "WORKER_STOPPED");
   assert.equal(original.diagnostics.durationMs, 1000);
+});
+
+test("incremental curation sees prior claim context and adds a grounded replacement without overwriting the old article", async () => {
+  const { publish } = await import("../apps/agent-wiki-api/src/knowledge.js");
+  const oldText = "Supabase를 운영 DB로 채택한다.",
+    newText = "Supabase를 취소하고 OCI PostgreSQL을 운영 DB로 채택한다.";
+  async function addSource(text: string) {
+    const id = randomUUID(),
+      h = hash(text),
+      key = ws + "/" + h + ".txt.gz";
+    await putSource(key, text);
+    await tx(owner, ws, (c) =>
+      c.query(
+        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'decision','conversation','synthetic',$3,$3,$4,1,$5,true)",
+        [id, ws, h, key, randomUUID()],
+      ),
+    );
+    return id;
+  }
+  const first = await addSource(oldText),
+    second = await addSource(newText);
+  const previous = await tx(owner, ws, (c) =>
+    publish(
+      c,
+      ws,
+      {
+        idempotencyKey: randomUUID(),
+        producer: { type: "agent", client: "synthetic" },
+        changes: [
+          {
+            clientRef: "a",
+            title: "운영 데이터베이스",
+            content: oldText,
+            claims: [
+              {
+                anchor: "db",
+                text: oldText,
+                type: "user_decision",
+                subject: "database",
+                scope: "production",
+                state: "current",
+                evidence: [
+                  {
+                    sourceId: first,
+                    revision: 1,
+                    lines: [1, 1],
+                    quote: oldText,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { userId: owner, scope: "session" },
+    ),
+  );
+  const old = previous.items[0].id,
+    newJob = randomUUID();
+  await tx(owner, ws, (c) =>
+    c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [newJob, ws, second],
+    ),
+  );
+  await releaseGate();
+  await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
+    const input = JSON.parse(
+      z.object({ content: z.string() }).parse(m[1]).content,
+    );
+    const prior = input.related.find((a: any) => a.id === old);
+    assert.equal(prior.text, oldText);
+    assert.equal(prior.same_session, true);
+    assert.equal(prior.scope, "production");
+    const evidence = {
+      sourceId: second,
+      revision: 1,
+      lines: [1, 1],
+      quote: newText,
+    };
+    return {
+      output: {
+        changes: [
+          {
+            clientRef: "b",
+            title: "새 운영 DB",
+            content: newText,
+            claims: [
+              {
+                anchor: "db",
+                text: newText,
+                type: "user_decision",
+                subject: "database",
+                scope: "production",
+                state: "current",
+                evidence: [evidence],
+              },
+            ],
+            claimRelations: [
+              {
+                anchor: "db",
+                relation: "supersedes",
+                target: { articleId: old, revision: 1, anchor: "db" },
+                evidence: [evidence],
+              },
+            ],
+          },
+        ],
+      },
+      usage: { total_tokens: 50 },
+    };
+  });
+  const result = await tx(owner, ws, async (c) => ({
+    job: (
+      await c.query(
+        "SELECT status,error_code FROM refinement_jobs WHERE id=$1",
+        [newJob],
+      )
+    ).rows[0],
+    article: (
+      await c.query("SELECT revision,content FROM articles WHERE id=$1", [old])
+    ).rows[0],
+    relations: (
+      await c.query("SELECT * FROM claim_relations WHERE to_article_id=$1", [
+        old,
+      ])
+    ).rows,
+  }));
+  assert.equal(result.job.status, "completed", JSON.stringify(result.job));
+  assert.equal(result.article.revision, 1);
+  assert.equal(result.article.content, oldText);
+  assert.equal(result.relations.length, 1);
 });

@@ -175,3 +175,12 @@ L2·L3의 정제·재시도·품질 검증 기준은 [기억 설계](l2-l3-memor
 기존 수집 중복·순서 역전·동일 크기 변경·미완성 기록·실패 후 재전송, 역할별 권한, 키 암호화, 한도와 일시 중지, 근거 반영, 임대 복구, 실제 SIGTERM 종료를 검증한다. 실제 모델 응답·원격 배포·사용자 기록의 지식화 여부는 [운영 현황](OPERATIONS.md)에 별도로 남긴다.
 
 </details>
+
+### 현재 결정과 변경 이력 조회
+
+```sh
+agent-wiki search "운영 DB" --view current
+agent-wiki search "운영 DB" --view history --scope production
+```
+
+`current`는 대체·철회된 주장을 제외하고 제안·충돌·미확인 상태를 표시한다. `history`는 고정 Version의 변경 관계도 포함한다. 원문과 전체 Version은 반환된 링크로 확인한다. API는 `/context?view=current|history&scope=...`를 사용한다. 주장 관계 입력은 Client Skill의 [반영 계약](../packages/agent-wiki-client/skill/references/publication.md)을 따른다.

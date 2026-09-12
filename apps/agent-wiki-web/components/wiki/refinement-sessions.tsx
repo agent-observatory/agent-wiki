@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
-import { useApi } from "@/lib/api";
+import { useApi, api, errorText } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -31,7 +33,9 @@ type Session = {
 type Page = { page: number; pageSize: number; hasNext: boolean };
 export function RefinementSessions(props: Props) {
   const query = useSearchParams();
-  const { data, error } = useApi<{
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const { data, error, reload } = useApi<{
     items: Session[];
     total: number;
     pagination: Page;
@@ -39,6 +43,24 @@ export function RefinementSessions(props: Props) {
     `/api/workspaces/${props.workspaceId}/refinement-sessions?${query}`,
     15000,
   );
+  async function retry(id: string) {
+    setBusy(id);
+    setMessage("");
+    try {
+      const result = await api<{ retried: number }>(
+        `/api/workspaces/${props.workspaceId}/refinement-sessions/${id}/retry`,
+        { method: "POST", body: "{}" },
+      );
+      setMessage(
+        `${result.retried}개 작업을 재시도 대기에 넣었습니다. 자동 정제가 중지되어 있으면 재개 후 실행합니다.`,
+      );
+      reload();
+    } catch (e) {
+      setMessage(errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
   if (error) return <Failure error={error} />;
   if (!data) return <Loading />;
   return (
@@ -46,6 +68,11 @@ export function RefinementSessions(props: Props) {
       <p className="mb-4 text-xs text-muted-foreground">
         전체 {data.total.toLocaleString()}개 세션 · 상태별 수는 정제 작업 기준
       </p>
+      {message && (
+        <p role="status" className="mb-4 text-sm text-muted-foreground">
+          {message}
+        </p>
+      )}
       {!data.items.length ? (
         <Empty>수집한 원문이 들어오면 정제 작업이 표시됩니다.</Empty>
       ) : (
@@ -84,7 +111,18 @@ export function RefinementSessions(props: Props) {
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {session.failed > 0 ? (
-                    <Badge variant="destructive">{session.failed}</Badge>
+                    <div className="flex items-center justify-end gap-2">
+                      <Badge variant="destructive">{session.failed}</Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy !== null}
+                        onClick={() => retry(session.id)}
+                        aria-label={`${session.name} 실패 작업 재시도`}
+                      >
+                        {busy === session.id ? "처리 중" : "재시도"}
+                      </Button>
+                    </div>
                   ) : (
                     "0"
                   )}

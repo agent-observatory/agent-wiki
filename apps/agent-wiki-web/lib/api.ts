@@ -65,6 +65,15 @@ const messages: Record<string, string> = {
   REVISION_CONFLICT:
     "다른 변경이 먼저 저장됐습니다. 최신 Version을 다시 열어 비교하세요.",
   EVIDENCE_MISMATCH: "인용 내용이 원문의 지정한 줄과 다릅니다.",
+  CLAIM_TARGET_ALREADY_RETIRED:
+    "이미 대체되거나 철회된 주장입니다. 현재 결정을 확인하세요.",
+  CLAIM_TARGET_VERSION_CHANGED:
+    "참조한 주장의 Version이 바뀌었습니다. 최신 근거를 다시 확인하세요.",
+  CLAIM_SCOPE_MISMATCH:
+    "같은 대상과 적용 범위의 주장만 변경 관계로 연결할 수 있습니다.",
+  CLAIM_RELATION_EVIDENCE_REQUIRED:
+    "변경 관계를 뒷받침하는 원문 근거가 필요합니다.",
+  DECISION_AUTHORITY_MISMATCH: "AI 해석으로 사용자 결정을 취소할 수 없습니다.",
   CLAIM_NOT_IN_CONTENT: "근거를 연결한 주장이 수정된 본문에 없습니다.",
   NOT_FOUND: "자료가 없거나 접근할 수 없습니다.",
   INVALID_INPUT: "입력 형식을 확인해 주세요.",

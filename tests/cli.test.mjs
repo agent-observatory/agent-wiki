@@ -33,7 +33,10 @@ test("one setup shares query and collector settings, preserves scope and machine
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   try {
     const manifest = JSON.parse(
-      await readFile(resolve("packages/agent-wiki-client/package.json"), "utf8"),
+      await readFile(
+        resolve("packages/agent-wiki-client/package.json"),
+        "utf8",
+      ),
     );
     assert.deepEqual(manifest.bin, { "agent-wiki": "./cli/agent-wiki.mjs" });
     const tokenFile = join(dir, ".env.local");
@@ -78,13 +81,18 @@ test("one setup shares query and collector settings, preserves scope and machine
       new RegExp("/workspaces/" + uuid + "/context"),
     );
     assert.equal(requests[0].authorization, "Bearer synthetic-cli-token");
+    await run("search", "why", "--view", "history", "--scope", "production");
+    const query = new URL(requests[1].url, "http://localhost").searchParams;
+    assert.equal(query.get("view"), "history");
+    assert.equal(query.get("scope"), "production");
+    await assert.rejects(run("search", "why", "--view", "unknown"));
     // Run collection from the same configuration without touching real session roots.
     c.collector.roots = [];
     await writeFile(config, JSON.stringify(c));
     const result = await run("collector", "run");
     assert.equal(result.failed, 0);
     assert.equal(result.files, 0);
-    assert.equal(requests.length, 1);
+    assert.equal(requests.length, 2);
     assert.deepEqual((await run("collector", "status")).projects, [dir]);
     await run("setup", "--all-projects");
     assert.deepEqual(

@@ -181,6 +181,7 @@ export async function processUpload(owner: string, signal: AbortSignal) {
               "upload-" + upload.id + "-" + sources,
               JSON.stringify({
                 rawUploadId: upload.id,
+                partIndex: sources,
                 projection: "text-fields-1",
                 imageAnalysis: "skipped",
                 rawImages: "preserved",

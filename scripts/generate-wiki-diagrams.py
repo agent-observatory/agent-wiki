@@ -212,7 +212,7 @@ card(40,820,580,190,'필요한 과거 원문',['“그거”가 가리키는 이
 path('M1490 656 V820',flow='ingest')
 group(696,820,944,190)
 text(720,856,'agent-wiki-db · 한 트랜잭션으로 확정',FONT['group'],True,'#FFFFFF')
-card(716,890,280,96,layer_label(3),['지식 Version · 주장 관계'],'data','postgresql')
+card(716,890,280,96,layer_label(3),['새 주장 · 변경 관계 추가'],'data','postgresql')
 card(1018,890,290,96,'다음 세션 맥락',['결정 참조 · 미해결 항목'],'ops','tabler-clipboard-check')
 card(1330,890,290,96,'다음 처리 위치',['성공 범위 · 실행 기록'],'ops','tabler-clipboard-check')
 text(716,1058,'다음 증분은 저장한 맥락·처리 위치에서 재개',FONT['component'],True)

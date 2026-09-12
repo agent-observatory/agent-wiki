@@ -81,3 +81,16 @@ test("unlimited daily budget keeps work ready but still honors provider cooldown
     { reason: "provider_cooldown", nextAttemptAt: "2026-09-14T01:00:00.000Z" },
   );
 });
+
+test("pending work blocked behind a failed session head needs attention", () => {
+  assert.equal(
+    refinementSchedule({ ...state, pending: 20, eligible: 0, failed: 1 })
+      .reason,
+    "needs_attention",
+  );
+  assert.equal(
+    refinementSchedule({ ...state, pending: 20, eligible: 1, failed: 1 })
+      .reason,
+    "ready",
+  );
+});

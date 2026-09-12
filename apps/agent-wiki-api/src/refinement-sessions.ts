@@ -68,3 +68,18 @@ export async function refinementSessionJobs(
   );
   return paged(result.rows, page);
 }
+
+export async function retryRefinementSession(
+  c: PoolClient,
+  ws: string,
+  id: string,
+) {
+  const source = await sourceInfo(c, ws, id);
+  const result = await c.query(
+    `UPDATE refinement_jobs j SET status='pending',attempts=0,available_at=now(),error_code=NULL,output=NULL,run_id=NULL,lease_until=NULL,updated_at=now()
+ FROM sources s WHERE j.workspace_id=$1 AND s.workspace_id=j.workspace_id AND s.id=j.source_id AND s.deleted_at IS NULL AND j.status='failed'
+ AND (($2='conversation' AND $3<>'' AND s.kind='conversation' AND s.origin=$3) OR s.id=$4) RETURNING j.id`,
+    [ws, source.kind, source.origin, source.id],
+  );
+  return { retried: result.rowCount };
+}

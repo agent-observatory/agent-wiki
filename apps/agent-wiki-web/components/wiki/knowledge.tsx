@@ -229,6 +229,9 @@ function Editor({
                   anchor: c.anchor,
                   text: c.text,
                   type: c.type,
+                  subject: c.subject,
+                  scope: c.scope,
+                  state: c.state,
                   evidence: c.evidence.map((e: any) => ({
                     sourceId: e.source_id,
                     revision: e.source_revision,
@@ -456,6 +459,14 @@ export function KnowledgeDetail() {
           <TabsTrigger value="evidence">근거·리니지</TabsTrigger>
         </TabsList>
         <TabsContent value="content" className="mt-6">
+          {a.claims.some((c: any) =>
+            ["superseded", "retracted", "conflicted"].includes(c.state),
+          ) && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              변경되거나 충돌하는 주장이 포함되어 있습니다. 근거·리니지에서 현재
+              상태를 확인하세요.
+            </p>
+          )}
           <article className="prose-wiki max-w-3xl">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {a.content}
@@ -488,9 +499,57 @@ export function KnowledgeDetail() {
               <p className="text-xs mt-2">Skill {a.producer.skillVersion}</p>
             )}
           </div>
+          {(a.claimRelations ?? []).length > 0 && (
+            <section className="rounded-lg border p-5 space-y-3">
+              <h2 className="font-bold">주장 변경 이력</h2>
+              {a.claimRelations.map((r: any, i: number) => {
+                const outgoing =
+                  r.from_article_id === a.id && r.from_revision === a.revision;
+                const id = outgoing ? r.to_article_id : r.from_article_id;
+                const revision = outgoing ? r.to_revision : r.from_revision;
+                const label = (
+                  {
+                    supersedes: outgoing
+                      ? "대체한 이전 주장"
+                      : "이 주장을 대체한 결정",
+                    retracts: outgoing
+                      ? "철회한 이전 주장"
+                      : "이 주장을 철회한 결정",
+                    contradicts: "충돌하는 주장",
+                    supports: "뒷받침하는 주장",
+                  } as Record<string, string>
+                )[r.relation];
+                return (
+                  <Link
+                    key={i}
+                    className="block underline"
+                    href={`${root}/knowledge/${id}?revision=${revision}`}
+                  >
+                    {label} · Version {revision}
+                  </Link>
+                );
+              })}
+            </section>
+          )}
           {a.claims.map((c: any) => (
             <section key={c.anchor} className="rounded-lg border p-5">
-              <Badge variant="outline">{types[c.type]}</Badge>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{types[c.type]}</Badge>
+                {c.state !== "current" && (
+                  <Badge variant="secondary">
+                    {(
+                      {
+                        proposed: "검토 의견",
+                        superseded: "대체됨",
+                        retracted: "철회됨",
+                        conflicted: "미해결 충돌",
+                        unconfirmed: "미확인",
+                      } as Record<string, string>
+                    )[c.state] ?? c.state}
+                  </Badge>
+                )}
+                {c.scope && <Badge variant="outline">{c.scope}</Badge>}
+              </div>
               <p className="my-4 leading-7 whitespace-pre-wrap">{c.text}</p>
               {!c.evidence.length ? (
                 <p className="text-muted-foreground">
