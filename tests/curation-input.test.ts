@@ -35,3 +35,31 @@ test("unknown fields, snapshots and quoted instruction names stay intact", () =>
   ].join("\n");
   assert.deepEqual(curationInput(text), { text, omitted: [], omittedBytes: 0 });
 });
+test("session metadata and split base instructions are not knowledge input", () => {
+  const event = (id: number, path: unknown[], text: string) =>
+    JSON.stringify({ event: id, field: JSON.stringify(path), text });
+  const lines = [
+    event(0, ["payload", "cwd"], "/personal/project"),
+    event(0, ["type"], "session_meta"),
+    event(0, ["payload", "agent_nickname"], "Socrates"),
+    event(
+      1,
+      ["payload", "content", 0, "text"],
+      "session_meta도 원문에는 보존하자",
+    ),
+    event(
+      2,
+      ["payload", "base_instructions", "text"],
+      "split runtime instructions",
+    ),
+    event(3, ["payload", "cwd"], "unknown event must stay"),
+  ];
+  const p = curationInput(lines.join("\n"));
+  assert.deepEqual(p.text.split("\n"), ["", "", "", lines[3], "", lines[5]]);
+  assert.equal(touchesOmitted([1, 3], p.omitted), true);
+  assert.equal(touchesOmitted([4, 4], p.omitted), false);
+  assert.deepEqual(p.omitted, [
+    { start: 1, end: 3, reason: "session_metadata" },
+    { start: 5, end: 5, reason: "agent_instructions" },
+  ]);
+});

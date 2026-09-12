@@ -1,23 +1,42 @@
-export const CURATION_INPUT_VERSION = "text-fields-1";
+export const CURATION_INPUT_VERSION = "text-fields-2";
 type Omission = {
   start: number;
   end: number;
-  reason: "encrypted" | "agent_instructions";
+  reason: "encrypted" | "agent_instructions" | "session_metadata";
 };
 // Keep absolute source line numbers. Only known transport fields are omitted;
 // the same words inside a conversation remain ordinary source text.
 export function curationInput(original: string) {
+  const originalLines = original.split("\n");
+  const metadataEvents = new Set<string | number>();
+  for (const line of originalLines) {
+    try {
+      const row = JSON.parse(line);
+      if (
+        ["string", "number"].includes(typeof row.event) &&
+        JSON.stringify(JSON.parse(row.field)) === '["type"]' &&
+        row.text === "session_meta"
+      )
+        metadataEvents.add(row.event);
+    } catch {}
+  }
   const omitted: Omission[] = [];
   let omittedBytes = 0;
-  const lines = original.split("\n").map((line, index) => {
+  const lines = originalLines.map((line, index) => {
     let reason: Omission["reason"] | undefined;
     try {
       const row = JSON.parse(line),
         path = JSON.parse(row.field);
-      if (row.event === undefined || !Array.isArray(path)) return line;
+      if (
+        !["string", "number"].includes(typeof row.event) ||
+        !Array.isArray(path)
+      )
+        return line;
       const key = JSON.stringify(path);
+      if (metadataEvents.has(row.event)) reason = "session_metadata";
       if (key === '["payload","encrypted_content"]') reason = "encrypted";
       if (
+        key === '["payload","base_instructions","text"]' ||
         key === '["payload","state","host_skills","body"]' ||
         key === '["payload","developer_instructions"]' ||
         key ===

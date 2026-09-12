@@ -60,7 +60,7 @@
   <path d="M9 8h6" />
 </svg>
 <text x="750" y="548" font-size="18" font-weight="400" fill="#172C4B">새 청크 · 선별한 텍스트</text>
-<text x="716" y="579" font-size="18" font-weight="400" fill="#172C4B">암호화·런타임 지침 제외</text>
+<text x="716" y="579" font-size="18" font-weight="400" fill="#172C4B">메타데이터·지침 제외</text>
 <text x="716" y="610" font-size="18" font-weight="400" fill="#172C4B">원문 위치 · 참고 맥락</text>
 <rect x="1024" y="468" width="288" height="188" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
 <text x="1044" y="510" font-size="20" font-weight="700" fill="#172C4B">주장 추출 · 비교</text>
