@@ -402,7 +402,7 @@ stdout JSON의 추적 필드는 최상위 `trace_id`, `span_id`, `trace_flags`�
 
 ### Slack 전달 경계
 
-GitHub Actions가 **한국어 제목·핵심 수치·발생 시각·확인 버튼**을 가진 Block Kit 카드를 Incoming Webhook으로 전송한다. 앱에는 Slack 코드나 비밀을 넣지 않는다. 비밀·원문·프롬프트·예외 본문은 카드에 싣지 않고 허용한 운영 필드만 전달한다. 429·일시 오류는 유한 재시도한다.
+GitHub Actions가 **한국어 제목·핵심 수치·발생 시각·확인 링크**을 가진 Block Kit 카드를 Incoming Webhook으로 전송한다. 앱에는 Slack 코드나 비밀을 넣지 않는다. 비밀·원문·프롬프트·예외 본문은 카드에 싣지 않고 허용한 운영 필드만 전달한다. 429·일시 오류는 유한 재시도한다. URL 버튼도 클릭 응답 서버가 필요하므로 Webhook 카드에는 일반 링크를 쓴다. [Slack 버튼 조건](https://docs.slack.dev/reference/block-kit/block-elements/button-element/)
 
 OCI 기본 Slack 전달은 원본 JSON 형태여서 한국어 카드에 맞지 않았다. 시험용 Notifications 구독은 유지하되 Connector Hub는 `INACTIVE`로 두어 중복 원본 전송을 막는다. 별도 알림 Function은 만들지 않는다. [OCI 전달 형식](https://docs.oracle.com/en-us/iaas/Content/connector-hub/message-examples.htm)
 

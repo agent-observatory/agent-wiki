@@ -1,6 +1,6 @@
 # 구현·배포 현황
 
-첫 버전을 OCI에 배포했다. **https://agent-wiki.duckdns.org 에서 HTTPS 접속·GitHub 소유자 로그인을 확인했다.** 외부 알림 연결과 실제 NVIDIA 추출 성공은 별도 미완료 항목이다.
+첫 버전을 OCI에 배포했다. **https://agent-wiki.duckdns.org 에서 HTTPS 접속·GitHub 소유자 로그인을 확인했다.** 비용·오류 모니터링은 아래 별도 검증 기록을 따른다. 실제 NVIDIA 추출 성공은 미완료 항목이다.
 
 ## 현재 상태
 
@@ -15,7 +15,7 @@
 | DNS·HTTPS      | DuckDNS를 VM에 연결, Caddy 인증서 자동 발급·HTTPS 200 확인                                                        |
 | 로그인         | 실제 GitHub OAuth 로그인 성공. 등록한 소유자의 GitHub ID만 허용                                                         |
 | GitHub Actions | 테스트 → ARM64 이미지 게시 → 실제 VM 배포 성공. `DEPLOY_ENABLED=true` |
-| 모니터링       | 호스트 JSON 파일 기록 확인. OCI Logging/Function/Slack 자동 알림 연결 전                                 |
+| 모니터링       | OCI 구조화 로그 수집·한국어 Slack 오류 카드·중복 억제 확인. GitHub Actions 정기 실행 등록 |
 
 이 문서는 실제 수행 상태다. [아키텍처](wiki/architecture.md)와 그림은 목표 구조를 설명하며, 구현·배포 검증의 증거를 대신하지 않는다.
 
@@ -56,7 +56,7 @@ Terraform 문법 검증과 모의 plan 검사를 통과했다. 실제 plan은 �
 - 강제 종료 등으로 큐가 최종 실패하면 자료 목록 조회 때 실패 상태를 맞추고 수동 재시도를 허용한다. 새 작업 ID가 생긴 뒤 늦게 도착한 옛 작업은 반영하지 않는다. 실제 VM 컨테이너의 강제 종료·복구 검증은 배포 후 남아 있다.
 - Kimi/DeepSeek는 응답 시간 초과 후 유한 재시도·최종 실패까지 확인했다. 인용 검증과 중복 반영 방지는 합성 모델 응답을 주입해 검증했으며, 이를 실제 NVIDIA 추론 성공으로 표현하지 않는다.
 - 첫 버전 AI 수집은 새 문서·기억 후보를 만든다. 기존 지식을 자동 병합하거나 사실 확인 완료로 승격하지 않는다. 웹에서 편집·확인한다.
-- MCP 서버, 그래프 시각화, 자동 기존 문서 병합, OCI 경보→Slack 운영 연결은 후속 작업이다. HTTP Context API와 문서 연결 데이터는 구현돼 있다.
+- MCP 서버, 그래프 시각화, 자동 기존 문서 병합, 로그 없는 전체 중단·지표 경보는 후속 작업이다. HTTP Context API와 문서 연결 데이터는 구현돼 있다.
 
 같은 Terraform state로 볼륨 부착과 instance principal을 완료했다. `scripts/bootstrap-vm.py --image <검증된 커밋 SHA>`는 런타임 환경 파일·DB TLS 인증서·DNS·Actions 접속 정보를 준비한다. 해당 스크립트와 `ci.yml`로 첫 배포를 수행했다. 배포 검증 결과는 아래 기록을 따른다. 이 스크립트는 VM을 생성하거나 유료 전환하지 않는다.
 
@@ -73,4 +73,24 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 - GitHub Actions run `34679399455`로 첫 배포한 뒤 최종 run `34679670518`에서도 테스트·ARM64 이미지 게시·배포가 모두 성공했다. 현재 앱 이미지 기준 커밋은 `047af5a9e301d51373c6a818f8aacdfa89e73604`이며 앱 교체 중 PostgreSQL 컨테이너는 유지됐다.
 - Caddy·웹·API·Worker·PostgreSQL 5개 컨테이너 실행, API readiness 200, 실제 HTTPS 200과 GitHub 소유자 로그인, 외부 DB TLS 접속을 확인했다. DataGrip 접속 값은 `.env.local`에 저장했다.
 - 합성 자료로 웹 문서 생성·키워드 검색·개정과 출처를 포함한 Context, 에이전트 키를 사용한 원격 Context API 200을 검증했다. 검증용 공간·문서·개정·임시 키는 모두 정리했다.
-- 예산·비용 알림과 OCI Logging→알림 Function→Slack 연결은 아직 완료하지 않았다. 웹훅은 비활성화했으며 기존 봇 토큰을 쓰는 방향을 유지한다. 이 미완료 경로를 운영 중이라고 표현하지 않는다.
+- 첫 앱 배포 당시 비용·오류 알림은 미완료였다. 이후 사용자가 Incoming Webhook을 제공했으며 현재 구성과 검증은 아래 기록을 따른다.
+
+## 비용·오류 모니터링
+
+2026-09-12, 월 예산 SGD 1과 전용 조회 계정을 만들고 GitHub Actions의 두 예약 워크플로를 활성화했다. 앱 VM·DB 사양은 유지했다. 예산은 지출을 강제로 차단하지 않는다.
+
+| 알림 | 실행 기준 |
+| --- | --- |
+| 정기 비용·사용량 | 매일 09:13 한국 시각. 월 누적·어제 잠정 비용·비교 가능한 날짜의 사용량 증감 |
+| 비용·사용량 이상 | 03:13·09:13·15:13·21:13. 첫 양수 비용·새 비용 구간·A1 보수적 예산 80% 이상·일 사용량 급증 |
+| 앱 오류 | 5분마다. ERROR 이상만 조회하고 동일 이벤트 제외, 같은 오류는 최대 시간당 한 번 |
+
+앱 JSON → Docker syslog → rsyslog `events.jsonl` → OCI Unified Monitoring Agent → OCI Logging 수집을 확인했다. GitHub Actions가 로그를 조회해 한국어 제목·오류 코드·발생 시각·확인 링크로 Slack에 보낸다. 실제 INFO·WARN·ERROR 합성 로그에서 오류만 선택했고, 재조회는 추가 알림 0건이었다. OCI 검색 반영에는 수 분의 지연이 있었다.
+
+알림 체크포인트는 기존 원문 버킷의 운영 객체 한 개에 보관한다. 전용 OCI 계정의 비용·로그 조회와 조건부 체크포인트 읽기·쓰기까지 확인했다. Wiki 원문·VM 관리 권한은 없다. 실제 비밀은 로컬 비공개 설정과 GitHub `production` secrets에만 두었다. Terraform 실제 plan은 `No changes`, 모의 검사 2개·Python 알림 검사 16개를 통과했다. 운영 그림은 재생성·XML 검사·렌더링을 확인했다.
+
+OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Slack 구독은 유지하되 알림 Function과 이메일은 사용하지 않는다. 현재 범위는 기록된 앱 오류이며, 로그가 없는 전체 중단이나 CPU·디스크 경보는 아직 없다. 비용 집계는 최대 48시간 지연될 수 있고 Actions 예약도 지연·누락될 수 있다. 이 구성은 실시간 지출 차단이나 무손실 장애 감지를 제공하지 않는다.
+
+실제 GitHub 실행에서 [정기 비용 요약](https://github.com/agent-observatory/agent-wiki/actions/runs/34683657189)과 [오류 알림](https://github.com/agent-observatory/agent-wiki/actions/runs/34683778380)이 성공했다. Slack 채널에서 두 한국어 카드의 실제 수신·표시를 확인했다. OCI가 JSON 속성을 평탄화하는 차이도 반영해 서비스·오류 코드·요청 ID를 보존한다. 현재 수신 비용은 SGD 0이나 A1 CPU·메모리와 전일 비교 자료는 아직 미집계다. 전체 비용 0을 확정한 상태는 아니다.
+
+오류 재실행에서 추가 알림 0건, 같은 날 비용 요약 재실행에서도 중복 전송이 없는 것을 확인했다. 오류 확인 링크는 해당 로그·ERROR 필터·조회 시간 범위를 연다. Slack 클릭 응답 서버 없이 사용할 수 있도록 카드의 이동 요소는 일반 링크로 마무리했다.

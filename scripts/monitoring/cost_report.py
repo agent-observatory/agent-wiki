@@ -170,9 +170,13 @@ def section(text):
 
 
 def links():
-    return {'type': 'actions', 'elements': [
-        {'type': 'button', 'text': {'type': 'plain_text', 'text': label}, 'url': url}
-        for label, url in [('비용·사용량 보기', COST_URL), ('점검 실행 기록', RUN_URL)]]}
+    return link_row([('비용·사용량 보기', COST_URL), ('점검 실행 기록', RUN_URL)])
+
+
+def link_row(items):
+    # URL buttons still require an interaction acknowledgement. Static links do not.
+    return {'type':'context', 'elements':[{'type':'mrkdwn',
+            'text':' · '.join(f'<{escaped(url)}|{escaped(label)}>' for label,url in items)}]}
 
 
 def daily_message(s, test=False):
@@ -342,7 +346,6 @@ if __name__ == '__main__':
                 send({'text': '⚠️ Agent Wiki · 비용 점검 실패', 'blocks': [
                     header('⚠️ 비용 점검 실패'),
                     section('비용·사용량을 확인하지 못했어요. 정상 또는 0원으로 처리하지 않습니다.'),
-                    {'type': 'actions', 'elements': [{'type': 'button',
-                        'text': {'type': 'plain_text', 'text': '점검 기록'}, 'url': RUN_URL}]}]})
+                    link_row([('점검 기록',RUN_URL)])]})
         except Exception: print('Slack failure notification also failed.', file=sys.stderr)
         sys.exit(1)

@@ -9,7 +9,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
-from cost_report import Checkpoint, escaped, header, section, send, stamp
+from cost_report import Checkpoint, escaped, header, section, send, stamp, link_row
 
 UTC = timezone.utc
 RUN_URL = 'https://github.com/agent-observatory/agent-wiki/actions/workflows/error-monitor.yml'
@@ -71,9 +71,7 @@ def message(events, log_url):
     ids = [('요청',latest['request']),('작업',latest['job'])]
     reference = ' · '.join(f'{label} `{escaped(value)}`' for label,value in ids if value)
     if reference: blocks.append({'type':'context','elements':[{'type':'mrkdwn','text':reference}]})
-    blocks += [{'type':'actions','elements':[
-        {'type':'button','text':{'type':'plain_text','text':label},'url':url}
-        for label,url in [('오류 로그 보기',log_url),('점검 기록',RUN_URL)]]},
+    blocks += [link_row([('오류 로그 보기',log_url),('점검 기록',RUN_URL)]),
         {'type':'context','elements':[{'type':'mrkdwn','text':'5분마다 점검 · 같은 오류는 최대 시간당 1회 알림'}]}]
     return {'text':f'{title} · {service} · {len(events)}건 · {first["code"]}', 'blocks':blocks}
 
@@ -145,7 +143,7 @@ def main():
         if not last or now-stamp(last)>timedelta(hours=1):
             send({'text':'⚠️ Agent Wiki · 오류 점검 실패','blocks':[
                 header('⚠️ 오류 점검 실패'),section('로그를 확인하지 못했어요. 오류가 없는 상태로 처리하지 않습니다.'),
-                {'type':'actions','elements':[{'type':'button','text':{'type':'plain_text','text':'점검 기록'},'url':RUN_URL}]}]})
+                link_row([('점검 기록',RUN_URL)])]})
             # Preserve previous checkpoint on failure, including any IDs not delivered.
             original=store.read();original.setdefault('errors',{})['last_failure_notice']=now.isoformat();store.write(original)
         raise
