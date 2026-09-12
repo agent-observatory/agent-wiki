@@ -195,7 +195,7 @@ export async function processUpload(owner: string, signal: AbortSignal) {
           sources++;
           lines = [];
           size = 0;
-          ((batchId = randomUUID()), (projectionLine = 0));
+          batchId = randomUUID();
         };
         for await (const event of projectEvents(bytes(), dir, v.recordStart)) {
           signal.throwIfAborted();

@@ -482,3 +482,46 @@ test("image-heavy sessions split at event boundaries and resume from the verifie
   assert.equal(t.manifests.length, 2);
   assert.equal((state.files as any)[file].end, (await stat(file)).size);
 });
+
+test("every source reference keeps its cumulative projection offset across batches", async () => {
+  const dir = join(root, "reference-offsets");
+  await mkdir(dir);
+  const file = join(dir, "many.jsonl");
+  await writeFile(
+    file,
+    Array.from(
+      { length: 80 },
+      (_, i) =>
+        JSON.stringify({
+          cwd: "/allowed",
+          sessionId: "reference-offsets",
+          role: "user",
+          text: ("한글 맥락 " + i + " ").repeat(200),
+        }) + "\n",
+    ).join(""),
+  );
+  const t = transport();
+  const result = await collect(
+    { ...config(), roots: [{ client: "codex", path: dir }] },
+    { files: {} },
+    t.request,
+    async () => {},
+    t.transfer,
+  );
+  assert.equal(result.failed, 0);
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const sources = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT object_key,content_hash,line_count FROM sources WHERE workspace_id=$1 AND origin='codex:reference-offsets'",
+        [ws],
+      ),
+    )
+  ).rows;
+  assert.ok(sources.length >= 3);
+  for (const source of sources) {
+    const text = await getSource(source.object_key);
+    assert.equal(hash(text), source.content_hash);
+    assert.equal(text.split("\n").length, source.line_count);
+  }
+});
