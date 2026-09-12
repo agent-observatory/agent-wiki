@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { channel } from "node:diagnostics_channel";
 import {
   callModel,
   defaults,
@@ -7,6 +9,41 @@ import {
   ModelError,
   parseRetryAfter,
 } from "../packages/core/src/ai.js";
+test("model transport allows the full deadline and still aborts a silent server", async () => {
+  const original = globalThis.fetch;
+  const server = createServer((_request, response) => {
+    response.end(
+      JSON.stringify({ choices: [{ message: { content: '{"changes":[]}' } }] }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as { port: number };
+  const requests: { headersTimeout: number; bodyTimeout: number }[] = [];
+  const events = channel("undici:request:create");
+  const observe = (event: unknown) =>
+    requests.push((event as { request: (typeof requests)[number] }).request);
+  events.subscribe(observe);
+  globalThis.fetch = (_url, init) =>
+    original(`http://127.0.0.1:${address.port}`, init);
+  try {
+    await callModel(defaults, "synthetic", [], AbortSignal.timeout(2000));
+    assert.ok(requests[0].headersTimeout > 330_000);
+    assert.ok(requests[0].bodyTimeout > 330_000);
+    server.removeAllListeners("request");
+    server.on("request", () => {});
+    await assert.rejects(
+      callModel(defaults, "synthetic", [], AbortSignal.timeout(50)),
+      { name: "TimeoutError" },
+    );
+  } finally {
+    globalThis.fetch = original;
+    events.unsubscribe(observe);
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      server.close((e) => (e ? reject(e) : resolve())),
+    );
+  }
+});
 test("NVIDIA pending responses poll the same request without resubmitting inference", async () => {
   const original = globalThis.fetch;
   const urls: string[] = [];

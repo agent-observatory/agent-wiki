@@ -1,6 +1,14 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
+import { Agent } from "undici";
 import { AppError } from "./db.js";
+// Keep HTTP inactivity limits above the Worker's total 330-second deadline.
+// Scope this dispatcher to model traffic; other application requests keep theirs.
+const modelTransport = {
+  dispatcher: new Agent().compose((dispatch) => (options, handler) =>
+    dispatch({ ...options, headersTimeout: 360_000, bodyTimeout: 360_000 }, handler),
+  ),
+};
 export const aiConfig = z
   .object({
     enabled: z.boolean().default(false),
@@ -102,6 +110,7 @@ export async function callModel(
   let response = await fetch(
     config.baseUrl.replace(/\/$/, "") + "/chat/completions",
     {
+      ...modelTransport,
       method: "POST",
       redirect: "error",
       signal,
@@ -158,6 +167,7 @@ export async function callModel(
       response = await fetch(
         config.baseUrl.replace(/\/$/, "") + "/status/" + id,
         {
+          ...modelTransport,
           headers: { authorization: "Bearer " + secret },
           redirect: "error",
           signal,
