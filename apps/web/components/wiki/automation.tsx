@@ -84,6 +84,7 @@ export function Automation() {
     }
   }, [settings.data]);
   const update = (name: keyof Config, value: string | number | boolean) => {
+    if (name === "reasoning" && !value) return;
     setSaved(false);
     setConfig((c) => (c ? { ...c, [name]: value } : c));
   };
