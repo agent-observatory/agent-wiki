@@ -35,7 +35,6 @@ export default function ThemeToggle() {
       }}
     >
       {dark ? <Sun size={16} /> : <Moon size={16} />}
-      {dark ? "라이트" : "다크"}
     </button>
   );
 }

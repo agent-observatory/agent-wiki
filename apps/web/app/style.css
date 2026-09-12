@@ -1132,8 +1132,10 @@ a svg {
   gap: 12px;
 }
 .theme-toggle {
+  width: 36px;
   min-height: 36px;
-  font-size: 12px;
+  padding: 0;
+  flex-shrink: 0;
 }
 input::placeholder,
 textarea::placeholder {
