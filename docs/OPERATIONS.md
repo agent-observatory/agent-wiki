@@ -15,7 +15,7 @@
 
 2026-09-13. 실행 명령을 제품명과 같은 `agent-wiki`로 통일했다. 로컬 패키지 0.4.1, 설치된 Codex·Claude 조회 Skill, 문서·웹 설치 안내에 적용했다. 실제 조회와 Collector의 Agent Wiki 한정·10분 주기를 확인했으며 기존 설정·전송 상태를 유지했다.
 
-그림에서 설치 패키지 아래 CLI·Collector를 개별 카드로 묶고 계층 배지를 각 컴포넌트 오른쪽 상단에 맞췄다. 그림 4개의 제목·본문·배지 크기를 공통 상수로 통일했다. CLI 검사·타입 검사·빌드, SVG XML·재생성·상대 링크·실제 렌더링을 확인했다. 웹 안내의 운영 배포는 다음 CI 결과로 확인한다.
+그림에서 설치 패키지 아래 CLI·Collector를 개별 카드로 묶고 계층 배지를 각 컴포넌트 오른쪽 상단에 맞췄다. 그림 4개의 제목·본문·배지 크기를 공통 상수로 통일했다. CLI 검사·타입 검사·빌드, SVG XML·재생성·상대 링크·실제 렌더링을 확인했다. 앱 `1aceacb`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34714568351)가 성공했다. 운영 사용법의 설치·조회·Collector 명령이 모두 `agent-wiki`로 표시됨을 확인했고 API·Web·Worker 건강 상태와 기존 PostgreSQL 컨테이너 유지를 확인했다.
 
 ## 컴포넌트 이름·Skill 실행 위치
 
