@@ -15,7 +15,7 @@ wiki search "단일 VM" --project agent-wiki
 
 ## 연결과 지침
 
-**Wiki CLI 패키지 하나에 조회 명령·Skill·Collector를 포함한다.** 설정은 `~/.agent-wiki/config.json` 하나로 공유한다. 프로젝트 연결 별칭과 수집할 로컬 경로는 구분한다.
+**`agent-wiki-client` 하나에 `agent-wiki-cli`·`agent-wiki-collector`·조회 Skill을 포함한다.** 설정은 `~/.agent-wiki/config.json` 하나로 공유한다. 프로젝트 연결 별칭과 수집할 로컬 경로는 구분한다.
 
 ```sh
 # 저장소 루트에서 패키지 설치
@@ -54,7 +54,7 @@ wiki collector start --interval 20
 wiki collector stop
 ```
 
-`run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `wiki collector run`을 운영체제 스케줄러에 연결한다. npm 공개 배포·MCP 연결은 별도다.
+`run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `wiki collector run`을 운영체제 스케줄러에 연결한다. npm 패키지 이름은 `@agent-observatory/agent-wiki-client`이며 공개 배포·MCP 연결은 별도다.
 
 ## 수집·정제의 책임
 

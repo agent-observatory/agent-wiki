@@ -29,7 +29,7 @@
 <text x="92" y="506" font-size="18" font-weight="400" fill="#172C4B">현재 구성 · 미완료 작업</text>
 <rect x="540" y="190" width="430" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M546 190 H964 Q970 190 970 196 V244 H540 V196 Q540 190 546 190" fill="#344256"/>
-<text x="562" y="226" font-size="23" font-weight="700" fill="#FFFFFF">2 · 원격 Worker 정제</text>
+<text x="562" y="226" font-size="23" font-weight="700" fill="#FFFFFF">2 · agent-wiki-worker</text>
 <rect x="572" y="284" width="366" height="254" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="592" y="303" color="#172C4B">
   <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
@@ -90,14 +90,14 @@
 <text x="560" y="892" font-size="18" font-weight="400" fill="#172C4B">고정 개정을 인용해 답변·작업</text>
 <path d="M1040 855 H970" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="40" y="750" width="430" height="210" rx="6" fill="#FFFFFF" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="769" color="#172C4B">
+<text x="60" y="792" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-web</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="810" color="#172C4B">
   <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
   <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
 </svg>
-<text x="98" y="792" font-size="23" font-weight="700" fill="#172C4B">웹에서 확인</text>
-<text x="60" y="830" font-size="18" font-weight="400" fill="#172C4B">인용된 원문 구간·과거 개정</text>
+<text x="94" y="830" font-size="18" font-weight="400" fill="#172C4B">웹 · 인용된 원문 구간·과거 개정</text>
 <text x="60" y="861" font-size="18" font-weight="400" fill="#172C4B">작성 주체와 확인 상태 구분</text>
 <text x="60" y="892" font-size="18" font-weight="400" fill="#172C4B">관련 문서 링크 ≠ 근거</text>
-<text x="40" y="1040" font-size="21" font-weight="400" fill="#172C4B">Wiki CLI의 백그라운드 수집이 원문을 먼저 보관한다. 정제는 원격 Worker가 외부 AI API로 처리하며 사용자 조회와 분리한다.</text>
+<text x="40" y="1040" font-size="21" font-weight="400" fill="#172C4B">agent-wiki-collector가 원문을 보관하고 agent-wiki-worker가 정제한다. 사용자 조회는 agent-wiki-cli로 실행한다.</text>
 <text x="40" y="1080" font-size="20" font-weight="400" fill="#172C4B">원문과 과거 개정·정제 기록은 덮어쓰지 않는다.</text>
 </g></svg>

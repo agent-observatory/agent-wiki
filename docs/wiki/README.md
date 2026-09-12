@@ -2,7 +2,7 @@
 
 [문서 안내](../README.md) · [아키텍처](architecture.md) · [수집·정제 계약](agent-memory.md)
 
-**그림은 하나의 패키지에 포함된 조회 Skill·Wiki CLI·Collector와 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
+**그림은 agent-wiki-client에 포함된 조회 Skill·CLI·Collector와 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
 
 ![작업 에이전트·통합 패키지·원격 Wiki와 DNS·인증서](../assets/wiki-deployment.svg)
 

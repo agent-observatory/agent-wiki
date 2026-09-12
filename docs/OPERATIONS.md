@@ -11,6 +11,12 @@
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
 
+## 컴포넌트 이름·Skill 실행 위치
+
+2026-09-13. 배포도·계층도·리니지·운영도에 `agent-wiki-client`·`agent-wiki-cli`·`agent-wiki-collector`·`agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db` 고유 이름을 적용했다. 기반 기술은 이름 아래로 구분하고 저장소·VM의 이름도 아키텍처 표에 연결했다. 설치된 조회 Skill은 작업 에이전트 안에 표시한다. 서버의 기존 Compose 서비스 키·OCI 표시 이름과 그림 이름의 대응은 아키텍처를 따른다.
+
+로컬 패키지를 `@agent-observatory/agent-wiki-client` 0.4.0으로 설치했다. 명령은 `wiki`를 유지하며 실제 조회와 launchd의 새 패키지 경로·Agent Wiki 한정·10분 주기를 확인했다. 설정·전송 상태를 재사용했다. CLI 합성 검사, SVG 4개의 XML·재생성 일치·상대 링크·실제 렌더링을 확인했다. 서버 앱·인프라의 실행 구성을 교체하거나 AI 정제를 활성화하지 않았다.
+
 ## Wiki CLI·Collector 단일 설치
 
 2026-09-13. 그림을 먼저 단일 패키지로 합쳤고 조회 Skill · 사용 지침, Wiki CLI · 검색 실행, Collector · 백그라운드 수집을 구분했다. 조회 명령·Skill·백그라운드 수집을 `packages/cli`에 통합했다. 별도 Collector 패키지와 명령을 제거했다. `wiki setup`으로 연결·수집 범위·주기를 설정하며 `wiki collector start|stop|status|run`으로 수집을 관리한다. 설정은 `~/.agent-wiki/config.json` 하나로 공유하고 수집 프로세스·잠금·전송 상태는 조회와 독립적으로 유지한다.

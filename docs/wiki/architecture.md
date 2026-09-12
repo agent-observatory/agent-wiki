@@ -18,13 +18,28 @@ L1 목록은 세션·문서 단위의 한 줄 요약이다. 상세 진입은 DB 
 
 ![사용자 작업·별도 Collector·백그라운드 정제와 원격 Wiki](../assets/wiki-deployment.svg)
 
-**설치 패키지는 하나, 역할은 세 가지다.** 연결 설정은 `~/.agent-wiki/config.json`을 공유한다.
+### 애플리케이션 이름
 
-| 패키지 구성 | 역할 |
-| --- | --- |
-| 조회 Skill · 사용 지침 | 에이전트가 조회 필요성과 근거 활용 방법을 판단할 때 참고 |
-| Wiki CLI · 검색 실행 | 에이전트가 실행하는 검색·원문 조회 명령 |
-| Collector · 백그라운드 수집 | 작업 대화와 독립된 프로세스로 기록 수집 |
+제품명은 **Agent Wiki**, 로컬 설치 패키지는 **agent-wiki-client**다. 앱 이름은 역할을 나타내고 실제 명령·Compose 서비스 키는 아래처럼 연결한다.
+
+| 이름 | 역할 | 구현·실행 위치 |
+| --- | --- | --- |
+| `agent-wiki-client` | CLI·Collector·Skill을 함께 배포하는 로컬 패키지 | `@agent-observatory/agent-wiki-client`, `packages/cli` |
+| `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `wiki`, `packages/cli/wiki.mjs` |
+| `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `wiki collector`, `packages/cli/collector` |
+| `agent-wiki` 조회 Skill | 조회 필요성·검색어·근거 활용 지침 | 패키지의 `skill/` → 에이전트가 읽는 프로젝트 폴더 |
+| `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Caddy, Compose `caddy` |
+| `agent-wiki-web` | 웹 UI | Next.js, `apps/web`, Compose `web` |
+| `agent-wiki-api` | 수집·검색·권한·지식 API | Fastify, `apps/api`, Compose `api` |
+| `agent-wiki-worker` | 수신 검증·텍스트 정제 작업 | `apps/worker`, Compose `worker` |
+| `agent-wiki-db` | 지식·근거·수집/정제 상태 저장 | PostgreSQL, Compose `postgres` |
+| `agent-wiki-sources` | 불변 원문 보관 버킷 | OCI Object Storage |
+| `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
+| `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
+
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 짧은 `wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. 그림의 고유 이름과 Compose 서비스 키를 구분한다. VM의 그림 이름은 `agent-wiki-vm`이며 기존 OCI 표시 이름 `agent-wiki`와 연결된다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+
+Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](agent-memory.md#연결과-지침).
 
 Skill 설치만으로 CLI가 매번 실행되지는 않는다. 작업 에이전트와 Collector는 별도 프로세스로 둔다. 세션 안에 수집 명령·정제 요청을 넣거나 턴 종료 훅에서 업로드를 기다리게 하지 않는다. Collector·정제 장애는 사용자 작업과 독립적으로 처리한다. 필요한 지식 조회에는 통신 시간이 들지만, 그 조회가 새 수집·정제 완료를 기다리지는 않는다.
 
