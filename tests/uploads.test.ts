@@ -420,3 +420,65 @@ test("split L1 resolves exact evidence without reading an image or permanent gzi
   assert.ok(texts.join("").includes("이미지 대신 텍스트만 정제한다."));
   assert.ok(!texts.join("").includes("A".repeat(100)));
 });
+
+test("image-heavy sessions split at event boundaries and resume from the verified cursor", async () => {
+  const dir = join(root, "many-images");
+  await mkdir(dir);
+  const file = join(dir, "many.jsonl");
+  const records = Array.from(
+    { length: 130 },
+    (_, i) =>
+      JSON.stringify({
+        cwd: "/allowed",
+        sessionId: "many-images",
+        role: "user",
+        text: "record " + i,
+        image:
+          "data:image/png;base64," +
+          Buffer.from("synthetic image " + i).toString("base64"),
+      }) + "\n",
+  );
+  await writeFile(file, records.join(""));
+  const state = { files: {} };
+  const t = transport();
+  const scope = { ...config(), roots: [{ client: "codex", path: dir }] };
+  const first = await collect(
+    scope,
+    state,
+    t.request,
+    async () => {},
+    t.transfer,
+  );
+  assert.equal(first.failed, 0);
+  assert.equal(t.manifests.length, 1);
+  assert.ok(t.manifests[0].parts.length <= 128);
+  assert.ok(t.manifests[0].end < (await stat(file)).size);
+  assert.equal(
+    records.slice(0, t.manifests[0].recordEnd).join("").length,
+    t.manifests[0].end,
+  );
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const second = await collect(
+    scope,
+    state,
+    t.request,
+    async () => {},
+    t.transfer,
+  );
+  assert.equal(second.failed, 0);
+  assert.equal(t.manifests[1].start, t.manifests[0].end);
+  assert.equal(t.manifests[1].recordStart, t.manifests[0].recordEnd);
+  assert.equal(t.manifests[1].end, (await stat(file)).size);
+  assert.equal(t.manifests[1].recordEnd, 130);
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const last = await collect(
+    scope,
+    state,
+    t.request,
+    async () => {},
+    t.transfer,
+  );
+  assert.equal(last.failed, 0);
+  assert.equal(t.manifests.length, 2);
+  assert.equal((state.files as any)[file].end, (await stat(file)).size);
+});

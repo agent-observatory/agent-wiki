@@ -250,9 +250,29 @@ export async function collect(
           await checkpoint();
           continue;
         }
-        prepared = await prepareUpload(file, cursor.end, snapshot.end, (x) =>
-          redact(x, true),
-        );
+        while (true) {
+          try {
+            prepared = await prepareUpload(
+              file,
+              cursor.end,
+              snapshot.end,
+              (x) => redact(x, true),
+            );
+            break;
+          } catch (error) {
+            if (error.message !== "UPLOAD_TOO_LARGE" || local.pending)
+              throw error;
+            // Keep complete JSON events together and leave the rest for the next acknowledged range.
+            const smaller = await scanFile(
+              file,
+              cursor.end,
+              cursor.end + Math.floor((snapshot.end - cursor.end) / 2),
+            );
+            if (smaller.end >= snapshot.end || smaller.end <= cursor.end)
+              throw error;
+            snapshot = smaller;
+          }
+        }
         // Detect edits made while preparing the snapshot; never assign old offsets to new content.
         const check = await scanFile(file, snapshot.end);
         if (check.previousHash !== snapshot.prefixHash)

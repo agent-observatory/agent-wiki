@@ -164,7 +164,7 @@ export async function prepareUpload(file, start, end, redact) {
     throw e;
   }
 }
-export async function scanFile(file, previousEnd = 0) {
+export async function scanFile(file, previousEnd = 0, targetEnd = Infinity) {
   const info = await stat(file),
     h = createHash("sha256"),
     previous = createHash("sha256");
@@ -192,6 +192,13 @@ export async function scanFile(file, previousEnd = 0) {
         if (lineHasContent) records++;
         lineHasContent = false;
         prefixHash = h.copy().digest("hex");
+        if (end >= targetEnd && end > previousEnd)
+          return {
+            end,
+            records,
+            prefixHash,
+            previousHash: previous.digest("hex"),
+          };
       }
     }
     h.update(buf.subarray(from));
