@@ -67,7 +67,7 @@ const reasons: Record<string, string> = {
   AI_CONNECTION_FAILED: "모델 연결이 끊기거나 시간이 초과됐습니다.",
   WORKER_STOPPED: "배포 또는 종료로 중단됐습니다.",
   LEASE_EXPIRED: "중단된 작업을 복구했습니다.",
-  REVISION_CONFLICT: "기존 지식의 개정이 변경됐습니다.",
+  REVISION_CONFLICT: "기존 지식의 Version이 변경됐습니다.",
 };
 export function Automation() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -469,7 +469,7 @@ function AutomationContent() {
                             className="block mt-2 text-xs underline"
                             href={`/workspaces/${workspaceId}/knowledge/${a.id}?revision=${a.revision}`}
                           >
-                            반영한 지식 · 개정 {a.revision}
+                            반영한 지식 · Version {a.revision}
                           </Link>
                         ))}
                       </TableCell>

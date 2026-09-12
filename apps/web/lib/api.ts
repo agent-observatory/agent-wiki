@@ -63,7 +63,7 @@ const messages: Record<string, string> = {
   AI_KEY_REQUIRED: "자동 정제를 활성화하려면 API 키가 필요합니다.",
   AI_ENCRYPTION_NOT_CONFIGURED: "서버의 API 키 암호화 설정이 필요합니다.",
   REVISION_CONFLICT:
-    "다른 변경이 먼저 저장됐습니다. 최신 개정을 다시 열어 비교하세요.",
+    "다른 변경이 먼저 저장됐습니다. 최신 Version을 다시 열어 비교하세요.",
   EVIDENCE_MISMATCH: "인용 내용이 원문의 지정한 줄과 다릅니다.",
   CLAIM_NOT_IN_CONTENT: "근거를 연결한 주장이 수정된 본문에 없습니다.",
   NOT_FOUND: "자료가 없거나 접근할 수 없습니다.",

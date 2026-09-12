@@ -58,7 +58,7 @@ export function Activity() {
                         {a.title || "확인할 수 없는 지식"}
                       </span>
                       <Badge variant="outline" className="shrink-0">
-                        개정 {a.revision}
+                        Version {a.revision}
                       </Badge>
                     </Link>
                   </li>
@@ -234,11 +234,11 @@ export function Guide() {
         </section>
         <section>
           <h2 className="text-lg font-bold mb-3">
-            원문과 지식의 개정을 확인합니다
+            원문과 지식의 Version을 확인합니다
           </h2>
           <p className="leading-7 text-muted-foreground">
             “왜 단일 VM을 선택했지?”처럼 물으면 저장된 결정과 당시 근거를
-            찾아옵니다. 웹에서는 인용한 줄과 과거 개정을 확인하고 잘못된 내용을
+            찾아옵니다. 웹에서는 인용한 줄과 과거 Version을 확인하고 잘못된 내용을
             정정할 수 있습니다. 저장하지 않은 대화까지 복구하지는 못합니다.
           </p>
         </section>

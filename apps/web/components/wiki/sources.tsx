@@ -175,7 +175,7 @@ export function SourceDetail() {
       </Link>
       <Heading title={s.name} description="보관된 기록과 근거를 확인합니다." />
       <div className="mb-6 space-y-2 text-sm text-muted-foreground">
-        <Badge variant="outline">보관 개정 {s.revision}</Badge>
+        <Badge variant="outline">보관 Version {s.revision}</Badge>
         <p className="break-all">원래 위치: {s.origin || "미기록"}</p>
         <p>
           보관 시점: <When value={s.created_at} />

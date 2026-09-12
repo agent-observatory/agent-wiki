@@ -152,7 +152,7 @@ export function KnowledgeList() {
               </p>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                 <span>근거 {a.evidence_count}개</span>
-                <Badge variant="outline">개정 {a.revision}</Badge>
+                <Badge variant="outline">Version {a.revision}</Badge>
                 <When value={a.updated_at} />
                 {a.tags.map((t: string) => (
                   <span key={t}>#{t}</span>
@@ -199,7 +199,7 @@ function Editor({
         <DialogTitle>{article ? "지식 정정" : "직접 작성"}</DialogTitle>
         <DialogDescription>
           직접 작성한 내용은 작성자 진술로 보관합니다. 기존 주장과 일치하는
-          근거는 유지하며 새 개정은 검토 전으로 저장합니다.
+          근거는 유지하며 새 Version은 검토 전으로 저장합니다.
         </DialogDescription>
         <form
           className="space-y-4"
@@ -407,13 +407,13 @@ export function KnowledgeDetail() {
             router.push(`${root}/knowledge/${id}?revision=${r}`)
           }
         >
-          <SelectTrigger className="w-32" aria-label="문서 개정">
+          <SelectTrigger className="w-32" aria-label="문서 Version">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {a.revisions.map((r: any) => (
               <SelectItem key={r.revision} value={String(r.revision)}>
-                개정 {r.revision}
+                Version {r.revision}
               </SelectItem>
             ))}
           </SelectContent>
@@ -421,9 +421,9 @@ export function KnowledgeDetail() {
       </div>
       {old && (
         <p className="mb-5 rounded-lg border p-3">
-          과거 개정입니다.{" "}
+          과거 Version입니다.{" "}
           <Link className="underline" href={`${root}/knowledge/${id}`}>
-            최신 개정 {a.currentRevision} 보기
+            최신 Version {a.currentRevision} 보기
           </Link>
         </p>
       )}
@@ -524,7 +524,7 @@ export function KnowledgeDetail() {
           ))}
           {!old && !a.reviewed_at && (
             <Button variant="outline" onClick={review}>
-              <Check />이 개정을 검토했음
+              <Check />이 Version을 검토했음
             </Button>
           )}
         </TabsContent>
