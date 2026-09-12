@@ -358,8 +358,11 @@ test("transient errors pause the key without exhausting jobs and expired leases 
   assert.ok(histories[0].diagnostics.retryDelaySeconds >= 120);
   assert.ok(histories[0].diagnostics.retryDelaySeconds <= 144);
   assert.ok(
-    histories[4].diagnostics.retryDelaySeconds >
-      histories[0].diagnostics.retryDelaySeconds,
+    histories.every(
+      (r) =>
+        r.diagnostics.retryDelaySeconds >= 120 &&
+        r.diagnostics.retryDelaySeconds <= 144,
+    ),
   );
   assert.ok(
     histories.every(

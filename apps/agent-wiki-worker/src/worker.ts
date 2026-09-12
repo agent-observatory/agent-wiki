@@ -498,7 +498,7 @@ export async function runOne(
                 task.gateKey,
                 e instanceof ModelError ? e.retryAfter : 0,
               )
-            : retryDelay(task.attempts);
+            : retryDelay();
         diagnostics.retryable = retry;
         diagnostics.retryDelaySeconds = retry ? delay : null;
         diagnostics.retryAt = retry

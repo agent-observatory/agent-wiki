@@ -53,7 +53,7 @@ test("cooldowns span workspaces using a key, survive new transactions, and do no
     delays.push(await tx(owner, null, (c) => coolDownModel(c, owner, key, 0)));
   }
   assert.ok(delays[0] >= 120 && delays[0] <= 144);
-  assert.ok(delays[4] >= 1920 && delays[4] <= 2304);
+  assert.ok(delays.every((delay) => delay >= 120 && delay <= 144));
   // Checking from another workspace uses the same durable gate.
   assert.equal(
     await tx(owner, randomUUID(), (c) => gateReady(c, owner, key)),
@@ -84,10 +84,9 @@ test("cooldowns span workspaces using a key, survive new transactions, and do no
   );
 });
 
-test("backoff grows, stops growing after one hour plus jitter, and honors longer Retry-After", () => {
-  assert.equal(retryDelay(1, 0, 0), 120);
-  assert.equal(retryDelay(2, 0, 0), 240);
-  assert.equal(retryDelay(999999, 0, 0), 3600);
-  assert.equal(retryDelay(999999, 0, 1), 4320);
-  assert.equal(retryDelay(1, 99999, 0), 99999);
+test("retry delay stays near two minutes and honors longer Retry-After", () => {
+  assert.equal(retryDelay(0, 0), 120);
+  assert.equal(retryDelay(0, 1), 144);
+  assert.equal(retryDelay(60, 0), 120);
+  assert.equal(retryDelay(99999, 0), 99999);
 });

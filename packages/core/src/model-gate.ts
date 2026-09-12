@@ -56,17 +56,10 @@ export async function waitForModelSlot(
   }
 }
 
-export function retryDelay(
-  failures: number,
-  retryAfter = 0,
-  random = Math.random(),
-) {
-  const backoff = Math.min(
-    3600,
-    120 * 2 ** Math.min(6, Math.max(0, failures - 1)),
-  );
-  // Retry-After is a minimum, including values longer than our backoff cap.
-  return Math.max(retryAfter, Math.ceil(backoff * (1 + 0.2 * random)));
+export function retryDelay(retryAfter = 0, random = Math.random()) {
+  // Retain failure counts for diagnosis without making this personal wiki wait
+  // exponentially longer. Provider Retry-After remains a strict minimum.
+  return Math.max(retryAfter, Math.ceil(120 * (1 + 0.2 * random)));
 }
 
 export async function coolDownModel(
@@ -75,13 +68,11 @@ export async function coolDownModel(
   key: string,
   retryAfter: number,
 ) {
-  const row = (
-    await c.query(
-      "INSERT INTO model_request_gates(owner_id,key_hash,failures) VALUES($1,$2,1) ON CONFLICT(owner_id,key_hash) DO UPDATE SET failures=least(model_request_gates.failures+1,32) RETURNING failures",
-      [owner, key],
-    )
-  ).rows[0];
-  const seconds = retryDelay(row.failures, retryAfter);
+  await c.query(
+    "INSERT INTO model_request_gates(owner_id,key_hash,failures) VALUES($1,$2,1) ON CONFLICT(owner_id,key_hash) DO UPDATE SET failures=least(model_request_gates.failures+1,32)",
+    [owner, key],
+  );
+  const seconds = retryDelay(retryAfter);
   await c.query(
     "UPDATE model_request_gates SET next_allowed_at=greatest(next_allowed_at,clock_timestamp()+make_interval(secs=>$3)) WHERE owner_id=$1 AND key_hash=$2",
     [owner, key, seconds],
