@@ -14,7 +14,7 @@
 
 - **개발 모드**다. 사용자가 운영 모드라고 선언할 때까지 Wiki DB·원문·지식·개정·큐·API 키를 초기화하거나 새로 설계해도 된다. 데이터 보존·구 API·옛 ID·하위 호환성은 요구하지 않는다. 해당 구현 범위의 초기화를 다시 승인받을 필요는 없다.
 - 사용자가 개인 에이전트 정제 구조의 구현·데이터 초기화·배포 진행을 승인했다. 메뉴별 Next.js 페이지와 URL 상태 유지, shadcn 화면을 함께 구현한다.
-- 현재 코드는 개인 에이전트 정제 + 원격 Wiki 저장·조회다. [실행 계획](docs/wiki/agent-memory.md)을 따른다. 운영 중인 Worker·NVIDIA 경로는 전환 전 상태이며 [운영 현황](docs/OPERATIONS.md)과 구분한다.
+- 현재 코드는 개인 에이전트 정제 + 원격 Wiki 저장·조회다. [실행 계획](docs/wiki/agent-memory.md)을 따른다. Worker·NVIDIA 제거와 4개 컨테이너 운영 전환을 완료했다. [운영 현황](docs/OPERATIONS.md)을 따른다.
 - 개발 모드도 유료 자원 생성·비밀 유출을 허용하지 않는다. VM·인증서·OAuth·모니터링은 재사용하며 공용 버킷의 운영 체크포인트와 로컬 비밀 설정을 Wiki 데이터와 혼동하지 않는다.
 
 ## 프로젝트 기억 사용
@@ -35,7 +35,7 @@
 
 ## 인프라
 
-- OCI A1 Compute VM 1대·2 OCPU·12GB는 유지한다. 목표 Compose는 Caddy·Next.js·API·PostgreSQL 4개다. 현재 운영은 Worker 포함 5개이며 새 구조 구현 시 Worker·pg-boss 큐를 제거한다. CPU는 공유한다.
+- OCI A1 Compute VM 1대·2 OCPU·12GB는 유지한다. Compose는 Caddy·Next.js·API·PostgreSQL 4개다. Worker·pg-boss 큐는 제거했다. CPU는 공유한다.
 - 부트 50GB·별도 Block Volume 50GB를 사용한다. 영속 볼륨의 별도 경로에 PostgreSQL 데이터와 Caddy `/data`·`/config`를 둔다. 원문은 비공개 Object Storage 버킷 1개에 저장한다. Caddy S3 모듈·인증서 버킷·Customer Secret Key는 필요 없다.
 - 무료 범위만 사용한다. 사용자가 PAYG 업그레이드를 직접 완료했다. 유료 자원·무료 한도 초과·체험 크레딧 사용은 승인되지 않았다. 월 A1 1,500 OCPU시간·9,000 GB시간과 계정 전체 스토리지·네트워크·운영 서비스 한도를 확인한다.
 - Terraform은 OCI 인프라, cloud-init은 Docker·마운트 최초 구성, systemd는 부팅 시 기동, Compose는 컨테이너 실행을 관리한다. OS·Docker·DB 업데이트는 우리가 맡는다.
@@ -45,7 +45,7 @@
 - 실제 구축 전 최신 공식 조건·계정 자격·전체 사용량·월 비용을 확인한다. PAYG 계정 전환과 자원 과금 승인을 구분한다. 자원 생성은 사용자가 승인한 첫 배포의 무료 범위만 허용한다.
 - 사이드 프로젝트 수준으로 운영한다. 백업·복원 설계는 후속 과제로 미루며 초기 범위에 예약 백업·백업 버킷·백업 알림을 두지 않는다. 정기 복구 훈련·상시 부하 테스트는 하지 않는다.
 - 초기 모니터링은 비용·사용량 정기 요약과 앱 오류 알림이다. 앱은 OTel Logs Data Model에 매핑되는 JSON을 stdout/stderr에 출력한다. 제품별 속성은 `agent_wiki.*`로 구분하며 ECS·OTLP와 혼동하지 않는다. Docker syslog·호스트 rsyslog·OCI Unified Monitoring Agent가 구조화 로그를 OCI Logging으로 보낸다. 오류는 Connector Hub가 ERROR 이상을 OCI Monitoring 지표로 보내고, 5분 구간에 로그가 있으면 경보 → Notifications → Slack Webhook으로 한국어 제목·본문을 보낸다. 평가 간격은 1분·집계 대기는 5분이며 상태 변경만 알리고 정기 반복은 하지 않는다. 오류 종류별 중복 제거와 앱 정상 판정은 제공하지 않는다. GitHub Actions는 비용을 6시간마다 조회하고 매일 09:13 한국 시각에 비용·사용량 요약을 보낸다. 자체 수집기 컨테이너·알림 Function은 두지 않는다. 원본 JSON을 Slack에 직접 전달하지 않는다. API·Worker에는 Slack 토큰·전송 코드를 두지 않는다. 이메일은 사용하지 않는다. 실제 데이터·프롬프트·비밀은 운영 로그에 남기지 않는다. 예산은 강제 차단이 아니며 집계와 예약 실행은 지연될 수 있다. 전체 중단·CPU·디스크·HTTP 상태 경보는 후속 과제다.
-- 계획 배포는 Caddy에서 외부 신규 유입을 먼저 막고 진행 웹 요청과 내부 API 호출을 마친 뒤 API에 SIGTERM을 보낸다. readiness만으로 외부 차단이 된다고 가정하지 않는다. SIGTERM에서 API는 진행 요청·DB 연결 순으로 닫는다. 목표 구조에는 Worker가 없다. API 종료 예산 30초·Compose 유예 45초를 유지하고 실제 종료 중 반영·조회와 멱등 재시도를 검증한다. 전환 전 Worker의 종료 유예는 90초·Compose 120초다.
+- 계획 배포는 Caddy에서 외부 신규 유입을 먼저 막고 진행 웹 요청과 내부 API 호출을 마친 뒤 API에 SIGTERM을 보낸다. readiness만으로 외부 차단이 된다고 가정하지 않는다. SIGTERM에서 API는 진행 요청·DB 연결 순으로 닫는다. 현재 구조에는 Worker가 없다. API 종료 예산 30초·Compose 유예 45초를 유지하고 실제 종료 중 반영·조회와 멱등 재시도를 검증한다.
 - 내부 조회는 일시 오류에만 deadline·backoff+jitter·최대 2회 추가 시도를 적용한다. 쓰기는 멱등 키·payload 일치·기존 결과 확인 없이 재전송하지 않는다. DB 연결 재생성과 트랜잭션 재실행을 구분하고 COMMIT 응답 유실은 결과부터 확인한다. 중첩 재시도와 종료 기한 뒤 새 호출을 막는다.
 - 전환 전의 pg-boss는 오프셋 대신 작업 상태로 처리한다. 개발 모드 전환에서는 기존 큐를 종료·폐기하며 새 구조에는 큐를 두지 않는다. 결과 커밋 뒤 완료, 멱등 반영, 유한 재시도, 종료 유예, 최종 실패 보관을 지킨다. 로그만 남기고 작업 오류를 삼키지 않는다.
 - 설계, 파일 작성, 로컬 검증, 자원 생성, 배포, 운영 검증을 구분해 보고한다.

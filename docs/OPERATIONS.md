@@ -1,5 +1,16 @@
 # 구현·배포 현황
 
+## 개인 에이전트 정제·메뉴별 페이지 · 운영 전환 완료
+
+2026-09-12 앱 `0bf20179694b808f90481380ab61512e9e662a6a`의 [CI·ARM64 빌드·배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34696016139)가 성공했다. Actions 전체는 2분 40초다. Caddy·Web·API·PostgreSQL 4개 실행과 건강 검사를 확인했고 PostgreSQL 컨테이너 ID는 교체 전과 같았다. Worker 컨테이너·런타임 파일·이전 큐를 제거했다.
+
+- 기존 원문 메타데이터 0개·수동 지식 5개와 API 키를 초기화했다. 사용자·세션·개인 작업 Workspace를 유지했다.
+- CLI로 실제 비공개 Object Storage에 역사 원문 6개, DB에 지식 6개를 등록했다. 이어 CI·Compose 출력 발췌 1개를 추가하고 시작 문서를 r2로 갱신했으며 새 `recall`에 반영됐다. 현재 원문은 총 7개다. 같은 반영을 재전송해 중복 없이 같은 결과가 반환됐다. 모든 글은 에이전트 작성·검토 전이며 현재 시점의 정제 실행과 정확한 근거 줄을 가진다.
+- `wiki recall`에서 프로젝트 시작 문서와 목차, `wiki search "Atlas 독립"`에서 고정 개정 인용을 확인했다. CLI·Skill을 로컬 설치하고 `.agent-wiki.json` 연결과 Git 제외 `.env.local`의 `WIKI_TOKEN`을 준비했다. npm 공개 게시나 모든 에이전트의 자동 훅 설치는 하지 않았다.
+- 소유자의 기존 Edge 세션으로 새 페이지·지식 6개·원문 6개·근거 수와 원천 자료 메뉴의 새로고침 유지, 고정 개정의 근거 탭과 원문 5–8줄 표시를 확인했다. 로컬에서는 새로고침·뒤로 가기·과거 개정·원문 업로드·웹 정정·라이트 테마 유지·390px 가로 넘침 없음을 확인했다.
+
+검색은 키워드 방식이다. 에이전트가 질문에서 핵심어를 골라 조회하고 정확한 원문이 필요할 때 추가 조회한다. 저장되지 않은 대화 복구·의미상 사실 검증·자동 전체 세션 수집·MCP·임베딩은 완료 범위가 아니다. 모니터링 전환의 별도 검증은 아래 해당 기록을 따른다.
+
 ## 개인 에이전트 정제·메뉴별 페이지 · 로컬 검증 완료
 
 2026-09-12, 서버 Worker·NVIDIA·pg-boss를 제거하고 불변 원문·다중 근거·지식 개정·멱등 반영·시작 Context를 구현했다. 메뉴별 Next.js URL, shadcn/ui 기본 컴포넌트와 사용법 화면, `wiki` CLI·Skill을 추가했다. **이 기록 시점에는 새 버전의 운영 배포 전이다.** 아래 첫 버전 기록과 구분한다.
@@ -119,7 +130,7 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 - 경보는 `ErrorLogCount[5m].grouping().count() > 0`, 평가 간격 1분·발동 대기 1분·집계 대기 5분이다. 로그 전송 지연을 포함하므로 즉시 알림은 아니다.
 - 한국어 제목·요약·본문과 오류 로그 링크를 사용한다. 상태 변경 시 알리며 정기 반복은 없다. 오류 종류별 중복 제거는 하지 않는다. `OK`는 경보 해제이며 앱·로그 수집 정상의 증명이 아니다.
 - 원격 `Application error monitor` 워크플로는 중지했다. 로컬 오류 조회 워크플로·포매터·전용 테스트를 제거했다. 비용 Actions와 공유 운영 체크포인트는 유지한다.
-- Terraform 적용: 경보 1개 생성·기존 권한/커넥터 2개 수정, 삭제 없음. 합성 로그 전달 검증 진행 중.
+- Terraform 적용: 경보 1개 생성·기존 권한/커넥터 2개 수정, 삭제 없음. 실제 Docker stdout의 INFO·WARN·ERROR 합성 로그 3개가 OCI Logging에 수집됐고, 오류 지표는 1건이었다. 22:21 한국 시각에 경보 발동과 Slack 도착을 확인했다. 최초 시험의 JSON 표시를 발견해 `ONS_OPTIMIZED` 기본 서식으로 수정했으며 표시를 재검증 중이다.
 
 [OCI 로그 경보 구성](https://docs.oracle.com/en-us/iaas/Content/connector-hub/alarmlogs.htm)과 [제목·본문 설정](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Tasks/update-alarm-dynamic-variables.htm)을 따른다. 기존 커넥터 1개를 재사용하며 Monitoring 월 수집 5억·조회 10억, HTTPS 알림 100만 건의 [무료 범위](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) 안에서 운영한다. 별도 Function·서버는 없다.
 
