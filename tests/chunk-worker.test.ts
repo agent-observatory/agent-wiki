@@ -9,7 +9,7 @@ import {
   encryptSecret,
   ModelError,
 } from "../packages/core/src/ai.js";
-import { runOne } from "../apps/worker/src/worker.js";
+import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 const owner = "chunk-worker-" + randomUUID(),
   ws = randomUUID(),
   source = randomUUID(),

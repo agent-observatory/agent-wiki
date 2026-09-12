@@ -22,14 +22,16 @@ tls=out/'tls';tls.mkdir(exist_ok=True);tls.chmod(0o700)
 def openssl(*args):subprocess.run(['openssl',*map(str,args)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 if not (tls/'ca.key').exists():
  openssl('req','-x509','-newkey','rsa:3072','-nodes','-keyout',tls/'ca.key','-out',tls/'ca.crt','-days','3650','-subj','/CN=Agent Wiki DB CA')
+check=subprocess.run(['openssl','x509','-in',str(tls/'server.crt'),'-noout','-checkhost','agent-wiki-db'],capture_output=True,text=True)
+if check.returncode or 'does match' not in check.stdout:
  openssl('req','-newkey','rsa:2048','-nodes','-keyout',tls/'server.key','-out',tls/'server.csr','-subj','/CN='+domain)
- (tls/'ext.cnf').write_text('subjectAltName=DNS:'+domain+',DNS:postgres,IP:'+args.host+'\n')
+ (tls/'ext.cnf').write_text('subjectAltName=DNS:'+domain+',DNS:agent-wiki-db,IP:'+args.host+'\n')
  openssl('x509','-req','-in',tls/'server.csr','-CA',tls/'ca.crt','-CAkey',tls/'ca.key','-CAcreateserial','-out',tls/'server.crt','-days','365','-extfile',tls/'ext.cnf')
 for f in tls.iterdir():f.chmod(0o600)
 def write_env(name,data):
  if any('\n' in v or '\r' in v for v in data.values()):raise SystemExit('Multiline env value not supported')
  file=out/name;file.write_text('\n'.join(k+'='+v for k,v in data.items())+'\n');file.chmod(0o600)
-def dburl(user,pwd):return 'postgresql://'+user+':'+urllib.parse.quote(pwd,safe='')+'@postgres:5432/agent_wiki?sslmode=verify-full&sslrootcert=/run/wiki-ca.crt'
+def dburl(user,pwd):return 'postgresql://'+user+':'+urllib.parse.quote(pwd,safe='')+'@agent-wiki-db:5432/agent_wiki?sslmode=verify-full&sslrootcert=/run/wiki-ca.crt'
 common={'DATABASE_URL':dburl('wiki_app',env['PG_APP_PASSWORD']),'NODE_ENV':'production','IMAGE_TAG':args.image,'SOURCE_STORAGE':'oci','OCI_NAMESPACE':state['namespace']['value'],'OCI_BUCKET':state['bucket']['value']}
 env.setdefault('AI_ENCRYPTION_KEY',secrets.token_hex(32))
 common['AI_ENCRYPTION_KEY']=env['AI_ENCRYPTION_KEY']

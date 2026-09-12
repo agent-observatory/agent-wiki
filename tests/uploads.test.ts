@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
-import { buildApp } from "../apps/api/src/app.js";
+import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
 import {
   hash,
@@ -22,9 +22,9 @@ import {
   getSource,
   deleteBlob,
 } from "../packages/core/src/storage.js";
-import { processUpload } from "../apps/worker/src/ingest.js";
+import { processUpload } from "../apps/agent-wiki-worker/src/ingest.js";
 // @ts-expect-error standalone collector module
-import { collect } from "../packages/cli/collector/collector.mjs";
+import { collect } from "../packages/agent-wiki-client/collector/collector.mjs";
 const owner = "upload-test-" + randomUUID(),
   token = randomUUID();
 const admin = new pg.Pool({

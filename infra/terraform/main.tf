@@ -111,7 +111,7 @@ resource "oci_core_instance" "wiki" {
 
   compartment_id      = var.tenancy_id
   availability_domain = var.availability_domain
-  display_name        = "agent-wiki"
+  display_name        = "agent-wiki-vm"
   shape               = "VM.Standard.A1.Flex"
   shape_config {
     ocpus         = 2

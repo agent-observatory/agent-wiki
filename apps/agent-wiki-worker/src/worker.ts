@@ -15,7 +15,7 @@ import {
   callModel,
   ModelError,
 } from "../../../packages/core/src/ai.js";
-import { publish, changeInput } from "../../api/src/knowledge.js";
+import { publish, changeInput } from "../../agent-wiki-api/src/knowledge.js";
 import { log } from "../../../packages/core/src/log.js";
 import {
   gateReady,
@@ -470,7 +470,7 @@ export async function workerMain(modelCall = callModel) {
   }
   // Liveness is independent of how long a large upload takes to finish.
   const heartbeat = setInterval(() => {
-    void writeFile("/tmp/wiki-worker-heartbeat", String(Date.now())).catch(
+    void writeFile("/tmp/agent-wiki-worker-heartbeat", String(Date.now())).catch(
       () => {
         stopping = true;
         controller.abort();
@@ -481,7 +481,7 @@ export async function workerMain(modelCall = callModel) {
   heartbeat.unref();
   try {
     while (!stopping) {
-      await writeFile("/tmp/wiki-worker-heartbeat", String(Date.now()));
+      await writeFile("/tmp/agent-wiki-worker-heartbeat", String(Date.now()));
       if (
         !(await processUpload(owner, controller.signal)) &&
         !(await runOne(owner, controller.signal, modelCall))

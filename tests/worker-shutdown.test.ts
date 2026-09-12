@@ -46,7 +46,7 @@ test("real Worker SIGTERM finishes current model result before leaving the job c
         "tsx",
         "--input-type=module",
         "-e",
-        `import {workerMain} from './apps/worker/src/worker.ts';await workerMain(async()=>{console.log('CALL_STARTED');await new Promise(r=>setTimeout(r,800));return {output:{changes:[]},usage:{total_tokens:1}}});`,
+        `import {workerMain} from './apps/agent-wiki-worker/src/worker.ts';await workerMain(async()=>{console.log('CALL_STARTED');await new Promise(r=>setTimeout(r,800));return {output:{changes:[]},usage:{total_tokens:1}}});`,
       ],
       {
         env: {

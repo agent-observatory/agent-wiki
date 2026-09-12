@@ -19,7 +19,7 @@ agent-wiki search "단일 VM" --project agent-wiki
 
 ```sh
 # 저장소 루트에서 패키지 설치
-npm install --global ./packages/cli
+npm install --global ./packages/agent-wiki-client
 # 사용할 프로젝트 디렉터리로 이동한 뒤 지침 설치
 agent-wiki skill install --client codex
 agent-wiki setup --no-skill --workspace <Workspace-ID> --project agent-wiki --path /absolute/project --env /absolute/project/.env.local
@@ -216,7 +216,7 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 
 작업 에이전트는 `read`, Collector는 `source:write` 권한을 사용한다. 수동 관리·정제 CLI에는 필요할 때 `publish`를 발급한다. AI 설정은 에이전트 키로 변경할 수 없다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
 
-수동 반영 JSON은 [근거 계약](../../packages/cli/skill/references/publication.md)을 따른다. 일반 수동 원문 등록은 100KB다. Collector의 대용량 원문은 위 직접 업로드 제한을 따른다. 이미지 본문은 마스킹 L1에 보관하지만 이미지 해석·PDF 파싱은 수행하지 않는다.
+수동 반영 JSON은 [근거 계약](../../packages/agent-wiki-client/skill/references/publication.md)을 따른다. 일반 수동 원문 등록은 100KB다. Collector의 대용량 원문은 위 직접 업로드 제한을 따른다. 이미지 본문은 마스킹 L1에 보관하지만 이미지 해석·PDF 파싱은 수행하지 않는다.
 
 ## 검증 기준
 

@@ -27,14 +27,14 @@ subprocess.run(ssh+['sudo cloud-init status --wait'], check=True, timeout=900)
 subprocess.run(ssh+['sudo /usr/local/sbin/wiki-mount && sudo chmod 755 /srv/agent-wiki/data/tls'], check=True, timeout=660)
 scp = ['scp', '-i', str(key), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(known)]
 private = root/'.runtime/deploy'
-names = ['.env','api.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
+names = ['.env','api.env','worker.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
 stage = subprocess.check_output(ssh+['mktemp -d /opt/agent-wiki/.bootstrap.XXXXXXXX'], text=True).strip()
 if not re.fullmatch(r'/opt/agent-wiki/\.bootstrap\.[A-Za-z0-9]+', stage):
     raise SystemExit('Unexpected remote staging directory')
 try:
     subprocess.run(scp+[str(private/n) for n in names]+['ubuntu@'+host+':'+stage+'/'], check=True)
     # The CA signing key stays on the developer machine.
-    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), str(root/'scripts/configure-host.sh'), 'ubuntu@'+host+':'+stage+'/'], check=True)
+    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), str(root/'scripts/configure-host.sh'), str(root/'infra/runtime/agent-wiki.service'), 'ubuntu@'+host+':'+stage+'/'], check=True)
     subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/install-runtime.sh')+' '+shlex.quote(stage)], check=True)
     subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/configure-host.sh')], check=True)
 finally:

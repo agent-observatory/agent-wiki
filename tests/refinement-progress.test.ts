@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refinementSchedule } from "../apps/api/src/refinement-progress.js";
+import { refinementSchedule } from "../apps/agent-wiki-api/src/refinement-progress.js";
 
 const now = new Date("2026-09-13T23:50:00Z");
 const state = {

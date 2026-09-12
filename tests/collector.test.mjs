@@ -16,12 +16,12 @@ import {
   collect,
   redact,
   collectionInterval,
-} from "../packages/cli/collector/collector.mjs";
+} from "../packages/agent-wiki-client/collector/collector.mjs";
 import {
   prepareUpload,
   scanFile,
   PART_BYTES,
-} from "../packages/cli/collector/transport.mjs";
+} from "../packages/agent-wiki-client/collector/transport.mjs";
 test("streaming preparation separates a 105 MiB image from text while preserving its bytes and masking credentials", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wiki-large-")),
     file = join(dir, "session.jsonl");

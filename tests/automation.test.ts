@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
-import { buildApp } from "../apps/api/src/app.js";
+import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
 import { hash, getSource } from "../packages/core/src/storage.js";
 import {
@@ -10,7 +10,7 @@ import {
   decryptSecret,
   ModelError,
 } from "../packages/core/src/ai.js";
-import { runOne } from "../apps/worker/src/worker.js";
+import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 const owner = "automation-" + randomUUID(),
   token = randomUUID();
 const admin = new pg.Pool({

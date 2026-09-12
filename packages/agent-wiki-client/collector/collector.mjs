@@ -395,7 +395,7 @@ export async function collectorMain(args, configPath, cliPath) {
   if (!connection || !settings.collector)
     throw new Error("Run agent-wiki setup to configure collection");
   const config = { ...settings.collector, ...connection };
-  const label = "org.agent-observatory.wiki-collector";
+  const label = "org.agent-observatory.agent-wiki-collector";
   const domain = "gui/" + process.getuid?.();
   if (command === "status") {
     const current =

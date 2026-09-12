@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { planChunks, estimateTokens } from "../packages/core/src/chunking.js";
-import { projectEvents } from "../apps/worker/src/ingest.js";
+import { projectEvents } from "../apps/agent-wiki-worker/src/ingest.js";
 test("chunk coverage is complete and disjoint, preferring event boundaries and retaining earlier context on split events", () => {
   const lines = Array.from({ length: 50 }, (_, i) =>
     JSON.stringify({

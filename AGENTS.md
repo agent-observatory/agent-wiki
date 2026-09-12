@@ -19,13 +19,13 @@
 
 ## 프로젝트 기억 사용
 
-- 설치 패키지는 `packages/cli` 하나다. 조회 Skill은 사용 지침, Wiki CLI는 검색 실행, Collector는 별도 백그라운드 프로세스다. 설정은 `~/.agent-wiki/config.json`을 공유한다. 설치·연결 명령은 `docs/wiki/agent-memory.md`에만 상세히 기록한다.
+- 설치 패키지는 `packages/agent-wiki-client` 하나다. 조회 Skill은 사용 지침, Wiki CLI는 검색 실행, Collector는 별도 백그라운드 프로세스다. 설정은 `~/.agent-wiki/config.json`을 공유한다. 설치·연결 명령은 `docs/wiki/agent-memory.md`에만 상세히 기록한다.
 - Collector 기본 범위는 전체 프로젝트·주기는 10분이다. 현재 검증 환경은 Agent Wiki 프로젝트로 제한하며, 통합·갱신 때 기존 기기 식별자와 전송 상태를 보존한다.
 
-- 이전 결정·근거가 작업에 필요하거나 사용자가 요청할 때 Wiki를 조회한다. 시작·종료·컴팩션마다 `recall`을 강제하지 않는다. CLI는 `agent-wiki` 또는 `node packages/cli/wiki.mjs`를 사용한다.
+- 이전 결정·근거가 작업에 필요하거나 사용자가 요청할 때 Wiki를 조회한다. 시작·종료·컴팩션마다 `recall`을 강제하지 않는다. CLI는 `agent-wiki` 또는 `node packages/agent-wiki-client/cli/agent-wiki.mjs`를 사용한다.
 - 활성 작업 대화에서 자동 수집·군집화·정제를 수행하지 않는다. 사용자에게 매번 원문 등록·정제·반영을 시키거나 자동 훅으로 응답을 기다리게 하지 않는다.
 - 세션은 Workspace·에이전트 종류·원본 세션 ID로 식별하고 기기·파일 세대별 수신 위치를 분리한다. Collector가 증분을 마스킹·zstd 압축해 OCI PAR로 직접 업로드하고 서버가 검증·중복 판정·불변 L1 등록 후 수신 위치를 확정한다.
-- 원문 수집은 읽기 전용 Collector, 정제는 별도 백그라운드 실행의 책임이다. 작업 세션과 독립된 프로세스로 실행한다. 명시적으로 현재 대화의 기록을 요청한 경우에만 수동 반영하며 `packages/cli/skill/SKILL.md`의 근거 계약을 따른다.
+- 원문 수집은 읽기 전용 Collector, 정제는 별도 백그라운드 실행의 책임이다. 작업 세션과 독립된 프로세스로 실행한다. 명시적으로 현재 대화의 기록을 요청한 경우에만 수동 반영하며 `packages/agent-wiki-client/skill/SKILL.md`의 근거 계약을 따른다.
 - 프로젝트 역사·리니지는 원격 Wiki에 쌓는다. 로컬에는 제품 설계·개발·운영 문서와 연결·전송 상태만 두고 같은 역사를 중복 관리하지 않는다. 원격 조회 실패·미반영과 자료 없음·완료를 구분한다.
 
 ## 제품과 데이터

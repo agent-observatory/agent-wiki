@@ -10,7 +10,9 @@ IFS= read -r credential
 printf '%s' "$credential" | docker login ghcr.io -u "$2" --password-stdin
 unset credential
 cd /opt/agent-wiki
-if docker compose ps --status running --services | grep -qx caddy; then
+if docker compose config --services | grep -qx caddy && docker compose ps --status running --services | grep -qx caddy; then
+ bash migrate-service-names.sh "$1"
+elif docker compose ps --status running --services | grep -qx agent-wiki-gateway; then
  bash deploy.sh "$1"
 else
  bash first-deploy.sh "$1"

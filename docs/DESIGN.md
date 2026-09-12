@@ -4,7 +4,7 @@
 
 **웹 UI의 기본은 shadcn/ui다. 공식 컴포넌트·블록·테마를 먼저 사용하고 Wiki에 필요한 부분만 조합한다.** 에이전트의 근거 조회가 주 용례이며 웹은 지식 편집·정정·원문 확인을 돕는다.
 
-2026-09-12 공식 [저장소](https://github.com/shadcn-ui/ui)·[소개](https://ui.shadcn.com/docs)·[컴포넌트](https://ui.shadcn.com/docs/components)·[테마](https://ui.shadcn.com/docs/theming)를 확인해 기본 기준으로 선택했다. 공식 shadcn CLI 4.21.0으로 생성한 Neutral·Radix 계열 컴포넌트를 사용한다. Tailwind 4 의미 토큰과 아이콘 전용 다크/라이트 토글을 적용했다. 컴포넌트 소스는 `apps/web/components/ui`에 있으며 원본은 MIT 라이선스다. 운영 배포 상태는 `OPERATIONS.md`를 따른다.
+2026-09-12 공식 [저장소](https://github.com/shadcn-ui/ui)·[소개](https://ui.shadcn.com/docs)·[컴포넌트](https://ui.shadcn.com/docs/components)·[테마](https://ui.shadcn.com/docs/theming)를 확인해 기본 기준으로 선택했다. 공식 shadcn CLI 4.21.0으로 생성한 Neutral·Radix 계열 컴포넌트를 사용한다. Tailwind 4 의미 토큰과 아이콘 전용 다크/라이트 토글을 적용했다. 컴포넌트 소스는 `apps/agent-wiki-web/components/ui`에 있으며 원본은 MIT 라이선스다. 운영 배포 상태는 `OPERATIONS.md`를 따른다.
 
 ## 기본 선택
 
@@ -77,7 +77,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 ## 구현할 때
 
-`apps/web`에 Tailwind·shadcn 설정과 공통 `components/ui`를 구성하고 공식 소스에서 필요한 컴포넌트만 추가한다. 선택한 설정은 `components.json`, 실제 버전은 lockfile에 남긴다. 기본 컴포넌트 변경은 공통 소스에서 처리하고 기존 CSS를 통째로 덮어씌우지 않는다. 소스의 라이선스 고지를 보존한다.
+`apps/agent-wiki-web`에 Tailwind·shadcn 설정과 공통 `components/ui`를 구성하고 공식 소스에서 필요한 컴포넌트만 추가한다. 선택한 설정은 `components.json`, 실제 버전은 lockfile에 남긴다. 기본 컴포넌트 변경은 공통 소스에서 처리하고 기존 CSS를 통째로 덮어씌우지 않는다. 소스의 라이선스 고지를 보존한다.
 
 새 API·근거 화면 구현과 함께 기존 직접 스타일링한 버튼·Select·메뉴·대화상자를 교체한다. 소유자 로그인·아이콘 토글·다중 태그·원문 구간·개정 확인 흐름은 유지한다. 설치·빌드 성공과 실제 화면 전환·배포 검증을 구분한다. [Next.js 공식 설치 안내](https://ui.shadcn.com/docs/installation/next)
 

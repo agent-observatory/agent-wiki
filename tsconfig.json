@@ -11,8 +11,8 @@
     "resolveJsonModule": true
   },
   "include": [
-    "apps/api/src/**/*.ts",
-    "apps/worker/src/**/*.ts",
+    "apps/agent-wiki-api/src/**/*.ts",
+    "apps/agent-wiki-worker/src/**/*.ts",
     "packages/core/src/**/*.ts",
     "tests/**/*.ts"
   ]

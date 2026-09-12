@@ -56,7 +56,7 @@ write_files:
       RemainAfterExit=yes
       WorkingDirectory=/opt/agent-wiki
       ExecStart=/usr/bin/docker compose up -d --no-build
-      ExecStop=/usr/bin/docker compose stop -t 120 web api worker
+      ExecStop=/usr/bin/docker compose stop -t 120 agent-wiki-web agent-wiki-worker agent-wiki-api
       TimeoutStartSec=180
       TimeoutStopSec=180
       [Install]

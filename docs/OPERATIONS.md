@@ -11,6 +11,14 @@
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
 
+## 애플리케이션 이름과 실행 구성 통일
+
+2026-09-13. `apps/agent-wiki-api`·`apps/agent-wiki-web`·`apps/agent-wiki-worker`와 `packages/agent-wiki-client`로 코드 경로를 맞췄다. Client 안의 `cli/agent-wiki.mjs`·`collector/`·`skill/` 역할을 구분하며 단일 설치·`agent-wiki` 명령은 유지한다. 로컬 패키지는 0.5.0이다.
+
+Compose 서비스·컨테이너는 `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`, 자체 앱 이미지는 각각 같은 이름이다. 내부 DNS·Caddy 라우팅·Worker 상태 파일·launchd 식별자·systemd·CI/CD·설치 안내와 검사를 맞췄다. VM 표시 이름만 Terraform으로 갱신했으며 자원 생성·교체는 없다.
+
+이름 전환은 기존 외부 유입을 막고 Web → Worker → API → DB를 순서대로 종료한 뒤 동일 데이터 경로·인증서를 새 서비스에 연결한다. DB 인증기관과 키를 유지하며 새 내부 호스트명을 인증서에 추가했다. 전환 실패 복구와 종료 순서를 합성 검사로 확인했고 전체 테스트·타입 검사·빌드를 통과했다. 운영 배포·재수집 확인은 배포 후 기록한다.
+
 ## 명령 이름·그림 일관성
 
 2026-09-13. 실행 명령을 제품명과 같은 `agent-wiki`로 통일했다. 로컬 패키지 0.4.1, 설치된 Codex·Claude 조회 Skill, 문서·웹 설치 안내에 적용했다. 실제 조회와 Collector의 Agent Wiki 한정·10분 주기를 확인했으며 기존 설정·전송 상태를 유지했다.

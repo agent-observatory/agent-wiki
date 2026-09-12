@@ -10,8 +10,8 @@ import {
   defaultConfigPath,
   loadToken,
   validateServer,
-} from "./config.mjs";
-import { collectorMain, collectionInterval } from "./collector/collector.mjs";
+} from "../config.mjs";
+import { collectorMain, collectionInterval } from "../collector/collector.mjs";
 import { homedir } from "node:os";
 const args = process.argv.slice(2);
 const command = args.shift();
@@ -42,7 +42,7 @@ async function installSkill(force, client) {
   for (const root of roots) {
     const target = resolve(root, "skills/agent-wiki");
     await mkdir(target, { recursive: true });
-    await cp(fileURLToPath(new URL("./skill/", import.meta.url)), target, {
+    await cp(fileURLToPath(new URL("../skill/", import.meta.url)), target, {
       recursive: true,
       force,
     });

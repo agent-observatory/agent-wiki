@@ -252,7 +252,7 @@ export function Guide() {
             <li>Collector · 작업 대화와 독립된 백그라운드 수집</li>
           </ul>
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`# 저장소 루트에서 설치
-npm install --global ./packages/cli
+npm install --global ./packages/agent-wiki-client
 # 사용할 프로젝트 디렉터리에서 실행
 agent-wiki skill install --client codex\nagent-wiki setup --no-skill --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nagent-wiki collector start`}</pre>
           <p className="text-muted-foreground">

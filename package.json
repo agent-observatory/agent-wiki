@@ -7,12 +7,12 @@
     "node": ">=22.21"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && npm --prefix apps/web run build",
-    "typecheck": "tsc --noEmit && npm --prefix apps/web run typecheck",
+    "build": "tsc -p tsconfig.json && npm --prefix apps/agent-wiki-web run build",
+    "typecheck": "tsc --noEmit && npm --prefix apps/agent-wiki-web run typecheck",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts && node --test tests/*.test.mjs",
-    "api": "tsx apps/api/src/server.ts",
-    "worker": "tsx apps/worker/src/server.ts",
-    "migrate": "tsx packages/core/src/migrate.ts"
+    "migrate": "tsx packages/core/src/migrate.ts",
+    "agent-wiki-api": "SERVICE_NAME=agent-wiki-api tsx apps/agent-wiki-api/src/server.ts",
+    "agent-wiki-worker": "SERVICE_NAME=agent-wiki-worker tsx apps/agent-wiki-worker/src/server.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

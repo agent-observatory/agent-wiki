@@ -21,6 +21,7 @@ fi
 rsyslogd -N1
 systemctl restart rsyslog
 test -S /run/wiki-syslog.sock
+install -m 644 "$(dirname "$0")/agent-wiki.service" /etc/systemd/system/agent-wiki.service
 systemctl daemon-reload
 systemctl enable agent-wiki
 echo 'Host log socket and boot service configured.'

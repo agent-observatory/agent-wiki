@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { buildApp } from "../apps/api/src/app.js";
+import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
 import { hash } from "../packages/core/src/storage.js";
 const admin = new pg.Pool({

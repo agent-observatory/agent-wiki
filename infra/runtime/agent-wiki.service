@@ -1,0 +1,16 @@
+[Unit]
+Description=Agent Wiki Compose
+After=docker.service network-online.target rsyslog.service
+Requires=docker.service
+RequiresMountsFor=/srv/agent-wiki/data
+ConditionPathExists=/opt/agent-wiki/compose.yaml
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/agent-wiki
+ExecStart=/usr/bin/docker compose up -d --no-build
+ExecStop=/usr/bin/docker compose stop -t 120 agent-wiki-web agent-wiki-worker agent-wiki-api
+TimeoutStartSec=180
+TimeoutStopSec=180
+[Install]
+WantedBy=multi-user.target

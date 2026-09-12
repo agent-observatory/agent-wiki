@@ -25,7 +25,7 @@ test("real SIGTERM drains an accepted DB request before process exit", async () 
   );
   const child = spawn(
     process.execPath,
-    ["--import", "tsx", "apps/api/src/server.ts"],
+    ["--import", "tsx", "apps/agent-wiki-api/src/server.ts"],
     {
       env: {
         ...process.env,

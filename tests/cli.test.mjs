@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createServer } from "node:http";
 const exec = promisify(execFile),
-  cli = resolve("packages/cli/wiki.mjs");
+  cli = resolve("packages/agent-wiki-client/cli/agent-wiki.mjs");
 const uuid = "00000000-0000-4000-8000-000000000001";
 test("one setup shares query and collector settings, preserves scope and machine on rerun, and installs the skill", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wiki-cli-")),
@@ -33,9 +33,9 @@ test("one setup shares query and collector settings, preserves scope and machine
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   try {
     const manifest = JSON.parse(
-      await readFile(resolve("packages/cli/package.json"), "utf8"),
+      await readFile(resolve("packages/agent-wiki-client/package.json"), "utf8"),
     );
-    assert.deepEqual(manifest.bin, { "agent-wiki": "./wiki.mjs" });
+    assert.deepEqual(manifest.bin, { "agent-wiki": "./cli/agent-wiki.mjs" });
     const tokenFile = join(dir, ".env.local");
     await writeFile(tokenFile, "WIKI_TOKEN=synthetic-cli-token\n");
     await run(

@@ -3,23 +3,23 @@ x-logging: &logs
   driver: syslog
   options:
     syslog-address: unixgram:///run/wiki-syslog.sock
-    tag: agent-wiki-{{.Name}}
+    tag: "{{.Name}}"
     mode: non-blocking
     max-buffer-size: 1m
 x-app: &app
   volumes:
     - /srv/agent-wiki/data/tls/ca.crt:/run/wiki-ca.crt:ro
-  image: ghcr.io/agent-observatory/agent-wiki-app:${IMAGE_TAG:?IMAGE_TAG required}
   restart: unless-stopped
   init: true
   mem_limit: 2g
   networks: [wiki]
   logging: *logs
   depends_on:
-    postgres:
+    agent-wiki-db:
       condition: service_healthy
 services:
-  caddy:
+  agent-wiki-gateway:
+    container_name: agent-wiki-gateway
     image: caddy:2.11.2-alpine
     restart: unless-stopped
     mem_limit: 256m
@@ -32,7 +32,8 @@ services:
       - /srv/agent-wiki/data/config:/config
     networks: [wiki]
     logging: *logs
-  web:
+  agent-wiki-web:
+    container_name: agent-wiki-web
     image: ghcr.io/agent-observatory/agent-wiki-web:${IMAGE_TAG:?IMAGE_TAG required}
     restart: unless-stopped
     init: true
@@ -54,10 +55,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 4
-  api:
+  agent-wiki-api:
+    container_name: agent-wiki-api
+    image: ghcr.io/agent-observatory/agent-wiki-api:${IMAGE_TAG:?IMAGE_TAG required}
     <<: *app
     env_file: api.env
-    command: ["node", "dist/apps/api/src/server.js"]
+    command: ["node", "dist/apps/agent-wiki-api/src/server.js"]
     environment:
       SERVICE_NAME: agent-wiki-api
       IMAGE_TAG: ${IMAGE_TAG}
@@ -73,10 +76,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 4
-  worker:
+  agent-wiki-worker:
+    container_name: agent-wiki-worker
+    image: ghcr.io/agent-observatory/agent-wiki-worker:${IMAGE_TAG:?IMAGE_TAG required}
     <<: *app
     env_file: worker.env
-    command: ["node", "dist/apps/worker/src/server.js"]
+    command: ["node", "dist/apps/agent-wiki-worker/src/server.js"]
     cpus: 0.5
     environment:
       SERVICE_NAME: agent-wiki-worker
@@ -88,12 +93,13 @@ services:
           "CMD",
           "node",
           "-e",
-          "process.exit(Date.now()-Number(require('fs').readFileSync('/tmp/wiki-worker-heartbeat','utf8'))<300000?0:1)",
+          "process.exit(Date.now()-Number(require('fs').readFileSync('/tmp/agent-wiki-worker-heartbeat','utf8'))<300000?0:1)",
         ]
       interval: 15s
       timeout: 5s
       retries: 4
-  postgres:
+  agent-wiki-db:
+    container_name: agent-wiki-db
     image: postgres:17.9-bookworm
     restart: unless-stopped
     mem_limit: 3g

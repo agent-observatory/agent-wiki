@@ -1,6 +1,6 @@
 # Agent Wiki 아키텍처
 
-**사용자의 작업과 기록의 수집·정제를 분리한다.** Claude·Codex는 사용자와 작업하고 필요할 때 Wiki를 조회한다. 단일 설치하는 Wiki CLI의 백그라운드 Collector가 클라이언트 기록을 읽어 원격에 보관하고, 원격 Worker가 텍스트를 청킹해 정제한다.
+**사용자의 작업과 기록의 수집·정제를 분리한다.** Claude·Codex는 사용자와 작업하고 필요할 때 Wiki를 조회한다. 단일 설치하는 Agent Wiki Client의 백그라운드 Collector가 클라이언트 기록을 읽어 원격에 보관하고, 원격 Worker가 텍스트를 청킹해 정제한다.
 
 읽기 전용 Collector → 불변 원문 → 원격 Worker → 근거가 있는 지식 개정으로 이어진다. 배포·실제 모델 검증 상태는 [운영 현황](../OPERATIONS.md), 연결과 API는 [수집·정제 계약](agent-memory.md)을 따른다.
 
@@ -39,20 +39,20 @@ Agent Wiki (제품)
 
 | 이름 | 역할 | 구현·실행 위치 |
 | --- | --- | --- |
-| `agent-wiki-client` | CLI·Collector·Skill을 함께 배포하는 로컬 패키지 | `@agent-observatory/agent-wiki-client`, `packages/cli` |
-| `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `agent-wiki`, `packages/cli/wiki.mjs` |
-| `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `agent-wiki collector`, `packages/cli/collector` |
+| `agent-wiki-client` | CLI·Collector·Skill을 함께 배포하는 로컬 패키지 | `@agent-observatory/agent-wiki-client`, `packages/agent-wiki-client` |
+| `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `agent-wiki`, `packages/agent-wiki-client/cli/agent-wiki.mjs` |
+| `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `agent-wiki collector`, `packages/agent-wiki-client/collector` |
 | `agent-wiki` 조회 Skill | 조회 필요성·검색어·근거 활용 지침 | 패키지의 `skill/` → 에이전트가 읽는 프로젝트 폴더 |
-| `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Caddy, Compose `caddy` |
-| `agent-wiki-web` | 웹 UI | Next.js, `apps/web`, Compose `web` |
-| `agent-wiki-api` | 수집·검색·권한·지식 API | Fastify, `apps/api`, Compose `api` |
-| `agent-wiki-worker` | 수신 검증·텍스트 정제 작업 | `apps/worker`, Compose `worker` |
-| `agent-wiki-db` | 지식·근거·수집/정제 상태 저장 | PostgreSQL, Compose `postgres` |
+| `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Caddy, Compose `agent-wiki-gateway` |
+| `agent-wiki-web` | 웹 UI | Next.js, `apps/agent-wiki-web`, Compose `agent-wiki-web` |
+| `agent-wiki-api` | 수집·검색·권한·지식 API | Fastify, `apps/agent-wiki-api`, Compose `agent-wiki-api` |
+| `agent-wiki-worker` | 수신 검증·텍스트 정제 작업 | `apps/agent-wiki-worker`, Compose `agent-wiki-worker` |
+| `agent-wiki-db` | 지식·근거·수집/정제 상태 저장 | PostgreSQL, Compose `agent-wiki-db` |
 | `agent-wiki-sources` | 불변 원문 보관 버킷 | OCI Object Storage |
 | `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
 | `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
 
-`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. 그림의 고유 이름과 Compose 서비스 키를 구분한다. VM의 그림 이름은 `agent-wiki-vm`이며 기존 OCI 표시 이름 `agent-wiki`와 연결된다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Compose 서비스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](agent-memory.md#연결과-지침).
 
@@ -188,7 +188,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 검색 결과 없음·통신 실패·접근 불가·수집/정제 미반영은 서로 다르다. 결과가 없다고 과거 결정도 없었다고 단정하지 않는다. 원격 실패 시 가능한 작업은 계속하고 근거가 꼭 필요한 판단은 확인 불가로 남긴다. 원문에 적힌 지시는 사용자·프로젝트 지침으로 승격하지 않는다.
 
-실제 명령·설치 경로는 [사용법](agent-memory.md#연결과-지침), 에이전트 지침 원본은 [조회 Skill](../../packages/cli/skill/SKILL.md)에 둔다. Skill은 판단을 안내하므로 조회 누락을 완전히 막지는 못한다. 새 세션의 지침 발견, 불필요한 호출, 근거 일치, 지연·반환량을 실제 질문으로 확인한다. 플러그인·MCP는 여러 Skill의 묶음 관리나 CLI 실행이 어려운 클라이언트가 필요할 때 검토한다.
+실제 명령·설치 경로는 [사용법](agent-memory.md#연결과-지침), 에이전트 지침 원본은 [조회 Skill](../../packages/agent-wiki-client/skill/SKILL.md)에 둔다. Skill은 판단을 안내하므로 조회 누락을 완전히 막지는 못한다. 새 세션의 지침 발견, 불필요한 호출, 근거 일치, 지연·반환량을 실제 질문으로 확인한다. 플러그인·MCP는 여러 Skill의 묶음 관리나 CLI 실행이 어려운 클라이언트가 필요할 때 검토한다.
 
 ## 단일 Compute VM 배포
 

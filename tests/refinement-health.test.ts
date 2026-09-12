@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { pool, tx } from "../packages/core/src/db.js";
-import { refinementHealth } from "../apps/api/src/refinement-health.js";
+import { refinementHealth } from "../apps/agent-wiki-api/src/refinement-health.js";
 const admin = new pg.Pool({
   connectionString: process.env.MIGRATION_DATABASE_URL,
 });

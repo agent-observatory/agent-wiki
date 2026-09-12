@@ -19,6 +19,6 @@ __pycache__/
 
 .agent-wiki.json
 
-# Installed copy; canonical Skill is distributed in packages/cli/skill
+# Installed copy; canonical Skill is distributed in packages/agent-wiki-client/skill
 .agents/skills/agent-wiki/
 .claude/skills/agent-wiki/
