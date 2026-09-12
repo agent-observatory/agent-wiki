@@ -34,8 +34,9 @@ if not re.fullmatch(r'/opt/agent-wiki/\.bootstrap\.[A-Za-z0-9]+', stage):
 try:
     subprocess.run(scp+[str(private/n) for n in names]+['ubuntu@'+host+':'+stage+'/'], check=True)
     # The CA signing key stays on the developer machine.
-    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), 'ubuntu@'+host+':'+stage+'/'], check=True)
+    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), str(root/'scripts/configure-host.sh'), 'ubuntu@'+host+':'+stage+'/'], check=True)
     subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/install-runtime.sh')+' '+shlex.quote(stage)], check=True)
+    subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/configure-host.sh')], check=True)
 finally:
     subprocess.run(ssh+['rm -rf -- '+shlex.quote(stage)], check=False)
 

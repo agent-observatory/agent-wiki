@@ -176,7 +176,7 @@ DB·Caddy는 별도 디렉터리와 권한을 사용한다. 마운트가 없으�
 
 ### 주소·HTTPS·네트워크
 
-`agent-wiki.duckdns.org`는 VM 공인 IP를 가리키며 Caddy가 80/443에서 HTTPS를 처리한다. 도메인 IP 갱신·인증서 발급은 아직이다. Caddy 공식 이미지의 영속 `/data`를 사용하므로 S3 저장 모듈·Customer Secret Key·인증서 전용 버킷은 필요 없다. [Caddy Docker](https://hub.docker.com/_/caddy) · [자동 HTTPS](https://caddyserver.com/docs/automatic-https)
+`agent-wiki.duckdns.org`는 VM 공인 IP를 가리키며 Caddy가 80/443에서 HTTPS를 처리한다. 도메인 IP 갱신·Caddy 인증서 발급과 HTTPS 접속을 확인했다. Caddy 공식 이미지의 영속 `/data`를 사용하므로 S3 저장 모듈·Customer Secret Key·인증서 전용 버킷은 필요 없다. [Caddy Docker](https://hub.docker.com/_/caddy) · [자동 HTTPS](https://caddyserver.com/docs/automatic-https)
 
 Compose 네트워크에서 Caddy는 `web:3000`, `api:3001`에 연결하고 API·Worker는 `postgres:5432`로 접근한다. 컨테이너마다 네트워크가 분리되므로 다른 서비스에 localhost로 연결하지 않는다. Next.js·API·Worker 포트는 호스트에 공개하지 않는다. [Compose 네트워크](https://docs.docker.com/compose/how-tos/networking/)
 
@@ -345,7 +345,7 @@ VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부
 
 ## 자원 수와 무료 운영 조건
 
-**무료 범위만 사용한다. PAYG 전환·유료 자원·체험 크레딧은 사용하지 않는다.**
+**무료 자원 범위만 사용한다.** 사용자가 PAYG 계정 업그레이드를 직접 완료했지만 유료 자원·한도 초과·체험 크레딧 사용은 승인되지 않았다.
 
 | 자원 | 초기 수·범위 | 확인할 한도 |
 | --- | --- | --- |
@@ -357,7 +357,7 @@ VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부
 
 2026-09-12 공식 Always Free 상세 문서 기준 A1 VM 무료량은 월 1,500 OCPU시간·9,000 GB시간이다. 2 OCPU·12GB를 31일 실행하면 1,488 OCPU시간·8,928 GB시간으로 범위 안이다. 기존 자원과 VM 교체 중 중복 실행량도 합산한다. [OCI Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
 
-Home region은 Osaka · ap-osaka-1이다. 생성 시 A1 용량 확보·계정 전체 사용량·서비스별 무료 자격을 확인한다. 현재 설계에는 Container Instances를 생성하지 않는다. **네트워크·원문 버킷·데이터 볼륨은 생성했지만 VM 할당은 용량 부족으로 실패했다. 앱 배포 전이며 실제 상태는 [운영 현황](../OPERATIONS.md)에 기록한다.**
+Home region은 Osaka · ap-osaka-1이다. 생성 시 A1 용량 확보·계정 전체 사용량·서비스별 무료 자격을 확인한다. 현재 설계에는 Container Instances를 생성하지 않는다. **업그레이드 후 기존 사양으로 VM 생성·볼륨 연결·첫 앱 배포를 완료했다. 실제 검증·미완료 항목은 [운영 현황](../OPERATIONS.md)에 기록한다.**
 
 ## 모니터링과 알림
 
@@ -400,7 +400,7 @@ stdout JSON의 추적 필드는 최상위 `trace_id`, `span_id`, `trace_flags`�
 
 기존 Slack 봇 토큰은 **알림 Function에만 Vault로 제공**한다. API·Worker·로그 수집기에는 Slack 토큰이나 Slack API 호출 코드를 두지 않는다. Function은 이벤트를 짧은 요약·확인 링크로 바꿔 `chat.postMessage`를 호출하며, Slack 응답의 `ok`와 rate limit을 확인한다. 수집·지식 처리 Worker와 이 알림 Function은 별개다.
 
-OCI Notifications의 Slack 직접 구독은 Incoming Webhook을 사용한다. 현재 준비된 봇 토큰을 유지하기 위해 알림 전용 Function을 사용한다. Logging·Connector Hub·Notifications·Functions의 계정 자격과 무료 사용량은 생성 전에 확인하며 유료 전환하지 않는다. Slack 샘플 수신만 확인했고 실제 로그 수집·경보 자동화는 구현 전이다.
+OCI Notifications의 Slack 직접 구독은 Incoming Webhook을 사용한다. 현재 준비된 봇 토큰을 유지하기 위해 알림 전용 Function을 사용한다. Logging·Connector Hub·Notifications·Functions의 계정 자격과 무료 사용량은 생성 전에 확인하며 무료 자원 한도를 넘기지 않는다. Slack 샘플 수신만 확인했고 실제 로그 수집·경보 자동화는 구현 전이다.
 
 [Connector Hub](https://docs.oracle.com/en-us/iaas/Content/connector-hub/overview.htm) · [Notifications → Function](https://docs.oracle.com/en-us/iaas/Content/Notification/Tasks/create-subscription-function.htm) · [Slack 직접 구독](https://docs.oracle.com/en-us/iaas/Content/Notification/Tasks/create-subscription-slack.htm)
 
@@ -418,7 +418,7 @@ OCI Notifications의 Slack 직접 구독은 Incoming Webhook을 사용한다. �
 | 무중단 배포 필요 | 복수 앱 실행·라우팅·추가 자원과 DB 가용성 설계 |
 | 처리량이 무료 사용량 초과 | 사용량을 제한하고 무료 범위 내 구성 재검토 |
 
-실증 순서는 **계정·예산 확인 → 합성 자료로 배포·기본 기능 확인 → 사용량 확인 → 개인 원문**이다. Terraform·Compose·배포 스크립트와 앱 코드가 있으며, 공개 배포와 운영 연결 검증은 아직이다.
+실증 순서는 **계정·예산 확인 → 합성 자료로 배포·기본 기능 확인 → 사용량 확인 → 개인 원문**이다. Terraform·Compose·배포 스크립트와 앱 코드가 있으며, 첫 앱 배포는 완료했으며 외부 알림 연결 검증은 남아 있다.
 
 ## 레퍼런스에서 가져올 요소
 

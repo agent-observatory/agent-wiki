@@ -7,7 +7,7 @@ A personal knowledge space for you and your agents. Store decisions, edit linked
 - Source ingestion with NVIDIA Kimi / DeepSeek and PostgreSQL jobs
 - Next.js, Fastify, PostgreSQL, Docker Compose, Terraform
 
-**First release in progress.** OCI A1 allocation is currently blocked by host capacity; the application is not yet deployed. See [live implementation and deployment status](docs/OPERATIONS.md).
+**First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Cloud alerts and live NVIDIA extraction verification remain pending; see [implementation and deployment status](docs/OPERATIONS.md).
 
 ## Development
 

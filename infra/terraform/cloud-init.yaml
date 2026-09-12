@@ -2,6 +2,9 @@
 package_update: true
 packages: [docker.io, docker-compose-v2, rsyslog, jq, openssl]
 write_files:
+  - path: /etc/apparmor.d/rsyslog.d/agent-wiki
+    content: |
+      /run/wiki-syslog.sock rw,
   - path: /etc/rsyslog.d/30-agent-wiki.conf
     content: |
       input(type="imuxsock" Socket="/run/wiki-syslog.sock" CreatePath="on")
@@ -56,7 +59,7 @@ write_files:
       WantedBy=multi-user.target
 runcmd:
   - usermod -aG docker ubuntu
-  - mkdir -p /var/log/agent-wiki
+  - install -d -o syslog -g adm -m 0750 /var/log/agent-wiki
   - systemctl enable --now docker
   - systemctl restart rsyslog
   - iptables -I INPUT 1 -p tcp -m multiport --dports 22,80,443,5432 -j ACCEPT

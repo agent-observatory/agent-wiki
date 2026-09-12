@@ -25,12 +25,12 @@
 
 - 현재는 OCI A1 Compute VM 1대·2 OCPU·12GB에 앱과 PostgreSQL을 함께 둔다. Docker Compose로 Caddy·Next.js·API·Worker·PostgreSQL 5개를 관리한다. CPU는 공유하고 Worker만 최대 0.5 CPU·동시성 1로 시작한다.
 - 부트 50GB·별도 Block Volume 50GB를 사용한다. 영속 볼륨의 별도 경로에 PostgreSQL 데이터와 Caddy `/data`·`/config`를 둔다. 원문은 비공개 Object Storage 버킷 1개에 저장한다. Caddy S3 모듈·인증서 버킷·Customer Secret Key는 필요 없다.
-- 무료 범위만 사용한다. PAYG 전환·유료 자원·체험 크레딧 사용은 금지한다. 월 A1 1,500 OCPU시간·9,000 GB시간과 계정 전체 스토리지·네트워크·운영 서비스 한도를 확인한다.
+- 무료 범위만 사용한다. 사용자가 PAYG 업그레이드를 직접 완료했다. 유료 자원·무료 한도 초과·체험 크레딧 사용은 승인되지 않았다. 월 A1 1,500 OCPU시간·9,000 GB시간과 계정 전체 스토리지·네트워크·운영 서비스 한도를 확인한다.
 - Terraform은 OCI 인프라, cloud-init은 Docker·마운트 최초 구성, systemd는 부팅 시 기동, Compose는 컨테이너 실행을 관리한다. OS·Docker·DB 업데이트는 우리가 맡는다.
 - 외부에서 ARM64 이미지를 빌드·게시하고 VM이 미리 pull한다. 일반 배포는 변경된 앱 서비스만 `up -d --no-deps --no-build --wait`로 교체한다. VM·DB·Caddy는 유지하며 전체 `compose down`·볼륨 삭제는 하지 않는다. 짧은 앱 중단은 허용하고 DB 변경은 호환성·잠금을 별도로 판단한다.
 - 컨테이너 간에는 Compose 서비스 이름을 사용하며 localhost를 공유한다고 가정하지 않는다. 웹·API 포트는 내부 전용이다. DataGrip은 VM 공인 5432에 IP 제한·Bastion·SSH 터널 없이 별도 ID/비밀번호·TLS로 연결한다. 실제 정보는 구성 시 `.env.local`에 기록한다.
 - 이전 분리 설계는 `docs/archive/container-instances/`에 보존한다. 그 폴더의 사양·지침은 현재 운영안이 아니다. 운영 데이터 백업과 구분한다.
-- 실제 구축 전 최신 공식 조건·계정 자격·전체 사용량·월 비용을 확인한다. 계정 업그레이드는 승인되지 않았다. 자원 생성은 사용자가 승인한 첫 배포의 무료 범위만 허용한다.
+- 실제 구축 전 최신 공식 조건·계정 자격·전체 사용량·월 비용을 확인한다. PAYG 계정 전환과 자원 과금 승인을 구분한다. 자원 생성은 사용자가 승인한 첫 배포의 무료 범위만 허용한다.
 - 사이드 프로젝트 수준으로 운영한다. 백업·복원 설계는 후속 과제로 미루며 초기 범위에 예약 백업·백업 버킷·백업 알림을 두지 않는다. 정기 복구 훈련·상시 부하 테스트는 하지 않는다.
 - 모니터링은 OCI 기본 지표·실패 알림·15분 HTTP 상태 점검으로 시작한다. 앱은 OTel Logs Data Model에 매핑되는 JSON을 stdout/stderr에 출력한다. 제품별 속성은 `agent_wiki.*`로 구분하며 ECS·OTLP와 혼동하지 않는다. Docker syslog·호스트 rsyslog·OCI Unified Monitoring Agent가 OCI Logging으로 보내며 Connector Hub·별도 알림 Function이 Slack 전송을 맡는다. 자체 수집기 컨테이너는 두지 않는다. API·Worker에는 Slack 토큰·전송 코드를 두지 않는다. 이메일은 사용하지 않는다. 실제 데이터·프롬프트·비밀은 운영 로그에 남기지 않는다.
 - 계획 배포는 Caddy에서 외부 신규 유입을 먼저 막고 진행 웹 요청과 내부 API 호출을 마친 뒤 API에 SIGTERM을 보낸다. readiness만으로 외부 차단이 된다고 가정하지 않는다. SIGTERM에서 API는 진행 요청·DB 연결 순으로 닫는다. Worker는 새 수신을 멈추고 결과 커밋 후 완료하며, 유예 초과는 재시도로 남긴다. 실제 컨테이너 신호·강제 종료 후 복구를 검증한다. 기본 종료 예산은 API 30초·Worker 90초, Compose 유예는 45초·120초다.

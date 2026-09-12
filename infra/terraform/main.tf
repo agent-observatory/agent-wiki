@@ -152,8 +152,9 @@ resource "oci_core_instance" "wiki" {
 
   lifecycle {
     prevent_destroy = true
-    # This create-only provider field is ForceNew; the live setting is managed above.
-    ignore_changes = [is_pv_encryption_in_transit_enabled]
+    # Create-only fields must not replace a VM with persistent data.
+    # launch_options manages encryption updates; configure-host.sh updates existing hosts.
+    ignore_changes = [is_pv_encryption_in_transit_enabled, metadata["user_data"]]
   }
 
 
