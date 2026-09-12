@@ -76,5 +76,28 @@ export async function getSource(key: string) {
     }
     buffer = Buffer.concat(chunks);
   }
-  return gunzipSync(buffer, { maxOutputLength: 1024 * 1024 }).toString("utf8");
+  return gunzipSync(buffer, { maxOutputLength: 2 * 1024 * 1024 }).toString(
+    "utf8",
+  );
+}
+
+export function maskRecord(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(maskRecord);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k,
+        /^(?:password|secret|api[_-]?key|access[_-]?token|authorization|private[_-]?key)$/i.test(
+          k,
+        )
+          ? "[REDACTED]"
+          : maskRecord(v),
+      ]),
+    );
+  return typeof value === "string"
+    ? mask(value).replace(
+        /https:\/\/hooks\.slack\.com\/services\/[^\s"'<>]+/g,
+        "[WEBHOOK_REDACTED]",
+      )
+    : value;
 }

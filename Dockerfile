@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json tsconfig.json ./
 RUN npm ci
 COPY apps/api apps/api
+COPY apps/worker apps/worker
 COPY packages packages
 RUN npx tsc -p tsconfig.json
 RUN cp packages/core/src/schema.sql dist/packages/core/src/schema.sql

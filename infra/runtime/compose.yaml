@@ -73,6 +73,26 @@ services:
       interval: 15s
       timeout: 5s
       retries: 4
+  worker:
+    <<: *app
+    env_file: worker.env
+    command: ["node", "dist/apps/worker/src/server.js"]
+    cpus: 0.5
+    environment:
+      SERVICE_NAME: agent-wiki-worker
+      IMAGE_TAG: ${IMAGE_TAG}
+    stop_grace_period: 120s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "process.exit(Date.now()-Number(require('fs').readFileSync('/tmp/wiki-worker-heartbeat','utf8'))<300000?0:1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 4
   postgres:
     image: postgres:17.9-bookworm
     restart: unless-stopped

@@ -65,7 +65,7 @@ export function Activity() {
 export function Connections() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const { data, error, reload } = useApi(`/api/workspaces/${workspaceId}/keys`);
-  const [scope, setScope] = useState("publish");
+  const [scope, setScope] = useState("read");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<unknown>();
@@ -81,7 +81,10 @@ export function Connections() {
         description="같은 공간을 읽고 기록할 수 있는 키를 발급합니다."
       />
       <div className="mb-8 rounded-lg border p-5 space-y-3">
-        <p>처음이라면 조회·원문·지식 반영 권한으로 연결하세요.</p>
+        <p>
+          작업 에이전트에는 조회 전용, Collector에는 원문 보관 권한을
+          발급하세요.
+        </p>
         <Link className="underline" href={`/workspaces/${workspaceId}/guide`}>
           CLI 설치와 사용 순서 보기 →
         </Link>
@@ -207,16 +210,16 @@ export function Guide() {
         </section>
         <section>
           <h2 className="text-lg font-bold mb-3">
-            자동 수집·정제는 준비 중입니다
+            수집과 정제는 백그라운드에서 실행합니다
           </h2>
           <p className="leading-7 text-muted-foreground">
-            별도 Collector가 클라이언트의 세션 기록을 읽고, 별도 실행이
-            군집화·정제하는 구조를 설계하고 있습니다. 수집을 위해 작업 대화에
-            메시지를 끼워 넣거나 응답을 기다리게 하지 않습니다. 현재는 자동
-            수집·정제가 없으며, 명시적으로 요청한 수동 등록·반영만 가능합니다.
+            Collector가 허용한 프로젝트의 세션 기록을 읽어 보냅니다. 원격
+            Worker가 외부 AI로 정제하고 정확한 원문 근거를 검사해 지식에
+            반영합니다. 수집·AI 정제 메뉴에서 모델, 호출 한도, 처리 상태를
+            확인하세요.
           </p>
           <div className="mt-4 rounded-lg border p-4">
-            계획: 별도 Collector → 원격 원문 보관 → 백그라운드 정제 → 지식 반영
+            Collector → 원격 원문 보관 → 백그라운드 정제 → 지식 반영
           </div>
         </section>
         <section>
@@ -235,8 +238,13 @@ export function Guide() {
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/cli\nwiki init --project agent-wiki --workspace ${workspaceId} --tag agent-wiki\nwiki skill install\nwiki recall --project agent-wiki`}</pre>
           <p className="text-muted-foreground">
             인증 키는 에이전트 연결에서 발급해 로컬의 Git 제외 .env.local에
-            WIKI_TOKEN으로 보관합니다. Skill은 조회·정제 방법을 설명하는
+            WIKI_TOKEN으로 보관합니다. Skill은 조회·수동 관리 방법을 설명하는
             지침이며 설치만으로 자동 수집을 실행하지 않습니다.
+          </p>
+          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/collector\nwiki-collector init --workspace ${workspaceId} --project /absolute/project --env /absolute/project/.env.local\nwiki-collector once\nwiki-collector install`}</pre>
+          <p className="text-muted-foreground">
+            Collector 키는 WIKI_COLLECTOR_TOKEN으로 저장합니다. macOS에서는
+            30분마다 허용한 기록을 전송합니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

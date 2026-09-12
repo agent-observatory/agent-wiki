@@ -31,6 +31,10 @@ def write_env(name,data):
  file=out/name;file.write_text('\n'.join(k+'='+v for k,v in data.items())+'\n');file.chmod(0o600)
 def dburl(user,pwd):return 'postgresql://'+user+':'+urllib.parse.quote(pwd,safe='')+'@postgres:5432/agent_wiki?sslmode=verify-full&sslrootcert=/run/wiki-ca.crt'
 common={'DATABASE_URL':dburl('wiki_app',env['PG_APP_PASSWORD']),'NODE_ENV':'production','IMAGE_TAG':args.image,'SOURCE_STORAGE':'oci','OCI_NAMESPACE':state['namespace']['value'],'OCI_BUCKET':state['bucket']['value']}
+env.setdefault('AI_ENCRYPTION_KEY',secrets.token_hex(32))
+common['AI_ENCRYPTION_KEY']=env['AI_ENCRYPTION_KEY']
+common['AI_ALLOWED_HOSTS']=env.get('AI_ALLOWED_HOSTS','integrate.api.nvidia.com,api.deepseek.com')
+write_env('worker.env',{**common,'OWNER_GITHUB_ID':env['OWNER_GITHUB_ID']})
 write_env('api.env',{**common,**{k:env[k] for k in ['GITHUB_CLIENT_ID','GITHUB_CLIENT_SECRET','OWNER_GITHUB_ID']},'APP_URL':'https://'+domain})
 write_env('migration.env',{'MIGRATION_DATABASE_URL':dburl('wiki_owner',env['PG_OWNER_PASSWORD'])})
 write_env('.env',{'DOMAIN':domain,'IMAGE_TAG':args.image,**{k:env[k] for k in ['PG_OWNER_PASSWORD','PG_APP_PASSWORD','PG_ADMIN_PASSWORD']}})

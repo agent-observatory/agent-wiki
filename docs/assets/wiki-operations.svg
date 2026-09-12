@@ -18,9 +18,9 @@
 <path d="M1051 265 H1095" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="1101" y="190" width="388" height="150" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1121" y="209" width="26" height="26" color="#172C4B"><path fill="#161614" d="M50 1C22.39 1 0 23.386 0 51c0 22.092 14.327 40.834 34.193 47.446 2.499.462 3.417-1.085 3.417-2.406 0-1.192-.047-5.131-.068-9.309-13.91 3.025-16.846-5.9-16.846-5.9-2.274-5.779-5.551-7.315-5.551-7.315-4.537-3.104.341-3.04.341-3.04 5.022.353 7.665 5.153 7.665 5.153 4.46 7.644 11.697 5.434 14.55 4.156.449-3.232 1.745-5.437 3.175-6.686-11.106-1.264-22.78-5.552-22.78-24.71 0-5.459 1.953-9.92 5.151-13.42-.519-1.26-2.23-6.346.485-13.233 0 0 4.198-1.344 13.753 5.125 3.988-1.108 8.266-1.663 12.515-1.682 4.25.019 8.53.574 12.526 1.682 9.544-6.469 13.736-5.125 13.736-5.125 2.722 6.887 1.01 11.973.49 13.232 3.206 3.502 5.146 7.962 5.146 13.42 0 19.205-11.697 23.434-22.83 24.671 1.793 1.552 3.391 4.595 3.391 9.26 0 6.69-.058 12.074-.058 13.721 0 1.33.9 2.89 3.435 2.399C85.692 91.819 100 73.085 100 51c0-27.614-22.386-50-50-50" /><path fill="#161614" d="M18.727 72.227c-.11.248-.502.322-.857.152-.363-.163-.567-.502-.45-.751.109-.256.5-.327.862-.156.363.163.57.505.445.755m2.46 2.194c-.24.221-.706.118-1.022-.231-.327-.349-.388-.814-.146-1.04.246-.22.698-.117 1.026.232.327.353.39.816.14 1.04zm1.687 2.808c-.307.213-.808.013-1.118-.432-.306-.444-.306-.977.007-1.191.31-.214.804-.021 1.118.42.305.452.305.985-.008 1.203m2.853 3.252c-.274.302-.858.22-1.285-.192-.437-.403-.56-.975-.284-1.277.277-.303.864-.218 1.295.191.434.403.566.979.274 1.278m3.688 1.098c-.12.391-.683.57-1.25.403-.565-.171-.935-.63-.821-1.026.118-.394.682-.58 1.253-.401.565.17.936.625.818 1.024m4.197.465c.014.413-.466.755-1.06.762-.599.013-1.082-.32-1.088-.726 0-.416.469-.755 1.067-.765.594-.012 1.081.32 1.081.73m4.123-.158c.071.403-.342.816-.932.926-.58.106-1.118-.143-1.192-.541-.072-.413.35-.826.928-.933.592-.103 1.12.14 1.196.548" /></svg>
-<text x="1159" y="232" font-size="23" font-weight="700" fill="#172C4B">Compose · 4개</text>
+<text x="1159" y="232" font-size="23" font-weight="700" fill="#172C4B">Docker Compose</text>
 <text x="1121" y="270" font-size="18" font-weight="400" fill="#172C4B">Caddy · Web · API · PostgreSQL</text>
-<text x="1121" y="301" font-size="18" font-weight="400" fill="#172C4B">사용자 작업과 별도 정제</text>
+<text x="1121" y="301" font-size="18" font-weight="400" fill="#172C4B">원격 정제 Worker · 별도 실행</text>
 <text x="40" y="417" font-size="20" font-weight="700" fill="#172C4B">02</text>
 <text x="40" y="458" font-size="25" font-weight="700" fill="#172C4B">앱 배포</text>
 <rect x="225" y="385" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
@@ -35,9 +35,9 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="721" y="427" font-size="23" font-weight="700" fill="#172C4B">외부 차단 → API 종료</text>
-<text x="683" y="465" font-size="18" font-weight="400" fill="#172C4B">진행 요청·내부 호출·DB 정리</text>
-<text x="683" y="496" font-size="18" font-weight="400" fill="#172C4B">API 30초 · Compose 유예 45초</text>
+<text x="721" y="427" font-size="23" font-weight="700" fill="#172C4B">외부 차단 → 정상 종료</text>
+<text x="683" y="465" font-size="18" font-weight="400" fill="#172C4B">진행 요청·정제 작업 마무리</text>
+<text x="683" y="496" font-size="18" font-weight="400" fill="#172C4B">미완료 정제는 재시도</text>
 <path d="M1051 460 H1095" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="1101" y="385" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1121" y="404" color="#172C4B">
@@ -96,12 +96,13 @@
 <text x="40" y="1043" font-size="25" font-weight="700" fill="#172C4B">별도 수집</text>
 <rect x="225" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="245" y="989" color="#172C4B">
-  <path d="M3 19l18 0" />
-  <path d="M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
+  <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
+  <path d="M9 15l3 -3l3 3" />
+  <path d="M12 12l0 9" />
 </svg>
 <text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Collector</text>
-<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">세션 기록을 별도로 읽어 전송</text>
-<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">대화 삽입·응답 대기 없음</text>
+<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">파일 변경 감지 · 원문 전송</text>
+<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">실패 시 재시도 · 대화 대기 없음</text>
 <path d="M613 1045 H657" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="663" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="683" y="989" color="#172C4B">
@@ -109,9 +110,9 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">원격 원문 보관</text>
-<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">수집한 원문은 불변 보관</text>
-<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">전송 실패·중복은 별도 처리</text>
+<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">서버 적재 판단</text>
+<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">세션 식별자·원문 해시로 중복 검사</text>
+<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">원문 불변 보관 · 적재 위치 기록</text>
 <path d="M1051 1045 H1095" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="1101" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1121" y="989" color="#172C4B">
@@ -119,7 +120,7 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">백그라운드 정제</text>
-<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">군집화·근거 연결·지식 반영</text>
-<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">작업 세션과 별도 실행</text>
+<text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">원격 Worker → 외부 AI</text>
+<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">Wiki 설정의 제공자·모델 사용</text>
+<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">근거·결과·실행 이력 보존</text>
 </g></svg>

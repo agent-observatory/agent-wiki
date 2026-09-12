@@ -38,7 +38,7 @@ const claimInput = z
     evidence: z.array(evidenceInput).max(20).default([]),
   })
   .strict();
-const changeInput = z
+export const changeInput = z
   .object({
     clientRef: small,
     articleId: uuid.nullable().default(null),
@@ -224,269 +224,6 @@ export function registerKnowledge(
     ).rows;
     return { items: rows, query: q.q };
   }
-  async function publish(
-    c: PoolClient,
-    ws: string,
-    raw: unknown,
-    req: FastifyRequest,
-  ) {
-    const input = publicationInput.parse(raw);
-    if (req.identity!.scope !== "session" && input.producer.type !== "agent")
-      throw new AppError(403, "AGENT_PRODUCER_REQUIRED");
-    if (
-      Buffer.byteLength(input.changes.map((x) => x.content).join("")) > 100000
-    )
-      throw new AppError(413, "PUBLICATION_TOO_LARGE");
-    const refs = input.changes.map((x) => x.clientRef);
-    const edits = input.changes.flatMap((x) =>
-      x.articleId ? [x.articleId] : [],
-    );
-    if (
-      new Set(refs).size !== refs.length ||
-      new Set(edits).size !== edits.length
-    )
-      throw new AppError(400, "DUPLICATE_CHANGE");
-    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [ws]);
-    const fingerprint = hash(canonical(input));
-    const old = (
-      await c.query(
-        "SELECT * FROM publications WHERE workspace_id=$1 AND idempotency_key=$2",
-        [ws, input.idempotencyKey],
-      )
-    ).rows[0];
-    if (old) {
-      if (old.payload_hash !== fingerprint) conflict("IDEMPOTENCY_CONFLICT");
-      return old.result;
-    }
-    for (const prior of input.inputs)
-      requireRow(
-        (
-          await c.query(
-            "SELECT r.article_id FROM revisions r JOIN articles a ON a.id=r.article_id AND a.workspace_id=r.workspace_id WHERE r.workspace_id=$1 AND r.article_id=$2 AND r.revision=$3 AND a.deleted_at IS NULL",
-            [ws, prior.articleId, prior.revision],
-          )
-        ).rows[0],
-      );
-    const publicationId = randomUUID();
-    await c.query(
-      "INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason) VALUES($1,$2,$3,$4,$5,$6)",
-      [
-        publicationId,
-        ws,
-        input.idempotencyKey,
-        fingerprint,
-        JSON.stringify({
-          ...input.producer,
-          actorId: req.identity!.userId,
-          inputs: input.inputs,
-        }),
-        input.reason,
-      ],
-    );
-    const mapped = new Map(
-      input.changes.map((x) => [x.clientRef, x.articleId ?? randomUUID()]),
-    );
-    const sources = new Map<string, { text: string; row: any }>();
-    const results = [];
-    for (const change of input.changes) {
-      const id = mapped.get(change.clientRef)!;
-      if (change.articleId === null && change.baseRevision !== null)
-        throw new AppError(400, "INVALID_BASE_REVISION");
-      if (change.articleId !== null) {
-        const old = requireRow(
-          (
-            await c.query(
-              "SELECT revision FROM articles WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",
-              [ws, id],
-            )
-          ).rows[0],
-        );
-        if (old.revision !== change.baseRevision) conflict("REVISION_CONFLICT");
-      }
-      const revision = (change.baseRevision ?? 0) + 1;
-      const claims = change.claims.length
-        ? change.claims
-        : [
-            {
-              anchor: "statement",
-              text: change.content.slice(0, 10000),
-              type: "author_statement",
-              evidence: [],
-            },
-          ];
-      if (new Set(claims.map((x) => x.anchor)).size !== claims.length)
-        throw new AppError(400, "DUPLICATE_CLAIM");
-      for (const claim of claims) {
-        if (!change.content.includes(claim.text))
-          throw new AppError(400, "CLAIM_NOT_IN_CONTENT");
-        if (
-          !claim.evidence.length &&
-          !["author_statement", "unconfirmed"].includes(claim.type)
-        )
-          throw new AppError(400, "EVIDENCE_REQUIRED");
-        for (const ev of claim.evidence) {
-          if (!sources.has(ev.sourceId)) {
-            const row = requireRow(
-              (
-                await c.query(
-                  "SELECT * FROM sources WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE",
-                  [ws, ev.sourceId],
-                )
-              ).rows[0],
-            );
-            const text = await getSource(row.object_key);
-            if (hash(text) !== row.content_hash)
-              throw new AppError(500, "SOURCE_HASH_MISMATCH");
-            sources.set(ev.sourceId, { text, row });
-          }
-          const source = sources.get(ev.sourceId)!;
-          const [start, end] = ev.lines;
-          if (
-            end < start ||
-            end > source.row.line_count ||
-            source.text
-              .split("\n")
-              .slice(start - 1, end)
-              .join("\n") !== ev.quote
-          )
-            throw new AppError(400, "EVIDENCE_MISMATCH");
-        }
-      }
-      if (change.articleId)
-        await c.query(
-          "UPDATE articles SET title=$3,content=$4,kind=$5,folder=$6,tags=$7,aliases=$8,revision=$9,updated_at=now() WHERE workspace_id=$1 AND id=$2",
-          [
-            ws,
-            id,
-            change.title,
-            change.content,
-            change.kind,
-            change.folder,
-            change.tags,
-            change.aliases,
-            revision,
-          ],
-        );
-      else
-        await c.query(
-          "INSERT INTO articles(id,workspace_id,title,content,kind,folder,tags,aliases) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-          [
-            id,
-            ws,
-            change.title,
-            change.content,
-            change.kind,
-            change.folder,
-            change.tags,
-            change.aliases,
-          ],
-        );
-      await c.query(
-        "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
-        [
-          ws,
-          id,
-          revision,
-          change.title,
-          change.content,
-          JSON.stringify({
-            kind: change.kind,
-            folder: change.folder,
-            tags: change.tags,
-            aliases: change.aliases,
-            links: change.links,
-            supersedes: change.supersedes,
-          }),
-          publicationId,
-        ],
-      );
-      for (const claim of claims) {
-        await c.query(
-          "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type) VALUES($1,$2,$3,$4,$5,$6)",
-          [ws, id, revision, claim.anchor, claim.text, claim.type],
-        );
-        for (const ev of claim.evidence)
-          await c.query(
-            "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",
-            [
-              ws,
-              id,
-              revision,
-              claim.anchor,
-              ev.sourceId,
-              ev.revision,
-              ...ev.lines,
-              ev.quote,
-            ],
-          );
-      }
-      results.push({ clientRef: change.clientRef, id, revision });
-    }
-    for (const change of input.changes) {
-      const id = mapped.get(change.clientRef)!;
-      await c.query("DELETE FROM links WHERE workspace_id=$1 AND from_id=$2", [
-        ws,
-        id,
-      ]);
-      for (const [relation, targets] of [
-        ["links_to", change.links],
-        ["supersedes", change.supersedes],
-      ] as const) {
-        for (const ref of targets) {
-          const target = mapped.get(ref) ?? uuid.parse(ref);
-          if (target === id) throw new AppError(400, "SELF_LINK");
-          requireRow(
-            (
-              await c.query(
-                "SELECT id FROM articles WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL",
-                [ws, target],
-              )
-            ).rows[0],
-          );
-          await c.query(
-            "INSERT INTO links VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-            [ws, id, target, relation],
-          );
-        }
-      }
-      await c.query(
-        "UPDATE revisions SET metadata=metadata || jsonb_build_object('resolvedLinks',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',to_id,'relation',relation)) FROM links WHERE workspace_id=$1 AND from_id=$2),'[]'::jsonb)) WHERE workspace_id=$1 AND article_id=$2 AND revision=(SELECT revision FROM articles WHERE workspace_id=$1 AND id=$2)",
-        [ws, id],
-      );
-    }
-    const cycle = await c.query(
-      `WITH RECURSIVE chain(origin,node,path,cycle) AS (SELECT from_id,to_id,ARRAY[from_id,to_id],false FROM links WHERE workspace_id=$1 AND relation='supersedes' UNION ALL SELECT c.origin,l.to_id,c.path||l.to_id,l.to_id=ANY(c.path) FROM chain c JOIN links l ON l.from_id=c.node AND l.workspace_id=$1 AND l.relation='supersedes' WHERE NOT c.cycle) SELECT 1 FROM chain WHERE cycle LIMIT 1`,
-      [ws],
-    );
-    if (cycle.rowCount) throw new AppError(400, "SUPERSESSION_CYCLE");
-    if (input.startContext) {
-      const id =
-        mapped.get(input.startContext.articleRef) ??
-        uuid.parse(input.startContext.articleRef);
-      requireRow(
-        (
-          await c.query(
-            "SELECT id FROM articles WHERE workspace_id=$1 AND id=$2 AND $3=ANY(tags) AND deleted_at IS NULL",
-            [ws, id, input.startContext.tag],
-          )
-        ).rows[0],
-      );
-      await c.query(
-        "INSERT INTO project_contexts VALUES($1,$2,$3) ON CONFLICT(workspace_id,tag) DO UPDATE SET article_id=EXCLUDED.article_id",
-        [ws, input.startContext.tag, id],
-      );
-    }
-    const result = {
-      id: publicationId,
-      idempotencyKey: input.idempotencyKey,
-      items: results,
-    };
-    await c.query(
-      "UPDATE publications SET result=$3 WHERE workspace_id=$1 AND id=$2",
-      [ws, publicationId, JSON.stringify(result)],
-    );
-    return result;
-  }
   app.get(base + "/articles", (r) =>
     scoped(r, (c, ws) => search(c, ws, r.query)),
   );
@@ -504,7 +241,7 @@ export function registerKnowledge(
     ),
   );
   app.post(base + "/publications", (r) =>
-    scoped(r, (c, ws) => publish(c, ws, r.body, r)),
+    scoped(r, (c, ws) => publish(c, ws, r.body, r.identity!)),
   );
   app.get(base + "/publications/:key", (r) =>
     scoped(
@@ -554,7 +291,7 @@ export function registerKnowledge(
                 },
               ],
             },
-            r,
+            r.identity!,
           );
           return detail(c, ws, result.items[0].id, result.items[0].revision);
         });
@@ -858,3 +595,267 @@ export function registerKnowledge(
     }),
   );
 }
+
+export async function publish(
+    c: PoolClient,
+    ws: string,
+    raw: unknown,
+    identity: { userId: string; scope: string },
+  ) {
+    const input = publicationInput.parse(raw);
+    if (identity.scope !== "session" && input.producer.type !== "agent")
+      throw new AppError(403, "AGENT_PRODUCER_REQUIRED");
+    if (
+      Buffer.byteLength(input.changes.map((x) => x.content).join("")) > 100000
+    )
+      throw new AppError(413, "PUBLICATION_TOO_LARGE");
+    const refs = input.changes.map((x) => x.clientRef);
+    const edits = input.changes.flatMap((x) =>
+      x.articleId ? [x.articleId] : [],
+    );
+    if (
+      new Set(refs).size !== refs.length ||
+      new Set(edits).size !== edits.length
+    )
+      throw new AppError(400, "DUPLICATE_CHANGE");
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [ws]);
+    const fingerprint = hash(canonical(input));
+    const old = (
+      await c.query(
+        "SELECT * FROM publications WHERE workspace_id=$1 AND idempotency_key=$2",
+        [ws, input.idempotencyKey],
+      )
+    ).rows[0];
+    if (old) {
+      if (old.payload_hash !== fingerprint) conflict("IDEMPOTENCY_CONFLICT");
+      return old.result;
+    }
+    for (const prior of input.inputs)
+      requireRow(
+        (
+          await c.query(
+            "SELECT r.article_id FROM revisions r JOIN articles a ON a.id=r.article_id AND a.workspace_id=r.workspace_id WHERE r.workspace_id=$1 AND r.article_id=$2 AND r.revision=$3 AND a.deleted_at IS NULL",
+            [ws, prior.articleId, prior.revision],
+          )
+        ).rows[0],
+      );
+    const publicationId = randomUUID();
+    await c.query(
+      "INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason) VALUES($1,$2,$3,$4,$5,$6)",
+      [
+        publicationId,
+        ws,
+        input.idempotencyKey,
+        fingerprint,
+        JSON.stringify({
+          ...input.producer,
+          actorId: identity.userId,
+          inputs: input.inputs,
+        }),
+        input.reason,
+      ],
+    );
+    const mapped = new Map(
+      input.changes.map((x) => [x.clientRef, x.articleId ?? randomUUID()]),
+    );
+    const sources = new Map<string, { text: string; row: any }>();
+    const results = [];
+    for (const change of input.changes) {
+      const id = mapped.get(change.clientRef)!;
+      if (change.articleId === null && change.baseRevision !== null)
+        throw new AppError(400, "INVALID_BASE_REVISION");
+      if (change.articleId !== null) {
+        const old = requireRow(
+          (
+            await c.query(
+              "SELECT revision FROM articles WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",
+              [ws, id],
+            )
+          ).rows[0],
+        );
+        if (old.revision !== change.baseRevision) conflict("REVISION_CONFLICT");
+      }
+      const revision = (change.baseRevision ?? 0) + 1;
+      const claims = change.claims.length
+        ? change.claims
+        : [
+            {
+              anchor: "statement",
+              text: change.content.slice(0, 10000),
+              type: "author_statement",
+              evidence: [],
+            },
+          ];
+      if (new Set(claims.map((x) => x.anchor)).size !== claims.length)
+        throw new AppError(400, "DUPLICATE_CLAIM");
+      for (const claim of claims) {
+        if (!change.content.includes(claim.text))
+          throw new AppError(400, "CLAIM_NOT_IN_CONTENT");
+        if (
+          !claim.evidence.length &&
+          !["author_statement", "unconfirmed"].includes(claim.type)
+        )
+          throw new AppError(400, "EVIDENCE_REQUIRED");
+        for (const ev of claim.evidence) {
+          if (!sources.has(ev.sourceId)) {
+            const row = requireRow(
+              (
+                await c.query(
+                  "SELECT * FROM sources WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE",
+                  [ws, ev.sourceId],
+                )
+              ).rows[0],
+            );
+            const text = await getSource(row.object_key);
+            if (hash(text) !== row.content_hash)
+              throw new AppError(500, "SOURCE_HASH_MISMATCH");
+            sources.set(ev.sourceId, { text, row });
+          }
+          const source = sources.get(ev.sourceId)!;
+          const [start, end] = ev.lines;
+          if (
+            end < start ||
+            end > source.row.line_count ||
+            source.text
+              .split("\n")
+              .slice(start - 1, end)
+              .join("\n") !== ev.quote
+          )
+            throw new AppError(400, "EVIDENCE_MISMATCH");
+        }
+      }
+      if (change.articleId)
+        await c.query(
+          "UPDATE articles SET title=$3,content=$4,kind=$5,folder=$6,tags=$7,aliases=$8,revision=$9,updated_at=now() WHERE workspace_id=$1 AND id=$2",
+          [
+            ws,
+            id,
+            change.title,
+            change.content,
+            change.kind,
+            change.folder,
+            change.tags,
+            change.aliases,
+            revision,
+          ],
+        );
+      else
+        await c.query(
+          "INSERT INTO articles(id,workspace_id,title,content,kind,folder,tags,aliases) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+          [
+            id,
+            ws,
+            change.title,
+            change.content,
+            change.kind,
+            change.folder,
+            change.tags,
+            change.aliases,
+          ],
+        );
+      await c.query(
+        "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [
+          ws,
+          id,
+          revision,
+          change.title,
+          change.content,
+          JSON.stringify({
+            kind: change.kind,
+            folder: change.folder,
+            tags: change.tags,
+            aliases: change.aliases,
+            links: change.links,
+            supersedes: change.supersedes,
+          }),
+          publicationId,
+        ],
+      );
+      for (const claim of claims) {
+        await c.query(
+          "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type) VALUES($1,$2,$3,$4,$5,$6)",
+          [ws, id, revision, claim.anchor, claim.text, claim.type],
+        );
+        for (const ev of claim.evidence)
+          await c.query(
+            "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",
+            [
+              ws,
+              id,
+              revision,
+              claim.anchor,
+              ev.sourceId,
+              ev.revision,
+              ...ev.lines,
+              ev.quote,
+            ],
+          );
+      }
+      results.push({ clientRef: change.clientRef, id, revision });
+    }
+    for (const change of input.changes) {
+      const id = mapped.get(change.clientRef)!;
+      await c.query("DELETE FROM links WHERE workspace_id=$1 AND from_id=$2", [
+        ws,
+        id,
+      ]);
+      for (const [relation, targets] of [
+        ["links_to", change.links],
+        ["supersedes", change.supersedes],
+      ] as const) {
+        for (const ref of targets) {
+          const target = mapped.get(ref) ?? uuid.parse(ref);
+          if (target === id) throw new AppError(400, "SELF_LINK");
+          requireRow(
+            (
+              await c.query(
+                "SELECT id FROM articles WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL",
+                [ws, target],
+              )
+            ).rows[0],
+          );
+          await c.query(
+            "INSERT INTO links VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+            [ws, id, target, relation],
+          );
+        }
+      }
+      await c.query(
+        "UPDATE revisions SET metadata=metadata || jsonb_build_object('resolvedLinks',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',to_id,'relation',relation)) FROM links WHERE workspace_id=$1 AND from_id=$2),'[]'::jsonb)) WHERE workspace_id=$1 AND article_id=$2 AND revision=(SELECT revision FROM articles WHERE workspace_id=$1 AND id=$2)",
+        [ws, id],
+      );
+    }
+    const cycle = await c.query(
+      `WITH RECURSIVE chain(origin,node,path,cycle) AS (SELECT from_id,to_id,ARRAY[from_id,to_id],false FROM links WHERE workspace_id=$1 AND relation='supersedes' UNION ALL SELECT c.origin,l.to_id,c.path||l.to_id,l.to_id=ANY(c.path) FROM chain c JOIN links l ON l.from_id=c.node AND l.workspace_id=$1 AND l.relation='supersedes' WHERE NOT c.cycle) SELECT 1 FROM chain WHERE cycle LIMIT 1`,
+      [ws],
+    );
+    if (cycle.rowCount) throw new AppError(400, "SUPERSESSION_CYCLE");
+    if (input.startContext) {
+      const id =
+        mapped.get(input.startContext.articleRef) ??
+        uuid.parse(input.startContext.articleRef);
+      requireRow(
+        (
+          await c.query(
+            "SELECT id FROM articles WHERE workspace_id=$1 AND id=$2 AND $3=ANY(tags) AND deleted_at IS NULL",
+            [ws, id, input.startContext.tag],
+          )
+        ).rows[0],
+      );
+      await c.query(
+        "INSERT INTO project_contexts VALUES($1,$2,$3) ON CONFLICT(workspace_id,tag) DO UPDATE SET article_id=EXCLUDED.article_id",
+        [ws, input.startContext.tag, id],
+      );
+    }
+    const result = {
+      id: publicationId,
+      idempotencyKey: input.idempotencyKey,
+      items: results,
+    };
+    await c.query(
+      "UPDATE publications SET result=$3 WHERE workspace_id=$1 AND id=$2",
+      [ws, publicationId, JSON.stringify(result)],
+    );
+    return result;
+  }

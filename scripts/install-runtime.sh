@@ -7,7 +7,7 @@ app=/opt/agent-wiki
 data=/srv/agent-wiki/data
 mountpoint -q "$data"
 # CLI-readable secrets belong to ubuntu; PostgreSQL reads its own config as uid 999.
-for name in .env api.env migration.env compose.yaml Caddyfile; do
+for name in .env api.env worker.env migration.env compose.yaml Caddyfile; do
  install -o ubuntu -g ubuntu -m 600 "$stage/$name" "$app/$name"
 done
 install -o 999 -g 999 -m 600 "$stage/init-db.sql" "$app/init-db.sql"

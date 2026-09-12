@@ -15,12 +15,20 @@ CREATE INDEX IF NOT EXISTS article_title_trgm ON articles USING gin(title gin_tr
 CREATE INDEX IF NOT EXISTS article_content_trgm ON articles USING gin(content gin_trgm_ops) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS article_workspace ON articles(workspace_id,updated_at DESC);
 CREATE INDEX IF NOT EXISTS source_workspace ON sources(workspace_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS collection_streams(workspace_id uuid NOT NULL REFERENCES workspaces(id),id text NOT NULL,client text NOT NULL,session_id text NOT NULL,name text NOT NULL,last_position int NOT NULL DEFAULT -1,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
+CREATE TABLE IF NOT EXISTS collection_events(workspace_id uuid NOT NULL,stream_id text NOT NULL,position int NOT NULL,content_hash text NOT NULL,source_id uuid NOT NULL,PRIMARY KEY(workspace_id,stream_id,position,content_hash),FOREIGN KEY(workspace_id,stream_id) REFERENCES collection_streams(workspace_id,id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
+CREATE TABLE IF NOT EXISTS ai_settings(workspace_id uuid PRIMARY KEY REFERENCES workspaces(id),config jsonb NOT NULL,encrypted_key text,version int NOT NULL DEFAULT 1,updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS refinement_jobs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,source_id uuid NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed')),attempts int NOT NULL DEFAULT 0,available_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,run_id uuid,output jsonb,result jsonb,error_code text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,source_id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
+CREATE TABLE IF NOT EXISTS refinement_runs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,job_id uuid NOT NULL REFERENCES refinement_jobs(id),settings jsonb NOT NULL,prompt_version text NOT NULL,input jsonb NOT NULL DEFAULT '{}',output jsonb,usage jsonb,status text NOT NULL DEFAULT 'running',error_code text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz);
+ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS output jsonb;
+CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
+CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);
 ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts'] LOOP
+ FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','ai_settings','refinement_jobs','refinement_runs'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);

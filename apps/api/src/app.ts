@@ -1,3 +1,4 @@
+import { registerAutomation } from "./automation.js";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import oauth2 from "@fastify/oauth2";
@@ -167,7 +168,7 @@ export async function buildApp() {
         const suffix = req.url.split("?")[0];
         const allowed =
           req.method === "POST" &&
-          (/^\/api\/workspaces\/[^/]+\/source-records$/.test(suffix) ||
+          (/^\/api\/workspaces\/[^/]+\/(?:source-records|collection)$/.test(suffix) ||
             (req.identity.scope === "publish" &&
               /^\/api\/workspaces\/[^/]+\/publications$/.test(suffix)));
         if (!allowed) throw new AppError(403, "SCOPE_REJECTED");
@@ -272,6 +273,7 @@ export async function buildApp() {
     );
   });
   registerKnowledge(app, scoped, sessionOnly, appUrl);
+  registerAutomation(app, scoped, sessionOnly);
   app.get("/api/workspaces/:workspaceId/keys", async (req) => {
     sessionOnly(req);
     return scoped(req, async (c, ws) => ({
