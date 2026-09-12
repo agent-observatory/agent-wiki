@@ -103,8 +103,6 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 화살표는 원문·지식 반영 `#B35C00`, 조회·응답 `#245CC5`, 인증·운영 `#68778B`, 근거 참조 `#8054A3`로 구분한다. 범례는 제목 옆에 둔다. 반복하는 회색 부제는 넣지 않는다. 요청·응답은 양방향, 저장·반영은 단방향이며 긴 왕복 경로 대신 나란한 직교선을 쓴다.
 
-컴포넌트 간에는 최소 32px 여백을 두고 그룹 제목과 내용을 분리한다. Caddy → API → PostgreSQL은 같은 높이의 직선, Web → API는 세로선으로 둔다. DataGrip은 DB 옆에 두고, 볼륨과 원문 저장소는 연결선이 다른 컴포넌트를 관통하지 않는 위치에 배치한다. Caddy 영속 상태는 같은 연결 볼륨의 별도 경로임을 표시한다. DuckDNS 도메인은 웹에 표시하고 VM IP로 연결됨을 명시한다. DNS·인증서 발급 기관을 HTTP 요청이 통과하는 중계 서버처럼 그리지 않는다. 작업 에이전트의 조회와 Collector의 수집 선을 분리한다.
+컴포넌트 간에는 최소 32px, 그룹 경계 안쪽에는 최소 32px 여백을 둔다. 카드 높이는 내용에 맞추고 그룹 제목과 내용을 분리한다. Caddy → API → PostgreSQL은 같은 높이의 직선, Web → API는 세로선으로 둔다. DataGrip은 DB 옆에 두고, 볼륨과 원문 저장소는 연결선이 다른 컴포넌트를 관통하지 않는 위치에 배치한다. Caddy 영속 상태는 같은 연결 볼륨의 별도 경로임을 표시한다. DuckDNS 도메인은 웹에 표시하고 VM IP로 연결됨을 명시한다. DNS·인증서 발급 기관을 HTTP 요청이 통과하는 중계 서버처럼 그리지 않는다. 작업 에이전트의 조회와 Collector의 수집 선을 분리한다.
 
 그림은 `python3 scripts/generate-wiki-diagrams.py`로 4개를 함께 재생성한다. XML·상대 링크·재생성 일치와 실제 렌더링의 글자·겹침·잘림을 각각 확인한다. Codex 오른쪽 미리보기는 자동으로 열지 않는다.
-
-Zed에서 SVG 확대가 흐릿하면 `python3 scripts/generate-wiki-diagrams.py --png-dir .runtime/diagram-previews`로 3배 해상도 PNG를 만들고 이미지 뷰어로 연다. PNG는 임시 미리보기이며 Git에 넣지 않는다. 편집·문서 삽입의 원본은 SVG로 유지한다. 픽셀 이미지의 확대에는 한계가 있으므로 큰 배율에서의 확인은 브라우저 SVG를 사용한다.

@@ -1,15 +1,7 @@
 # Generate editable Wiki architecture SVGs. Run from the repository root.
 from pathlib import Path
 from html import escape
-import argparse, re, shutil, subprocess, xml.etree.ElementTree as ET
-parser = argparse.ArgumentParser(description="Generate editable Wiki SVGs and optional high-resolution PNG previews.")
-parser.add_argument("--png-dir", type=Path, help="Also render PNG previews here using rsvg-convert.")
-parser.add_argument("--png-scale", type=float, default=3, help="PNG resolution multiplier (default: 3).")
-args = parser.parse_args()
-if not 1 <= args.png_scale <= 4:
- parser.error("--png-scale must be between 1 and 4")
-if args.png_dir and not shutil.which("rsvg-convert"):
- parser.error("PNG previews require rsvg-convert (Homebrew: librsvg)")
+import re, xml.etree.ElementTree as ET
 ET.register_namespace('', 'http://www.w3.org/2000/svg')
 p=[]
 def a(s):p.append(s)
@@ -56,14 +48,14 @@ def card(x,y,w,h,title,lines,role='app',ico=None):
  text(x+(58 if ico else 20),y+42,title,23,True)
  for i,line in enumerate(lines):text(x+20,y+80+i*31,line,18)
 
-canvas(1940,1330,'작업은 그대로 · 수집과 정제는 별도로','작업 에이전트와 읽기 전용 Collector, 별도 백그라운드 정제를 분리한다. DNS와 인증서 자동 갱신, 기존 Wiki 4개 컨테이너를 유지한다.')
-legend(1530,42,'수집·지식 반영','ingest');legend(1530,77,'조회·응답','query');legend(1530,112,'도메인·인증·저장','ops',True)
+canvas(1920,1260,'작업은 그대로 · 수집과 정제는 별도로','작업 에이전트와 읽기 전용 Collector, 별도 백그라운드 정제를 분리한다. DNS와 인증서 자동 갱신, 기존 Wiki 4개 컨테이너를 유지한다.')
+legend(1490,42,'수집·지식 반영','ingest');legend(1490,77,'조회·응답','query');legend(1490,112,'도메인·인증·저장','ops',True)
 # Service discovery and persistent storage are not HTTP intermediaries.
 card(72,180,366,130,'DuckDNS · 도메인',['agent-wiki.duckdns.org','도메인 조회 → VM 공인 주소'],'web','tabler-world')
 card(940,180,280,130,'인증서 발급 기관',['Caddy가 발급·갱신 요청','HTTPS 인증서 자동 관리'],'ops')
 card(1280,180,320,170,'연결 볼륨 · 50GB',['PostgreSQL 데이터','Caddy 인증서·설정','부트 볼륨 50GB 별도'],'data','oracle')
-group(40,370,430,900);text(64,406,'사용자 기기',24,True,'#FFFFFF')
-group(590,370,1010,630);text(614,406,'OCI A1 VM · 2 OCPU / 12GB',24,True,'#FFFFFF');text(1330,406,'Compose · 4개',20,True,'#FFFFFF')
+group(40,370,430,852);text(64,406,'사용자 기기',24,True,'#FFFFFF')
+group(590,370,1010,580);text(614,406,'OCI A1 VM · 2 OCPU / 12GB',24,True,'#FFFFFF');text(1330,406,'Compose · 4개',20,True,'#FFFFFF')
 # DNS resolution, certificate issuance, and volume mounts.
 path('M200 450 V310',True,both=True)
 path('M438 245 H745 V450',True);text(490,230,'도메인 → VM 공인 주소',18)
@@ -77,8 +69,8 @@ path('M438 710 H630',flow='query',both=True)
 path('M860 710 H940',flow='query',both=True)
 path('M1080 580 V640',flow='query',both=True)
 path('M1220 710 H1280',flow='query',both=True)
-path('M1220 845 H1280',flow='ingest')
-path('M1600 710 H1660',True,both=True)
+path('M1220 790 H1280',flow='ingest')
+path('M1560 710 H1640',True,both=True)
 for hx,hw,label in [(40,430,'사용자 기기'),(590,1010,'OCI A1 VM · 2 OCPU / 12GB')]:
  box(hx+1,371,hw-2,52,'#344256','#344256');text(hx+24,406,label,24,True,'#FFFFFF')
 text(1330,406,'Compose · 4개',20,True,'#FFFFFF')
@@ -87,27 +79,27 @@ card(72,640,366,140,'작업 에이전트',['Claude · Codex 등','필요한 지�
 # Clients write their own history; collection never enters their session.
 path('M250 780 V820',flow='ops');text(267,806,'클라이언트가 기록',16)
 card(72,820,366,115,'클라이언트 세션 기록',['변경 중인 파일 · 원격 원문과 구분'],'web')
-path('M250 935 V1010',flow='ingest');text(267,976,'완성된 기록만 읽기',17,True,FLOW_COLORS['ingest'])
-card(72,1010,366,220,'Collector · Watcher',['읽기 전용 · 별도 프로세스','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
+path('M250 935 V990',flow='ingest');text(267,976,'완성된 기록만 읽기',17,True,FLOW_COLORS['ingest'])
+card(72,990,366,200,'Collector · Watcher',['읽기 전용 · 별도 프로세스','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
 # All background traffic still enters through HTTPS/Caddy.
-path('M438 1140 H520 V975 H690 V950',flow='ingest');text(480,960,'원문 전송',18,True,FLOW_COLORS['ingest'])
-path('M860 845 H940',flow='ingest')
-path('M800 950 V1070',flow='query',both=True)
-path('M840 1070 V950',flow='ingest')
-card(630,450,230,500,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
+path('M438 1100 H520 V915 H690 V890',flow='ingest');text(480,900,'원문 전송',18,True,FLOW_COLORS['ingest'])
+path('M860 790 H940',flow='ingest')
+path('M800 890 V990',flow='query',both=True)
+path('M840 990 V890',flow='ingest')
+card(630,450,230,440,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
 text(650,682,'조회 ↔ API',18,True,FLOW_COLORS['query'])
-text(650,817,'원문·지식 → API',18,True,FLOW_COLORS['ingest'])
+text(650,762,'원문·지식 → API',18,True,FLOW_COLORS['ingest'])
 card(940,450,280,130,'Next.js · 웹',['웹 위키 화면','내부 전용 연결'],'web','nextdotjs')
-card(940,640,280,250,'Fastify API',['원문 보관·검색·조회','근거·권한·개정 검사','변경 묶음 일괄 반영','모델 실행 없음'],'app','fastify')
-card(1280,640,320,250,'PostgreSQL',['지식·개정·근거 연결','원문 메타데이터','정제·반영 기록'],'data','postgresql')
-card(1660,640,240,170,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web')
+card(940,640,280,210,'Fastify API',['원문 보관·검색·조회','근거·권한·개정 검사','변경 묶음 일괄 반영','모델 실행 없음'],'app','fastify')
+card(1280,640,280,185,'PostgreSQL',['지식·개정·근거 연결','원문 메타데이터','정제·반영 기록'],'data','postgresql')
+card(1640,640,240,140,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web')
 # Refining is a separate execution context; its deployment is undecided.
-card(590,1070,400,220,'백그라운드 정제',['원격 원문·기존 지식 조회','군집화·정제·근거 연결·반영','작업 대화와 별도 실행','Skill · 정제 방법 지침'],'ingest')
-path('M1150 890 V1070',True,both=True)
-text(1168,1025,'원문 보관·조회',18)
-card(1060,1070,360,190,'Object Storage',['원격 원문 보관본','보관한 내용은 덮어쓰지 않음','새 기록은 새 원문으로 추가'],'data','oracle')
+card(590,990,400,200,'백그라운드 정제',['원격 원문·기존 지식 조회','군집화·정제·근거 연결·반영','작업 대화와 별도 실행','Skill · 정제 방법 지침'],'ingest')
+path('M1150 850 V990',True,both=True)
+text(1168,925,'원문 보관·조회',18)
+card(1060,990,360,170,'Object Storage',['원격 원문 보관본','보관한 내용은 덮어쓰지 않음','새 기록은 새 원문으로 추가'],'data','oracle')
 # Layer badges identify responsibilities, not additional runtime components.
-for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(294,994,'L1 · 수집',130),(610,1054,'L2 · 정제',124),(1460,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1260,1054,'L1 · 원문',124)]:
+for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(90,974,'L1 · 수집',130),(610,974,'L2 · 정제',124),(1420,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1260,974,'L1 · 원문',124)]:
  box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,label,17,True,'#FFFFFF')
 end('docs/assets/wiki-deployment.svg')
 
@@ -170,11 +162,3 @@ for y,n,label,items in rows:
   card(x,y,388,150,title,[b,c],'ops' if n in ['01','04'] else 'app',ico)
   if i<2:path(f'M{x+388} {y+75} H{x+432}')
 end('docs/assets/wiki-operations.svg')
-
-# Keep PNGs optional and outside versioned SVG sources; preview files are disposable.
-if args.png_dir:
- args.png_dir.mkdir(parents=True, exist_ok=True)
- for source in sorted(Path('docs/assets').glob('wiki-*.svg')):
-  target = args.png_dir / source.with_suffix('.png').name
-  subprocess.run(['rsvg-convert', '--zoom', str(args.png_scale), '--output', str(target), str(source)], check=True)
-  print(target)
