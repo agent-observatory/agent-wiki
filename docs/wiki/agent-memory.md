@@ -7,40 +7,40 @@
 이전 결정이 필요할 때 에이전트가 Wiki를 조회한다. 같은 대화에서는 이미 받은 고정 개정을 재사용하고, 변경 여부가 필요하면 다시 조회한다. 검색은 L2 완료를 기다리거나 모델을 호출하지 않는다.
 
 ```sh
-wiki recall --project agent-wiki
-wiki search "단일 VM" --project agent-wiki
+agent-wiki recall --project agent-wiki
+agent-wiki search "단일 VM" --project agent-wiki
 ```
 
 `recall`은 저장된 시작 문서·목차를 조회한다. 아직 수집·정제하지 못한 대화까지 기억한다고 설명하지 않는다. 웹은 지식 편집·정정·근거 확인과 수집·AI 설정을 제공한다.
 
 ## 연결과 지침
 
-**`agent-wiki-client` 하나에 `agent-wiki-cli`·`agent-wiki-collector`·조회 Skill을 포함한다.** 설정은 `~/.agent-wiki/config.json` 하나로 공유한다. 프로젝트 연결 별칭과 수집할 로컬 경로는 구분한다.
+**`agent-wiki-client` 하나에 `agent-wiki-cli`·`agent-wiki-collector`·조회 Skill을 포함한다.** CLI와 Collector는 client 패키지 안의 형제 구성이다. client는 별도 실행 프로세스가 아니라 설치 단위이며 조회 Skill은 설치 후 작업 에이전트가 읽는다. 설정은 `~/.agent-wiki/config.json` 하나로 공유한다. 프로젝트 연결 별칭과 수집할 로컬 경로는 구분한다.
 
 ```sh
 # 저장소 루트에서 패키지 설치
 npm install --global ./packages/cli
 # 사용할 프로젝트 디렉터리로 이동한 뒤 지침 설치
-wiki skill install --client codex
-wiki setup --no-skill --workspace <Workspace-ID> --project agent-wiki --path /absolute/project --env /absolute/project/.env.local
-wiki collector start
+agent-wiki skill install --client codex
+agent-wiki setup --no-skill --workspace <Workspace-ID> --project agent-wiki --path /absolute/project --env /absolute/project/.env.local
+agent-wiki collector start
 ```
 
 순서는 **CLI 설치 → 프로젝트에 Skill 설치 → 연결 설정 → 필요할 때 조회**다. 저장소 밖에서 사용할 때는 먼저 사용할 프로젝트 디렉터리로 이동한다.
 
 | 클라이언트 | 설치 명령 | 현재 디렉터리 기준 경로 |
 | --- | --- | --- |
-| Codex | `wiki skill install --client codex` | `.agents/skills/agent-wiki/SKILL.md` |
-| Claude Code | `wiki skill install --client claude` | `.claude/skills/agent-wiki/SKILL.md` |
-| 둘 다 | `wiki skill install --client all` | 위 두 경로 |
+| Codex | `agent-wiki skill install --client codex` | `.agents/skills/agent-wiki/SKILL.md` |
+| Claude Code | `agent-wiki skill install --client claude` | `.claude/skills/agent-wiki/SKILL.md` |
+| 둘 다 | `agent-wiki skill install --client all` | 위 두 경로 |
 
 `--client` 기본값은 `codex`다. `setup`도 지정 클라이언트의 Skill을 설치하며 기존 파일을 보존한다. 명시적인 `skill install`은 동봉된 버전으로 갱신한다. 연결만 설정하려면 `setup --no-skill`을 사용한다. Claude 경로는 [공식 Skill 안내](https://code.claude.com/docs/en/skills)를 따른다.
 
 Skill은 사용 지침이며 설치만으로 CLI가 자동 실행되지 않는다. 에이전트가 필요성을 판단해 명령을 실행한다. 예를 들어 과거 결정은 조회하고 현재 코드로 충분한 타입 오류 수정은 생략한다. 시작·재개·컴팩션에 강제 호출하지 않는다.
 
 ```sh
-wiki search "임베딩" --project agent-wiki
-wiki recall --project agent-wiki
+agent-wiki search "임베딩" --project agent-wiki
+agent-wiki recall --project agent-wiki
 ```
 
 `collector start`는 별도로 자동 수집을 켠다. `setup`·Skill 설치·조회는 수집을 시작하지 않는다. 키는 웹의 **에이전트 연결**에서 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 조회와 수집을 같은 키로 사용할 경우 원문 보관 권한이 필요하다. 수집 권한을 따로 제한하려면 같은 env 파일에 `WIKI_COLLECTOR_TOKEN`을 추가한다. 비밀 값은 설정 JSON에 넣지 않는다.
@@ -48,13 +48,13 @@ wiki recall --project agent-wiki
 새 설정은 전체 프로젝트·10분 주기가 기본이다. `setup --path <경로>`는 해당 프로젝트·하위 경로로 제한하고, `setup --all-projects`는 전체로 되돌린다. 기존 설정으로 `setup`을 다시 실행하면 수집 범위·기기 식별자를 유지한다. 현재 검증 환경은 Agent Wiki만 수집한다. 설정 JSON의 `collector.projects`에는 여러 경로를 넣을 수 있다.
 
 ```sh
-wiki collector status
-wiki collector run
-wiki collector start --interval 20
-wiki collector stop
+agent-wiki collector status
+agent-wiki collector run
+agent-wiki collector start --interval 20
+agent-wiki collector stop
 ```
 
-`run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `wiki collector run`을 운영체제 스케줄러에 연결한다. npm 패키지 이름은 `@agent-observatory/agent-wiki-client`이며 공개 배포·MCP 연결은 별도다.
+`run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `agent-wiki collector run`을 운영체제 스케줄러에 연결한다. npm 패키지 이름은 `@agent-observatory/agent-wiki-client`이며 공개 배포·MCP 연결은 별도다.
 
 ## 수집·정제의 책임
 
@@ -138,7 +138,7 @@ OCI의 직접 업로드 URL은 **PAR(Pre-Authenticated Request)**로 발급한�
 
 서버가 재구성하는 텍스트 투영본의 각 줄에는 `event`·`field`·`segment`를 붙인다. 원문 참조에는 `rawUploadId`, `originalRange`, 마스킹 버전을 연결해 **지식 근거 → 고정 텍스트 줄 → 업로드·이벤트·필드·구간 → 마스킹 L1 조각**으로 역추적한다. 이미지 본문·이미지 URL은 투영에서 제외하고 `imageAnalysis: skipped`, 원문 이미지 보존 범위를 기록한다. 단순 텍스트 투영을 전체 원본이라고 표시하지 않는다.
 
-macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalMinutes`로 1~1,440분 범위를 설정한다. `wiki collector start --interval 10`은 설정과 실행 주기를 함께 갱신하며, 설정 파일만 수정했다면 `wiki collector start`를 다시 실행해야 적용된다. 실행이 길어져도 잠금으로 중복 실행을 막는다. 로그에는 처리 상태·성공·중복·실패 개수만 남긴다. 원문·URL·비밀은 남기지 않고 실패를 사용자 대화에 주입하지 않는다. 삭제된 로컬 파일을 원격 삭제 지시로 취급하지 않는다. 기기별 전송 상태만 로컬에 두고 프로젝트 역사·리니지는 원격에 쌓는다.
+macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalMinutes`로 1~1,440분 범위를 설정한다. `agent-wiki collector start --interval 10`은 설정과 실행 주기를 함께 갱신하며, 설정 파일만 수정했다면 `agent-wiki collector start`를 다시 실행해야 적용된다. 실행이 길어져도 잠금으로 중복 실행을 막는다. 로그에는 처리 상태·성공·중복·실패 개수만 남긴다. 원문·URL·비밀은 남기지 않고 실패를 사용자 대화에 주입하지 않는다. 삭제된 로컬 파일을 원격 삭제 지시로 취급하지 않는다. 기기별 전송 상태만 로컬에 두고 프로젝트 역사·리니지는 원격에 쌓는다.
 
 웹의 **L2 · 정제 작업**에서 최근 원본 업로드의 접수·검증·등록 상태, 압축 크기, 신규·중복 기록 수를 확인한다. 기기별 검증된 바이트 위치·기록 위치와 L2 청크 진행 상태는 별도로 표시한다.
 

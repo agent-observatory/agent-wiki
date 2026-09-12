@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1330" viewBox="0 0 1920 1330" role="img" aria-labelledby="title desc"><title id="title">로컬에서 수집 · 원격에서 정제</title><desc id="desc">단일 설치하는 Agent Wiki CLI의 백그라운드 수집이 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1920" height="1330" fill="#FFFFFF"/>
-<text x="40" y="42" font-size="15" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
+<text x="40" y="42" font-size="16" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">로컬에서 수집 · 원격에서 정제</text>
 <path d="M40 137 H1880" stroke="#172C4B" stroke-width="2"/>
 <path d="M1110 87 H1158" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
-<text x="1172" y="93" font-size="18" font-weight="700" fill="#B35C00">수집·지식 반영</text>
+<text x="1172" y="93" font-size="16" font-weight="700" fill="#B35C00">수집·지식 반영</text>
 <path d="M1370 87 H1418" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
-<text x="1432" y="93" font-size="18" font-weight="700" fill="#245CC5">조회·응답</text>
+<text x="1432" y="93" font-size="16" font-weight="700" fill="#245CC5">조회·응답</text>
 <path d="M1600 87 H1648" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
-<text x="1662" y="93" font-size="18" font-weight="700" fill="#68778B">설정·인증·저장</text>
+<text x="1662" y="93" font-size="16" font-weight="700" fill="#68778B">설정·인증·저장</text>
 <rect x="72" y="180" width="366" height="130" rx="6" fill="#FFFFFF" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="199" color="#172C4B">
+<text x="92" y="222" font-size="20" font-weight="700" fill="#172C4B">DuckDNS · 도메인</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="240" color="#172C4B">
   <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
   <path d="M3.6 9h16.8" />
   <path d="M3.6 15h16.8" />
   <path d="M11.5 3a17 17 0 0 0 0 18" />
   <path d="M12.5 3a17 17 0 0 1 0 18" />
 </svg>
-<text x="130" y="222" font-size="23" font-weight="700" fill="#172C4B">DuckDNS · 도메인</text>
-<text x="92" y="260" font-size="18" font-weight="400" fill="#172C4B">agent-wiki.duckdns.org</text>
+<text x="126" y="260" font-size="18" font-weight="400" fill="#172C4B">agent-wiki.duckdns.org</text>
 <text x="92" y="291" font-size="18" font-weight="400" fill="#172C4B">도메인 조회 → VM 공인 주소</text>
 <rect x="940" y="180" width="280" height="130" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 24 24" x="960" y="199" width="26" height="26" color="#172C4B" fill="#172C4B"><title>Let's Encrypt</title><path d="M11.9914 0a.8829.8829 0 00-.8718.817v3.0209A.8829.8829 0 0012 4.7207a.8829.8829 0 00.8803-.8803V.817a.8829.8829 0 00-.889-.817zm7.7048 3.1089a.8804.8804 0 00-.5214.1742l-2.374 1.9482a.8804.8804 0 00.5592 1.5622.8794.8794 0 00.5592-.2001l2.3714-1.9506a.8804.8804 0 00-.5944-1.534zm-15.3763.0133a.8829.8829 0 00-.611 1.5206l2.37 1.9506a.876.876 0 00.5606.2001v-.002a.8804.8804 0 00.5597-1.5602L4.8277 3.2831a.8829.8829 0 00-.5078-.161zm7.6598 3.2275a5.0456 5.0456 0 00-5.0262 5.0455v1.4876H5.787a.9672.9672 0 00-.9647.9643v9.1887a.9672.9672 0 00.9647.9643H18.213a.9672.9672 0 00.9643-.9643v-9.1907a.9672.9672 0 00-.9643-.9623h-1.1684v-1.4876a5.0456 5.0456 0 00-5.0649-5.0455zm.0127 2.8933a2.1522 2.1522 0 012.1593 2.1522v1.4876H9.8473v-1.4876a2.1522 2.1522 0 012.145-2.1522zm7.3812.5033a.8829.8829 0 10.0705 1.7632h3.0267a.8829.8829 0 000-1.7609H19.444a.8829.8829 0 00-.0705-.0023zm-17.8444.0023a.8829.8829 0 000 1.7609h2.9983a.8829.8829 0 000-1.7609zm10.4596 6.7746a1.2792 1.2792 0 01.641 2.3926v1.2453a.6298.6298 0 01-1.2595 0v-1.2453a1.2792 1.2792 0 01.6185-2.3926z" /></svg>
-<text x="998" y="222" font-size="23" font-weight="700" fill="#172C4B">인증서 발급 기관</text>
-<text x="960" y="260" font-size="18" font-weight="400" fill="#172C4B">Caddy가 발급·갱신 요청</text>
+<text x="960" y="222" font-size="20" font-weight="700" fill="#172C4B">인증서 발급 기관</text>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 24 24" x="960" y="240" width="24" height="24" color="#172C4B" fill="#172C4B"><title>Let's Encrypt</title><path d="M11.9914 0a.8829.8829 0 00-.8718.817v3.0209A.8829.8829 0 0012 4.7207a.8829.8829 0 00.8803-.8803V.817a.8829.8829 0 00-.889-.817zm7.7048 3.1089a.8804.8804 0 00-.5214.1742l-2.374 1.9482a.8804.8804 0 00.5592 1.5622.8794.8794 0 00.5592-.2001l2.3714-1.9506a.8804.8804 0 00-.5944-1.534zm-15.3763.0133a.8829.8829 0 00-.611 1.5206l2.37 1.9506a.876.876 0 00.5606.2001v-.002a.8804.8804 0 00.5597-1.5602L4.8277 3.2831a.8829.8829 0 00-.5078-.161zm7.6598 3.2275a5.0456 5.0456 0 00-5.0262 5.0455v1.4876H5.787a.9672.9672 0 00-.9647.9643v9.1887a.9672.9672 0 00.9647.9643H18.213a.9672.9672 0 00.9643-.9643v-9.1907a.9672.9672 0 00-.9643-.9623h-1.1684v-1.4876a5.0456 5.0456 0 00-5.0649-5.0455zm.0127 2.8933a2.1522 2.1522 0 012.1593 2.1522v1.4876H9.8473v-1.4876a2.1522 2.1522 0 012.145-2.1522zm7.3812.5033a.8829.8829 0 10.0705 1.7632h3.0267a.8829.8829 0 000-1.7609H19.444a.8829.8829 0 00-.0705-.0023zm-17.8444.0023a.8829.8829 0 000 1.7609h2.9983a.8829.8829 0 000-1.7609zm10.4596 6.7746a1.2792 1.2792 0 01.641 2.3926v1.2453a.6298.6298 0 01-1.2595 0v-1.2453a1.2792 1.2792 0 01.6185-2.3926z" /></svg>
+<text x="994" y="260" font-size="18" font-weight="400" fill="#172C4B">Caddy가 발급·갱신 요청</text>
 <text x="960" y="291" font-size="18" font-weight="400" fill="#172C4B">HTTPS 인증서 자동 관리</text>
 <rect x="1280" y="180" width="320" height="170" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <text x="1300" y="222" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-data</text>
@@ -37,16 +37,16 @@
 <path d="M596 370 H1594 Q1600 370 1600 376 V424 H590 V376 Q590 370 596 370" fill="#344256"/>
 <path d="M200 450 V310" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)" marker-start="url(#arrow-ops)"/>
 <path d="M438 245 H745 V450" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
-<text x="490" y="230" font-size="18" font-weight="400" fill="#172C4B">도메인 → VM 공인 주소</text>
+<text x="490" y="230" font-size="16" font-weight="400" fill="#172C4B">도메인 → VM 공인 주소</text>
 <path d="M940 255 H800 V450" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)" marker-start="url(#arrow-ops)"/>
-<path d="M860 480 H905 V335 H1280" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
-<text x="960" y="329" font-size="17" font-weight="400" fill="#172C4B">인증서 상태 보관</text>
+<path d="M880 480 H905 V335 H1280" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
+<text x="960" y="329" font-size="16" font-weight="400" fill="#172C4B">인증서 상태 보관</text>
 <path d="M1450 350 V640" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
-<text x="1468" y="530" font-size="17" font-weight="400" fill="#172C4B">데이터 연결</text>
+<text x="1468" y="530" font-size="16" font-weight="400" fill="#172C4B">데이터 연결</text>
 <path d="M438 520 H630" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
-<path d="M860 520 H940" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
+<path d="M880 520 H940" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <path d="M438 855 H630" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
-<path d="M860 855 H940" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
+<path d="M880 855 H940" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <path d="M1080 580 V640" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <path d="M1220 710 H1280" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <path d="M1220 790 H1280" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
@@ -55,7 +55,7 @@
 <rect x="591" y="371" width="1008" height="52" rx="6" fill="#344256" stroke="#344256"/>
 <text x="64" y="406" font-size="24" font-weight="700" fill="#FFFFFF">사용자 기기</text>
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="614" y="383" width="32" height="32" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
-<text x="660" y="406" font-size="23" font-weight="700" fill="#FFFFFF">agent-wiki-vm · A1 · 2 OCPU / 12GB</text>
+<text x="660" y="406" font-size="24" font-weight="700" fill="#FFFFFF">agent-wiki-vm · A1 · 2 OCPU / 12GB</text>
 <g role="img" aria-label="Docker Compose"><title>Docker Compose</title>
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1534" y="378" width="40" height="40" color="#172C4B"><g fill="#2496ed" clip-path="url(#docker-1534-378-a)"><path d="M99.014 41.088c-.271-.215-2.803-2.127-8.142-2.127-1.41.006-2.817.127-4.207.362-1.034-7.083-6.89-10.537-7.153-10.692l-1.433-.827-.943 1.361a19.2 19.2 0 0 0-2.55 5.96c-.955 4.043-.374 7.84 1.68 11.087-2.48 1.382-6.459 1.723-7.264 1.753H3.131a3.13 3.13 0 0 0-3.127 3.113A47.4 47.4 0 0 0 2.89 68.004c2.27 5.951 5.645 10.334 10.037 13.017 4.922 3.014 12.918 4.736 21.982 4.736a65.6 65.6 0 0 0 12.207-1.106 51 51 0 0 0 15.932-5.787 43.8 43.8 0 0 0 10.872-8.9c5.22-5.908 8.328-12.488 10.64-18.335h.922c5.714 0 9.227-2.286 11.165-4.203a12.2 12.2 0 0 0 2.945-4.361l.409-1.197z" /><path d="M9.236 46.036h8.827a.77.77 0 0 0 .771-.771v-7.863a.77.77 0 0 0-.766-.775H9.236a.77.77 0 0 0-.77.771v7.867c0 .426.345.77.77.77m12.164.001h8.828a.77.77 0 0 0 .77-.771v-7.863a.77.77 0 0 0-.766-.775H21.4a.775.775 0 0 0-.775.775v7.863c.003.426.349.77.775.77m12.35.001h8.827a.77.77 0 0 0 .77-.771v-7.863a.77.77 0 0 0-.766-.775h-8.832a.77.77 0 0 0-.77.771v7.867c0 .426.345.77.77.77m12.204.001h8.827a.775.775 0 0 0 .775-.771v-7.863a.775.775 0 0 0-.775-.775h-8.827a.77.77 0 0 0-.771.771v7.867c0 .426.345.77.77.77M21.4 34.724h8.828a.775.775 0 0 0 .77-.775v-7.862a.77.77 0 0 0-.77-.771H21.4a.775.775 0 0 0-.776.77v7.863a.78.78 0 0 0 .776.775m12.35 0h8.827a.775.775 0 0 0 .77-.775v-7.862a.77.77 0 0 0-.77-.771H33.75a.77.77 0 0 0-.771.77v7.863c0 .426.344.773.77.775m12.204 0h8.827a.78.78 0 0 0 .775-.775v-7.862a.775.775 0 0 0-.775-.771h-8.827a.77.77 0 0 0-.771.77v7.863c0 .426.344.773.77.775m.001-11.316h8.827a.775.775 0 0 0 .775-.77V14.77a.775.775 0 0 0-.775-.77h-8.827a.77.77 0 0 0-.771.77v7.868c0 .425.345.77.77.77m12.311 22.628h8.827a.775.775 0 0 0 .775-.771v-7.863a.775.775 0 0 0-.775-.775h-8.827a.77.77 0 0 0-.77.771v7.867c0 .426.345.77.77.77" /></g><defs><clipPath id="docker-1534-378-a"><path fill="#fff" d="M0 0h100v100H0z" /></clipPath></defs></svg>
 </g>
@@ -68,51 +68,47 @@
 <text x="126" y="530" font-size="18" font-weight="400" fill="#172C4B">브라우저 · 웹 UI</text>
 <text x="92" y="561" font-size="18" font-weight="400" fill="#172C4B">agent-wiki.duckdns.org</text>
 <rect x="72" y="640" width="366" height="145" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="659" color="#172C4B">
+<text x="92" y="682" font-size="20" font-weight="700" fill="#172C4B">Codex · Claude Code</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="700" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="130" y="682" font-size="23" font-weight="700" fill="#172C4B">Codex · Claude Code</text>
-<text x="92" y="720" font-size="18" font-weight="400" fill="#172C4B">작업 에이전트</text>
+<text x="126" y="720" font-size="18" font-weight="400" fill="#172C4B">작업 에이전트</text>
 <rect x="92" y="735" width="326" height="34" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="103" y="741" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="134" y="759" font-size="17" font-weight="700" fill="#172C4B">agent-wiki · 설치된 조회 Skill</text>
+<text x="134" y="759" font-size="16" font-weight="700" fill="#172C4B">agent-wiki · 설치된 조회 Skill</text>
 <path d="M355 785 V825" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
-<rect x="72" y="825" width="366" height="425" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
-<text x="92" y="867" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-client</text>
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="885" color="#172C4B">
+<rect x="72" y="825" width="366" height="425" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
+<path d="M78 825 H432 Q438 825 438 831 V879 H72 V831 Q72 825 78 825" fill="#344256"/>
+<text x="92" y="863" font-size="24" font-weight="700" fill="#FFFFFF">agent-wiki-client</text>
+<text x="92" y="908" font-size="18" font-weight="400" fill="#172C4B">설치 패키지 · 하나로 배포</text>
+<rect x="92" y="930" width="326" height="110" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<text x="112" y="972" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-cli</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="112" y="990" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="126" y="905" font-size="18" font-weight="400" fill="#172C4B">로컬 도구 · 한 번 설치</text>
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="936" color="#172C4B">
-  <path d="M8 9l3 3l-3 3" />
-  <path d="M13 15l3 0" />
-  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
-</svg>
-<text x="126" y="956" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-cli</text>
-<text x="92" y="989" font-size="18" font-weight="400" fill="#172C4B">검색·조회 · wiki recall / search</text>
-<path d="M92 1020 H418" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1064" color="#172C4B">
+<text x="146" y="1010" font-size="18" font-weight="400" fill="#172C4B">agent-wiki search / recall</text>
+<rect x="92" y="1070" width="326" height="120" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
+<text x="112" y="1112" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-collector</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="112" y="1130" color="#172C4B">
   <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="126" y="1084" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-collector</text>
-<text x="92" y="1117" font-size="18" font-weight="400" fill="#172C4B">백그라운드 · wiki collector</text>
-<text x="92" y="1150" font-size="18" font-weight="400" fill="#172C4B">기본 10분 · 마스킹·압축 전송</text>
-<text x="92" y="1183" font-size="18" font-weight="400" fill="#172C4B">작업 대화와 독립된 프로세스</text>
+<text x="146" y="1150" font-size="18" font-weight="400" fill="#172C4B">수집 · agent-wiki collector</text>
+<text x="112" y="1181" font-size="18" font-weight="400" fill="#172C4B">독립 프로세스 · 기본 10분</text>
 <path d="M438 1120 H520 V885 H630" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
-<text x="535" y="1030" font-size="18" font-weight="700" fill="#B35C00">수집 제어</text>
-<path d="M860 885 H940" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
-<rect x="630" y="450" width="230" height="460" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
-<text x="650" y="492" font-size="19" font-weight="700" fill="#172C4B">agent-wiki-gateway</text>
+<text x="535" y="1030" font-size="16" font-weight="700" fill="#B35C00">수집 제어</text>
+<path d="M880 885 H940" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
+<rect x="630" y="450" width="250" height="460" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
+<text x="650" y="492" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-gateway</text>
 <svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 24 24" x="650" y="510" width="24" height="24" color="#172C4B" fill="#172C4B"><title>Caddy</title><path d="M11.094.47c-.842 0-1.696.092-2.552.288a11.37 11.37 0 0 0-4.87 2.423 10.632 10.632 0 0 0-2.36 2.826A10.132 10.132 0 0 0 .305 8.582c-.398 1.62-.4 3.336-.043 5.048.085.405.183.809.31 1.212a11.85 11.85 0 0 0 1.662 3.729 3.273 3.273 0 0 0-.086.427 3.323 3.323 0 0 0 2.848 3.71 3.279 3.279 0 0 0 1.947-.346c1.045.51 2.17.864 3.339 1.04a11.66 11.66 0 0 0 4.285-.155 11.566 11.566 0 0 0 4.936-2.485 10.643 10.643 0 0 0 2.352-2.894 11.164 11.164 0 0 0 1.356-4.424 11.214 11.214 0 0 0-.498-4.335c.175-.077.338-.175.486-.293a.444.444 89.992 0 0 .001 0c.402-.322.693-.794.777-1.342a2.146 2.146 0 0 0-1.79-2.434 2.115 2.115 0 0 0-1.205.171c-.038-.043-.078-.086-.113-.13a11.693 11.693 0 0 0-3.476-2.93 13.348 13.348 0 0 0-1.76-.81 13.55 13.55 0 0 0-2.06-.613A12.121 12.121 0 0 0 11.093.47Zm.714.328c.345-.004.688.01 1.028.042a9.892 9.892 0 0 1 2.743.639c.984.39 1.89.958 2.707 1.632.803.662 1.502 1.45 2.091 2.328.026.039.048.08.07.12a2.12 2.12 0 0 0-.435 2.646c-.158.114-.97.692-1.634 1.183-.414.308-.733.557-.733.557l.581.68s.296-.276.665-.638c.572-.562 1.229-1.233 1.395-1.403a2.122 2.122 0 0 0 1.907.677 11.229 11.229 0 0 1-.013 4.046 11.41 11.41 0 0 1-1.475 3.897 12.343 12.343 0 0 1-2.079 2.587c-1.19 1.125-2.633 2.022-4.306 2.531a10.826 10.826 0 0 1-3.973.484 11.04 11.04 0 0 1-3.057-.652 3.304 3.304 0 0 0 1.417-2.294 3.275 3.275 0 0 0-.294-1.842c.18-.162.403-.363.656-.6 1.015-.955 2.353-2.303 2.353-2.303l-.47-.599s-1.63.972-2.801 1.728c-.307.198-.573.378-.777.517a3.273 3.273 0 0 0-1.516-.611c-1.507-.198-2.927.672-3.487 2.017a10.323 10.323 0 0 1-.695-1.078A10.92 10.92 0 0 1 .728 14.8a10.35 10.35 0 0 1-.2-1.212c-.164-1.653.103-3.258.629-4.754a12.95 12.95 0 0 1 1.087-2.288c.57-.968 1.248-1.872 2.069-2.656A11.013 11.013 0 0 1 11.808.797Zm-.147 3.257a3.838 3.838 0 0 0-3.82 3.82v2.36h-.94c-.751 0-1.377.625-1.377 1.377v3.8h1.46v-3.718h9.354v6.264H10.02v1.46h6.4c.751 0 1.377-.625 1.377-1.377v-6.43c0-.751-.626-1.377-1.377-1.377h-.94v-2.36a3.838 3.838 0 0 0-3.82-3.819zm0 1.46a2.371 2.371 0 0 1 2.36 2.36v2.36H9.3v-2.36a2.372 2.372 0 0 1 2.36-2.36zm10.141.392a1.253 1.253 0 0 1 1.296 1.434c-.049.319-.217.59-.453.78-.266.213-.61.318-.968.264a1.253 1.253 0 0 1-1.045-1.42 1.255 1.255 0 0 1 1.17-1.058zM5.384 17.425a2.02 2.02 0 0 1 1.917 1.298c.116.3.159.628.114.967a2.015 2.015 0 0 1-2.249 1.728 2.016 2.016 0 0 1-1.727-2.25 2.017 2.017 0 0 1 1.945-1.743z" /></svg>
 <text x="684" y="530" font-size="18" font-weight="400" fill="#172C4B">Caddy · HTTPS</text>
 <text x="650" y="561" font-size="18" font-weight="400" fill="#172C4B">웹·API 경로 분기</text>
@@ -139,24 +135,24 @@
 <text x="1300" y="782" font-size="18" font-weight="400" fill="#172C4B">업로드·정제 작업 이력</text>
 <text x="1300" y="813" font-size="18" font-weight="400" fill="#172C4B">AI 제공자·모델 설정</text>
 <rect x="1640" y="640" width="240" height="140" rx="6" fill="#FFFFFF" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1660" y="659" color="#172C4B">
+<text x="1660" y="682" font-size="20" font-weight="700" fill="#172C4B">DataGrip</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1660" y="700" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1698" y="682" font-size="23" font-weight="700" fill="#172C4B">DataGrip</text>
-<text x="1660" y="720" font-size="18" font-weight="400" fill="#172C4B">공인 5432 · 암호·TLS</text>
+<text x="1694" y="720" font-size="18" font-weight="400" fill="#172C4B">공인 5432 · 암호·TLS</text>
 <text x="1660" y="751" font-size="18" font-weight="400" fill="#172C4B">IP 제한 없음</text>
 <path d="M1220 870 H1640" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)" marker-start="url(#arrow-ops)"/>
-<text x="1290" y="902" font-size="18" font-weight="400" fill="#172C4B">허가·검증·원문 확정</text>
+<text x="1290" y="902" font-size="16" font-weight="400" fill="#172C4B">허가·검증·원문 확정</text>
 <rect x="1640" y="820" width="240" height="190" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="1660" y="862" font-size="19" font-weight="700" fill="#172C4B">agent-wiki-sources</text>
+<text x="1660" y="862" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-sources</text>
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1660" y="880" width="24" height="24" color="#172C4B"><path fill="#ea1b22" d="M31.529 81.056C14.013 81.056 0 67.044 0 49.528s14.013-31.529 31.529-31.529H68.47c17.517 0 31.53 14.013 31.53 31.529S85.987 81.056 68.471 81.056zM67.516 69.91c11.465 0 20.382-9.236 20.382-20.382 0-11.465-9.236-20.382-20.382-20.382H32.484c-11.465 0-20.382 9.235-20.382 20.382 0 11.146 9.236 20.382 20.382 20.382z" /></svg>
 <text x="1694" y="900" font-size="18" font-weight="400" fill="#172C4B">OCI Object Storage</text>
 <text x="1660" y="931" font-size="18" font-weight="400" fill="#172C4B">검증 후 불변 L1 확정</text>
 <text x="1660" y="962" font-size="18" font-weight="400" fill="#172C4B">텍스트·이미지 분리</text>
 <path d="M1080 910 V970" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
-<text x="1098" y="942" font-size="17" font-weight="700" fill="#B35C00">작업·근거·반영</text>
+<text x="1098" y="942" font-size="16" font-weight="700" fill="#B35C00">작업·근거·반영</text>
 <rect x="940" y="970" width="280" height="198" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <text x="960" y="1012" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-worker</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="960" y="1030" color="#172C4B">
@@ -176,35 +172,35 @@
 <text x="960" y="1112" font-size="18" font-weight="400" fill="#172C4B">기존 지식 비교·검증</text>
 <text x="960" y="1143" font-size="18" font-weight="400" fill="#172C4B">최대 20 RPM · 동시 실행 1개</text>
 <rect x="630" y="970" width="250" height="168" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="650" y="989" color="#172C4B">
+<text x="650" y="1012" font-size="20" font-weight="700" fill="#172C4B">Wiki · AI 설정</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="650" y="1030" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="688" y="1012" font-size="23" font-weight="700" fill="#172C4B">Wiki · AI 설정</text>
-<text x="650" y="1050" font-size="18" font-weight="400" fill="#172C4B">제공자 · 모델 · API 연결</text>
+<text x="684" y="1050" font-size="18" font-weight="400" fill="#172C4B">제공자 · 모델 · API 연결</text>
 <text x="650" y="1081" font-size="18" font-weight="400" fill="#172C4B">기본: 일일 제한 없음</text>
 <text x="650" y="1112" font-size="18" font-weight="400" fill="#172C4B">일일 한도는 선택 설정</text>
 <path d="M880 1070 H940" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <path d="M1220 1080 H1640" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
-<text x="1320" y="1060" font-size="18" font-weight="700" fill="#B35C00">텍스트 청크·결과</text>
+<text x="1320" y="1060" font-size="16" font-weight="700" fill="#B35C00">텍스트 청크·결과</text>
 <rect x="1640" y="1050" width="240" height="82" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1660" y="1069" width="26" height="26" color="#172C4B"><g clip-path="url(#openai-1660-1069-a)"><path fill="#193718" d="M93.06 40.937c1.25-3.438 1.563-6.875 1.25-10.313-.312-3.437-1.562-6.875-3.125-10-2.812-4.687-6.875-8.437-11.562-10.625-5-2.187-10.313-2.812-15.625-1.562-2.5-2.5-5.313-4.688-8.438-6.25S48.685-.001 45.248-.001c-5.313 0-10.625 1.563-15 4.688a24.16 24.16 0 0 0-9.063 12.5c-3.75.937-6.875 2.5-10 4.374-2.812 2.188-5 5-6.875 7.813-2.812 4.688-3.75 10-3.125 15.313a27.2 27.2 0 0 0 6.25 14.375c-1.25 3.437-1.562 6.874-1.25 10.312s1.563 6.875 3.125 10c2.813 4.688 6.875 8.438 11.563 10.625 5 2.188 10.312 2.813 15.625 1.563 2.5 2.5 5.312 4.687 8.437 6.25s6.875 2.187 10.313 2.187c5.312 0 10.625-1.562 15-4.687s7.5-7.5 9.062-12.5c3.438-.626 6.875-2.188 9.688-4.376 2.812-2.187 5.312-4.687 6.875-7.812 2.812-4.687 3.75-10 3.125-15.312-.625-5.313-2.5-10.313-5.938-14.375m-37.5 52.5c-5 0-8.75-1.563-12.187-4.376 0 0 .312-.312.625-.312l20-11.562c.625-.313.937-.626 1.25-1.25.312-.626.312-.938.312-1.563V46.249l8.438 5v23.125c.312 10.938-8.438 19.063-18.438 19.063M15.248 76.249c-2.188-3.75-3.125-8.125-2.188-12.5 0 0 .313.312.625.312l20 11.563c.625.313.938.313 1.563.313s1.25 0 1.562-.313l24.375-14.062v9.687L40.873 83.124c-4.375 2.5-9.375 3.125-14.063 1.875-5-1.25-9.062-4.375-11.562-8.75M9.935 32.812c2.188-3.75 5.625-6.563 9.688-8.125v23.75c0 .625 0 1.25.312 1.562.313.625.625.938 1.25 1.25L45.56 65.311l-8.437 5-20-11.562c-4.375-2.5-7.5-6.562-8.75-11.25s-.938-10.312 1.562-14.687m69.063 15.937L54.623 34.687l8.437-5 20 11.562c3.125 1.875 5.625 4.375 7.188 7.5s2.5 6.563 2.187 10.313c-.312 3.437-1.562 6.874-3.75 9.687s-5 5-8.437 6.25v-23.75c0-.625 0-1.25-.313-1.562 0 0-.312-.625-.937-.938m8.437-12.5s-.312-.312-.625-.312l-20-11.563c-.625-.312-.937-.312-1.562-.312s-1.25 0-1.563.312L39.31 38.437v-9.688l20.313-11.875c3.125-1.875 6.562-2.5 10.312-2.5 3.438 0 6.875 1.25 10 3.437 2.813 2.188 5.313 5 6.563 8.125s1.562 6.876.937 10.313m-52.5 17.5-8.437-5V25.311c0-3.437.937-7.187 2.812-10 1.875-3.124 4.688-5.312 7.813-6.874 3.125-1.563 6.875-2.188 10.312-1.563 3.438.313 6.875 1.875 9.688 4.063 0 0-.313.312-.625.312l-20 11.562c-.625.313-.938.625-1.25 1.25s-.313.938-.313 1.563zm4.375-10 10.938-6.25 10.937 6.25v12.5l-10.937 6.25-10.938-6.25z" /></g><defs><clipPath id="openai-1660-1069-a"><path fill="#fff" d="M0 0h100v100H0z" /></clipPath></defs></svg>
-<text x="1698" y="1092" font-size="23" font-weight="700" fill="#172C4B">AI Provider</text>
+<text x="1660" y="1092" font-size="20" font-weight="700" fill="#172C4B">AI Provider</text>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 100 100" x="1836" y="1070" width="24" height="24" color="#172C4B"><g clip-path="url(#openai-1836-1070-a)"><path fill="#193718" d="M93.06 40.937c1.25-3.438 1.563-6.875 1.25-10.313-.312-3.437-1.562-6.875-3.125-10-2.812-4.687-6.875-8.437-11.562-10.625-5-2.187-10.313-2.812-15.625-1.562-2.5-2.5-5.313-4.688-8.438-6.25S48.685-.001 45.248-.001c-5.313 0-10.625 1.563-15 4.688a24.16 24.16 0 0 0-9.063 12.5c-3.75.937-6.875 2.5-10 4.374-2.812 2.188-5 5-6.875 7.813-2.812 4.688-3.75 10-3.125 15.313a27.2 27.2 0 0 0 6.25 14.375c-1.25 3.437-1.562 6.874-1.25 10.312s1.563 6.875 3.125 10c2.813 4.688 6.875 8.438 11.563 10.625 5 2.188 10.312 2.813 15.625 1.563 2.5 2.5 5.312 4.687 8.437 6.25s6.875 2.187 10.313 2.187c5.312 0 10.625-1.562 15-4.687s7.5-7.5 9.062-12.5c3.438-.626 6.875-2.188 9.688-4.376 2.812-2.187 5.312-4.687 6.875-7.812 2.812-4.687 3.75-10 3.125-15.312-.625-5.313-2.5-10.313-5.938-14.375m-37.5 52.5c-5 0-8.75-1.563-12.187-4.376 0 0 .312-.312.625-.312l20-11.562c.625-.313.937-.626 1.25-1.25.312-.626.312-.938.312-1.563V46.249l8.438 5v23.125c.312 10.938-8.438 19.063-18.438 19.063M15.248 76.249c-2.188-3.75-3.125-8.125-2.188-12.5 0 0 .313.312.625.312l20 11.563c.625.313.938.313 1.563.313s1.25 0 1.562-.313l24.375-14.062v9.687L40.873 83.124c-4.375 2.5-9.375 3.125-14.063 1.875-5-1.25-9.062-4.375-11.562-8.75M9.935 32.812c2.188-3.75 5.625-6.563 9.688-8.125v23.75c0 .625 0 1.25.312 1.562.313.625.625.938 1.25 1.25L45.56 65.311l-8.437 5-20-11.562c-4.375-2.5-7.5-6.562-8.75-11.25s-.938-10.312 1.562-14.687m69.063 15.937L54.623 34.687l8.437-5 20 11.562c3.125 1.875 5.625 4.375 7.188 7.5s2.5 6.563 2.187 10.313c-.312 3.437-1.562 6.874-3.75 9.687s-5 5-8.437 6.25v-23.75c0-.625 0-1.25-.313-1.562 0 0-.312-.625-.937-.938m8.437-12.5s-.312-.312-.625-.312l-20-11.563c-.625-.312-.937-.312-1.562-.312s-1.25 0-1.563.312L39.31 38.437v-9.688l20.313-11.875c3.125-1.875 6.562-2.5 10.312-2.5 3.438 0 6.875 1.25 10 3.437 2.813 2.188 5.313 5 6.563 8.125s1.562 6.876.937 10.313m-52.5 17.5-8.437-5V25.311c0-3.437.937-7.187 2.812-10 1.875-3.124 4.688-5.312 7.813-6.874 3.125-1.563 6.875-2.188 10.312-1.563 3.438.313 6.875 1.875 9.688 4.063 0 0-.313.312-.625.312l-20 11.562c-.625.313-.938.625-1.25 1.25s-.313.938-.313 1.563zm4.375-10 10.938-6.25 10.937 6.25v12.5l-10.937 6.25-10.938-6.25z" /></g><defs><clipPath id="openai-1836-1070-a"><path fill="#fff" d="M0 0h100v100H0z" /></clipPath></defs></svg>
 <path d="M438 1215 H1900 V940 H1880" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
-<text x="630" y="1248" font-size="18" font-weight="700" fill="#B35C00">압축 증분 직접 업로드 · 본문은 API를 통과하지 않음</text>
+<text x="630" y="1248" font-size="16" font-weight="700" fill="#B35C00">압축 증분 직접 업로드 · 본문은 API를 통과하지 않음</text>
 <rect x="300" y="434" width="124" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="312" y="457" font-size="17" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
+<text x="312" y="457" font-size="16" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
 <rect x="300" y="624" width="124" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="312" y="647" font-size="17" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
-<rect x="285" y="1200" width="130" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="297" y="1223" font-size="17" font-weight="700" fill="#FFFFFF">L1 · 수집</text>
-<rect x="960" y="954" width="112" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="972" y="977" font-size="17" font-weight="700" fill="#FFFFFF">L2 · 정제</text>
+<text x="312" y="647" font-size="16" font-weight="700" fill="#FFFFFF">L5 · 활용</text>
+<rect x="272" y="1054" width="130" height="32" rx="6" fill="#344256" stroke="#344256"/>
+<text x="284" y="1077" font-size="16" font-weight="700" fill="#FFFFFF">L1 · 수집</text>
+<rect x="1094" y="954" width="112" height="32" rx="6" fill="#344256" stroke="#344256"/>
+<text x="1106" y="977" font-size="16" font-weight="700" fill="#FFFFFF">L2 · 정제</text>
 <rect x="1420" y="624" width="126" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="1432" y="647" font-size="17" font-weight="700" fill="#FFFFFF">L3 · 지식</text>
+<text x="1432" y="647" font-size="16" font-weight="700" fill="#FFFFFF">L3 · 지식</text>
 <rect x="1094" y="624" width="112" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="1106" y="647" font-size="17" font-weight="700" fill="#FFFFFF">L4 · 조회</text>
+<text x="1106" y="647" font-size="16" font-weight="700" fill="#FFFFFF">L4 · 조회</text>
 <rect x="1740" y="804" width="124" height="32" rx="6" fill="#344256" stroke="#344256"/>
-<text x="1752" y="827" font-size="17" font-weight="700" fill="#FFFFFF">L1 · 원문</text>
+<text x="1752" y="827" font-size="16" font-weight="700" fill="#FFFFFF">L1 · 원문</text>
 </g></svg>

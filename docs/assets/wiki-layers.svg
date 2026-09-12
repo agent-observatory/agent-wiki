@@ -1,40 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1145" viewBox="0 0 1560 1145" role="img" aria-labelledby="title desc"><title id="title">수집·정제와 사용자 조회를 분리</title><desc id="desc">L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="1145" fill="#FFFFFF"/>
-<text x="40" y="42" font-size="15" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
+<text x="40" y="42" font-size="16" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">수집·정제와 사용자 조회를 분리</text>
 <path d="M40 137 H1520" stroke="#172C4B" stroke-width="2"/>
 <path d="M1140 43 H1188" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
-<text x="1202" y="49" font-size="18" font-weight="700" fill="#B35C00">원문·지식 반영</text>
+<text x="1202" y="49" font-size="16" font-weight="700" fill="#B35C00">원문·지식 반영</text>
 <path d="M1140 78 H1188" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
-<text x="1202" y="84" font-size="18" font-weight="700" fill="#245CC5">조회·답변</text>
+<text x="1202" y="84" font-size="16" font-weight="700" fill="#245CC5">조회·답변</text>
 <rect x="40" y="164" width="1480" height="46" rx="6" fill="#344256" stroke="#344256"/>
-<text x="60" y="195" font-size="22" font-weight="700" fill="#FFFFFF">Workspace · 개인 작업</text>
-<text x="780" y="194" font-size="19" font-weight="700" fill="#FFFFFF">Tag · agent-observatory / agent-wiki</text>
+<text x="60" y="195" font-size="24" font-weight="700" fill="#FFFFFF">Workspace · 개인 작업</text>
+<text x="780" y="194" font-size="18" font-weight="700" fill="#FFFFFF">Tag · agent-observatory / agent-wiki</text>
 <rect x="40" y="240" width="1480" height="145" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <rect x="40" y="240" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
-<text x="56" y="324" font-size="31" font-weight="700" fill="#FFFFFF">L5</text>
+<text x="56" y="324" font-size="32" font-weight="700" fill="#FFFFFF">L5</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="146" y="260" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="184" y="283" font-size="25" font-weight="700" fill="#172C4B">에이전트 답변·작업</text>
+<text x="184" y="283" font-size="20" font-weight="700" fill="#172C4B">에이전트 답변·작업</text>
 <text x="146" y="322" font-size="18" font-weight="400" fill="#172C4B">조회 Skill · Wiki CLI</text>
 <path d="M430 260 V365" stroke="#929EAD"/>
 <rect x="456" y="256" width="630" height="114" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="476" y="275" color="#172C4B">
+<text x="476" y="298" font-size="20" font-weight="700" fill="#172C4B">Codex · Claude Code</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="476" y="316" color="#172C4B">
   <path d="M8 9l3 3l-3 3" />
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="514" y="298" font-size="23" font-weight="700" fill="#172C4B">Codex · Claude Code</text>
-<text x="476" y="336" font-size="18" font-weight="400" fill="#172C4B">설치된 지침을 참고해 필요할 때 조회·답변</text>
+<text x="510" y="336" font-size="18" font-weight="400" fill="#172C4B">설치된 지침을 참고해 필요할 때 조회·답변</text>
 <rect x="800" y="270" width="266" height="34" rx="6" fill="#EBDFFA" stroke="#AA8ACA"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="810" y="276" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="840" y="294" font-size="17" font-weight="700" fill="#172C4B">agent-wiki · 조회 Skill</text>
+<text x="840" y="294" font-size="16" font-weight="700" fill="#172C4B">agent-wiki · 조회 Skill</text>
 <path d="M1086 317 H1136" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <rect x="1136" y="256" width="354" height="114" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <text x="1156" y="298" font-size="20" font-weight="700" fill="#172C4B">agent-wiki-cli</text>
@@ -46,36 +46,36 @@
 <text x="1190" y="336" font-size="18" font-weight="400" fill="#172C4B">검색 실행 · 근거 반환</text>
 <rect x="40" y="420" width="1480" height="145" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <rect x="40" y="420" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
-<text x="56" y="504" font-size="31" font-weight="700" fill="#FFFFFF">L4</text>
+<text x="56" y="504" font-size="32" font-weight="700" fill="#FFFFFF">L4</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="146" y="440" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="184" y="463" font-size="25" font-weight="700" fill="#172C4B">검색·근거 제공</text>
+<text x="184" y="463" font-size="20" font-weight="700" fill="#172C4B">검색·근거 제공</text>
 <text x="146" y="502" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-api</text>
 <path d="M430 440 V545" stroke="#929EAD"/>
-<text x="456" y="463" font-size="24" font-weight="700" fill="#172C4B">시작 Context · 키워드·별칭 검색</text>
-<text x="456" y="511" font-size="21" font-weight="400" fill="#172C4B">VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행</text>
+<text x="456" y="463" font-size="20" font-weight="700" fill="#172C4B">시작 Context · 키워드·별칭 검색</text>
+<text x="456" y="511" font-size="18" font-weight="400" fill="#172C4B">VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행</text>
 <path d="M80 420 V385" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
 <text x="146" y="408" font-size="16" font-weight="700" fill="#245CC5">조회 요청 / 근거 반환</text>
 <rect x="40" y="600" width="1480" height="145" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <rect x="40" y="600" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
-<text x="56" y="684" font-size="31" font-weight="700" fill="#FFFFFF">L3</text>
+<text x="56" y="684" font-size="32" font-weight="700" fill="#FFFFFF">L3</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="146" y="620" color="#172C4B">
   <path d="M19 4v16h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12z" />
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
   <path d="M9 8h6" />
 </svg>
-<text x="184" y="643" font-size="25" font-weight="700" fill="#172C4B">Wiki</text>
+<text x="184" y="643" font-size="20" font-weight="700" fill="#172C4B">Wiki</text>
 <text x="146" y="682" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-db</text>
 <path d="M430 620 V725" stroke="#929EAD"/>
-<text x="456" y="643" font-size="24" font-weight="700" fill="#172C4B">Memory · Article · Glossary</text>
-<text x="456" y="691" font-size="21" font-weight="400" fill="#172C4B">지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료</text>
+<text x="456" y="643" font-size="20" font-weight="700" fill="#172C4B">Memory · Article · Glossary</text>
+<text x="456" y="691" font-size="18" font-weight="400" fill="#172C4B">지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료</text>
 <path d="M80 600 V565" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="40" y="780" width="1480" height="145" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <rect x="40" y="780" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
-<text x="56" y="864" font-size="31" font-weight="700" fill="#FFFFFF">L2</text>
+<text x="56" y="864" font-size="32" font-weight="700" fill="#FFFFFF">L2</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="146" y="800" color="#172C4B">
   <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
   <path d="M9 9h6v6h-6z" />
@@ -88,24 +88,24 @@
   <path d="M14 21v-2" />
   <path d="M10 21v-2" />
 </svg>
-<text x="184" y="823" font-size="25" font-weight="700" fill="#172C4B">Ingest</text>
+<text x="184" y="823" font-size="20" font-weight="700" fill="#172C4B">Ingest</text>
 <text x="146" y="862" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-worker</text>
 <path d="M430 800 V905" stroke="#929EAD"/>
-<text x="456" y="823" font-size="24" font-weight="700" fill="#172C4B">텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영</text>
-<text x="456" y="871" font-size="21" font-weight="400" fill="#172C4B">청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록</text>
+<text x="456" y="823" font-size="20" font-weight="700" fill="#172C4B">텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영</text>
+<text x="456" y="871" font-size="18" font-weight="400" fill="#172C4B">청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록</text>
 <path d="M80 780 V745" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="40" y="960" width="1480" height="145" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <rect x="40" y="960" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
-<text x="56" y="1044" font-size="31" font-weight="700" fill="#FFFFFF">L1</text>
+<text x="56" y="1044" font-size="32" font-weight="700" fill="#FFFFFF">L1</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="146" y="980" color="#172C4B">
   <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="184" y="1003" font-size="25" font-weight="700" fill="#172C4B">Raw sources</text>
+<text x="184" y="1003" font-size="20" font-weight="700" fill="#172C4B">Raw sources</text>
 <text x="146" y="1042" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-collector</text>
 <path d="M430 980 V1085" stroke="#929EAD"/>
-<text x="456" y="1003" font-size="24" font-weight="700" fill="#172C4B">증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록</text>
-<text x="456" y="1051" font-size="21" font-weight="400" fill="#172C4B">원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”</text>
+<text x="456" y="1003" font-size="20" font-weight="700" fill="#172C4B">증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록</text>
+<text x="456" y="1051" font-size="18" font-weight="400" fill="#172C4B">원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”</text>
 <path d="M80 960 V925" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 </g></svg>

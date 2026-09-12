@@ -137,7 +137,7 @@ async function main() {
           : "all",
         intervalMinutes: config.collector.intervalMinutes,
       },
-      next: "wiki collector start",
+      next: "agent-wiki collector start",
     });
     return;
   }
@@ -145,7 +145,7 @@ async function main() {
     const target = await installSkill(true, skillClient());
     output({
       installed: target,
-      note: "필요한 지식을 조회할 때 사용합니다. 수집은 wiki collector start로 별도 실행합니다.",
+      note: "필요한 지식을 조회할 때 사용합니다. 수집은 agent-wiki collector start로 별도 실행합니다.",
     });
     return;
   }
@@ -153,7 +153,7 @@ async function main() {
   const project = option("project", config.defaultProject);
   const connection = config.projects[project];
   if (!connection)
-    throw new Error("Project connection missing. Run wiki setup.");
+    throw new Error("Project connection missing. Run agent-wiki setup.");
   validateServer(connection.server);
   const token = await loadToken(connection);
   const base = connection.server + "/api/workspaces/" + connection.workspace;
@@ -270,7 +270,7 @@ async function main() {
       throw error;
     }
   }
-  throw new Error("Unknown command. Run wiki help.");
+  throw new Error("Unknown command. Run agent-wiki help.");
 }
 main().catch((e) => {
   process.stderr.write(

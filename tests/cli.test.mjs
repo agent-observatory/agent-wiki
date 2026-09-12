@@ -32,6 +32,10 @@ test("one setup shares query and collector settings, preserves scope and machine
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   try {
+    const manifest = JSON.parse(
+      await readFile(resolve("packages/cli/package.json"), "utf8"),
+    );
+    assert.deepEqual(manifest.bin, { "agent-wiki": "./wiki.mjs" });
     const tokenFile = join(dir, ".env.local");
     await writeFile(tokenFile, "WIKI_TOKEN=synthetic-cli-token\n");
     await run(

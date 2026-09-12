@@ -388,12 +388,12 @@ export async function collectorMain(args, configPath, cliPath) {
   };
   if (!["run", "start", "stop", "status"].includes(command))
     throw new Error(
-      "Use wiki collector run|start|stop|status [--interval MINUTES]",
+      "Use agent-wiki collector run|start|stop|status [--interval MINUTES]",
     );
   const settings = await readConfig(configPath);
   const connection = settings.projects[settings.collector?.connection];
   if (!connection || !settings.collector)
-    throw new Error("Run wiki setup to configure collection");
+    throw new Error("Run agent-wiki setup to configure collection");
   const config = { ...settings.collector, ...connection };
   const label = "org.agent-observatory.wiki-collector";
   const domain = "gui/" + process.getuid?.();
@@ -420,7 +420,7 @@ export async function collectorMain(args, configPath, cliPath) {
   }
   if (command === "stop") {
     if (process.platform !== "darwin")
-      throw new Error("Stop the scheduler that runs wiki collector run");
+      throw new Error("Stop the scheduler that runs agent-wiki collector run");
     const exists = spawnSync("launchctl", ["print", domain + "/" + label], {
       stdio: "ignore",
     });

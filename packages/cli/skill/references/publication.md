@@ -1,6 +1,6 @@
 # Publication contract
 
-For a separately assigned curation task or an explicit manual-recording request, save this JSON as a temporary local transport/retry file and send it with `wiki publish file.json --project NAME`. Replace placeholders with actual IDs and the stored text returned by `source add`. The CLI never generates knowledge.
+For a separately assigned curation task or an explicit manual-recording request, save this JSON as a temporary local transport/retry file and send it with `agent-wiki publish file.json --project NAME`. Replace placeholders with actual IDs and the stored text returned by `source add`. The CLI never generates knowledge.
 
 ```json
 {
@@ -39,4 +39,4 @@ For edits, set articleId and its current baseRevision. `inputs` can contain `{ar
 
 Limits: 10 changes and 100KB total content per batch; 100 claims per change; 20 source references per claim. Sources are UTF-8 text of at most 100KB. Sources are immutable, revision 1. Claims must appear exactly in the content. Quote must equal all the lines in its inclusive range, joined with LF. An ungrounded entry must be `unconfirmed` or `author_statement`; an empty claims array becomes an author statement. Agent submissions cannot set human review fields.
 
-A publication is atomic. Errors: `REVISION_CONFLICT` means fetch current revisions and reconcile; `EVIDENCE_MISMATCH` means fetch the stored source and fix the selected lines; `IDEMPOTENCY_CONFLICT` means the key was already used for different input. Never replace the key merely to bypass a revision conflict. A lost response is checked with `wiki publication status KEY` before retrying the unchanged batch.
+A publication is atomic. Errors: `REVISION_CONFLICT` means fetch current revisions and reconcile; `EVIDENCE_MISMATCH` means fetch the stored source and fix the selected lines; `IDEMPOTENCY_CONFLICT` means the key was already used for different input. Never replace the key merely to bypass a revision conflict. A lost response is checked with `agent-wiki publication status KEY` before retrying the unchanged batch.

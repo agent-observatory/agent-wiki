@@ -215,7 +215,7 @@ export function Guide() {
             계속합니다. 매 작업 시작마다 조회를 요구하지 않습니다.
           </p>
           <pre className="mt-4 rounded-lg bg-muted p-4 overflow-auto">
-            wiki recall --project agent-wiki
+            agent-wiki recall --project agent-wiki
           </pre>
         </section>
         <section>
@@ -254,7 +254,7 @@ export function Guide() {
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`# 저장소 루트에서 설치
 npm install --global ./packages/cli
 # 사용할 프로젝트 디렉터리에서 실행
-wiki skill install --client codex\nwiki setup --no-skill --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nwiki collector start`}</pre>
+agent-wiki skill install --client codex\nagent-wiki setup --no-skill --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nagent-wiki collector start`}</pre>
           <p className="text-muted-foreground">
             인증 키는 에이전트 연결에서 발급해 Git 제외 .env.local에
             WIKI_TOKEN으로 보관합니다. 조회와 수집을 함께 쓰려면 원문 보관
@@ -268,13 +268,14 @@ wiki skill install --client codex\nwiki setup --no-skill --workspace ${workspace
           </p>
           <p className="text-muted-foreground">
             지침 설치만으로 검색이 자동 실행되지는 않습니다. 에이전트가 과거
-            결정이 필요할 때 wiki search를 실행하고, 현재 코드로 충분하면
+            결정이 필요할 때 agent-wiki search를 실행하고, 현재 코드로 충분하면
             생략합니다. 시작·재개·컴팩션마다 호출하지 않습니다.
           </p>
           <p className="text-muted-foreground">
             기본은 전체 프로젝트·10분 주기입니다. --path로 수집 범위를 제한하고,
-            wiki collector start --interval 20으로 주기를 바꿉니다. wiki
-            collector status로 확인하거나 wiki collector stop으로 중지합니다.
+            agent-wiki collector start --interval 20으로 주기를 바꿉니다.
+            agent-wiki collector status로 확인하거나 agent-wiki collector
+            stop으로 중지합니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

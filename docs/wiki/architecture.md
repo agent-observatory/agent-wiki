@@ -22,11 +22,26 @@ L1 목록은 세션·문서 단위의 한 줄 요약이다. 상세 진입은 DB 
 
 제품명은 **Agent Wiki**, 로컬 설치 패키지는 **agent-wiki-client**다. 앱 이름은 역할을 나타내고 실제 명령·Compose 서비스 키는 아래처럼 연결한다.
 
+설치 구성의 상하 관계는 다음과 같다. **CLI와 Collector는 client에 포함된 형제 구성**이며, client가 두 프로세스를 감싸서 실행하는 별도 서버는 아니다.
+
+```text
+Agent Wiki (제품)
+├─ agent-wiki-client (로컬 설치 패키지)
+│  ├─ agent-wiki-cli (명령 실행)
+│  ├─ agent-wiki-collector (백그라운드 수집)
+│  └─ 조회 Skill 원본 (설치할 지침 파일)
+└─ 원격 운영 구성
+   ├─ agent-wiki-gateway / web / api / worker
+   └─ agent-wiki-db / sources / data
+```
+
+설치 후의 조회 Skill은 **Codex·Claude Code가 읽는 위치**에 놓인다. 배포도에는 이 실행 시 위치를 표시한다. 앱 이름·실제 명령·기술의 대응은 아래 표를 따른다.
+
 | 이름 | 역할 | 구현·실행 위치 |
 | --- | --- | --- |
 | `agent-wiki-client` | CLI·Collector·Skill을 함께 배포하는 로컬 패키지 | `@agent-observatory/agent-wiki-client`, `packages/cli` |
-| `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `wiki`, `packages/cli/wiki.mjs` |
-| `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `wiki collector`, `packages/cli/collector` |
+| `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `agent-wiki`, `packages/cli/wiki.mjs` |
+| `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `agent-wiki collector`, `packages/cli/collector` |
 | `agent-wiki` 조회 Skill | 조회 필요성·검색어·근거 활용 지침 | 패키지의 `skill/` → 에이전트가 읽는 프로젝트 폴더 |
 | `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Caddy, Compose `caddy` |
 | `agent-wiki-web` | 웹 UI | Next.js, `apps/web`, Compose `web` |
@@ -37,7 +52,7 @@ L1 목록은 세션·문서 단위의 한 줄 요약이다. 상세 진입은 DB 
 | `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
 | `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
 
-`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 짧은 `wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. 그림의 고유 이름과 Compose 서비스 키를 구분한다. VM의 그림 이름은 `agent-wiki-vm`이며 기존 OCI 표시 이름 `agent-wiki`와 연결된다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. 그림의 고유 이름과 Compose 서비스 키를 구분한다. VM의 그림 이름은 `agent-wiki-vm`이며 기존 OCI 표시 이름 `agent-wiki`와 연결된다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](agent-memory.md#연결과-지침).
 
@@ -59,7 +74,7 @@ Collector → API의 위치 확인·업로드 허가 → Collector의 마스킹�
 | Collector | 허용 기록 읽기·마스킹·증분 압축·직접 업로드 | Codex·Claude JSONL, macOS 기본 10분 · 주기 설정 |
 | 백그라운드 정제 | 원격 텍스트 청킹·기존 지식 비교·근거 연결 | VM Worker, Workspace별 외부 AI 설정 |
 | 조회 Skill | 조회 조건·검색어·근거 활용 지침 | 지침만 제공. 프로세스·스케줄러 아님 |
-| Wiki CLI | 단일 설치·설정·인증, 조회·반영·백그라운드 수집 관리 | `wiki setup`, 조회 명령, `wiki collector` · 외부 모델 호출은 원격 Worker |
+| Wiki CLI | 단일 설치·설정·인증, 조회·반영·백그라운드 수집 관리 | `agent-wiki setup`, 조회 명령, `agent-wiki collector` · 외부 모델 호출은 원격 Worker |
 | Wiki API | 업로드 허가·수신 검증 조율·중복/등록 판정·근거·개정·검색 | API와 비동기 수신 검증 |
 | PostgreSQL / Object Storage | 지식·개정·정제 기록·근거 / 불변 원문 보관본 | 운영 중 |
 

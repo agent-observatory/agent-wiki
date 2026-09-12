@@ -1,10 +1,10 @@
 {
   "name": "@agent-observatory/agent-wiki-client",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "bin": {
-    "wiki": "./wiki.mjs"
+    "agent-wiki": "./wiki.mjs"
   },
   "engines": {
     "node": ">=22.21"
