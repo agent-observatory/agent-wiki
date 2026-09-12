@@ -10,6 +10,10 @@ write_files:
       input(type="imuxsock" Socket="/run/wiki-syslog.sock" CreatePath="on")
       template(name="WikiJSON" type="string" string="%msg%\n")
       if $programname startswith 'agent-wiki-' then {
+        # Only structured application events enter OCI; DB/plain logs stay local.
+        if ($msg contains '"severityNumber":' and $msg contains '"eventName":') then {
+          action(type="omfile" file="/var/log/agent-wiki/events.jsonl" template="WikiJSON" fileCreateMode="0640")
+        }
         action(type="omfile" file="/var/log/agent-wiki/apps.jsonl" template="WikiJSON" fileCreateMode="0640")
         stop
       }

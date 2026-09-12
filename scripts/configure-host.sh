@@ -3,6 +3,17 @@
 set -euo pipefail
 [[ $(id -u) == 0 ]] || { echo 'Run as root'; exit 1; }
 install -d -o syslog -g adm -m 0750 /var/log/agent-wiki
+cat > /etc/rsyslog.d/30-agent-wiki.conf <<'RSYSLOG'
+input(type="imuxsock" Socket="/run/wiki-syslog.sock" CreatePath="on")
+template(name="WikiJSON" type="string" string="%msg%\n")
+if $programname startswith 'agent-wiki-' then {
+  if ($msg contains '"severityNumber":' and $msg contains '"eventName":') then {
+    action(type="omfile" file="/var/log/agent-wiki/events.jsonl" template="WikiJSON" fileCreateMode="0640")
+  }
+  action(type="omfile" file="/var/log/agent-wiki/apps.jsonl" template="WikiJSON" fileCreateMode="0640")
+  stop
+}
+RSYSLOG
 if [[ -f /etc/apparmor.d/usr.sbin.rsyslogd ]]; then
   install -d -m 0755 /etc/apparmor.d/rsyslog.d
   printf '/run/wiki-syslog.sock rw,\n' > /etc/apparmor.d/rsyslog.d/agent-wiki

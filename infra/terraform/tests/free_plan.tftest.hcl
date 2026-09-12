@@ -41,3 +41,28 @@ run "single_free_a1" {
     error_message = "The instance and data attachment must both enable paravirtualized in-transit encryption."
   }
 }
+
+run "monitoring_without_function" {
+  command = plan
+  variables {
+    slack_webhook_url      = "https://hooks.slack.com/services/synthetic/synthetic/synthetic"
+    cost_reader_public_key = "synthetic-key"
+    cost_reader_email      = "synthetic@example.invalid"
+  }
+  assert {
+    condition     = oci_logging_log.app[0].retention_duration == 30 && oci_logging_unified_agent_configuration.wiki[0].service_configuration[0].sources[0].paths == tolist(["/var/log/agent-wiki/events.jsonl"])
+    error_message = "Only structured application events should enter the 30-day log."
+  }
+  assert {
+    condition     = oci_sch_service_connector.errors[0].state == "INACTIVE"
+    error_message = "Disable raw Slack delivery; the Korean scheduled formatter owns error notifications."
+  }
+  assert {
+    condition     = !oci_identity_user_capabilities_management.cost_reader[0].can_use_console_password && !oci_identity_user_capabilities_management.cost_reader[0].can_use_auth_tokens
+    error_message = "The monitoring reader must not gain console or auth-token access."
+  }
+  assert {
+    condition     = oci_budget_budget.wiki[0].amount == 1
+    error_message = "Keep the visibility budget small; it is not a spending authorization."
+  }
+}

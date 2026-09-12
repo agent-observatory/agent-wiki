@@ -35,6 +35,8 @@ jobs:
           terraform fmt -check -recursive
           terraform validate
           terraform test
+      - name: Check monitoring rules and delivery semantics
+        run: python3 -m unittest discover -s scripts/monitoring -p 'test_*.py'
       - name: Check runtime installation permissions and reruns
         run: scripts/test-runtime-install.sh
       - uses: actions/setup-node@v4

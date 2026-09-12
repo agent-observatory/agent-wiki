@@ -36,7 +36,7 @@ def end(file):
  a('</g></svg>');Path(file).write_text(('\n'.join(p)+'\n').replace('</defs>',flow_markers()+'</defs>',1))
 # Deployment: short primary flows; secondary storage use is labelled at each component.
 p=[]
-a('<svg xmlns="http://www.w3.org/2000/svg" width="1952" height="1520" viewBox="0 0 1952 1520" role="img" aria-labelledby="title desc"><title id="title">단일 A1 VM · 조회와 지식 반영</title><desc id="desc">A1 VM 1대 2 OCPU 12GB에서 Compose 컨테이너 5개가 CPU를 공유한다. 왼쪽 웹과 에이전트는 Caddy를 통해 API에 접근한다. API에서 PostgreSQL로 파란 조회 경로와 주황 작업 등록 경로가 분리된다. 아래 Worker는 같은 PostgreSQL의 작업을 수신하고 지식을 반영한다. 원문 저장은 오른쪽 Object Storage, LLM 호출은 Worker 바로 아래 NVIDIA API, DataGrip은 DB 오른쪽에 둔다. 연결 볼륨은 DB 아래에 배치하며 DB 데이터와 Caddy 상태의 별도 경로를 보관한다. 외부 신규 유입 차단 후 내부 요청과 작업을 마무리하는 설계이며 실제 구축 전이다.</desc><defs></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1952" height="1520" fill="#FFFFFF"/>')
+a('<svg xmlns="http://www.w3.org/2000/svg" width="1952" height="1520" viewBox="0 0 1952 1520" role="img" aria-labelledby="title desc"><title id="title">단일 A1 VM · 조회와 지식 반영</title><desc id="desc">A1 VM 1대 2 OCPU 12GB에서 Compose 컨테이너 5개가 CPU를 공유한다. 왼쪽 웹과 에이전트는 Caddy를 통해 API에 접근한다. API에서 PostgreSQL로 파란 조회 경로와 주황 작업 등록 경로가 분리된다. 아래 Worker는 같은 PostgreSQL의 작업을 수신하고 지식을 반영한다. 원문 저장은 오른쪽 Object Storage, LLM 호출은 Worker 바로 아래 NVIDIA API, DataGrip은 DB 오른쪽에 둔다. 연결 볼륨은 DB 아래에 배치하며 DB 데이터와 Caddy 상태의 별도 경로를 보관한다. 외부 신규 유입 차단 후 내부 요청과 작업을 마무리한다. 실제 기능별 검증 상태는 운영 현황 문서에서 구분한다.</desc><defs></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1952" height="1520" fill="#FFFFFF"/>')
 text(40,48,'AGENT WIKI · OCI Osaka / ap-osaka-1',16,True,'#526A86')
 text(40,112,'단일 A1 VM · 조회와 지식 반영',39,True)
 legend(1412,55,'수집·지식 반영','ingest');legend(1412,87,'조회·응답','query');legend(1412,119,'인증·운영 연결','ops',True)
@@ -87,18 +87,18 @@ component(780,1320,300,160,'ai');icon('tabler-cloud',800,1338,28);text(842,1370,
 component(1260,1320,360,160,'data');icon('oracle',1280,1338,28);text(1322,1370,'Block Volume · 50GB',23,True);text(1282,1414,'PostgreSQL · Caddy 영속 상태',18);text(1282,1455,'별도 경로·권한 · 부트 50GB 별도',17)
 end('docs/assets/wiki-deployment.svg')
 # Operations lanes.
-p=[];start(1220,'단일 VM · Compose 운영','Terraform으로 A1 VM과 볼륨을 만들고 cloud-init으로 Docker와 마운트를 초기 구성한다. 외부 ARM64 빌드와 미리 pull 후 새 요청과 작업 수신을 중지하고 진행 중 처리를 마친 다음 변경된 앱 컨테이너만 교체한다. DB와 Caddy는 앱 배포에서 유지한다. 오류 로그는 Docker syslog와 rsyslog, OCI 호스트 에이전트 및 운영 서비스를 거쳐 별도 Function이 Slack으로 전송한다. 단일 서버의 짧은 중단을 허용한다.')
+p=[];start(1220,'단일 VM · Compose 운영','Terraform으로 A1 VM과 볼륨을 만들고 cloud-init으로 Docker와 마운트를 초기 구성한다. 외부 ARM64 빌드와 미리 pull 후 새 요청과 작업 수신을 중지하고 진행 중 처리를 마친 다음 변경된 앱 컨테이너만 교체한다. DB와 Caddy는 앱 배포에서 유지한다. 오류 로그는 Docker syslog와 rsyslog, OCI 호스트 에이전트를 통해 OCI Logging에 모은다. GitHub Actions가 오류를 5분마다 조회해 한국어 Slack Webhook 카드로 전송한다. 비용과 사용량은 6시간마다 점검하고 매일 요약한다. 단일 서버의 짧은 중단을 허용한다.')
 text(42,50,'OPERATIONS AS CODE',15,True,'#48627F');text(42,112,'단일 VM · Compose · 정상 종료 후 교체',38,True);a('<path d="M42 149 H1518" stroke="#172C4B" stroke-width="2"/>')
 rows=[(204,'01','인프라','#EBDFFA','#6852A4',[
-('terraform','Terraform / HCL','A1 VM · 2 OCPU / 12GB','볼륨 · 원문 버킷 · IAM'),('oracle','OCI Resource Manager','plan → apply · state 보관','무료 한도 · 기존 사용량 확인'),('ubuntu','cloud-init / systemd','Docker·Compose · 볼륨 마운트','OS·Docker 업데이트 직접 관리')]),
+('terraform','Terraform / HCL','A1 VM · 2 OCPU / 12GB','볼륨 · 원문 버킷 · IAM'),('oracle','OCI · Terraform 적용','로컬 plan → apply · state 보관','무료 한도 · 기존 사용량 확인'),('ubuntu','cloud-init / systemd','Docker·Compose · 볼륨 마운트','OS·Docker 업데이트 직접 관리')]),
 (395,'02','실행 정의','#FDE7C2','#936522',[
 ('github','Compose · 컨테이너 5개','앱 4 + PostgreSQL · 로그는 호스트','CPU 공유 · Worker 최대 0.5'),('tabler-terminal-2','영속 데이터 마운트','DB 데이터 · Caddy 인증서 상태','마운트 확인 후 기동'),('tabler-clipboard-check','종료 신호 · SIGTERM','외부 차단 · 내부 처리 종료 유예','결과 커밋 후 완료 · 연결 정리')]),
 (586,'03','앱 배포','#D4EDE4','#237964',[
 ('github','외부 ARM64 빌드 → GHCR','VM에서 미리 pull · 단일 배포 잠금','기존 앱은 실행 유지'),('tabler-terminal-2','변경 앱만 Compose 교체','외부 차단 → 내부 완료 → 교체','DB·Caddy 유지 · 짧은 중단 허용'),('tabler-clipboard-check','health check · 기능 확인','로그인 · 검색 · 근거 · 수집','실패 시 이전 앱 이미지로 복구')]),
 (777,'04','오류 로그','#DBEAFE','#28589E',[
-('ubuntu','stdout → 호스트 로그','Docker syslog · rsyslog 파일','OCI 기성 에이전트 → Logging'),('oracle','Logging → Connector Hub','최종 실패·서버 오류 필터','재시도 중 warn은 경보 제외'),('tabler-bell','알림 Function → Slack','봇 토큰은 알림 Function만 보유','업무 API·Worker는 로그만 기록')]),
-(968,'05','중단·자원','#E3E7ED','#526A86',[
-('tabler-chart-bar','OCI 지표 · 외부 HTTP 점검','CPU·메모리 · /readyz 15분','로그 없는 전체 중단도 감지'),('oracle','OCI Notifications','Alarm / 외부 점검 이벤트 수신','알림 Function 구독으로 전달'),('tabler-bell','같은 알림 Function → Slack','배치 중복 제거 · 전송 실패 처리','앱 중단과 독립된 전송 경로')])]
+('ubuntu','stdout → 호스트 로그','Docker syslog · rsyslog 파일','OCI 기성 에이전트 → Logging'),('github','Actions · 5분마다 조회','ERROR 이상 · 같은 이벤트 제외','같은 오류는 시간당 1회 알림'),('tabler-bell','한국어 카드 → Slack','Webhook · 오류 코드·확인 링크','업무 API·Worker는 로그만 기록')]),
+(968,'05','비용·사용량','#E3E7ED','#526A86',[
+('oracle','OCI Usage API','비용 · CPU·메모리·저장소·전송','미집계와 0 구분 · 통화·단위 유지'),('github','Actions · 6시간마다 점검','비용 발생 · 예산 접근 · 사용 급증','매일 09:13 한국 시각 정기 요약'),('tabler-bell','한국어 카드 → Slack','수치·증감 · 비용 확인 링크','앱 VM과 독립된 전송 경로')])]
 
 
 for y,n,label,fill,accent,items in rows:
@@ -106,7 +106,7 @@ for y,n,label,fill,accent,items in rows:
  for i,(ico,h,b,c) in enumerate(items):
   x=237+i*435;box(x,y,388,146,fill);a(f'<rect x="{x}" y="{y}" width="5" height="146" rx="3" fill="{accent}"/>');icon(ico,x+20,y+16,27);text(x+59,y+40,h,21,True);text(x+24,y+82,b,19);text(x+24,y+119,c,17,False,'#526A86')
   if i<2:path(f'M{x+390} {y+73} H{x+430}')
-text(42,1170,'설계 단계 · 정상 종료·강제 종료 후 재처리는 구현 시 검증 · 서버 중단 알림은 외부 경로',17,False,'#526A86')
+text(42,1170,'예산은 강제 차단이 아님 · 집계·예약 실행 지연 가능 · 전체 중단·지표 경보는 후속 과제',17,False,'#526A86')
 end('docs/assets/wiki-operations.svg')
 
 # Logical layers. Same synthetic source throughout; lineage is cross-layer.

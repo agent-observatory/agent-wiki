@@ -1,0 +1,85 @@
+import copy
+import unittest
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from cost_report import (assess, category, daily_message, full_day_keys, group_usage,
+                         run, cost_totals, cap_values)
+
+
+def row(q=1, currency='SGD', cost=0, service='Compute', sku='Compute - Ampere A1 - OCPU', unit='OCPU Hours', hour=0, day=8):
+    t = datetime(2026, 9, day, hour, tzinfo=timezone.utc)
+    return dict(service=service, sku_name=sku, unit=unit, computed_quantity=q,
+                computed_amount=cost, currency=currency, time_usage_started=t.isoformat(),
+                time_usage_ended=(t+timedelta(hours=1)).isoformat())
+
+
+def snapshot():
+    return dict(month='2026-09', checked_at='09/12 09:13 KST', yesterday_date='2026-09-11',
+                comparison_date='2026-09-09', baseline_date='2026-09-08',
+                cost_month=[row()], usage_month=[row(q=48)], yesterday_cost=[], yesterday=[],
+                comparison=[row(q=1,hour=h,day=9) for h in range(24)],
+                baseline=[row(q=1,hour=h) for h in range(24)])
+
+
+class CostTests(unittest.TestCase):
+    def test_missing_is_not_zero_and_currencies_are_not_added(self):
+        self.assertEqual(cost_totals([row(cost=None)]), {})
+        self.assertEqual(cost_totals([row(cost=1),row(cost=2,currency='USD')]),
+                         {'SGD':Decimal(1),'USD':Decimal(2)})
+        s=snapshot();s['usage_month']=[];s['cost_month']=[]
+        self.assertIn('미집계',str(daily_message(s)))
+        self.assertEqual(assess(s), [])
+
+    def test_partial_days_and_new_skus_do_not_trigger_spike(self):
+        s=snapshot();s['comparison']=[row(q=10,hour=h,day=9) for h in range(23)]
+        self.assertEqual(full_day_keys(s['comparison']),set())
+        self.assertFalse(assess(s))
+        s['baseline']=[]
+        self.assertFalse(assess(s))
+
+    def test_units_are_separate_and_unknown_units_are_not_budgeted(self):
+        self.assertEqual(len(group_usage([row(),row(unit='GB Hours')])),2)
+        self.assertEqual(cap_values(group_usage([row(unit='GB Months')])),{})
+
+    def test_spike_requires_ratio_and_absolute_growth(self):
+        s=snapshot();s['comparison']=[row(q=2,hour=h,day=9) for h in range(24)]
+        self.assertEqual(len(assess(s)),1)
+        s['comparison']=[row(q=.002,hour=h,day=9) for h in range(24)]
+        s['baseline']=[row(q=.001,hour=h) for h in range(24)]
+        self.assertEqual(assess(s),[])
+
+    def test_partial_month_cost_and_free_budget_thresholds(self):
+        s=snapshot();s['cost_month']=[row(cost=.0001)];s['usage_month']=[row(q=1200)]
+        self.assertEqual(len(assess(s)),2)
+
+    def test_repeats_suppressed_and_higher_cost_realerts(self):
+        s=snapshot();s['cost_month']=[row(cost=.01)]
+        state={};saved=[];sent=[]
+        save=lambda s:saved.append(copy.deepcopy(s))
+        run('daily',s,state,save,sent.append);run('daily',s,state,save,sent.append)
+        self.assertEqual(len(sent),2)  # anomaly + daily, not four
+        s['cost_month']=[row(cost=.02)]
+        run('check',s,state,save,sent.append)
+        self.assertEqual(len(sent),3)
+
+    def test_delivery_failure_does_not_acknowledge(self):
+        s=snapshot();s['cost_month']=[row(cost=1)];state={};saved=[]
+        def fail(_):raise RuntimeError('synthetic network failure')
+        with self.assertRaises(RuntimeError):run('daily',s,state,saved.append,fail)
+        self.assertEqual(saved,[])
+        self.assertEqual(state['alerts']['2026-09'],{})
+
+    def test_month_rollover_resets_notified_cost(self):
+        s=snapshot();s['cost_month']=[row(cost=1)];state={'alerts':{'2026-08':{'cost:SGD':999}}};sent=[]
+        run('check',s,state,lambda _:None,sent.append)
+        self.assertEqual(len(sent),1)
+        self.assertNotIn('2026-08',state['alerts'])
+
+    def test_message_has_fallback_and_bounded_blocks(self):
+        msg=daily_message(snapshot(),test=True)
+        self.assertIn('[시험 전송]',msg['text'])
+        self.assertLess(len(msg['blocks']),50)
+        self.assertIn('UTC',str(msg))
+
+
+if __name__=='__main__':unittest.main()

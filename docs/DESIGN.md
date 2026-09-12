@@ -107,6 +107,6 @@
 - 앱 간 연결은 Compose 서비스 이름으로 표시한다. 조회는 파랑, 수집·지식 반영은 주황, DNS·인증서·디스크·관리 접속은 회색이다.
 - Block Volume은 VM과 구분하되 연결·마운트를 표시한다. PostgreSQL과 Caddy 영속 상태는 같은 볼륨의 별도 경로이며 원문 버킷과 구분한다. 인증서 S3 버킷·FSS는 현재 구성에서 제외한다.
 - `wiki-operations.svg`는 Terraform → VM·Docker·Compose 초기 구성 → 외부 ARM64 빌드·미리 pull → 변경된 앱 서비스 교체·검증을 보여준다. 앱 배포 시 DB·Caddy·VM을 유지하며 무중단으로 표현하지 않는다.
-- 로그는 앱 stdout/stderr → Docker syslog·호스트 rsyslog → OCI Unified Monitoring Agent → OCI Logging·Connector Hub → 알림 Function → Slack을 표시한다. 지표·외부 HTTP 점검은 Notifications를 통해 같은 Function에 전달한다. 앱에서 Slack으로 직접 연결하지 않는다.
+- 로그는 앱 stdout/stderr → Docker syslog·호스트 rsyslog → OCI Unified Monitoring Agent → OCI Logging → GitHub Actions 오류 조회 → Slack Webhook을 표시한다. 비용·사용량은 OCI Usage API → GitHub Actions → 같은 Webhook으로 전달한다. 전체 중단·지표 경보는 후속 과제이며 운영 중인 경로로 그리지 않는다. 앱에서 Slack으로 직접 연결하지 않는다.
 - 계층도는 인프라와 독립적인 L1–L5 개념도로 유지한다. 이전 분리 그림·생성기·문서는 `archive/container-instances/`에 보존한다. 운영 데이터 백업은 초기 범위에서 제외한다.
 - 세 그림은 루트의 `python3 scripts/generate-wiki-diagrams.py`로 재생성하고 실제 렌더링을 검증한다.

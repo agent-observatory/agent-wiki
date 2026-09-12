@@ -285,7 +285,7 @@ Terraform은 OCI 인프라, cloud-init은 VM 최초 구성, Docker Compose는 �
 | Docker Compose | 이미지 digest·네트워크·볼륨·메모리/CPU 제한·health check·종료 유예 |
 | 앱 마이그레이션 | 스키마·인덱스·역할·RLS, 단일 실행 잠금 |
 | GitHub Actions / SSH | ARM64 빌드·GHCR 게시·VM에 릴리스 전달·선택 서비스 교체 |
-| Docker syslog·rsyslog·OCI 호스트 에이전트 / 알림 Function | 기성 도구의 로그 전달 / Slack 알림, 업무 앱과 분리 |
+| Docker syslog·rsyslog·OCI 호스트 에이전트 / GitHub Actions | 기성 도구의 로그 전달 / Slack 알림, 업무 앱과 분리 |
 
 ### 배포 순서와 중단 범위
 
@@ -341,7 +341,7 @@ Caddy·웹·API에 같은 요청의 재시도를 겹겹이 넣지 않는다. 외
 
 로컬 값은 Git에서 제외한 `.env.local`에 두고 예제에는 이름만 공유한다. 첫 버전은 `.env.local`에서 배포 시 권한 제한 환경 파일을 만들고 필요한 컨테이너에만 제공한다. Vault 도입은 후속 선택지다. 비밀 원문을 Terraform state·Compose 파일·이미지·로그에 넣지 않는다. OCI CLI 인증은 `~/.oci`에서 관리한다.
 
-VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부여한다. 같은 VM의 컨테이너를 서로 다른 OCI 신원으로 가정하지 않는다. Slack 토큰은 외부 알림 Function에만 두고 VM 앱·수집기에는 제공하지 않는다. [Instance principal](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm)
+VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부여한다. 같은 VM의 컨테이너를 서로 다른 OCI 신원으로 가정하지 않는다. Slack Webhook은 GitHub Actions의 production secret에만 두고 VM 앱·로그 에이전트에는 제공하지 않는다. [Instance principal](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm)
 
 ## 자원 수와 무료 운영 조건
 
@@ -353,7 +353,7 @@ VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부
 | Boot / Block Volume | 부트 50GB + 영속 데이터 50GB | 계정 전체 합계 200GB 무료 한도 |
 | OCI Object Storage | 비공개 원문 버킷 1개 | 계정 전체 20GB·월 API 5만 회, 원문 목표 16GB 이하 |
 | 이미지 저장소 | GHCR | 이미지 보관·빌드 사용량 확인 |
-| 네트워크·운영 | VCN·보안 목록·Gateway·Logging·Monitoring·Connector Hub·Notifications·알림 Function | 서비스별 무료 이용 자격·사용량 확인 |
+| 네트워크·운영 | VCN·보안 목록·Gateway·Logging·Monitoring·Budget | 서비스별 무료 이용 자격·사용량 확인 |
 
 2026-09-12 공식 Always Free 상세 문서 기준 A1 VM 무료량은 월 1,500 OCPU시간·9,000 GB시간이다. 2 OCPU·12GB를 31일 실행하면 1,488 OCPU시간·8,928 GB시간으로 범위 안이다. 기존 자원과 VM 교체 중 중복 실행량도 합산한다. [OCI Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
 
@@ -363,21 +363,25 @@ Home region은 Osaka · ap-osaka-1이다. 생성 시 A1 용량 확보·계정 �
 
 **API·Worker는 구조화된 로그만 남긴다. Slack 전송·필터·중복 억제는 앱 밖의 운영 경로에서 처리한다. 이메일은 사용하지 않는다.** AWS CloudWatch에 해당하는 역할을 여기서는 OCI Logging·Monitoring이 맡는다.
 
-| 입력 | 전달 경로 |
-| --- | --- |
-| 앱의 최종 실패·서버 오류 | stdout/stderr → Docker·호스트 로그 에이전트 → OCI Logging → Connector Hub 필터 → 알림 Function → Slack |
-| CPU·메모리·VM 상태 | OCI Monitoring Alarm → Notifications → 같은 알림 Function → Slack |
-| 앱 전체 중단 | GitHub Actions 15분 HTTP 점검 → 2회 연속 실패 시 Notifications → 같은 알림 Function → Slack |
+| 알림 | 주기·기준 | 전달 경로 |
+| --- | --- | --- |
+| 비용·사용량 요약 | 매일 09:13 한국 시각 | OCI Usage API → GitHub Actions → Slack Webhook |
+| 비용·사용량 이상 | 6시간마다. 첫 양수 비용, 비용 증가, A1 보수적 월 예산 80% 이상, 일 사용량 급증 | 같은 비용 점검에서 새 이상만 전송 |
+| 앱 오류 | 5분마다 `severityNumber >= 17`. INFO·WARN·일반 4xx 제외 | OCI Logging → GitHub Actions → 한국어 Slack 카드 |
+
+비용 집계는 최대 48시간 늦을 수 있다. 전일 금액은 잠정치로 표시하고, 증감은 D-3·D-4의 24개 시간 구간이 모두 수신된 항목만 비교한다. 미집계를 0으로 보거나 다른 단위·통화를 합치지 않는다. 사용량 급증은 2배 이상이면서 CPU 12 OCPU시간·메모리 72 GB시간·해당 스토리지/전송 단위 1 이상의 증가가 있을 때 알린다. A1 운영 예산은 월 1,500 OCPU시간·9,000 GB시간으로 보수적으로 잡고 80%부터 10% 구간마다, 비용은 새 0.01 통화 단위 구간에 도달할 때 다시 알린다.
+
+OCI 월 예산은 청구 통화 SGD 1로 설정했다. **예산과 알림은 자원을 중지하는 상한선이 아니다.** 무료 제공량·집계 지연·다른 자원 사용은 별도로 확인한다. [Cost Analysis 집계](https://docs.oracle.com/en-us/iaas/Content/Billing/Concepts/costanalysisoverview.htm)
 
 **자체 로그 수집기 컨테이너는 두지 않는다.** 앱은 stdout/stderr에 한 줄 JSON만 출력한다. 기성 도구 조합을 다음처럼 구성한다.
 
 `stdout/stderr → Docker syslog driver → 호스트 rsyslog → 호스트 로그 파일 → OCI Unified Monitoring Agent → OCI Logging`
 
-Docker syslog 드라이버를 로컬 Unix 소켓에 연결하고 서비스별 tag를 붙인다. 호스트 rsyslog가 메시지 본문을 JSON 한 줄 형태로 전용 파일에 저장한다. OCI의 Custom Logs Monitoring 플러그인(Unified Monitoring Agent)은 공식 Log Directory·JSON parser 설정으로 이 파일을 읽는다. 앱이 파일 쓰기·로테이션·전송을 직접 구현하지 않는다. [Docker syslog](https://docs.docker.com/engine/logging/drivers/syslog/) · [rsyslog 출력 형식](https://docs.rsyslog.com/doc/configuration/templates.html) · [OCI 입력·파서](https://docs.oracle.com/en-us/iaas/Content/Logging/Concepts/log_inputs_and_parsers.htm)
+Docker syslog 드라이버를 로컬 Unix 소켓에 연결하고 서비스별 tag를 붙인다. 호스트 rsyslog는 전체 메시지를 `apps.jsonl`, OTel 필드가 있는 구조화 로그를 `events.jsonl`에 기록한다. OCI에는 `events.jsonl`만 JSON으로 수집하고 30일 보관한다. OCI의 Custom Logs Monitoring 플러그인(Unified Monitoring Agent)은 공식 Log Directory·JSON parser 설정으로 이 파일을 읽는다. 앱이 파일 쓰기·로테이션·전송을 직접 구현하지 않는다. [Docker syslog](https://docs.docker.com/engine/logging/drivers/syslog/) · [rsyslog 출력 형식](https://docs.rsyslog.com/doc/configuration/templates.html) · [OCI 입력·파서](https://docs.oracle.com/en-us/iaas/Content/Logging/Concepts/log_inputs_and_parsers.htm)
 
 OCI 호스트 에이전트는 Ubuntu 22.04·24.04 ARM을 지원한다. 플랫폼 이미지·플러그인 활성화, 대상 VM dynamic group과 log-content 권한, 수집 파일 접근 권한을 설정한다. UMA의 비공식 커스텀 Fluentd 수신 설정은 사용하지 않는다. Docker 기본 드라이버 목록에는 OCI 전용 드라이버가 없으므로 `awslogs`처럼 바로 연결된다고 가정하지 않는다. [OCI 에이전트·지원 OS](https://docs.oracle.com/en-us/iaas/Content/Logging/Concepts/agent_management.htm) · [설치](https://docs.oracle.com/en-us/iaas/Content/Logging/Task/installing_the_agent.htm) · [Docker 로그 드라이버](https://docs.docker.com/engine/logging/configure/)
 
-호스트 로그 서비스는 컨테이너보다 먼저 시작한다. 로그 드라이버는 bounded non-blocking buffer를 사용하고 파일·spool·로테이션 크기를 제한한다. 버퍼가 차면 로그가 유실될 수 있음을 수용하며 업무 처리를 로그 전송 성공에 묶지 않는다. 기성 에이전트의 메모리·CPU는 호스트 예산에 포함해 실측한다. VM 장애 때 에이전트도 멈추므로 외부 상태 점검은 유지한다. 실제 연동은 배포 시 JSON 필드 보존·오류 필터·로테이션·에이전트 중단 후 재개로 확인한다.
+호스트 로그 서비스는 컨테이너보다 먼저 시작한다. 로그 드라이버는 bounded non-blocking buffer를 사용하고 파일·spool·로테이션 크기를 제한한다. 버퍼가 차면 로그가 유실될 수 있음을 수용하며 업무 처리를 로그 전송 성공에 묶지 않는다. 기성 에이전트의 메모리·CPU는 호스트 예산에 포함해 실측한다. VM 장애 때 에이전트도 멈춘다. 초기 알림 범위는 기록된 앱 오류이며, 로그가 없는 전체 중단·지표 경보·15분 HTTP 점검은 후속 과제다. JSON 필드 보존과 오류 필터는 합성 로그로 검증한다.
 
 앱 로그는 **OTel Logs Data Model에 매핑되는 한 줄 JSON**으로 통일한다. OTel은 논리 모델이며 이 stdout JSON을 OTLP 전송 형식이라고 부르지 않는다. ECS(Elastic Common Schema)는 별도 스키마이고 AWS ECS는 컨테이너 실행 환경이다. [OTel 로그 모델](https://opentelemetry.io/docs/specs/otel/logs/data-model/) · [Elastic ECS](https://www.elastic.co/docs/reference/ecs)
 
@@ -392,17 +396,17 @@ OCI 호스트 에이전트는 Ubuntu 22.04·24.04 ARM을 지원한다. 플랫폼
 
 stdout JSON의 추적 필드는 최상위 `trace_id`, `span_id`, `trace_flags`에 소문자 16진수로 기록한다. HTTP·작업 메타데이터로 추적 문맥을 전달하며 임의의 요청 ID를 trace ID로 대체하지 않는다. 원문·프롬프트·토큰·민감한 예외 메시지는 제외한다. 구현 시 로거의 JSON 매핑과 OCI 필터 경로를 함께 검증한다. [OTel 비 OTLP JSON 추적 필드](https://opentelemetry.io/docs/specs/otel/compatibility/logging_trace_context/)
 
-재시도 중 일시 오류는 warn으로 기록하고, 최종 실패·인증 오류·API 서버 오류만 경보 대상으로 필터링한다. 로그 파이프라인은 중복 전달될 수 있으므로 알림 Function이 `Attributes[agent_wiki.event_id]`와 장애 키로 묶어 전송한다. 초기에는 같은 배치 안의 중복 event ID를 제거하고 클라우드 재전송에 따른 소량의 중복 알림은 허용한다. 별도 중복 억제 DB는 만들지 않는다. 전달 실패 시 성공 처리하지 않으며 알림 Function 자체 로그는 입력 필터에서 제외해 무한 알림을 방지한다.
-
-로그가 남지 않는 강제 종료·전체 장애는 외부 HTTP 점검과 OCI 지표로 확인한다. CPU·메모리 85%가 15분 지속하거나 DB 디스크 부족·접속 오류가 지속되면 경보한다. `/readyz`는 짧은 DB 접속만 검사하고 LLM 장애와 구분한다. 큐 최종 실패·오래된 대기는 상태 점검 로그로 보완한다.
+재시도 중 일시 오류는 WARN, 최종 실패·API 서버 오류는 ERROR로 기록한다. 오류 점검은 최근 24시간을 다시 조회하며, event ID와 서비스·이벤트·오류 코드별 마지막 알림 시각을 원문 버킷의 운영 체크포인트 한 개에 저장한다. 같은 이벤트는 다시 보내지 않고, 같은 종류의 새 오류는 최대 시간당 한 번 알린다. 전송 실패는 성공으로 기록하지 않는다. 전송 뒤 체크포인트 저장에 실패하면 중복 알림이 생길 수 있다.
 
 ### Slack 전달 경계
 
-기존 Slack 봇 토큰은 **알림 Function에만 Vault로 제공**한다. API·Worker·로그 수집기에는 Slack 토큰이나 Slack API 호출 코드를 두지 않는다. Function은 이벤트를 짧은 요약·확인 링크로 바꿔 `chat.postMessage`를 호출하며, Slack 응답의 `ok`와 rate limit을 확인한다. 수집·지식 처리 Worker와 이 알림 Function은 별개다.
+GitHub Actions가 **한국어 제목·핵심 수치·발생 시각·확인 버튼**을 가진 Block Kit 카드를 Incoming Webhook으로 전송한다. 앱에는 Slack 코드나 비밀을 넣지 않는다. 비밀·원문·프롬프트·예외 본문은 카드에 싣지 않고 허용한 운영 필드만 전달한다. 429·일시 오류는 유한 재시도한다.
 
-OCI Notifications의 Slack 직접 구독은 Incoming Webhook을 사용한다. 현재 준비된 봇 토큰을 유지하기 위해 알림 전용 Function을 사용한다. Logging·Connector Hub·Notifications·Functions의 계정 자격과 무료 사용량은 생성 전에 확인하며 무료 자원 한도를 넘기지 않는다. Slack 샘플 수신만 확인했고 실제 로그 수집·경보 자동화는 구현 전이다.
+OCI 기본 Slack 전달은 원본 JSON 형태여서 한국어 카드에 맞지 않았다. 시험용 Notifications 구독은 유지하되 Connector Hub는 `INACTIVE`로 두어 중복 원본 전송을 막는다. 별도 알림 Function은 만들지 않는다. [OCI 전달 형식](https://docs.oracle.com/en-us/iaas/Content/connector-hub/message-examples.htm)
 
-[Connector Hub](https://docs.oracle.com/en-us/iaas/Content/connector-hub/overview.htm) · [Notifications → Function](https://docs.oracle.com/en-us/iaas/Content/Notification/Tasks/create-subscription-function.htm) · [Slack 직접 구독](https://docs.oracle.com/en-us/iaas/Content/Notification/Tasks/create-subscription-slack.htm)
+전용 OCI 계정은 비용 조회·해당 로그 그룹 읽기·운영 체크포인트 한 개의 읽기/쓰기만 허용한다. VM 생성·삭제, Wiki 원문 읽기, 콘솔 로그인 권한은 없다. 비용·오류 Actions는 같은 concurrency 그룹과 객체 조건부 쓰기로 체크포인트 충돌을 막는다. 로컬 비밀은 `.env.local`에서 비공개 설정 파일 경로를 가리키고, 실행 비밀은 GitHub `production` 환경에 둔다.
+
+Actions 예약은 지연되거나 누락될 수 있다. 공개 저장소의 장기 비활동으로 예약이 비활성화될 수도 있다. 오류의 24시간 재조회로 짧은 누락은 보완하지만 실시간·무손실 경보를 보장하지 않는다. 점검 실행 오류도 Slack에 요약하지만 실행 자체가 시작되지 않거나 Slack이 장애면 전달할 수 없다. [Actions 예약 제한](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 
 ## 백업·복구
 
