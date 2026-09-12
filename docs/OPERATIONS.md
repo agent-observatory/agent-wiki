@@ -1,20 +1,21 @@
 # 구현·배포 현황
 
-첫 버전 구현 작업 중이다. **공개 앱은 아직 배포되지 않았다.**
+첫 버전 코드와 배포 파이프라인을 작성하고 로컬 검증을 마쳤다. **공개 앱은 아직 배포되지 않았다.**
 
 ## 현재 상태
 
-| 항목 | 상태 |
-| --- | --- |
-| OCI 계정 | API 인증 성공, Osaka Home region 확인. PAYG 전환 없음 |
-| 비용 범위 | A1 2 OCPU·12GB, 부트 50GB + 데이터 50GB만 허용 |
-| OCI 자원 | VCN·서브넷·Internet Gateway·보안 목록·원문 버킷·50GB 데이터 볼륨 생성 |
-| VM | `Out of host capacity`로 생성 실패, 무료 스펙으로 재시도 중 |
-| 앱 | Next.js 웹, Fastify API, pg-boss Worker 작성. 세부 검증 진행 중 |
-| DNS·HTTPS | VM 확보 전. 기존 DuckDNS 주소를 아직 서버에 연결하지 않음 |
-| 로그인 | GitHub OAuth 설정 준비. 등록한 소유자의 GitHub ID만 허용 |
-| GitHub Actions | 테스트 → ARM64 이미지 게시 → 배포 구성. 실제 배포는 `DEPLOY_ENABLED=true`일 때만 실행 |
-| 모니터링 | 앱 JSON 로그·호스트 전달 설정 작성. OCI Logging/Function/Slack 운영 경로 연결 전 |
+| 항목           | 상태                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| OCI 계정       | API 인증 성공, Osaka Home region 확인. PAYG 전환 없음                                                            |
+| 비용 범위      | A1 2 OCPU·12GB, 부트 50GB + 데이터 50GB만 허용                                                                   |
+| OCI 자원       | VCN·서브넷·Internet Gateway·보안 목록·원문 버킷·50GB 데이터 볼륨 생성                                            |
+| VM             | `Out of host capacity`로 생성 실패, 무료 스펙으로 재시도 중                                                      |
+| 앱             | Next.js 웹, Fastify API, pg-boss Worker 작성. 인증·권한·개정·검색·큐 복구·SIGTERM 통합 테스트 8개 통과           |
+| NVIDIA 추론    | 모델 ID 조회 성공. 합성 자료 추론은 시간 초과로 실제 추출 성공을 확인하지 못함                                   |
+| DNS·HTTPS      | VM 확보 전. 기존 DuckDNS 주소를 아직 서버에 연결하지 않음                                                        |
+| 로그인         | GitHub OAuth 설정 준비. 등록한 소유자의 GitHub ID만 허용                                                         |
+| GitHub Actions | 테스트 → ARM64 이미지 게시 → 배포 구성. 첫 테스트·ARM64 게시 성공. 실제 배포는 `DEPLOY_ENABLED=true`일 때만 실행 |
+| 모니터링       | 앱 JSON 로그·호스트 전달 설정 작성. OCI Logging/Function/Slack 운영 경로 연결 전                                 |
 
 이 문서는 실제 수행 상태다. [아키텍처](wiki/architecture.md)와 그림은 목표 구조를 설명하며, 구현·배포 검증의 증거를 대신하지 않는다.
 
@@ -41,3 +42,16 @@
 ## 재개 위치
 
 Terraform은 `infra/terraform/`에 있다. 로컬 state에는 생성된 자원이 기록돼 있으므로 새로 중복 생성하지 않고 같은 state로 이어간다. VM·데이터 볼륨·원문 버킷에는 `prevent_destroy`를 적용했다. 운영 환경 변경 전 계정 전체 무료 사용량과 plan을 확인한다.
+
+## 확인한 것과 남은 것
+
+- 브라우저에서 Workspace 생성, 문서 저장·읽기, 키워드 검색, 근거 Context 표시를 확인했다. 모바일 390px에서 가로 넘침이 없다.
+- 실제 API 프로세스에 SIGTERM을 보내 DB 처리 중인 요청이 200으로 끝나고 종료 코드 0으로 내려가는 것을 확인했다. 남아 있던 keep-alive 연결이 종료를 막던 문제를 수정했다.
+- 강제 종료 등으로 큐가 최종 실패하면 자료 목록 조회 때 실패 상태를 맞추고 수동 재시도를 허용한다. 새 작업 ID가 생긴 뒤 늦게 도착한 옛 작업은 반영하지 않는다. 실제 VM 컨테이너의 강제 종료·복구 검증은 배포 후 남아 있다.
+- Kimi/DeepSeek는 응답 시간 초과 후 유한 재시도·최종 실패까지 확인했다. 인용 검증과 중복 반영 방지는 합성 모델 응답을 주입해 검증했으며, 이를 실제 NVIDIA 추론 성공으로 표현하지 않는다.
+- 첫 버전 AI 수집은 새 문서·기억 후보를 만든다. 기존 지식을 자동 병합하거나 사실 확인 완료로 승격하지 않는다. 웹에서 편집·확인한다.
+- MCP 서버, 그래프 시각화, 자동 기존 문서 병합, OCI 경보→Slack 운영 연결은 후속 작업이다. HTTP Context API와 문서 연결 데이터는 구현돼 있다.
+
+VM 확보 후 같은 Terraform state로 볼륨 부착과 instance principal을 완료한다. `scripts/bootstrap-vm.py --image <검증된 커밋 SHA>`는 런타임 환경 파일·DB TLS 인증서·DNS·Actions 접속 정보를 준비한다. 그 뒤 `ci.yml`을 실행하고 실제 HTTPS 로그인·저장·조회·DB TLS 연결을 확인한다. 이 스크립트는 VM을 생성하거나 유료 전환하지 않는다.
+
+GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저장소 범위 토큰을 stdin으로 VM에 전달해 이미지를 받고 즉시 임시 Docker 인증 파일을 지운다. 개발자의 GitHub 개인 토큰은 VM에 복사하지 않는다.

@@ -112,7 +112,7 @@ Obsidian 앱은 사용하지 않는다. Markdown·위키 링크·역방향 참�
 
 Wiki는 질문과 관련된 자료를 반환하고, 답변은 사용자가 이미 쓰는 에이전트가 생성한다. 일반 조회에서 Wiki 서버의 NVIDIA LLM을 다시 호출하지 않는다. 이 Context는 모델 학습 데이터가 아니라 질의 시 참고하는 외부 근거다.
 
-혼자 사용하는 초기 구성은 **필요할 때 원격 조회**하는 방식을 권장한다. 로컬 DB·전체 문서 복제·동기화 서버는 두지 않는다. CLI·MCP 등 접근 방식과 에이전트 인증은 구현 전에 정한다.
+혼자 사용하는 초기 구성은 **필요할 때 원격 조회**하는 방식을 권장한다. 로컬 DB·전체 문서 복제·동기화 서버는 두지 않는다. 첫 버전은 Workspace 전용 Bearer 키로 HTTP Context API를 조회한다. MCP 서버는 후속 후보로 둔다.
 
 | 상황 | 조회 방식 |
 | --- | --- |
@@ -248,9 +248,9 @@ GitHub OAuth 앱의 홈페이지는 `https://agent-wiki.duckdns.org`, callback�
 
 2026-09-12 NVIDIA의 [Kimi K3](https://build.nvidia.com/moonshotai/kimi-k3), [DeepSeek Pro](https://build.nvidia.com/deepseek-ai/deepseek-v4-pro-0813), [DeepSeek Flash](https://build.nvidia.com/deepseek-ai/deepseek-v4-flash-0731) 페이지에서 무료 endpoint와 위 호출 ID를 확인했다. 이 순서는 사용자 선호를 반영한 시작 정책이며 한국어 품질·지연 우열의 실측 결과가 아니다.
 
-호출 endpoint는 `https://integrate.api.nvidia.com/v1/chat/completions`, 인증은 서버의 NVIDIA API 키다. OpenAI 호환 형식을 사용하되 모델별 reasoning·streaming·출력 옵션은 adapter에서 구분한다. OCI에는 모델 가중치를 올리지 않는다. 키는 Vault에 보관하며 웹 클라이언트에 전달하지 않는다. [Kimi API](https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-infer)
+호출 endpoint는 `https://integrate.api.nvidia.com/v1/chat/completions`, 인증은 서버의 NVIDIA API 키다. OpenAI 호환 형식을 사용하되 모델별 reasoning·streaming·출력 옵션은 adapter에서 구분한다. OCI에는 모델 가중치를 올리지 않는다. 키는 권한을 제한한 Worker 전용 환경 파일에 보관하며 웹 클라이언트에 전달하지 않는다. [Kimi API](https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-infer)
 
-초기 호출 동시성은 제공자 전체 1로 제한한다. 429는 Retry-After가 있으면 이를 따르고 큐에 다시 예약한다. 같은 NVIDIA 계정의 모델 교체를 쿼타 우회 수단으로 사용하지 않는다. 일시적 5xx·timeout과 JSON·출처 검증 실패에만 정해진 총 시도 한도 안에서 대체 모델을 사용한다. 인증 실패는 재시도 폭주 없이 설정 오류로 표시한다. 두 모델 모두 불가하면 Ingest를 대기시키고 기존 지식의 읽기·검색은 유지한다.
+초기 호출 동시성은 제공자 전체 1로 제한한다. 429는 Retry-After가 있으면 이를 따르고 큐에 다시 예약한다. 같은 NVIDIA 계정의 모델 교체를 쿼타 우회 수단으로 사용하지 않는다. 일시적 5xx·timeout과 JSON·출처 검증 실패에만 정해진 총 시도 한도 안에서 대체 모델을 사용한다. 인증 실패는 재시도 폭주 없이 설정 오류로 표시한다. 최대 3회 모두 실패하면 Ingest를 실패 상태로 남겨 사용자가 재시도할 수 있게 하고 기존 지식의 읽기·검색은 유지한다.
 
 입력 크기·출력 토큰·전체 실행 시간을 제한하고 기본 모델과 실제 사용 모델, 프롬프트 버전·시도·지연·토큰 사용량·전환 이유를 기록한다. 응답은 JSON 구조·근거 ID·Workspace·현재 개정 충돌을 검증한 뒤 갱신 후보로 반영한다. 추론 텍스트를 사실이나 검증 근거로 취급하지 않는다. 자동으로 다른 유료 제공자로 넘기지 않는다.
 
@@ -339,9 +339,9 @@ Caddy·웹·API에 같은 요청의 재시도를 겹겹이 넣지 않는다. 외
 
 ### 인증과 비밀
 
-로컬 값은 Git에서 제외한 `.env.local`에 두고 예제에는 이름만 공유한다. 운영 비밀은 Vault에서 배포 시 권한 제한 파일로 받아 필요한 컨테이너에만 제공한다. 비밀 원문을 Terraform state·Compose 파일·이미지·로그에 넣지 않는다. OCI CLI 인증은 `~/.oci`에서 관리한다.
+로컬 값은 Git에서 제외한 `.env.local`에 두고 예제에는 이름만 공유한다. 첫 버전은 `.env.local`에서 배포 시 권한 제한 환경 파일을 만들고 필요한 컨테이너에만 제공한다. Vault 도입은 후속 선택지다. 비밀 원문을 Terraform state·Compose 파일·이미지·로그에 넣지 않는다. OCI CLI 인증은 `~/.oci`에서 관리한다.
 
-VM의 instance principal에 원문 버킷·필요한 Vault 접근 권한을 최소로 부여한다. 같은 VM의 컨테이너를 서로 다른 OCI 신원으로 가정하지 않는다. Slack 토큰은 외부 알림 Function에만 두고 VM 앱·수집기에는 제공하지 않는다. [Instance principal](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm)
+VM의 instance principal에 원문 버킷·로그 전달 권한을 최소로 부여한다. 같은 VM의 컨테이너를 서로 다른 OCI 신원으로 가정하지 않는다. Slack 토큰은 외부 알림 Function에만 두고 VM 앱·수집기에는 제공하지 않는다. [Instance principal](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm)
 
 ## 자원 수와 무료 운영 조건
 
@@ -353,11 +353,11 @@ VM의 instance principal에 원문 버킷·필요한 Vault 접근 권한을 최�
 | Boot / Block Volume | 부트 50GB + 영속 데이터 50GB | 계정 전체 합계 200GB 무료 한도 |
 | OCI Object Storage | 비공개 원문 버킷 1개 | 계정 전체 20GB·월 API 5만 회, 원문 목표 16GB 이하 |
 | 이미지 저장소 | GHCR | 이미지 보관·빌드 사용량 확인 |
-| 네트워크·운영 | VCN·NSG·Gateway·Vault·Logging·Monitoring·Connector Hub·Notifications·알림 Function | 서비스별 무료 이용 자격·사용량 확인 |
+| 네트워크·운영 | VCN·보안 목록·Gateway·Logging·Monitoring·Connector Hub·Notifications·알림 Function | 서비스별 무료 이용 자격·사용량 확인 |
 
 2026-09-12 공식 Always Free 상세 문서 기준 A1 VM 무료량은 월 1,500 OCPU시간·9,000 GB시간이다. 2 OCPU·12GB를 31일 실행하면 1,488 OCPU시간·8,928 GB시간으로 범위 안이다. 기존 자원과 VM 교체 중 중복 실행량도 합산한다. [OCI Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
 
-Home region은 Osaka · ap-osaka-1이다. 생성 시 A1 용량 확보·계정 전체 사용량·서비스별 무료 자격을 확인한다. 현재 설계에는 Container Instances를 생성하지 않는다. **자원 생성·배포는 아직 수행하지 않았다.**
+Home region은 Osaka · ap-osaka-1이다. 생성 시 A1 용량 확보·계정 전체 사용량·서비스별 무료 자격을 확인한다. 현재 설계에는 Container Instances를 생성하지 않는다. **네트워크·원문 버킷·데이터 볼륨은 생성했지만 VM 할당은 용량 부족으로 실패했다. 앱 배포 전이며 실제 상태는 [운영 현황](../OPERATIONS.md)에 기록한다.**
 
 ## 모니터링과 알림
 
@@ -418,7 +418,7 @@ OCI Notifications의 Slack 직접 구독은 Incoming Webhook을 사용한다. �
 | 무중단 배포 필요 | 복수 앱 실행·라우팅·추가 자원과 DB 가용성 설계 |
 | 처리량이 무료 사용량 초과 | 사용량을 제한하고 무료 범위 내 구성 재검토 |
 
-실증 순서는 **계정·예산 확인 → 합성 자료로 배포·기본 기능 확인 → 사용량 확인 → 개인 원문**이다. 이 저장소에는 아직 실행할 인프라 코드나 운영 자원 연결이 없다.
+실증 순서는 **계정·예산 확인 → 합성 자료로 배포·기본 기능 확인 → 사용량 확인 → 개인 원문**이다. Terraform·Compose·배포 스크립트와 앱 코드가 있으며, 공개 배포와 운영 연결 검증은 아직이다.
 
 ## 레퍼런스에서 가져올 요소
 

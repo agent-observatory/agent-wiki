@@ -267,3 +267,60 @@ test("source acceptance is idempotent; committed ingest is not applied twice; de
   });
   assert.equal(hidden.statusCode, 404);
 });
+test("expired queue work becomes retryable in the UI; an old delivery cannot apply to a new attempt", async () => {
+  const accepted = await app.inject({
+    method: "POST",
+    url: `/api/workspaces/${ws}/sources`,
+    headers: { ...headers, "idempotency-key": randomUUID() },
+    payload: {
+      name: "종료 복구 검증",
+      text: "합성 기록",
+      allowExternalAI: true,
+    },
+  });
+  assert.equal(accepted.statusCode, 200, accepted.body);
+  const id = accepted.json().id;
+  const oldJob = (
+    await admin.query("SELECT queue_job_id FROM sources WHERE id=$1", [id])
+  ).rows[0].queue_job_id;
+  await admin.query(
+    "UPDATE pgboss.job SET state='failed',completed_on=now() WHERE id=$1",
+    [oldJob],
+  );
+  const listing = await app.inject({
+    url: `/api/workspaces/${ws}/sources`,
+    headers,
+  });
+  assert.equal(
+    listing.json().items.find((s: { id: string }) => s.id === id).status,
+    "failed",
+  );
+  const retry = await app.inject({
+    method: "POST",
+    url: `/api/workspaces/${ws}/sources/${id}/retry`,
+    headers,
+    payload: {},
+  });
+  assert.equal(retry.statusCode, 200, retry.body);
+  let called = false;
+  const shouldNotRun = async () => {
+    called = true;
+    throw new Error("Stale job must not call AI");
+  };
+  await processSource(
+    { sourceId: id, workspaceId: ws, userId: "test-owner" },
+    0,
+    new AbortController().signal,
+    shouldNotRun,
+    oldJob,
+  );
+  assert.equal(called, false);
+  const refreshed = await app.inject({
+    url: `/api/workspaces/${ws}/sources`,
+    headers,
+  });
+  assert.equal(
+    refreshed.json().items.find((s: { id: string }) => s.id === id).status,
+    "queued",
+  );
+});

@@ -51,6 +51,14 @@ export async function buildApp() {
     requestTimeout: 25000,
     connectionTimeout: 30000,
   });
+  let draining = false;
+  app.addHook("preClose", async () => {
+    draining = true;
+  });
+  app.addHook("onSend", async (_req, reply, payload) => {
+    if (draining) reply.header("Connection", "close");
+    return payload;
+  });
   const boss = new PgBoss({
     connectionString: process.env.DATABASE_URL,
     migrate: false,
@@ -477,14 +485,26 @@ export async function buildApp() {
     };
   });
   app.get("/api/workspaces/:workspaceId/sources", async (req) =>
-    scoped(req, async (c, ws) => ({
-      items: (
-        await c.query(
-          "SELECT id,name,status,error_code,model,attempt,created_at FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50",
-          [ws],
-        )
-      ).rows,
-    })),
+    scoped(req, async (c, ws) => {
+      // A killed worker may never run its catch block. Reconcile durable queue state.
+      const expired = await c.query(
+        "UPDATE sources s SET status='failed',error_code='QUEUE_TERMINATED' FROM pgboss.job j WHERE s.workspace_id=$1 AND s.queue_job_id=j.id AND j.name='ingest' AND j.state IN ('failed','cancelled') AND s.status IN ('queued','processing','retrying') AND s.deleted_at IS NULL RETURNING s.id",
+        [ws],
+      );
+      for (const row of expired.rows)
+        log("error", "job_failed_terminal", {
+          job_id: row.id,
+          error_code: "QUEUE_TERMINATED",
+        });
+      return {
+        items: (
+          await c.query(
+            "SELECT id,name,status,error_code,model,attempt,created_at FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50",
+            [ws],
+          )
+        ).rows,
+      };
+    }),
   );
   app.post("/api/workspaces/:workspaceId/sources", async (req) => {
     const input = z
@@ -545,11 +565,15 @@ export async function buildApp() {
           throw new AppError(409, "IDEMPOTENCY_CONFLICT");
         return { id: old.id, status: old.status };
       }
-      await boss.send(
+      const jobId = await boss.send(
         "ingest",
         { sourceId: id, workspaceId: w, userId: req.identity!.userId },
         { db: { executeSql: (text, values) => c.query(text, values) } },
       );
+      await c.query("UPDATE sources SET queue_job_id=$2 WHERE id=$1", [
+        id,
+        jobId,
+      ]);
       return row;
     });
   });
@@ -570,11 +594,15 @@ export async function buildApp() {
         "UPDATE sources SET status='queued',attempt=0,error_code=NULL WHERE id=$1",
         [id],
       );
-      await boss.send(
+      const jobId = await boss.send(
         "ingest",
         { sourceId: id, workspaceId: ws, userId: req.identity!.userId },
         { db: { executeSql: (text, values) => c.query(text, values) } },
       );
+      await c.query("UPDATE sources SET queue_job_id=$2 WHERE id=$1", [
+        id,
+        jobId,
+      ]);
       return { id, status: "queued" };
     });
   });

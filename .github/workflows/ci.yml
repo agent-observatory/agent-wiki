@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -72,6 +72,9 @@ jobs:
           push: true
           tags: ghcr.io/agent-observatory/agent-wiki-${{ matrix.name }}:${{ github.sha }}
   deploy:
+    permissions:
+      contents: read
+      packages: read
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: publish
     runs-on: ubuntu-24.04
@@ -87,10 +90,12 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           IMAGE_TAG: ${{ github.sha }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
           umask 077
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/wiki
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes scripts/deploy.sh ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/deploy.sh
-          ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" "bash /opt/agent-wiki/deploy.sh '$IMAGE_TAG'"
+          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes scripts/deploy.sh scripts/first-deploy.sh scripts/registry-deploy.sh ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/
+          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" "bash /opt/agent-wiki/registry-deploy.sh '$IMAGE_TAG' '$GHCR_USER'"

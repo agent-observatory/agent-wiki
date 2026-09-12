@@ -57,16 +57,47 @@ const messages: Record<string, string> = {
   SESSION_EXPIRED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
 };
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetch(url, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-  });
-  const data = await r.json();
-  if (!r.ok)
-    throw new Error(
-      messages[data.error] ?? data.error ?? "요청을 처리하지 못했어요.",
-    );
-  return data;
+  const safe = !options.method || options.method === "GET";
+  const deadline = AbortSignal.timeout(12000);
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, deadline])
+    : deadline;
+  for (let attempt = 0; ; attempt++) {
+    let r: Response;
+    try {
+      r = await fetch(url, {
+        ...options,
+        signal,
+        headers: { "Content-Type": "application/json", ...options.headers },
+      });
+    } catch (error) {
+      if (!safe || attempt >= 2 || signal.aborted) throw error;
+      await new Promise((resolve) =>
+        setTimeout(resolve, 250 * 2 ** attempt + Math.random() * 150),
+      );
+      continue;
+    }
+    if (
+      safe &&
+      [502, 503, 504].includes(r.status) &&
+      attempt < 2 &&
+      !signal.aborted
+    ) {
+      await r.body?.cancel();
+      await new Promise((resolve) =>
+        setTimeout(resolve, 250 * 2 ** attempt + Math.random() * 150),
+      );
+      continue;
+    }
+    const data = await r
+      .json()
+      .catch(() => ({ error: "잠시 연결할 수 없어요. 다시 시도해 주세요." }));
+    if (!r.ok)
+      throw new Error(
+        messages[data.error] ?? data.error ?? "요청을 처리하지 못했어요.",
+      );
+    return data;
+  }
 }
 const date = (value: string) =>
   new Date(value).toLocaleDateString("ko-KR", {
@@ -869,7 +900,10 @@ export default function Wiki() {
                         >
                           <b>{s.name}</b>
                           <small>
-                            {s.model ?? "AI 처리 대기"}
+                            {s.model ??
+                              (s.status === "failed"
+                                ? "AI 처리 실패"
+                                : "AI 처리 대기")}
                             {s.error_code ? " · " + s.error_code : ""}
                           </small>
                         </button>

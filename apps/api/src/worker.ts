@@ -26,7 +26,13 @@ await boss.work<
   async (jobs) => {
     const job = jobs[0];
     try {
-      await processSource(job.data, job.retryCount, abort.signal);
+      await processSource(
+        job.data,
+        job.retryCount,
+        abort.signal,
+        undefined,
+        job.id,
+      );
     } catch (error) {
       const code =
         error instanceof ModelError
@@ -39,8 +45,8 @@ await boss.work<
         job.retryCount >= job.retryLimit;
       await tx(job.data.userId, job.data.workspaceId, async (c) => {
         await c.query(
-          "UPDATE sources SET status=$2,error_code=$3 WHERE id=$1 AND deleted_at IS NULL AND status<>'completed'",
-          [job.data.sourceId, terminal ? "failed" : "retrying", code],
+          "UPDATE sources SET status=$2,error_code=$3 WHERE id=$1 AND deleted_at IS NULL AND status<>'completed' AND queue_job_id=$4",
+          [job.data.sourceId, terminal ? "failed" : "retrying", code, job.id],
         );
       });
       log(

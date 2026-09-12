@@ -28,3 +28,5 @@ GRANT USAGE ON SCHEMA public TO wiki_app;
 GRANT CONNECT ON DATABASE agent_wiki TO wiki_app;
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO wiki_admin;
+
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS queue_job_id uuid;

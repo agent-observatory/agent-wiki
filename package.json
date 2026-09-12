@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && npm --prefix apps/web run build",
     "typecheck": "tsc --noEmit && npm --prefix apps/web run typecheck",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "api": "tsx apps/api/src/server.ts",
     "worker": "tsx apps/api/src/worker.ts",
     "migrate": "tsx packages/core/src/migrate.ts"

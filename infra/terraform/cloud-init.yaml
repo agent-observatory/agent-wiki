@@ -59,7 +59,6 @@ runcmd:
   - mkdir -p /var/log/agent-wiki
   - systemctl enable --now docker
   - systemctl restart rsyslog
-  - chmod 666 /run/wiki-syslog.sock
   - iptables -I INPUT 1 -p tcp -m multiport --dports 22,80,443,5432 -j ACCEPT
   - mkdir -p /etc/iptables
   - sh -c "iptables-save > /etc/iptables/rules.v4"

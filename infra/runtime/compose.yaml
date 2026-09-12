@@ -7,6 +7,8 @@ x-logging: &logs
     mode: non-blocking
     max-buffer-size: 1m
 x-app: &app
+  volumes:
+    - /srv/agent-wiki/data/tls/ca.crt:/run/wiki-ca.crt:ro
   image: ghcr.io/agent-observatory/agent-wiki-app:${IMAGE_TAG:?IMAGE_TAG required}
   restart: unless-stopped
   init: true
@@ -111,7 +113,7 @@ services:
     volumes:
       - /srv/agent-wiki/data/postgres:/var/lib/postgresql/data
       - /srv/agent-wiki/data/tls:/tls:ro
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     networks: [wiki]
     logging: *logs

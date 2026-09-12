@@ -51,8 +51,11 @@ async function infer(source: string, signal: AbortSignal, attempt: number) {
   const model =
     attempt === 0
       ? (process.env.NVIDIA_MODEL ?? "moonshotai/kimi-k3")
-      : (process.env.NVIDIA_FALLBACK_MODEL ??
-        "deepseek-ai/deepseek-v4-pro-0813");
+      : attempt === 1
+        ? (process.env.NVIDIA_FALLBACK_MODEL ??
+          "deepseek-ai/deepseek-v4-pro-0813")
+        : (process.env.NVIDIA_FLASH_MODEL ??
+          "deepseek-ai/deepseek-v4-flash-0731");
   const res = await fetch(
     "https://integrate.api.nvidia.com/v1/chat/completions",
     {
@@ -64,7 +67,10 @@ async function infer(source: string, signal: AbortSignal, attempt: number) {
       },
       body: JSON.stringify({
         model,
-        temperature: 0.2,
+        temperature: 1,
+        ...(model.startsWith("moonshotai/")
+          ? { reasoning_effort: "low" }
+          : { chat_template_kwargs: { thinking: false } }),
         max_tokens: 3500,
         stream: false,
         messages: [
@@ -77,7 +83,14 @@ async function infer(source: string, signal: AbortSignal, attempt: number) {
         ],
       }),
     },
-  );
+  ).catch((error: Error) => {
+    if (signal.aborted) throw new ModelError("WORKER_SHUTDOWN", true);
+    throw new ModelError(
+      error.name === "TimeoutError" ? "MODEL_TIMEOUT" : "MODEL_NETWORK",
+      true,
+    );
+  });
+  if (res.status === 202) throw new ModelError("MODEL_PENDING", true, 30);
   if (!res.ok) {
     const after = res.headers.get("retry-after");
     const seconds = after
@@ -106,6 +119,7 @@ export async function processSource(
   attempt: number,
   signal: AbortSignal,
   inference = infer,
+  jobId?: string,
 ) {
   const { sourceId, workspaceId, userId } = data;
   const source = await tx(userId, workspaceId, async (c) => {
@@ -115,7 +129,12 @@ export async function processSource(
         [sourceId, workspaceId],
       )
     ).rows[0];
-    if (!row || row.deleted_at || ["completed", "failed"].includes(row.status))
+    if (
+      !row ||
+      (jobId && row.queue_job_id !== jobId) ||
+      row.deleted_at ||
+      ["completed", "failed"].includes(row.status)
+    )
       return null;
     await c.query(
       "UPDATE sources SET status='processing',attempt=$2+1,error_code=NULL WHERE id=$1",
@@ -137,6 +156,7 @@ export async function processSource(
     ).rows[0];
     if (
       !current ||
+      (jobId && current.queue_job_id !== jobId) ||
       current.deleted_at ||
       ["completed", "failed"].includes(current.status)
     )
@@ -171,7 +191,7 @@ export async function processSource(
           content,
           sourceId,
           result.tags,
-          m.status,
+          "ai_inferred",
         ],
       );
       await c.query(

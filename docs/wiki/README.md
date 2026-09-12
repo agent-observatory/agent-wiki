@@ -4,7 +4,7 @@
 
 주 흐름은 에이전트의 질의 → 근거 Context 조회 → 현재 에이전트의 답변·작업이다. 웹 위키는 편집·정정·출처 확인을 보조한다.
 
-아래 그림은 A1 Compute VM 1대·2 OCPU·12GB에 앱과 PostgreSQL을 함께 두는 설계안이다. Compose로 실행하고 DB·Caddy 상태는 연결 볼륨에 보관한다. 실제 구축 전이며 [이전 분리 구성 그림·생성기](../archive/container-instances/ARCHIVE.md)는 별도로 보존했다.
+아래 그림은 A1 Compute VM 1대·2 OCPU·12GB에 앱과 PostgreSQL을 함께 두는 설계안이다. Compose로 실행하고 DB·Caddy 상태는 연결 볼륨에 보관한다. 실제 구축·배포 상태는 [운영 현황](../OPERATIONS.md)을 따르며 [이전 분리 구성 그림·생성기](../archive/container-instances/ARCHIVE.md)는 별도로 보존했다.
 
 ![원천 자료부터 근거 있는 응답까지의 L1–L5](../assets/wiki-layers.svg)
 

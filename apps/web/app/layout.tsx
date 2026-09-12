@@ -1,3 +1,5 @@
+import "@fontsource/noto-sans-kr/400.css";
+import "@fontsource/noto-sans-kr/700.css";
 import "./style.css";
 export const metadata = {
   title: "Agent Wiki",
