@@ -155,7 +155,6 @@ export async function runOne(
             0,
           );
           diagnostics.sourceOmittedBytes = projection.omittedBytes;
-          const related = await curationContext(c, ws, source.id, text);
           const budget =
             task.config.maxInputTokens -
             estimateTokens(instruction) -
@@ -174,6 +173,8 @@ export async function runOne(
           const chunk = plan.chunks[task.chunk_index];
           if (!chunk) throw new ModelError("AI_CHUNK_MISSING");
           const lines = text.split("\n");
+          const chunkText = lines.slice(chunk.start - 1, chunk.end).join("\n");
+          const related = await curationContext(c, ws, source.id, chunkText);
           const referenceLines: string[] = [];
           let referenceBytes = 0;
           for (let i = chunk.contextStart - 1; i < chunk.contextEnd; i++) {
@@ -188,7 +189,7 @@ export async function runOne(
               revision: 1,
               start: chunk.start,
               end: chunk.end,
-              text: lines.slice(chunk.start - 1, chunk.end).join("\n"),
+              text: chunkText,
               roles: roleRanges(sourceRoles(original), chunk.start, chunk.end),
               omittedLines: projection.omitted.filter(
                 (r) => r.start <= chunk.end && r.end >= chunk.start,

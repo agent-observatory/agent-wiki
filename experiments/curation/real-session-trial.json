@@ -1,0 +1,38 @@
+{
+  "purpose": "Small real-session curation trial",
+  "promptVersion": "remote-curation-4",
+  "model": "deepseek-ai/deepseek-v4-flash-0731",
+  "inputContentIncluded": false,
+  "runs": [
+    {
+      "status": "completed",
+      "error_code": null,
+      "usage": {
+        "total_tokens": 2730,
+        "prompt_tokens": 1428,
+        "completion_tokens": 1302
+      },
+      "diagnostics": {
+        "durationMs": 8162,
+        "httpRequests": 1,
+        "retryable": null,
+        "retryDelaySeconds": null,
+        "stage": "completed"
+      }
+    },
+    {
+      "status": "failed",
+      "error_code": "AI_TIMEOUT",
+      "usage": null,
+      "diagnostics": {
+        "durationMs": 149997,
+        "httpRequests": 1,
+        "retryable": true,
+        "retryDelaySeconds": 122,
+        "stage": "model"
+      }
+    }
+  ],
+  "finding": "The first result curated session wrapper metadata rather than durable project knowledge. Pause, omit known metadata and base instructions, then rebuild derived knowledge while retaining L1 and attempt history.",
+  "limits": "Two attempts only. One success and one timeout do not establish provider reliability or general quality."
+}
