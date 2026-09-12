@@ -35,4 +35,9 @@ run "single_free_a1" {
     condition     = oci_core_volume_attachment.data.attachment_type == "paravirtualized" && oci_core_volume_attachment.data.device == "/dev/oracleoci/oraclevdb"
     error_message = "The data attachment must match the cloud-init mount device."
   }
+
+  assert {
+    condition     = oci_core_instance.wiki.is_pv_encryption_in_transit_enabled && oci_core_instance.wiki.launch_options[0].is_pv_encryption_in_transit_enabled && oci_core_volume_attachment.data.is_pv_encryption_in_transit_enabled
+    error_message = "The instance and data attachment must both enable paravirtualized in-transit encryption."
+  }
 }

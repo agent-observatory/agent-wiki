@@ -106,6 +106,8 @@ resource "oci_core_subnet" "wiki" {
 
 resource "oci_core_instance" "wiki" {
   fault_domain = var.fault_domain
+  # OCI uses this field at creation and launch_options for later updates.
+  is_pv_encryption_in_transit_enabled = true
 
   compartment_id      = var.tenancy_id
   availability_domain = var.availability_domain
@@ -114,6 +116,10 @@ resource "oci_core_instance" "wiki" {
   shape_config {
     ocpus         = 2
     memory_in_gbs = 12
+  }
+
+  launch_options {
+    is_pv_encryption_in_transit_enabled = true
   }
 
   source_details {
@@ -146,6 +152,8 @@ resource "oci_core_instance" "wiki" {
 
   lifecycle {
     prevent_destroy = true
+    # This create-only provider field is ForceNew; the live setting is managed above.
+    ignore_changes = [is_pv_encryption_in_transit_enabled]
   }
 
 
