@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -73,7 +74,7 @@ export function KnowledgeList() {
   return (
     <>
       <Heading
-        title="지식"
+        title={layerLabel("L3")}
         description="다음 작업에서 다시 꺼내 쓸 결정과 기억입니다."
         action={
           <Button onClick={() => setCreate(true)}>
@@ -162,7 +163,7 @@ export function KnowledgeList() {
           ))}
         </div>
       )}
-      <Pagination data={data?.pagination} label="지식" />
+      <Pagination data={data?.pagination} label={LAYER_NAMES.L3} />
       <Editor
         open={create}
         close={() => setCreate(false)}
@@ -367,7 +368,7 @@ export function KnowledgeDetail() {
         className="inline-flex items-center gap-2 mb-6 text-muted-foreground"
       >
         <ArrowLeft className="size-4" />
-        지식 목록
+        {layerLabel("L3")}
       </Link>
       <Heading
         title={a.title}

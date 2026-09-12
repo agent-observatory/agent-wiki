@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -17,7 +18,7 @@ export function SourceList() {
   return (
     <>
       <Heading
-        title="수집 자료"
+        title={layerLabel("L1")}
         description="지식의 근거가 되는 대화·문서·코드의 보관본입니다."
       />
       {error ? (
@@ -49,7 +50,7 @@ export function SourceList() {
           ))}
         </div>
       )}
-      <Pagination data={data?.pagination} label="수집 자료" />
+      <Pagination data={data?.pagination} label={LAYER_NAMES.L1} />
     </>
   );
 }
@@ -67,7 +68,7 @@ export function SourceDetail() {
         className="mb-6 inline-flex gap-2 items-center text-muted-foreground"
       >
         <ArrowLeft className="size-4" />
-        수집 자료
+        {layerLabel("L1")}
       </Link>
       <Heading title={s.name} description="보관된 기록과 근거를 확인합니다." />
       <div className="mb-6 space-y-2 text-sm text-muted-foreground">

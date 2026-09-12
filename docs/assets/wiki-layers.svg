@@ -17,7 +17,7 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="184" y="283" font-size="20" font-weight="700" fill="#172C4B">에이전트 답변·작업</text>
+<text x="184" y="283" font-size="20" font-weight="700" fill="#172C4B">Answers</text>
 <text x="146" y="322" font-size="18" font-weight="400" fill="#172C4B">조회 Skill · Wiki CLI</text>
 <path d="M430 260 V365" stroke="#929EAD"/>
 <rect x="456" y="256" width="630" height="114" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
@@ -52,7 +52,7 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="184" y="463" font-size="20" font-weight="700" fill="#172C4B">검색·근거 제공</text>
+<text x="184" y="463" font-size="20" font-weight="700" fill="#172C4B">Query</text>
 <text x="146" y="502" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-api</text>
 <path d="M430 440 V545" stroke="#929EAD"/>
 <text x="456" y="463" font-size="20" font-weight="700" fill="#172C4B">시작 Context · 키워드·별칭 검색</text>
@@ -67,7 +67,7 @@
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
   <path d="M9 8h6" />
 </svg>
-<text x="184" y="643" font-size="20" font-weight="700" fill="#172C4B">Wiki</text>
+<text x="184" y="643" font-size="20" font-weight="700" fill="#172C4B">Knowledge</text>
 <text x="146" y="682" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-db</text>
 <path d="M430 620 V725" stroke="#929EAD"/>
 <text x="456" y="643" font-size="20" font-weight="700" fill="#172C4B">Memory · Article · Glossary</text>
@@ -88,7 +88,7 @@
   <path d="M14 21v-2" />
   <path d="M10 21v-2" />
 </svg>
-<text x="184" y="823" font-size="20" font-weight="700" fill="#172C4B">Ingest</text>
+<text x="184" y="823" font-size="20" font-weight="700" fill="#172C4B">Curation</text>
 <text x="146" y="862" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-worker</text>
 <path d="M430 800 V905" stroke="#929EAD"/>
 <text x="456" y="823" font-size="20" font-weight="700" fill="#172C4B">텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영</text>
@@ -102,7 +102,7 @@
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="184" y="1003" font-size="20" font-weight="700" fill="#172C4B">Raw sources</text>
+<text x="184" y="1003" font-size="20" font-weight="700" fill="#172C4B">Raw Sources</text>
 <text x="146" y="1042" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-collector</text>
 <path d="M430 980 V1085" stroke="#929EAD"/>
 <text x="456" y="1003" font-size="20" font-weight="700" fill="#172C4B">증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록</text>

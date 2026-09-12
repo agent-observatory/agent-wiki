@@ -10,7 +10,7 @@
 <text x="1202" y="119" font-size="16" font-weight="700" fill="#8054A3">근거 참조</text>
 <rect x="40" y="190" width="430" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M46 190 H464 Q470 190 470 196 V244 H40 V196 Q40 190 46 190" fill="#344256"/>
-<text x="62" y="226" font-size="24" font-weight="700" fill="#FFFFFF">1 · 원격 입력 보관본</text>
+<text x="62" y="226" font-size="24" font-weight="700" fill="#FFFFFF">L1 · Raw Sources</text>
 <rect x="72" y="284" width="366" height="118" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <text x="92" y="326" font-size="20" font-weight="700" fill="#172C4B">원문 A · 첫 번째 개정</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="344" color="#172C4B">
@@ -29,7 +29,7 @@
 <text x="126" y="506" font-size="18" font-weight="400" fill="#172C4B">현재 구성 · 미완료 작업</text>
 <rect x="540" y="190" width="430" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M546 190 H964 Q970 190 970 196 V244 H540 V196 Q540 190 546 190" fill="#344256"/>
-<text x="562" y="226" font-size="24" font-weight="700" fill="#FFFFFF">2 · agent-wiki-worker</text>
+<text x="562" y="226" font-size="24" font-weight="700" fill="#FFFFFF">L2 · Curation</text>
 <rect x="572" y="284" width="366" height="254" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <text x="592" y="326" font-size="20" font-weight="700" fill="#172C4B">정제·반영 기록</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="592" y="344" color="#172C4B">
@@ -51,7 +51,7 @@
 <path d="M470 380 H540" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="1040" y="190" width="480" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M1046 190 H1514 Q1520 190 1520 196 V244 H1040 V196 Q1040 190 1046 190" fill="#344256"/>
-<text x="1062" y="226" font-size="24" font-weight="700" fill="#FFFFFF">3 · Wiki 검증·일괄 반영</text>
+<text x="1062" y="226" font-size="24" font-weight="700" fill="#FFFFFF">L3 · Knowledge</text>
 <rect x="1072" y="284" width="416" height="254" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <text x="1092" y="326" font-size="20" font-weight="700" fill="#172C4B">지식 A · 두 번째 개정</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1092" y="344" color="#172C4B">

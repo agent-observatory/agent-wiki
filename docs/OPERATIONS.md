@@ -11,6 +11,12 @@
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
 
+## 계층 이름과 수집 화면 통일
+
+2026-09-13. 웹 메뉴·제목·목록 이동·페이지네이션과 현재 설계 문서·그림의 계층 이름을 `L1 · Raw Sources`·`L2 · Curation`·`L3 · Knowledge`·`L4 · Query`·`L5 · Answers`로 통일했다. 메뉴 순서는 L3 → L2 → L1이다. 웹과 그림 생성기는 같은 이름 정의를 읽으며 디자인·작업 지침에도 기준을 기록했다. 웹 타입 검사·빌드, SVG XML·재생성·상대 링크·실제 렌더링을 확인했다. 이 변경의 배포와 운영 화면 확인은 다음 기록에 남긴다.
+
+수집 화면의 `원문 보관` 버튼과 수동 등록 창을 제거했다. 세션 수집은 Collector로 수행한다. 버튼 제거 앱 `f58af31`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34715772314)가 성공했다.
+
 ## 애플리케이션 이름과 실행 구성 통일
 
 2026-09-13. `apps/agent-wiki-api`·`apps/agent-wiki-web`·`apps/agent-wiki-worker`와 `packages/agent-wiki-client`로 코드 경로를 맞췄다. Client 안의 `cli/agent-wiki.mjs`·`collector/`·`skill/` 역할을 구분하며 단일 설치·`agent-wiki` 명령은 유지한다. 로컬 패키지는 0.5.0이다.

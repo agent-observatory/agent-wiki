@@ -81,6 +81,12 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 새 API·근거 화면 구현과 함께 기존 직접 스타일링한 버튼·Select·메뉴·대화상자를 교체한다. 소유자 로그인·아이콘 토글·다중 태그·원문 구간·개정 확인 흐름은 유지한다. 설치·빌드 성공과 실제 화면 전환·배포 검증을 구분한다. [Next.js 공식 설치 안내](https://ui.shadcn.com/docs/installation/next)
 
+## 용어 일관성
+
+계층 이름은 **L1 · Raw Sources → L2 · Curation → L3 · Knowledge → L4 · Query → L5 · Answers**로 통일한다. 웹 메뉴·화면 제목·돌아가기 링크·페이지네이션 접근성 라벨과 문서·그림에 같은 이름을 사용한다. 설명 문장의 수집·정제·지식 같은 일반 명사는 한국어로 쓸 수 있다. 제품명 Agent Wiki와 외부 레퍼런스의 LLM Wiki는 바꾸지 않는다.
+
+웹과 그림 생성기는 `apps/agent-wiki-web/lib/layer-names.json`을 공통 이름 정의로 사용한다. 이름을 바꿀 때는 이 파일과 아키텍처의 계층 표를 함께 갱신한다. 문서 안의 과거 검증 기록과 보존용 설계는 당시 이름을 유지한다.
+
 ## 문서 그림 공통 기준
 
 - 웹 개정 배지는 `Version 1`로 쓰며 `r1` 같은 약어를 노출하지 않는다.
@@ -100,7 +106,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 그림은 작업 에이전트와 별도 Collector·백그라운드 정제를 분리한 **목표**를 설명한다. 그림에는 미구현·구현 완료 같은 진행 상태를 붙이지 않는다. 구현 여부는 대화와 운영 현황으로 전달한다. 실제 전환 여부는 `docs/OPERATIONS.md`를 따른다. 과거 정제 설계의 그림은 `docs/archive/server-ingest/`에 보존했다.
 
 - `wiki-layers.svg`: L1은 아래, L5는 위. 계층별 실행 주체와 같은 합성 입력·출력 예시를 나란히 둔다. L1은 서버가 검증·등록한 원문, L2는 텍스트 청킹 → 주장·근거 추출 → 비교·검증, L5는 작업 에이전트 답변이다. Memory·Article·Glossary는 지식 유형이며 직렬 생성 단계가 아니다.
-- `wiki-deployment.svg`: 사용자 기기의 작업 에이전트와 단일 설치 패키지를 구분한다. 로컬 배포 묶음은 `agent-wiki-client`, 실행 구성은 `agent-wiki-cli`·`agent-wiki-collector`로 표시한다. 배포도는 실행 시 위치를 보여주므로 설치된 조회 Skill은 Codex·Claude Code 안에 둔다. Skill 원본의 패키지 포함·복사 과정은 설치 안내에만 설명한다. 모든 자체 운영 앱·저장소는 아키텍처의 고유 이름을 제목에 쓴다. `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`가 기본이며 Caddy·Next.js·Fastify·PostgreSQL은 본문과 아이콘으로 구분한다. 같은 프레임워크를 쓰는 앱이 추가되어도 고유 이름으로 구분한다. L2 정제는 원격 VM 내부 Worker, 외부 AI API는 VM 밖에 표시한다. 원격 VM의 5개 컨테이너, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 원문·L2 정제·L3 지식·L4 조회·L5 활용 역할 라벨을 붙인다.
+- `wiki-deployment.svg`: 사용자 기기의 작업 에이전트와 단일 설치 패키지를 구분한다. 로컬 배포 묶음은 `agent-wiki-client`, 실행 구성은 `agent-wiki-cli`·`agent-wiki-collector`로 표시한다. 배포도는 실행 시 위치를 보여주므로 설치된 조회 Skill은 Codex·Claude Code 안에 둔다. Skill 원본의 패키지 포함·복사 과정은 설치 안내에만 설명한다. 모든 자체 운영 앱·저장소는 아키텍처의 고유 이름을 제목에 쓴다. `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`가 기본이며 Caddy·Next.js·Fastify·PostgreSQL은 본문과 아이콘으로 구분한다. 같은 프레임워크를 쓰는 앱이 추가되어도 고유 이름으로 구분한다. L2 정제는 원격 VM 내부 Worker, 외부 AI API는 VM 밖에 표시한다. 원격 VM의 5개 컨테이너, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 · Raw Sources부터 L5 · Answers까지 계층 라벨을 붙인다.
 - `wiki-lineage.svg`: 고정 Source·기존 지식 개정 → 별도 백그라운드 정제 실행 → 새 지식 개정·주장별 근거 → Context를 표시한다. 관련 문서 링크·사용자 확인 상태를 근거와 혼동하지 않는다.
 - `wiki-operations.svg`: 기존 인프라·배포·비용/오류 알림과 별도 수집 경로를 보여준다. 수집 → 원격 원문 보관 → 별도 정제를 사용자 작업 절차처럼 표현하지 않는다. 앱은 로그만 남긴다. 오류는 OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack, 비용·사용량은 GitHub Actions → Slack으로 구분한다.
 

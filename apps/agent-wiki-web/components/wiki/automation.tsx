@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -167,7 +168,7 @@ function AutomationContent() {
   return (
     <>
       <Heading
-        title="정제 작업"
+        title={layerLabel("L2")}
         description="원문은 Collector가 보내고, 지식은 원격에서 정제합니다."
         action={
           <Button
@@ -245,7 +246,7 @@ function AutomationContent() {
         <TabsList>
           <TabsTrigger value="jobs">
             <Activity className="size-4 mr-2" />
-            정제 작업
+            {LAYER_NAMES.L2}
           </TabsTrigger>
           <TabsTrigger value="settings">
             <Cpu className="size-4 mr-2" />
@@ -630,7 +631,7 @@ function AutomationContent() {
           <Pagination
             data={jobs.data.pagination.jobs}
             pageKey="jobsPage"
-            label="정제 작업"
+            label={LAYER_NAMES.L2}
           />
           {!!failure && <Failure error={failure} />}
           <RefinementHealth data={jobs.data.health} />

@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel } from "@/lib/layers";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -88,9 +89,9 @@ export function Shell({
     );
   const root = "/workspaces/" + workspaceId;
   const items = [
-    ["knowledge", "L3 · 지식", BookOpen],
-    ["automation", "L2 · 정제 작업", Cpu],
-    ["sources", "L1 · 수집 자료", FileText],
+    ["knowledge", layerLabel("L3"), BookOpen],
+    ["automation", layerLabel("L2"), Cpu],
+    ["sources", layerLabel("L1"), FileText],
     ["activity", "반영 이력", History],
     ["connections", "에이전트 연결", KeyRound],
     ["guide", "사용법", HelpCircle],

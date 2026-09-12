@@ -1,9 +1,11 @@
 # Generate editable Wiki architecture SVGs. Run from the repository root.
 from pathlib import Path
 from html import escape
-import re, xml.etree.ElementTree as ET
+import json, re, xml.etree.ElementTree as ET
 ET.register_namespace('', 'http://www.w3.org/2000/svg')
 p=[]
+LAYER_NAMES=json.loads(Path('apps/agent-wiki-web/lib/layer-names.json').read_text())
+def layer_label(n):return f'L{n} · {LAYER_NAMES[f"L{n}"]}'
 FONT={'diagram':34,'group':24,'component':20,'body':18,'label':16,'layer':32}
 def a(s):p.append(s)
 def box(x,y,w,h,f='#FFFFFF',st='#CDD9E7'):a(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{f}" stroke="{st}"/>')
@@ -112,19 +114,20 @@ path('M880 1070 H940',True)
 path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',FONT["label"],True,FLOW_COLORS['ingest'])
 card(1640,1050,240,82,'AI Provider',[],'ai','openai')
 path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'압축 증분 직접 업로드 · 본문은 API를 통과하지 않음',FONT["label"],True,FLOW_COLORS['ingest'])
-for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(272,1054,'L1 · 수집',130),(1094,954,'L2 · 정제',112),(1420,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1740,804,'L1 · 원문',124)]:
- box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,label,FONT["label"],True,'#FFFFFF')
+for right,by,n,width in [(424,434,5,150),(424,624,5,150),(404,1054,1,170),(1206,954,2,152),(1546,624,3,172),(1206,624,4,132),(1866,804,1,170)]:
+ bx=right-width
+ box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,layer_label(n),FONT["label"],True,'#FFFFFF')
 end('docs/assets/wiki-deployment.svg')
 
 canvas(1560,1145,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
 legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변','query')
 box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',FONT["group"],True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',FONT["body"],True,'#FFFFFF')
 rows=[
- (5,240,'에이전트 답변·작업','조회 Skill · Wiki CLI','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
- (4,420,'검색·근거 제공','agent-wiki-api','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
- (3,600,'Wiki','agent-wiki-db','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
- (2,780,'Ingest','agent-wiki-worker','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
- (1,960,'Raw sources','agent-wiki-collector','증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
+ (5,240,LAYER_NAMES['L5'],'조회 Skill · Wiki CLI','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
+ (4,420,LAYER_NAMES['L4'],'agent-wiki-api','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
+ (3,600,LAYER_NAMES['L3'],'agent-wiki-db','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
+ (2,780,LAYER_NAMES['L2'],'agent-wiki-worker','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
+ (1,960,LAYER_NAMES['L1'],'agent-wiki-collector','증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
 for n,y,name,who,title,example,role in rows:
  component(40,y,1480,145,role)
  box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',FONT["layer"],True,'#FFFFFF')
@@ -147,13 +150,13 @@ end('docs/assets/wiki-layers.svg')
 
 canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 원격 Worker 정제 실행의 입력이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')
 legend(1140,43,'정제·반영','ingest');legend(1140,78,'조회·활용','query');legend(1140,113,'근거 참조','relation')
-group(40,190,430,380);text(62,226,'1 · 원격 입력 보관본',FONT["group"],True,'#FFFFFF')
+group(40,190,430,380);text(62,226,layer_label(1),FONT["group"],True,'#FFFFFF')
 card(72,284,366,118,'원문 A · 첫 번째 개정',['1행 · “단일 VM으로 운영하자.”'],'data')
 card(72,426,366,112,'지식 A · 첫 번째 개정',['현재 구성 · 미완료 작업'],'data')
-group(540,190,430,380);text(562,226,'2 · agent-wiki-worker',FONT["group"],True,'#FFFFFF')
+group(540,190,430,380);text(562,226,layer_label(2),FONT["group"],True,'#FFFFFF')
 card(572,284,366,254,'정제·반영 기록',['입력: 원문 A · 지식 A의 첫 개정','텍스트 청크·주장별 근거 선택','처리 범위 · 모델·지침 버전','새 결과: 지식 A의 두 번째 개정'],'ingest')
 path('M470 380 H540',flow='ingest')
-group(1040,190,480,380);text(1062,226,'3 · Wiki 검증·일괄 반영',FONT["group"],True,'#FFFFFF')
+group(1040,190,480,380);text(1062,226,layer_label(3),FONT["group"],True,'#FFFFFF')
 card(1072,284,416,254,'지식 A · 두 번째 개정',['주장: 단일 VM 운영','유형: 사용자 결정','작성: 원격 AI / 확인: 미완료','근거: 원문 A · 첫 번째 개정 · 1행'],'data')
 path('M970 380 H1040',flow='ingest')
 # Evidence returns under the three cards, independently from processing flow.

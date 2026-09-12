@@ -13,7 +13,7 @@
 ## 현재 작업 모드
 
 - **개발 모드**다. 사용자가 운영 모드라고 선언할 때까지 Wiki DB·원문·지식·개정·큐·API 키를 초기화하거나 새로 설계해도 된다. 데이터 보존·구 API·옛 ID·하위 호환성은 요구하지 않는다. 해당 구현 범위의 초기화를 다시 승인받을 필요는 없다.
-- 현재 메뉴는 L3 지식 → L2 정제 작업 → L1 수집 자료 순서이며 페이지·검색 조건을 URL로 유지한다. UI는 shadcn을 기본으로 한다.
+- 현재 메뉴는 L3 · Knowledge → L2 · Curation → L1 · Raw Sources 순서이며 페이지·검색 조건을 URL로 유지한다. UI는 shadcn을 기본으로 한다.
 - 현재 구조는 읽기 전용 Collector·원격 Worker 정제·Wiki 저장·조회다. 사용자가 이 구조의 구현을 승인했다. [수집·정제 계약](docs/wiki/agent-memory.md)을 따른다. [운영 현황](docs/OPERATIONS.md)을 따른다.
 - 개발 모드도 유료 자원 생성·비밀 유출을 허용하지 않는다. VM·인증서·OAuth·모니터링은 재사용하며 공용 버킷의 운영 체크포인트와 로컬 비밀 설정을 Wiki 데이터와 혼동하지 않는다.
 
@@ -30,7 +30,7 @@
 
 ## 제품과 데이터
 
-- L1 Raw sources → L2 Ingest → L3 Wiki → L4 Query → L5 Answers는 우리 제품 설계이며 외부 공식 표준이 아니다.
+- L1 Raw Sources → L2 Curation → L3 Knowledge → L4 Query → L5 Answers는 우리 제품 설계이며 외부 공식 표준이 아니다.
 - 세션은 여러 원천 자료 중 하나다. 주 용례는 에이전트가 질답·작업 중 근거 자료를 조회하는 것이다. 웹 위키는 지식 편집·정정·근거 확인을 위한 보조 화면이다. 검색 API와 인용 가능한 Context를 우선 설계하며 웹 방문량을 제품 가치의 기준으로 삼지 않는다.
 - Workspace는 자료·지식·권한·검색·AI 맥락의 격리 단위다. Folder·Tag는 Workspace 내부 분류이며 권한 경계를 대신하지 않는다.
 - 초기 검색은 키워드·Folder·Tag·용어집 별칭·명시적인 문서 연결을 사용한다. 임베딩·pgvector는 후속 후보이며 외부 API 또는 사용자가 제시한 Comsat 모델을 평가한다. 일반 검색·Context 구성과 지식 추출용 LLM 호출을 구분한다.
@@ -58,6 +58,8 @@
 - 로컬 서비스 토큰은 루트 `.env.local`에 보관하고 Git에서 제외한다. `.env.example`에는 변수 이름과 비밀이 아닌 기본값만 둔다. 토큰 값을 출력하거나 문서·그림에 넣지 않는다.
 
 ## 문서와 그림
+
+- 계층 이름은 L1 · Raw Sources, L2 · Curation, L3 · Knowledge, L4 · Query, L5 · Answers로 통일한다. 메뉴·제목·그림에는 같은 영어 이름을 쓰고 설명은 한국어로 쓸 수 있다. 웹·그림의 공통 이름 정의는 `apps/agent-wiki-web/lib/layer-names.json`이며 아키텍처의 계층 표와 함께 갱신한다.
 
 - 웹 UI의 기본은 shadcn/ui 공식 컴포넌트·Blocks·Neutral 테마다. Radix 계열·Lucide·공통 CSS 토큰으로 통일하고 필요한 컴포넌트만 조합한다. 세부 적용은 `docs/DESIGN.md`를 따른다. 아래 SVG 아이콘·색상 규칙은 문서 그림에 적용한다.
 

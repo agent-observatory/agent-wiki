@@ -1,4 +1,5 @@
 "use client";
+import { layerLabel } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -225,7 +226,7 @@ export function Guide() {
           <p className="leading-7 text-muted-foreground">
             Collector가 수집 범위에 포함된 세션 기록을 읽어 보냅니다. 원격
             Worker가 외부 AI로 정제하고 정확한 원문 근거를 검사해 지식에
-            반영합니다. L2 · 정제 작업 메뉴에서 모델, 호출 한도, 처리 상태를
+            반영합니다. {layerLabel("L2")} 메뉴에서 모델, 호출 한도, 처리 상태를
             확인하세요.
           </p>
           <div className="mt-4 rounded-lg border p-4">
