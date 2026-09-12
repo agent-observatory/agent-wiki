@@ -164,6 +164,21 @@ export async function deleteBlob(key: string) {
     if (e.statusCode !== 404) throw e;
   }
 }
+export function uploadUrl(endpoint: string, accessUri: string) {
+  const resolved = common.EndpointBuilder.updateEndpointTemplateForOptions(
+    endpoint,
+    false,
+    false,
+  );
+  const url = new URL(resolved);
+  if (
+    url.protocol !== "https:" ||
+    !/^objectstorage\.[a-z0-9-]+\.oraclecloud\.com$/.test(url.hostname) ||
+    !accessUri.startsWith("/p/")
+  )
+    throw new Error("UPLOAD_ENDPOINT_INVALID");
+  return url.origin + accessUri;
+}
 export async function createUploadGrant(key: string) {
   if (process.env.SOURCE_STORAGE === "local")
     return {
@@ -187,7 +202,7 @@ export async function createUploadGrant(key: string) {
   });
   return {
     id: r.preauthenticatedRequest.id,
-    url: c.endpoint + r.preauthenticatedRequest.accessUri,
+    url: uploadUrl(c.endpoint, r.preauthenticatedRequest.accessUri),
     expiresAt: expiresAt.toISOString(),
   };
 }
