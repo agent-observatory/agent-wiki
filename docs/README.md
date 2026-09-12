@@ -2,18 +2,18 @@
 
 **agent-wiki-client 하나로 설치하고, 조회와 백그라운드 수집·원격 정제를 분리해 실행한다.** 기능별 배포·검증 상태는 [운영 현황](OPERATIONS.md)을 따른다.
 
-| 읽을 문서 | 내용 |
+| 파일 | 무엇을 보나 |
 | --- | --- |
-| [그림과 레퍼런스](wiki/README.md) | 계층도·배포도·운영도·원문 링크 |
-| [아키텍처](wiki/architecture.md) | 전체 구성·계층·앱·인프라·조회 |
-| [Curation](wiki/curation.md) | 그림 4장: 증분 맥락·결정 관계·비교 실험·재생성 |
-| [에이전트 사용법·계약](wiki/agent-memory.md) | 사용자 조회와 별도 수집·정제의 경계, 원문·반영 계약 |
-| [디자인 규칙](DESIGN.md) | UI·문서·SVG 기준 |
-| [작업 원칙](../AGENTS.md) | 범위·데이터 보호·검증·Git |
+| [architecture.md](architecture.md) | 전체 구성·계층·앱·인프라·조회 |
+| [l2-l3-memory.md](l2-l3-memory.md) | L2·L3 그림 4장: 증분 처리·결정 변경·비교 실험·재생성 |
+| [OPERATIONS.md](OPERATIONS.md) | 현재 구현·실제 배포·검증 결과·남은 작업 |
+| [client-and-api.md](client-and-api.md) | Client 설치·연결, 접힌 수집·API 계약 |
+| [DESIGN.md](DESIGN.md) | UI·문서·SVG 디자인 규칙 |
+| [AGENTS.md](../AGENTS.md) | 에이전트 작업 원칙 |
 
 ## 읽는 순서
 
-처음에는 `wiki/architecture.md`로 전체 구조를 보고, 정제 방식은 `wiki/curation.md`의 그림 4장으로 본다. 설치·명령·데이터 계약이 필요하면 `wiki/agent-memory.md`를 읽는다. 그림만 볼 때는 `wiki/README.md`, 현재 배포와 검증 결과는 `OPERATIONS.md`다.
+**`architecture.md` → `l2-l3-memory.md`의 그림 → `OPERATIONS.md`의 현재 상태.** 설치가 필요할 때만 `client-and-api.md`를 읽는다. 수집·API 상세 계약은 구현 에이전트의 참고다.
 
 ## 유지할 원칙
 

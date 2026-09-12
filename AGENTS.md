@@ -2,7 +2,7 @@
 
 ## 시작과 범위
 
-- 먼저 [docs/README.md](docs/README.md), [Wiki 문서 안내](docs/wiki/README.md), [아키텍처](docs/wiki/architecture.md)를 읽는다. 정제·청킹·기억 통합 작업 전에는 [Curation](docs/wiki/curation.md)을 읽는다. 디자인 작업 전에는 [docs/DESIGN.md](docs/DESIGN.md)를 읽는다.
+- 먼저 [docs/README.md](docs/README.md), [아키텍처](docs/architecture.md)를 읽는다. 정제·청킹·기억 통합 작업 전에는 [L2·L3 기억 설계](docs/l2-l3-memory.md)을 읽는다. 디자인 작업 전에는 [docs/DESIGN.md](docs/DESIGN.md)를 읽는다.
 - 제품은 독립 Agent Wiki다. 설계·구현·검증·실제 배포 상태는 `docs/OPERATIONS.md`에 구분해서 기록한다.
 - 기존 Agent Observatory의 Sessions는 참고 구현이다. 포털 통합·세션 평가 기능과 기존 Collector·계약·DB·하위 호환성을 새 제품의 제약으로 삼지 않는다.
 - 사용자와 정한 독립 제품 방향이 이관 문서의 오래된 전제보다 우선한다. 설계 변경은 관련 문서와 그림에 함께 반영한다.
@@ -14,12 +14,12 @@
 
 - **개발 모드**다. 사용자가 운영 모드라고 선언할 때까지 Wiki DB·원문·지식·개정·큐·API 키를 초기화하거나 새로 설계해도 된다. 데이터 보존·구 API·옛 ID·하위 호환성은 요구하지 않는다. 해당 구현 범위의 초기화를 다시 승인받을 필요는 없다.
 - 현재 메뉴는 L3 · Knowledge → L2 · Curation → L1 · Raw Sources 순서이며 페이지·검색 조건을 URL로 유지한다. UI는 shadcn을 기본으로 한다.
-- 현재 구조는 읽기 전용 Collector·원격 Worker 정제·Wiki 저장·조회다. 사용자가 이 구조의 구현을 승인했다. [수집·정제 계약](docs/wiki/agent-memory.md)을 따른다. [운영 현황](docs/OPERATIONS.md)을 따른다.
+- 현재 구조는 읽기 전용 Collector·원격 Worker 정제·Wiki 저장·조회다. 사용자가 이 구조의 구현을 승인했다. [수집·정제 계약](docs/client-and-api.md)을 따른다. [운영 현황](docs/OPERATIONS.md)을 따른다.
 - 개발 모드도 유료 자원 생성·비밀 유출을 허용하지 않는다. VM·인증서·OAuth·모니터링은 재사용하며 공용 버킷의 운영 체크포인트와 로컬 비밀 설정을 Wiki 데이터와 혼동하지 않는다.
 
 ## 프로젝트 기억 사용
 
-- 설치 패키지는 `packages/agent-wiki-client` 하나다. 조회 Skill은 사용 지침, Wiki CLI는 검색 실행, Collector는 별도 백그라운드 프로세스다. 설정은 `~/.agent-wiki/config.json`을 공유한다. 설치·연결 명령은 `docs/wiki/agent-memory.md`에만 상세히 기록한다.
+- 설치 패키지는 `packages/agent-wiki-client` 하나다. 조회 Skill은 사용 지침, Wiki CLI는 검색 실행, Collector는 별도 백그라운드 프로세스다. 설정은 `~/.agent-wiki/config.json`을 공유한다. 설치·연결 명령은 `docs/client-and-api.md`에만 상세히 기록한다.
 - Collector 기본 범위는 전체 프로젝트·주기는 10분이다. 현재 검증 환경은 Agent Wiki 프로젝트로 제한하며, 통합·갱신 때 기존 기기 식별자와 전송 상태를 보존한다.
 
 - 이전 결정·근거가 작업에 필요하거나 사용자가 요청할 때 Wiki를 조회한다. 시작·종료·컴팩션마다 `recall`을 강제하지 않는다. CLI는 `agent-wiki` 또는 `node packages/agent-wiki-client/cli/agent-wiki.mjs`를 사용한다.
@@ -59,7 +59,7 @@
 
 ## 문서와 그림
 
-- 전체 구조는 `docs/wiki/architecture.md`, 증분 맥락·청킹·주장 관계·리랭킹 실험 설계는 `docs/wiki/curation.md`, 설치·수집/API 계약은 `docs/wiki/agent-memory.md`에 둔다. 사람은 그림 중심으로 읽고 구현 에이전트는 접힌 규칙을 읽는다. 실행·검증 상태는 운영 현황에만 기록하고 목표 그림에 진행 상태 배지를 붙이지 않는다.
+- 전체 구조는 `docs/architecture.md`, 증분 맥락·청킹·주장 관계·리랭킹 실험 설계는 `docs/l2-l3-memory.md`, 설치·수집/API 계약은 `docs/client-and-api.md`에 둔다. 사람은 그림 중심으로 읽고 구현 에이전트는 접힌 규칙을 읽는다. 실행·검증 상태는 운영 현황에만 기록하고 목표 그림에 진행 상태 배지를 붙이지 않는다.
 
 - 계층 이름은 L1 · Raw Sources, L2 · Curation, L3 · Knowledge, L4 · Query, L5 · Answers로 통일한다. 메뉴·제목·그림에는 같은 영어 이름을 쓰고 설명은 한국어로 쓸 수 있다. 웹·그림의 공통 이름 정의는 `apps/agent-wiki-web/lib/layer-names.json`이며 아키텍처의 계층 표와 함께 갱신한다.
 

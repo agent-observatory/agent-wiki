@@ -1,8 +1,8 @@
-> 보존본: 서버 Worker 정제 구조. 현재 목표는 [새 아키텍처](../../wiki/architecture.md), 실제 실행 상태는 [운영 현황](../../OPERATIONS.md)을 따른다.
+> 보존본: 서버 Worker 정제 구조. 현재 목표는 [새 아키텍처](../../architecture.md), 실제 실행 상태는 [운영 현황](../../OPERATIONS.md)을 따른다.
 
 # Agent Wiki 아키텍처
 
-[Wiki 문서와 레퍼런스](../../wiki/README.md)
+[Wiki 문서와 레퍼런스](../../architecture.md#전체-구성)
 
 ![Memory·Article·Glossary와 계층을 가로지르는 Lineage를 합성 예제로 설명하는 Wiki 계층도](wiki-layers.svg)
 
@@ -10,7 +10,7 @@
 
 2026-09-12 기준 첫 버전을 OCI에 배포했다. 실제 구현·자원·검증 상태는 [운영 현황](../../OPERATIONS.md)을 따른다. 키워드 검색·Context 조회는 검증했으며 NVIDIA 지식 추출은 실제 성공 검증이 남아 있다. 임베딩과 OpenMetadata 전체 도입은 보류한다.
 
-후속 전환안은 [에이전트가 정제하고 Wiki가 보관하는 기억](../../wiki/agent-memory.md)에서 검토한다. 사용 중인 에이전트가 정제하고 서버는 원문·개정·리니지·검색을 맡는 방향이다. 아래 Worker·NVIDIA 구성과 그림은 현재 구현의 기준이며 전환을 완료한 상태가 아니다.
+후속 전환안은 [에이전트가 정제하고 Wiki가 보관하는 기억](../../client-and-api.md)에서 검토한다. 사용 중인 에이전트가 정제하고 서버는 원문·개정·리니지·검색을 맡는 방향이다. 아래 Worker·NVIDIA 구성과 그림은 현재 구현의 기준이며 전환을 완료한 상태가 아니다.
 
 ## 공통 용어: LLM Wiki · OpenMetadata
 
@@ -442,17 +442,17 @@ Actions 예약은 지연되거나 누락될 수 있다. 공개 저장소의 장�
 | [NAVER D2 발표 소개](https://d2.naver.com/helloworld/7056385) | 업무 자산을 수집해 사람과 AI에게 맥락으로 제공 | 다음 작업에 필요한 정보를 찾아주는 Context Provider |
 | [Obsidian 플러그인](https://community.obsidian.md/plugins/karpathywiki) | 문서 연결을 통한 탐색과 관련 지식 검색 | 지식 페이지에서 결정의 배경과 관련 기록으로 이동 |
 | [커뮤니티 Wiki Skill](https://github.com/sdyckjq-lab/llm-wiki-skill) | 추출·추론·미확인 내용의 구분, 대화에서 재사용할 지식 추출 | 지식의 근거 상태를 표시하고 AI 작업 결과를 다시 검토 |
-| [무신사 — AI Native 조직의 도메인 지식 공유](../../wiki/README.md#레퍼런스) | 표준 Core·조직 Overlay 분리, 안정적인 ID 참조, 코드 검증과 사람 리뷰 | 공통 개념과 프로젝트 고유 결정을 구분해 연결하고, 현재 동작 질문은 Wiki를 단서로 실제 코드·운영 근거를 확인 |
+| [무신사 — AI Native 조직의 도메인 지식 공유](../../architecture.md#레퍼런스) | 표준 Core·조직 Overlay 분리, 안정적인 ID 참조, 코드 검증과 사람 리뷰 | 공통 개념과 프로젝트 고유 결정을 구분해 연결하고, 현재 동작 질문은 Wiki를 단서로 실제 코드·운영 근거를 확인 |
 
 무신사 글의 2층 구조는 산업 표준을 정리할 수 있는 도메인을 전제하며 큐레이션 비용이 든다. 150개 질문에서 레이어 유무를 비교했지만 같은 지식을 담은 평면 문서와 직접 비교하지는 않았다. 우리 Wiki에 Core·Overlay를 새 계층으로 도입하거나 그 구조의 효과가 검증됐다고 해석하지 않는다.
 
-원본 링크와 사용자 메모는 [레퍼런스 목록](../../wiki/README.md#레퍼런스)에 보존한다. NAVER의 OpenMetadata 활용은 사용자 제공 메모이며, 위 표는 공식 발표 소개에서 확인한 범위다. GeekNews 글은 Karpathy 원문을 소개하는 자료로 함께 참고한다.
+원본 링크와 사용자 메모는 [레퍼런스 목록](../../architecture.md#레퍼런스)에 보존한다. NAVER의 OpenMetadata 활용은 사용자 제공 메모이며, 위 표는 공식 발표 소개에서 확인한 범위다. GeekNews 글은 Karpathy 원문을 소개하는 자료로 함께 참고한다.
 
 ## Workspace와 사용자 흐름
 
 하나의 기록·지식 페이지는 하나의 Workspace에 속한다. 수집·DB 권한·검색·관계 확장·AI 대화·캐시 모두 같은 경계를 적용한다. 업무와 취미에 같은 태그가 있어도 자료를 합치지 않으며, 공간 전환 시 이전 대화 맥락을 넘기지 않는다.
 
-Folder는 문서의 기본 위치 하나, Tag는 프로젝트·주제별 다중 분류로 사용한다. 별도 Label 개념은 추가하지 않는다. 첫 예시는 Workspace `개인 작업` / Folder `개발 기록` / Tags `agent-observatory`, `agent-wiki`, `아키텍처`다. `agent-observatory`는 제품 계보를 묶는 태그이며 독립 제품 경계를 바꾸지 않는다. 현재 다중 태그 저장은 구현돼 있고 검색 필터는 태그 하나만 받는다. 여러 태그의 AND 조합 조회는 후속 제안이다. [첫 지식 묶음과 분류 예시](../../wiki/project-history.md#공간과-분류)
+Folder는 문서의 기본 위치 하나, Tag는 프로젝트·주제별 다중 분류로 사용한다. 별도 Label 개념은 추가하지 않는다. 첫 예시는 Workspace `개인 작업` / Folder `개발 기록` / Tags `agent-observatory`, `agent-wiki`, `아키텍처`다. `agent-observatory`는 제품 계보를 묶는 태그이며 독립 제품 경계를 바꾸지 않는다. 현재 다중 태그 저장은 구현돼 있고 검색 필터는 태그 하나만 받는다. 여러 태그의 AND 조합 조회는 후속 제안이다. [첫 지식 묶음과 분류 예시](../../architecture.md#프로젝트-역사)
 
 웹은 아래 관리·검토 화면을 제공한다. 기본 진입점은 에이전트의 근거 조회이며 웹 방문을 요구하지 않는다.
 
@@ -483,7 +483,7 @@ Folder는 문서의 기본 위치 하나, Tag는 프로젝트·주제별 다중 
 - Context는 검색 상위 6개 문서의 앞 2,000자를 반환한다. 질문 주변 발췌·연결 문서 확장은 아직 없으며, URL은 현재 문서를 연다. 응답에는 개정 번호가 있고 별도 개정 조회 API도 있다.
 - NVIDIA 수집은 새 Article·Memory 후보를 만들며 기존 문서를 자동 병합하지 않는다. 실제 외부 추출 성공 전에도 직접 작성한 지식의 검색·조회는 사용할 수 있다.
 
-첫 실사용 자료는 [Atlas → Sessions → 독립 Wiki의 역사와 결정 5개](../../wiki/project-history.md)다. 2026-09-12 개인 작업 Workspace에 검토한 Article을 직접 등록했다. NVIDIA 추출 성공과 별개로 조회 흐름을 확인한다. 대표 질문은 계보·검색 선택·인프라 결정·실제 완료 상태·근거 없음으로 구성하고, 정정 후 재조회도 확인한다. 접근 키는 로컬 비밀 설정에 두고, Workspace 경계를 유지한다.
+첫 실사용 자료는 [Atlas → Sessions → 독립 Wiki의 역사와 결정 5개](../../architecture.md#프로젝트-역사)다. 2026-09-12 개인 작업 Workspace에 검토한 Article을 직접 등록했다. NVIDIA 추출 성공과 별개로 조회 흐름을 확인한다. 대표 질문은 계보·검색 선택·인프라 결정·실제 완료 상태·근거 없음으로 구성하고, 정정 후 재조회도 확인한다. 접근 키는 로컬 비밀 설정에 두고, Workspace 경계를 유지한다.
 
 ## 첫 실증의 성공 기준
 

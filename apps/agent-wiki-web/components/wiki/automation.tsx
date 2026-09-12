@@ -488,13 +488,7 @@ function AutomationContent() {
           </form>
         </TabsContent>
         <TabsContent value="jobs" className="pt-6">
-          <RefinementSessions
-            workspaceId={workspaceId}
-            schedule={jobs.data.progress.schedule}
-            reasons={reasons}
-            statuses={statuses}
-            onRetry={jobs.reload}
-          />
+          <RefinementSessions workspaceId={workspaceId} />
           <RefinementHealth data={jobs.data.health} />
           {!!jobs.data.runs.length && (
             <section className="mt-8">

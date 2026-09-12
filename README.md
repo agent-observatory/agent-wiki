@@ -24,4 +24,4 @@ npm run build
 
 Configure separate application and migration database roles before running `scripts/test-local.sh`. Test credentials are synthetic and restricted to localhost / CI.
 
-[Agent workflow](docs/wiki/agent-memory.md) · [Architecture](docs/wiki/architecture.md) · [Diagrams](docs/wiki/README.md) · [Operations](docs/OPERATIONS.md)
+[Agent workflow](docs/client-and-api.md) · [Architecture](docs/architecture.md) · [Operations](docs/OPERATIONS.md)

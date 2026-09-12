@@ -2,7 +2,7 @@
 
 **사용자의 작업과 기록의 수집·정제를 분리한다.** Claude·Codex는 사용자와 작업하고 필요할 때 Wiki를 조회한다. 단일 설치하는 Agent Wiki Client의 백그라운드 Collector가 클라이언트 기록을 읽어 원격에 보관하고, 원격 Worker가 텍스트를 청킹해 정제한다.
 
-읽기 전용 Collector → 불변 원문 → 원격 Worker → 근거가 있는 지식 개정으로 이어진다. 배포·실제 모델 검증 상태는 [운영 현황](../OPERATIONS.md), 연결과 API는 [사용법·수집 계약](agent-memory.md), 정제 알고리즘은 [Curation](curation.md)을 따른다.
+읽기 전용 Collector → 불변 원문 → 원격 Worker → 근거가 있는 지식 개정으로 이어진다. 배포·실제 모델 검증 상태는 [운영 현황](OPERATIONS.md), 연결과 API는 [사용법·수집 계약](client-and-api.md), 정제·지식 모델은 [L2·L3 기억 설계](l2-l3-memory.md)를 따른다.
 
 ## 계층 이름
 
@@ -22,15 +22,15 @@
 
 Raw Sources 목록은 같은 세션을 하나로 묶어 보여주며 각 증분 L1 기록은 불변으로 보존한다. 상세 화면의 수집 횟수·마지막 수집·누적 줄 수와 접힌 수집 이력은 확정된 업로드 메타데이터로 집계한다. 한 업로드에서 나뉜 보관 조각은 한 번으로 세고, 재시도·중복만 있는 업로드는 제외한다. 이력은 최신순·페이지네이션이며 원문을 풀지 않는다. ‘전체 기록 보기’를 요청하면 기존처럼 이어진 기록을 읽는다.
 
-목록은 서버 페이지네이션으로 25·50·100개씩 조회한다. 페이지·검색 조건·선택 탭을 URL에 보존하고, 정제 전체 집계와 현재 페이지 항목을 구분한다. Curation 작업은 세션별 한 줄로 대기·진행·실패·완료를 집계하며 개별 작업은 펼쳐서 본다. 정제 상태는 보이는 화면에서 15초마다 갱신하고, 중지·재개 버튼은 저장 직후 상태를 갱신한다. 실행 중인 청크는 마무리하며 다음 작업부터 중지한다.
+목록은 서버 페이지네이션으로 25·50·100개씩 조회한다. 페이지·검색 조건·선택 탭을 URL에 보존하고, 정제 전체 집계와 현재 페이지 항목을 구분한다. Curation 작업은 세션별 한 줄로 대기·진행·실패·완료를 집계한다. 개별 작업을 펼치는 목록은 두지 않고 실행 이력은 진단용으로 보존한다. 정제 상태는 보이는 화면에서 15초마다 갱신하고, 중지·재개 버튼은 저장 직후 상태를 갱신한다. 실행 중인 청크는 마무리하며 다음 작업부터 중지한다.
 
 L1 목록은 세션·문서 단위의 한 줄 요약이다. 웹에서는 원문 수동 등록을 제공하지 않으며, 세션은 Collector로 수집한다. 상세 진입은 DB 보관 정보만 읽고, 전체 기록 보기 또는 지식의 인용 구간을 요청했을 때 본문을 읽는다. 세션은 하나의 화면에서 이전·다음 기록으로 탐색하며 저장 조각을 별도 자료처럼 나열하지 않는다.
 
-새 수집은 **텍스트 JSON과 이미지 데이터를 분리해 zstd로 보관**한다. 이미지 해시 참조와 원래 필드 관계를 유지한다. L2·근거 열람에는 텍스트만 읽고, 영구 gzip 투영본 대신 고정 참조에서 필요한 텍스트 줄을 재구성한다. 구형 세션 수집 형식은 지원하지 않는다. 개발 데이터는 초기화 후 현재 형식으로 재수집한다. [전송·보관 계약](agent-memory.md)을 따른다.
+새 수집은 **텍스트 JSON과 이미지 데이터를 분리해 zstd로 보관**한다. 이미지 해시 참조와 원래 필드 관계를 유지한다. L2·근거 열람에는 텍스트만 읽고, 영구 gzip 투영본 대신 고정 참조에서 필요한 텍스트 줄을 재구성한다. 구형 세션 수집 형식은 지원하지 않는다. 개발 데이터는 초기화 후 현재 형식으로 재수집한다. [전송·보관 계약](client-and-api.md)을 따른다.
 
 ## 전체 구성
 
-![사용자 작업·별도 Collector·백그라운드 정제와 원격 Wiki](../assets/wiki-deployment.svg)
+![사용자 작업·별도 Collector·백그라운드 정제와 원격 Wiki](assets/wiki-deployment.svg)
 
 ### 애플리케이션 이름
 
@@ -68,7 +68,7 @@ Agent Wiki (제품)
 
 `agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Compose 서비스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
-Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](agent-memory.md#연결과-지침).
+Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](client-and-api.md#연결과-지침).
 
 Skill 설치만으로 CLI가 매번 실행되지는 않는다. 작업 에이전트와 Collector는 별도 프로세스로 둔다. 세션 안에 수집 명령·정제 요청을 넣거나 턴 종료 훅에서 업로드를 기다리게 하지 않는다. Collector·정제 장애는 사용자 작업과 독립적으로 처리한다. 필요한 지식 조회에는 통신 시간이 들지만, 그 조회가 새 수집·정제 완료를 기다리지는 않는다.
 
@@ -78,7 +78,7 @@ Skill 설치만으로 CLI가 매번 실행되지는 않는다. 작업 에이전�
 
 Collector → API의 위치 확인·업로드 허가 → Collector의 마스킹·zstd 압축 → Object Storage 직접 업로드 → 서버 검증·L1 등록 → 별도 L2 정제 순서다. 큰 파일 본문은 Caddy·API를 통과하지 않는다. 임시 파일 도착만으로 적재 완료 처리하지 않으며 **중복 판정·불변 원문 등록·수신 위치 확정은 서버 책임**이다.
 
-내용 해시는 전송 묶음의 동일성, 원본 세션 ID는 대화의 동일성을 판별한다. 일부 겹치는 기록은 서버가 별도로 대조한다. 앞부분 수정·파일 축소·다른 기기 수집에서는 오프셋을 그대로 신뢰하지 않는다. [수집 계약과 1~100 → 101~110 예시](agent-memory.md#세션-식별과-증분-수집).
+내용 해시는 전송 묶음의 동일성, 원본 세션 ID는 대화의 동일성을 판별한다. 일부 겹치는 기록은 서버가 별도로 대조한다. 앞부분 수정·파일 축소·다른 기기 수집에서는 오프셋을 그대로 신뢰하지 않는다. [수집 계약과 1~100 → 101~110 예시](client-and-api.md#세션-식별과-증분-수집).
 
 ## 책임과 비용 경계
 
@@ -98,11 +98,15 @@ Collector 자체는 모델을 호출하지 않는다. 세션·프로젝트·시�
 
 **새 증분 + 세션 맥락 + 관련 Knowledge의 본문·근거**를 함께 읽고, 결정의 추가·정정·취소를 연결한다. 저장 조각과 정제 청크의 경계를 분리하며, 필요한 과거 구간만 추가 조회한다. 주장 관계는 기존 PostgreSQL에 저장한다.
 
-[정제 알고리즘 · 그림 4장](curation.md)에서 입력 구성·결정 통합·재시도 기준을 본다. 모델·호출 한도도 그 문서에 모았다. 수집·CLI·API 계약은 [agent-memory.md](agent-memory.md), 구현 상태는 [운영 현황](../OPERATIONS.md)에 둔다.
+L2는 같은 대상·범위에서 변경 의도를 판단하고, L3는 과거 주장과 대체·철회·충돌 근거를 보존한다. L4는 현재 결정을 묻는 조회와 변경 이유를 묻는 조회를 구분한다. 현재 채택한 결정과 검증된 사실은 별도 상태다.
+
+[L2·L3 기억 설계 · 그림 4장](l2-l3-memory.md)에서 입력 구성·결정 통합·재시도 기준을 본다. 모델·호출 한도도 그 문서에 모았다. 수집·CLI·API 계약은 [client-and-api.md](client-and-api.md), 구현 상태는 [운영 현황](OPERATIONS.md)에 둔다.
 
 ## L1–L5와 지식 모델
 
-![수집·정제와 사용자 조회를 분리한 계층](../assets/wiki-layers.svg)
+![수집·정제와 사용자 조회를 분리한 계층](assets/wiki-layers.svg)
+
+![원문·정제 실행·지식 Version의 리니지](assets/wiki-lineage.svg)
 
 L1–L5는 우리 제품의 논리 모델이며 공식 표준이나 실행 순서가 아니다. L2는 작업 세션과 분리된 정제 실행이다. L4는 Wiki 서버의 검색·근거 제공, L5는 작업 에이전트의 답변·작업을 맡는다. 실제 조회는 **L5 에이전트 → Wiki CLI → L4 검색 → 근거 반환 → L5 답변·작업**의 왕복이다. 조회 Skill은 판단 지침, Wiki CLI는 L5 에이전트가 사용하는 조회 도구다.
 
@@ -114,9 +118,13 @@ L1–L5는 우리 제품의 논리 모델이며 공식 표준이나 실행 순�
 | L4 · Query | 키워드 검색·시작 문서·인용 자료 구성 | 지식 개정과 근거를 고정해 반환 |
 | L5 · Answers | 조회한 근거로 답변·작업 | 사용자 요청에 필요한 조회만 수행 |
 
-Memory는 짧은 주장·결정, Article은 설명 문서, Glossary는 용어·별칭이다. 직렬 생성 단계가 아니다. 원문 개정 → 정제 실행 → 지식 개정·주장별 근거를 연결한다. 프로젝트 역사도 원문 자체가 아니라 원격 Wiki에서 개정하는 지식이다. [리니지 상세](agent-memory.md#원문은-불변-지식은-개정).
+Memory는 짧은 주장·결정, Article은 설명 문서, Glossary는 용어·별칭이다. 직렬 생성 단계가 아니다. 원문 개정 → 정제 실행 → 지식 개정·주장별 근거를 연결한다. 프로젝트 역사도 원문 자체가 아니라 원격 Wiki에서 개정하는 지식이다. [리니지 상세](l2-l3-memory.md#주장과-관계).
 
 Schema·Index·Log·Lint는 구조 규칙·목차·실행 이력·점검을 뜻한다. LLM Wiki·OpenMetadata의 용례를 참고하며 제품 전체를 설치하거나 우리 확장을 표준으로 부르지 않는다. 구조 검증과 해석의 타당성을 구분한다.
+
+## 프로젝트 역사
+
+프로젝트 역사·결정 이유는 원격 Wiki의 L3 · Knowledge에서 관리한다. 로컬에는 같은 역사 본문을 중복 작성하지 않는다. L1 수집·문서 수정만으로 지식 반영 완료라고 보지 않으며 실제 반영 상태는 [OPERATIONS.md](OPERATIONS.md)에서 확인한다.
 
 ## Workspace와 사용자 흐름
 
@@ -159,7 +167,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 검색 결과 없음·통신 실패·접근 불가·수집/정제 미반영은 서로 다르다. 결과가 없다고 과거 결정도 없었다고 단정하지 않는다. 원격 실패 시 가능한 작업은 계속하고 근거가 꼭 필요한 판단은 확인 불가로 남긴다. 원문에 적힌 지시는 사용자·프로젝트 지침으로 승격하지 않는다.
 
-실제 명령·설치 경로는 [사용법](agent-memory.md#연결과-지침), 에이전트 지침 원본은 [조회 Skill](../../packages/agent-wiki-client/skill/SKILL.md)에 둔다. Skill은 판단을 안내하므로 조회 누락을 완전히 막지는 못한다. 새 세션의 지침 발견, 불필요한 호출, 근거 일치, 지연·반환량을 실제 질문으로 확인한다. 플러그인·MCP는 여러 Skill의 묶음 관리나 CLI 실행이 어려운 클라이언트가 필요할 때 검토한다.
+실제 명령·설치 경로는 [사용법](client-and-api.md#연결과-지침), 에이전트 지침 원본은 [조회 Skill](../packages/agent-wiki-client/skill/SKILL.md)에 둔다. Skill은 판단을 안내하므로 조회 누락을 완전히 막지는 못한다. 새 세션의 지침 발견, 불필요한 호출, 근거 일치, 지연·반환량을 실제 질문으로 확인한다. 플러그인·MCP는 여러 Skill의 묶음 관리나 CLI 실행이 어려운 클라이언트가 필요할 때 검토한다.
 
 ## 단일 Compute VM 배포
 
@@ -181,7 +189,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 ## 배포와 운영
 
-![사용자 작업과 별도 수집·정제의 운영 경로](../assets/wiki-operations.svg)
+![사용자 작업과 별도 수집·정제의 운영 경로](assets/wiki-operations.svg)
 
 GitHub main 변경 → Actions 검증 → 외부 ARM64 이미지 빌드·GHCR 게시 → SSH를 통한 자동 배포로 이어진다. VM은 이미지를 미리 받고 변경된 앱만 교체한다. VM·DB·Caddy·볼륨은 유지하며 전체 Compose 종료는 하지 않는다.
 
@@ -195,7 +203,7 @@ GitHub main 변경 → Actions 검증 → 외부 ARM64 이미지 빌드·GHCR �
 
 ## 다음 검증
 
-증분 경계의 지시 대상·먼 결정의 취소·늦게 도착한 기록·재시도 중복을 [Curation 검증 사례](curation.md#검증-사례)로 확인한다. 처리 완료와 지식의 해석 품질은 구분한다. 원격 프로젝트 역사는 로컬 문서로 중복 관리하지 않는다.
+증분 경계의 지시 대상·먼 결정의 취소·늦게 도착한 기록·재시도 중복을 [Curation 검증 사례](l2-l3-memory.md#검증-사례)로 확인한다. 처리 완료와 지식의 해석 품질은 구분한다. 원격 프로젝트 역사는 로컬 문서로 중복 관리하지 않는다.
 
 ## 첫 실증의 성공 기준
 
@@ -213,8 +221,28 @@ GitHub main 변경 → Actions 검증 → 외부 ARM64 이미지 빌드·GHCR �
 | [NAVER D2 발표 소개](https://d2.naver.com/helloworld/7056385) | 업무 자산을 수집해 사람과 AI에게 맥락으로 제공 | 다음 작업에 필요한 정보를 찾아주는 Context Provider |
 | [Obsidian 플러그인](https://community.obsidian.md/plugins/karpathywiki) | 문서 연결을 통한 탐색과 관련 지식 검색 | 지식 페이지에서 결정의 배경과 관련 기록으로 이동 |
 | [커뮤니티 Wiki Skill](https://github.com/sdyckjq-lab/llm-wiki-skill) | 추출·추론·미확인 내용의 구분, 대화에서 재사용할 지식 추출 | 지식의 근거 상태를 표시하고 AI 작업 결과를 다시 검토 |
-| [무신사 — AI Native 조직의 도메인 지식 공유](README.md#레퍼런스) | 표준 Core·조직 Overlay 분리, 안정적인 ID 참조, 코드 검증과 사람 리뷰 | 공통 개념과 프로젝트 고유 결정을 구분해 연결하고, 현재 동작 질문은 Wiki를 단서로 실제 코드·운영 근거를 확인 |
+| [무신사 — AI Native 조직의 도메인 지식 공유](architecture.md#레퍼런스) | 표준 Core·조직 Overlay 분리, 안정적인 ID 참조, 코드 검증과 사람 리뷰 | 공통 개념과 프로젝트 고유 결정을 구분해 연결하고, 현재 동작 질문은 Wiki를 단서로 실제 코드·운영 근거를 확인 |
 
 무신사 글의 2층 구조는 산업 표준을 정리할 수 있는 도메인을 전제하며 큐레이션 비용이 든다. 150개 질문에서 레이어 유무를 비교했지만 같은 지식을 담은 평면 문서와 직접 비교하지는 않았다. 우리 Wiki에 Core·Overlay를 새 계층으로 도입하거나 그 구조의 효과가 검증됐다고 해석하지 않는다.
 
-원본 링크와 사용자 메모는 [레퍼런스 목록](README.md#레퍼런스)에 보존한다. NAVER의 OpenMetadata 활용은 사용자 제공 메모이며, 위 표는 공식 발표 소개에서 확인한 범위다. GeekNews 글은 Karpathy 원문을 소개하는 자료로 함께 참고한다.
+원본 링크와 사용자 메모는 [레퍼런스 목록](architecture.md#레퍼런스)에 보존한다. NAVER의 OpenMetadata 활용은 사용자 제공 메모이며, 위 표는 공식 발표 소개에서 확인한 범위다. GeekNews 글은 Karpathy 원문을 소개하는 자료로 함께 참고한다.
+
+<details>
+<summary>레퍼런스 원문·사용자 메모</summary>
+
+## 레퍼런스
+
+사용자가 제공한 원본 자료와 메모다. 자료별 참고 요소는 [아키텍처](architecture.md#레퍼런스에서-가져올-요소)에 정리한다.
+
+1. [여기어때 - AI가 내 하루를 기억하게 하는 법 (1/2) — 먼저 기억할 곳을 만들었다: 개인 LLM 위키](https://medium.com/gccompany/ai%EA%B0%80-%EB%82%B4-%ED%95%98%EB%A3%A8%EB%A5%BC-%EA%B8%B0%EC%96%B5%ED%95%98%EA%B2%8C-%ED%95%98%EB%8A%94-%EB%B2%95-1-2-%EB%A8%BC%EC%A0%80-%EA%B8%B0%EC%96%B5%ED%95%A0-%EA%B3%B3%EC%9D%84-%EB%A7%8C%EB%93%A4%EC%97%88%EB%8B%A4-%EA%B0%9C%EC%9D%B8-llm-%EC%9C%84%ED%82%A4-dd6a3158d9a0)
+2. [여기어때 - AI가 내 하루를 기억하게 하는 법 (2/2) — 오늘이 위키로 들어오기까지: 데일리 루프](https://medium.com/gccompany/ai%EA%B0%80-%EB%82%B4-%ED%95%98%EB%A3%A8%EB%A5%BC-%EA%B8%B0%EC%96%B5%ED%95%98%EA%B2%8C-%ED%95%98%EB%8A%94-%EB%B2%95-2-2-%EC%98%A4%EB%8A%98%EC%9D%B4-%EC%9C%84%ED%82%A4%EB%A1%9C-%EB%93%A4%EC%96%B4%EC%98%A4%EA%B8%B0%EA%B9%8C%EC%A7%80-%EB%8D%B0%EC%9D%BC%EB%A6%AC-%EB%A3%A8%ED%94%84-595f8a2a7c3a)
+3. [Andrej Karpathy의 LLM Wiki 제안 — Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
+4. [NAVER D2 영상 — Context Provider·OpenMetadata 관련 자료](https://tv.naver.com/v/101632926). 사용자 메모: Context Provider라는 이름으로 구축하면서 OpenMetadata를 활용한 사례.
+5. [Obsidian 커뮤니티의 Karpathy Wiki 플러그인](https://community.obsidian.md/plugins/karpathywiki) · [관련 GeekNews 글](https://news.hada.io/topic?id=28208). 사용자 메모: 그래프 방식을 활용하기 위해 Obsidian을 차용한 사례.
+6. [sdyckjq-lab/llm-wiki-skill](https://github.com/sdyckjq-lab/llm-wiki-skill). 사용자 메모: 커뮤니티에서 만든 LLM Wiki Skill 구현 사례.
+7. [OpenMetadata 원본 저장소](https://github.com/open-metadata/OpenMetadata). 사용자 제안: 제품 전체 도입과 별개로 Memory·Semantics·Lineage 등 지식 구조를 참고.
+8. [무신사 기술 블로그 — AI Native 조직은 도메인 지식을 어떻게 공유하는가](https://techblog.musinsa.com/ai-native-%EC%A1%B0%EC%A7%81%EC%9D%80-%EB%8F%84%EB%A9%94%EC%9D%B8-%EC%A7%80%EC%8B%9D%EC%9D%84-%EC%96%B4%EB%96%BB%EA%B2%8C-%EA%B3%B5%EC%9C%A0%ED%95%98%EB%8A%94%EA%B0%80-f2e3de607df3) — 표준 위에 얹는 시맨틱 레이어. Kyungjae Lee, 2026-08-25. 2026-09-12 브라우저에서 본문 확인. 표준 기반 Core와 조직 특화 Overlay의 ID 참조, 현재 동작의 코드 검증, 생성 지식의 검증·사람 리뷰를 참고한다. 150개 질문의 ON/OFF 비교이며, 평면 문서 대비 2층 구조의 우월성을 입증한 실험은 아니다.
+
+분석에 사용한 공식 기술 문서: [W3C PROV-DM](https://www.w3.org/TR/prov-dm/) · [SKOS](https://www.w3.org/TR/skos-primer/). 구체적인 비교·적용 범위는 아키텍처에 기록한다.
+
+</details>

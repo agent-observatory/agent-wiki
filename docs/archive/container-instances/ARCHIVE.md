@@ -1,6 +1,6 @@
 # 이전 Container Instances 분리 설계
 
-사용자 요청으로 보존한 이전 설계다. 현재 운영안은 [단일 VM 설계](../../wiki/architecture.md)를 따른다. 이 폴더의 사양·자격·운영 지침은 현재 결정이 아니다.
+사용자 요청으로 보존한 이전 설계다. 현재 운영안은 [단일 VM 설계](../../architecture.md)를 따른다. 이 폴더의 사양·자격·운영 지침은 현재 결정이 아니다.
 
 - [배포도](docs/assets/wiki-deployment.svg) · [운영도](docs/assets/wiki-operations.svg) · [계층도](docs/assets/wiki-layers.svg)
 - [이전 아키텍처](docs/wiki/architecture.md) · [이전 생성기](scripts/generate-wiki-diagrams.py)
