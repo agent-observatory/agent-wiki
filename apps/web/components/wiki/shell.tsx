@@ -88,10 +88,10 @@ export function Shell({
     );
   const root = "/workspaces/" + workspaceId;
   const items = [
-    ["knowledge", "지식", BookOpen],
-    ["sources", "원천 자료", FileText],
+    ["knowledge", "L3 · 지식", BookOpen],
+    ["automation", "L2 · 정제 작업", Cpu],
+    ["sources", "L1 · 수집 자료", FileText],
     ["activity", "반영 이력", History],
-    ["automation", "수집·AI 정제", Cpu],
     ["connections", "에이전트 연결", KeyRound],
     ["guide", "사용법", HelpCircle],
   ] as const;

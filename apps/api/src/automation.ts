@@ -1,3 +1,4 @@
+import { pagination, paged } from "./pagination.js";
 import { refinementProgress } from "./refinement-progress.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
@@ -185,6 +186,35 @@ export function registerAutomation(
       return { ok: true };
     });
   });
+  app.patch(base + "/ai-settings/enabled", (r) => {
+    sessionOnly(r);
+    const body = z
+      .object({ enabled: z.boolean(), version: z.number().int().nonnegative() })
+      .strict()
+      .parse(r.body);
+    return scoped(r, async (c, ws) => {
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        ws + "settings",
+      ]);
+      const old = (
+        await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
+      ).rows[0];
+      const version = old?.version ?? 0;
+      if (version !== body.version)
+        throw new AppError(409, "REVISION_CONFLICT");
+      if (body.enabled && !old?.encrypted_key)
+        throw new AppError(400, "AI_KEY_REQUIRED");
+      if ((old?.config.enabled ?? false) === body.enabled)
+        return { enabled: body.enabled, version };
+      const row = (
+        await c.query(
+          "UPDATE ai_settings SET config=jsonb_set(config,'{enabled}',$2::jsonb),version=version+1,updated_at=now() WHERE workspace_id=$1 RETURNING version",
+          [ws, JSON.stringify(body.enabled)],
+        )
+      ).rows[0];
+      return { enabled: body.enabled, version: row.version };
+    });
+  });
   app.get(base + "/refinements", (r) => {
     sessionOnly(r);
     return scoped(r, async (c, ws) => {
@@ -194,34 +224,52 @@ export function registerAutomation(
           [ws],
         )
       ).rows[0];
-      return {
+      const pages = Object.fromEntries(
+        ["jobs", "runs", "uploads", "streams"].map((key) => [
+          key,
+          pagination(r.query, key + "Page"),
+        ]),
+      );
+      const result = {
         progress: await refinementProgress(c, ws, today.calls),
         items: (
           await c.query(
-            "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 AND s.deleted_at IS NULL ORDER BY CASE WHEN j.status='running' THEN 0 WHEN j.status='pending' AND j.error_code IS NOT NULL THEN 1 WHEN j.status='failed' THEN 2 WHEN j.status='pending' THEN 3 ELSE 4 END,j.created_at LIMIT 100",
-            [ws],
+            "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 AND s.deleted_at IS NULL ORDER BY CASE WHEN j.status='running' THEN 0 WHEN j.status='pending' AND j.error_code IS NOT NULL THEN 1 WHEN j.status='failed' THEN 2 WHEN j.status='pending' THEN 3 ELSE 4 END,j.created_at,j.id LIMIT $2 OFFSET $3",
+            [ws, pages.jobs.size + 1, pages.jobs.offset],
           )
         ).rows.map(({ output, chunk_plan, chunk_results, ...job }) => job),
         runs: (
           await c.query(
-            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 100",
-            [ws],
+            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3",
+            [ws, pages.runs.size + 1, pages.runs.offset],
           )
         ).rows,
         today,
         uploads: (
           await c.query(
-            "SELECT id,manifest->>'name' AS name,status,compressed_bytes,result,error_code,updated_at FROM collection_uploads WHERE workspace_id=$1 ORDER BY updated_at DESC LIMIT 20",
-            [ws],
+            "SELECT id,manifest->>'name' AS name,status,compressed_bytes,result,error_code,updated_at FROM collection_uploads WHERE workspace_id=$1 ORDER BY updated_at DESC,id DESC LIMIT $2 OFFSET $3",
+            [ws, pages.uploads.size + 1, pages.uploads.offset],
           )
         ).rows,
         streams: (
           await c.query(
-            "SELECT s.id,s.client,s.name,s.last_position,s.updated_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('machine',o.machine,'bytes',o.byte_end,'records',o.record_end)) FROM collection_origins o WHERE o.workspace_id=s.workspace_id AND o.stream_id=s.id),'[]'::jsonb) AS origins FROM collection_streams s WHERE s.workspace_id=$1 ORDER BY s.updated_at DESC LIMIT 30",
-            [ws],
+            "SELECT s.id,s.client,s.name,s.last_position,s.updated_at,COALESCE((SELECT jsonb_agg(jsonb_build_object('machine',o.machine,'bytes',o.byte_end,'records',o.record_end)) FROM collection_origins o WHERE o.workspace_id=s.workspace_id AND o.stream_id=s.id),'[]'::jsonb) AS origins FROM collection_streams s WHERE s.workspace_id=$1 ORDER BY s.updated_at DESC,s.id DESC LIMIT $2 OFFSET $3",
+            [ws, pages.streams.size + 1, pages.streams.offset],
           )
         ).rows,
       };
+      const pageInfo: Record<string, unknown> = {};
+      for (const [field, name] of [
+        ["items", "jobs"],
+        ["runs", "runs"],
+        ["uploads", "uploads"],
+        ["streams", "streams"],
+      ] as const) {
+        const view = paged<any>(result[field], pages[name]);
+        result[field] = view.items;
+        pageInfo[name] = view.pagination;
+      }
+      return { ...result, pagination: pageInfo };
     });
   });
   app.post(base + "/refinements/:id/retry", (r) => {

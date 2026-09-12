@@ -1,7 +1,8 @@
 "use client";
+import { Pagination } from "./pagination";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Save, RefreshCw, Play, Pause, Cpu, Activity } from "lucide-react";
 import { RefinementProgress, waitingReasons } from "./refinement-progress";
 import { Progress } from "@/components/ui/progress";
@@ -70,11 +71,26 @@ const reasons: Record<string, string> = {
 };
 export function Automation() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
+  return <AutomationContent key={workspaceId} />;
+}
+function AutomationContent() {
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const base = "/api/workspaces/" + workspaceId;
-  const [tab, setTab] = useState("jobs");
+  const query = useSearchParams(),
+    router = useRouter();
+  const tab = query.get("tab") ?? "jobs";
+  function setTab(value: string) {
+    const next = new URLSearchParams(query);
+    next.set("tab", value);
+    router.push(`?${next}`, { scroll: false });
+  }
   const settings = useApi(base + "/ai-settings"),
-    jobs = useApi(base + "/refinements", 15000);
+    jobs = useApi(base + "/refinements?" + query, 15000);
   const [config, setConfig] = useState<Config>(),
+    [draftVersion, setDraftVersion] = useState(0),
+    [control, setControl] = useState<{ enabled: boolean; version: number }>(),
+    [controlBusy, setControlBusy] = useState(false),
+    [controlError, setControlError] = useState<unknown>(),
     [apiKey, setKey] = useState(""),
     [busy, setBusy] = useState(false),
     [failure, setFailure] = useState<unknown>(),
@@ -83,8 +99,36 @@ export function Automation() {
     if (settings.data) {
       const { hasKey, version, ...value } = settings.data;
       setConfig(value);
+      setDraftVersion(version);
     }
   }, [settings.data]);
+  const liveControl =
+    control && control.version > (jobs.data?.progress.control.version ?? -1)
+      ? control
+      : jobs.data?.progress.control;
+  async function toggleRefinement() {
+    if (!liveControl || controlBusy) return;
+    setControlBusy(true);
+    setControlError(undefined);
+    try {
+      const result = await api(base + "/ai-settings/enabled", {
+        method: "PATCH",
+        body: JSON.stringify({
+          enabled: !liveControl.enabled,
+          version: liveControl.version,
+        }),
+      });
+      setControl(result);
+      setDraftVersion((v) => (v === liveControl.version ? result.version : v));
+      setConfig((c) => (c ? { ...c, enabled: result.enabled } : c));
+      jobs.reload();
+    } catch (e) {
+      setControlError(e);
+      jobs.reload();
+    } finally {
+      setControlBusy(false);
+    }
+  }
   const update = (name: keyof Config, value: string | number | boolean) => {
     if (name === "reasoning" && !value) return;
     setSaved(false);
@@ -98,14 +142,15 @@ export function Automation() {
       await api(base + "/ai-settings", {
         method: "PUT",
         body: JSON.stringify({
-          config,
-          version: settings.data.version,
+          config: { ...config, enabled: liveControl.enabled },
+          version: draftVersion,
           ...(apiKey ? { apiKey } : {}),
         }),
       });
       setKey("");
       setSaved(true);
       settings.reload();
+      jobs.reload();
     } catch (e) {
       setFailure(e);
     } finally {
@@ -118,7 +163,7 @@ export function Automation() {
   return (
     <>
       <Heading
-        title="수집·AI 정제"
+        title="정제 작업"
         description="원문은 Collector가 보내고, 지식은 원격에서 정제합니다."
         action={
           <Button
@@ -137,19 +182,38 @@ export function Automation() {
       <div className="grid gap-4 sm:grid-cols-3 mb-8">
         <section className="rounded-lg border p-5">
           <p className="text-sm text-muted-foreground">자동 정제</p>
-          <div className="flex gap-2 items-center mt-3 font-semibold">
-            {settings.data.enabled ? (
-              <Play className="size-4" />
-            ) : (
-              <Pause className="size-4" />
-            )}
-            {settings.data.enabled ? "활성" : "일시 중지"}
+          <div className="flex gap-2 items-center justify-between mt-3 font-semibold">
+            <span className="inline-flex items-center gap-2">
+              {liveControl.enabled ? (
+                <Play className="size-4" />
+              ) : (
+                <Pause className="size-4" />
+              )}
+              {liveControl.enabled
+                ? "활성"
+                : jobs.data.progress.summary.running
+                  ? "마무리 중"
+                  : "일시 중지"}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleRefinement}
+              disabled={controlBusy || busy}
+            >
+              {liveControl.enabled ? <Pause /> : <Play />}
+              {controlBusy ? "변경 중…" : liveControl.enabled ? "중지" : "재개"}
+            </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            중지해도 원문 수집은 계속됩니다.
+          </p>
+          {!!controlError && <Failure error={controlError} />}
         </section>
         <section className="rounded-lg border p-5">
           <p className="text-sm text-muted-foreground">오늘 정제 시도 / 한도</p>
           <p className="mt-3 text-xl font-semibold">
-            {jobs.data.today.calls} / {settings.data.dailyCalls}
+            {jobs.data.today.calls} / {jobs.data.progress.control.dailyCalls}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             실패·중단 시도 포함 · UTC 자정 초기화
@@ -179,25 +243,6 @@ export function Automation() {
         </TabsList>
         <TabsContent value="settings" className="pt-6">
           <form onSubmit={save} className="max-w-2xl space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">자동 정제</label>
-              <Select
-                value={String(config.enabled)}
-                onValueChange={(v) => update("enabled", v === "true")}
-              >
-                <SelectTrigger aria-label="자동 정제">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">
-                    일시 중지 · 원문 수집은 계속
-                  </SelectItem>
-                  <SelectItem value="true">
-                    활성 · 외부 AI로 텍스트 전송
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">제공자</label>
@@ -524,6 +569,11 @@ export function Automation() {
               </Table>
             </div>
           )}
+          <Pagination
+            data={jobs.data.pagination.jobs}
+            pageKey="jobsPage"
+            label="정제 작업"
+          />
           {!!failure && <Failure error={failure} />}
           {!!jobs.data.runs.length && (
             <section className="mt-8">
@@ -551,6 +601,11 @@ export function Automation() {
               </div>
             </section>
           )}
+          <Pagination
+            data={jobs.data.pagination.runs}
+            pageKey="runsPage"
+            label="호출 이력"
+          />
         </TabsContent>
         <TabsContent value="collectors" className="pt-6">
           {!!jobs.data.uploads?.length && (
@@ -603,6 +658,11 @@ export function Automation() {
               </div>
             </section>
           )}
+          <Pagination
+            data={jobs.data.pagination.uploads}
+            pageKey="uploadsPage"
+            label="업로드"
+          />
           {!jobs.data.streams.length ? (
             <Empty>
               아직 수집한 세션이 없습니다. 에이전트 연결에서 원문 보관 권한의
@@ -628,6 +688,11 @@ export function Automation() {
               ))}
             </div>
           )}
+          <Pagination
+            data={jobs.data.pagination.streams}
+            pageKey="streamsPage"
+            label="수집 세션"
+          />
         </TabsContent>
       </Tabs>
     </>

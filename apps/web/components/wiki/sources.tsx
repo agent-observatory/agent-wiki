@@ -1,4 +1,5 @@
 "use client";
+import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useState, useRef } from "react";
@@ -18,8 +19,9 @@ import { Heading, Empty, Failure, Loading, When } from "./common";
 export function SourceList() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const router = useRouter();
+  const query = useSearchParams();
   const { data, error } = useApi(
-    `/api/workspaces/${workspaceId}/source-records`,
+    `/api/workspaces/${workspaceId}/source-sessions?${query}`,
   );
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -30,7 +32,7 @@ export function SourceList() {
   return (
     <>
       <Heading
-        title="원천 자료"
+        title="수집 자료"
         description="지식의 근거가 되는 대화·문서·코드의 보관본입니다."
         action={
           <Button onClick={() => setOpen(true)}>
@@ -45,22 +47,24 @@ export function SourceList() {
         <Loading />
       ) : !data.items.length ? (
         <Empty>
-          보관한 원문이 없습니다. 에이전트로 기록을 정제할 때 원문부터
-          등록합니다.
+          아직 수집한 자료가 없습니다. Collector를 연결하거나 문서를 직접
+          보관하세요.
         </Empty>
       ) : (
-        <div className="divide-y border-y">
+        <div className="divide-y border-y overflow-x-auto">
           {data.items.map((s: any) => (
             <Link
               key={s.id}
-              href={`/workspaces/${workspaceId}/sources/${s.id}?revision=1`}
-              className="block py-5 hover:bg-accent/50"
+              href={`/workspaces/${workspaceId}/sources/${s.id}`}
+              className="flex min-w-[32rem] items-center gap-4 py-3 hover:bg-accent/50"
             >
-              <h2 className="font-bold">{s.name}</h2>
-              <p className="mt-2 text-muted-foreground break-all">
-                {s.origin || "위치 미기록"}
-              </p>
-              <div className="mt-3 flex gap-3 text-xs text-muted-foreground">
+              <h2
+                className="min-w-0 flex-1 truncate text-sm font-medium"
+                title={s.name}
+              >
+                {s.name}
+              </h2>
+              <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground">
                 <span>{s.line_count}줄</span>
                 <When value={s.created_at} />
                 {s.masked && <Badge variant="outline">마스킹 보관본</Badge>}
@@ -69,12 +73,12 @@ export function SourceList() {
           ))}
         </div>
       )}
+      <Pagination data={data?.pagination} label="수집 자료" />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-auto">
           <DialogTitle>원문 보관</DialogTitle>
           <DialogDescription>
-            이 단계는 원문을 저장합니다. 지식 정제는 사용 중인 에이전트가
-            수행합니다.
+            자료를 보관합니다. 지식 반영은 별도의 정제 작업에서 진행합니다.
           </DialogDescription>
           <form
             className="space-y-4"
@@ -100,9 +104,7 @@ export function SourceList() {
                   },
                 );
                 setOpen(false);
-                router.push(
-                  `/workspaces/${workspaceId}/sources/${s.id}?revision=1`,
-                );
+                router.push(`/workspaces/${workspaceId}/sources/${s.id}`);
               } catch (e) {
                 setFailed(e);
               } finally {
@@ -158,13 +160,8 @@ export function SourceList() {
 export function SourceDetail() {
   const { workspaceId, id } = useParams<{ workspaceId: string; id: string }>();
   const q = useSearchParams();
-  const revision = q.get("revision") ?? "1";
-  const filter = new URLSearchParams();
-  if (q.get("start")) filter.set("start", q.get("start")!);
-  if (q.get("end")) filter.set("end", q.get("end")!);
-  const { data: s, error } = useApi(
-    `/api/workspaces/${workspaceId}/source-records/${id}/revisions/${revision}?${filter}`,
-  );
+  const base = `/api/workspaces/${workspaceId}/source-records/${id}`;
+  const { data: s, error } = useApi(base + "/info");
   if (error) return <Failure error={error} />;
   if (!s) return <Loading />;
   return (
@@ -174,23 +171,18 @@ export function SourceDetail() {
         className="mb-6 inline-flex gap-2 items-center text-muted-foreground"
       >
         <ArrowLeft className="size-4" />
-        원천 자료
+        수집 자료
       </Link>
-      <Heading
-        title={s.name}
-        description={`${s.start}–${s.end}줄 · 보관 개정 r${s.revision}`}
-      />
+      <Heading title={s.name} description="보관된 기록과 근거를 확인합니다." />
       <div className="mb-6 space-y-2 text-sm text-muted-foreground">
+        <Badge variant="outline">보관 개정 {s.revision}</Badge>
         <p className="break-all">원래 위치: {s.origin || "미기록"}</p>
         <p>
           보관 시점: <When value={s.created_at} />
         </p>
-        {s.masked && (
-          <Badge variant="outline">민감한 패턴을 마스킹한 보관본</Badge>
-        )}
+        {s.masked && <Badge variant="outline">마스킹 보관본</Badge>}
         {s.metadata?.rawUploadId && (
           <p>
-            이미지 분석을 생략한 텍스트 보기 ·{" "}
             <a
               className="underline"
               href={`/api/workspaces/${workspaceId}/collection/uploads/${s.metadata.rawUploadId}/raw`}
@@ -201,27 +193,93 @@ export function SourceDetail() {
             </a>
           </p>
         )}
-        {filter.size > 0 && (
-          <Link
-            className="block underline"
-            href={`/workspaces/${workspaceId}/sources/${id}?revision=${revision}`}
-          >
-            원문 전체 보기
-          </Link>
-        )}
       </div>
-      <div className="rounded-lg border overflow-x-auto py-3">
-        {s.text.split("\n").map((line: string, i: number) => (
-          <div key={i} className="flex min-w-0 font-mono text-sm leading-7">
-            <span className="w-14 shrink-0 select-none px-3 text-right text-muted-foreground border-r">
-              {s.start + i}
-            </span>
-            <span className="px-4 whitespace-pre-wrap break-words min-w-0">
-              {line || " "}
-            </span>
-          </div>
-        ))}
-      </div>
+      <SourceReader
+        key={id + q.toString()}
+        base={base}
+        evidence={q.has("start") ? q.toString() : null}
+        revision={q.get("revision") ?? "1"}
+      />
     </>
+  );
+}
+function SourceReader({
+  base,
+  evidence,
+  revision,
+}: {
+  base: string;
+  evidence: string | null;
+  revision: string;
+}) {
+  const [opened, setOpened] = useState(!!evidence),
+    [page, setPage] = useState(1);
+  const { data, error } = useApi(
+    !opened
+      ? null
+      : evidence
+        ? `${base}/revisions/${revision}?${evidence}`
+        : `${base}/session-text?page=${page}`,
+  );
+  if (!opened)
+    return (
+      <Button variant="outline" onClick={() => setOpened(true)}>
+        전체 기록 보기
+      </Button>
+    );
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <Failure error={error} />
+      ) : !data ? (
+        <Loading />
+      ) : (
+        <>
+          {evidence && (
+            <p className="text-xs text-muted-foreground">
+              근거 {data.start}–{data.end}줄
+            </p>
+          )}
+          <div className="rounded-lg border p-4 space-y-2 text-sm font-mono break-words whitespace-pre-wrap">
+            {data.text.split("\n").map((line: string, i: number) => {
+              let text = line;
+              if (data.projected) {
+                try {
+                  const entry = JSON.parse(line);
+                  text = entry.text;
+                } catch {}
+              }
+              return <div key={i}>{text || " "}</div>;
+            })}
+          </div>
+          {!evidence && (
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                이전 기록
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {page}페이지
+              </span>
+              <Button
+                variant="outline"
+                disabled={!data.hasNext}
+                onClick={() => setPage(page + 1)}
+              >
+                다음 기록
+              </Button>
+            </div>
+          )}
+          {evidence && (
+            <Link className="text-sm underline" href="?">
+              전체 기록 보기
+            </Link>
+          )}
+        </>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
+import { Pagination } from "./pagination";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,10 @@ import { api, useApi } from "@/lib/api";
 import { Heading, Loading, Failure, Empty, CopyButton, When } from "./common";
 export function Activity() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  const { data, error } = useApi(`/api/workspaces/${workspaceId}/publications`);
+  const query = useSearchParams();
+  const { data, error } = useApi(
+    `/api/workspaces/${workspaceId}/publications?${query}`,
+  );
   return (
     <>
       <Heading
@@ -47,10 +51,15 @@ export function Activity() {
                 {p.result.items.map((a: any) => (
                   <li key={a.id}>
                     <Link
-                      className="underline"
+                      className="inline-flex max-w-full items-center gap-2 rounded-md hover:bg-accent/50"
                       href={`/workspaces/${workspaceId}/knowledge/${a.id}?revision=${a.revision}`}
                     >
-                      {a.clientRef} · r{a.revision}
+                      <span className="min-w-0 truncate underline">
+                        {a.title || "확인할 수 없는 지식"}
+                      </span>
+                      <Badge variant="outline" className="shrink-0">
+                        개정 {a.revision}
+                      </Badge>
                     </Link>
                   </li>
                 ))}
@@ -59,6 +68,7 @@ export function Activity() {
           ))}
         </div>
       )}
+      <Pagination data={data?.pagination} label="반영 이력" />
     </>
   );
 }

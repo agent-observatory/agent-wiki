@@ -1,4 +1,5 @@
 "use client";
+import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useRef } from "react";
@@ -61,7 +62,7 @@ export function KnowledgeList() {
   const router = useRouter();
   const q = query.get("q") ?? "";
   const tag = query.get("tag") ?? "";
-  const filter = new URLSearchParams();
+  const filter = new URLSearchParams(query);
   if (q) filter.set("q", q);
   if (tag) filter.set("tag", tag);
   const { data, error } = useApi(
@@ -151,7 +152,7 @@ export function KnowledgeList() {
               </p>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                 <span>근거 {a.evidence_count}개</span>
-                <span>r{a.revision}</span>
+                <Badge variant="outline">개정 {a.revision}</Badge>
                 <When value={a.updated_at} />
                 {a.tags.map((t: string) => (
                   <span key={t}>#{t}</span>
@@ -161,6 +162,7 @@ export function KnowledgeList() {
           ))}
         </div>
       )}
+      <Pagination data={data?.pagination} label="지식" />
       <Editor
         open={create}
         close={() => setCreate(false)}
@@ -411,7 +413,7 @@ export function KnowledgeDetail() {
           <SelectContent>
             {a.revisions.map((r: any) => (
               <SelectItem key={r.revision} value={String(r.revision)}>
-                개정 r{r.revision}
+                개정 {r.revision}
               </SelectItem>
             ))}
           </SelectContent>
@@ -421,7 +423,7 @@ export function KnowledgeDetail() {
         <p className="mb-5 rounded-lg border p-3">
           과거 개정입니다.{" "}
           <Link className="underline" href={`${root}/knowledge/${id}`}>
-            최신 r{a.currentRevision} 보기
+            최신 개정 {a.currentRevision} 보기
           </Link>
         </p>
       )}

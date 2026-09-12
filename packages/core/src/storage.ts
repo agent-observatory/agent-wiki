@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { gzipSync, gunzipSync } from "node:zlib";
+import {
+  gzipSync,
+  gunzipSync,
+  zstdCompressSync,
+  zstdDecompressSync,
+} from "node:zlib";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import * as common from "oci-common";
@@ -35,12 +40,14 @@ export function hash(text: string | Buffer) {
   return createHash("sha256").update(text).digest("hex");
 }
 function localPath(key: string) {
-  if (!/^[a-f0-9-]+\/[a-f0-9]+\.txt\.gz$/.test(key))
+  if (!/^[a-f0-9-]+\/[a-f0-9]+\.(?:txt\.gz|ref\.zst)$/.test(key))
     throw new Error("Invalid object key");
   return path.join(process.env.LOCAL_SOURCE_DIR ?? ".runtime/sources", key);
 }
 export async function putSource(key: string, text: string) {
-  const body = gzipSync(Buffer.from(text));
+  const body = key.endsWith(".ref.zst")
+    ? zstdCompressSync(Buffer.from(text))
+    : gzipSync(Buffer.from(text));
   if (process.env.SOURCE_STORAGE === "local") {
     const file = localPath(key);
     await mkdir(path.dirname(file), { recursive: true });
@@ -53,7 +60,9 @@ export async function putSource(key: string, text: string) {
     bucketName: process.env.OCI_BUCKET!,
     objectName: key,
     putObjectBody: body,
-    contentType: "application/gzip",
+    contentType: key.endsWith(".ref.zst")
+      ? "application/zstd"
+      : "application/gzip",
   });
 }
 export async function getSource(key: string) {
@@ -75,6 +84,14 @@ export async function getSource(key: string) {
       chunks.push(Buffer.from(chunk));
     }
     buffer = Buffer.concat(chunks);
+  }
+  if (key.endsWith(".ref.zst")) {
+    const { readSourceReference } = await import("./source-reference.js");
+    return readSourceReference(
+      JSON.parse(
+        zstdDecompressSync(buffer, { maxOutputLength: 4096 }).toString(),
+      ),
+    );
   }
   return gunzipSync(buffer, { maxOutputLength: 2 * 1024 * 1024 }).toString(
     "utf8",
@@ -104,7 +121,7 @@ export function maskRecord(value: unknown): unknown {
 
 // Upload URLs only address staging objects. Final keys are never exposed for writes.
 function blobPath(key: string) {
-  if (!/^(?:staging|raw)\/[a-f0-9-]+\/[a-f0-9-]+\/\d+\.zst$/.test(key))
+  if (!/^(?:staging|raw|raw-meta)\/[a-f0-9-]+\/[a-f0-9-]+\/\d+\.zst$/.test(key))
     throw new Error("Invalid upload key");
   return path.join(process.env.LOCAL_SOURCE_DIR ?? ".runtime/sources", key);
 }

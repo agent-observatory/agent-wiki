@@ -529,3 +529,24 @@ test("Context bounds provenance and marks deleted start pages missing", async ()
     true,
   );
 });
+
+test("publication list uses the title at the recorded revision, not an internal client reference", async () => {
+  const s = await source();
+  const input = publication(s);
+  input.changes[0].title = "그때의 제목";
+  const created = await call("POST", "/publications", input);
+  assert.equal(created.statusCode, 200, created.body);
+  const item = created.json().items[0];
+  await admin.query(
+    "UPDATE articles SET title='현재의 다른 제목' WHERE workspace_id=$1 AND id=$2",
+    [ws, item.id],
+  );
+  const result = await call("GET", "/publications");
+  assert.equal(result.statusCode, 200, result.body);
+  const found = result
+    .json()
+    .items.flatMap((p: any) => p.result.items)
+    .find((a: any) => a.id === item.id);
+  assert.equal(found.title, "그때의 제목");
+  assert.equal(found.revision, 1);
+});

@@ -51,71 +51,73 @@ def card(x,y,w,h,title,lines,role='app',ico=None):
  for i,line in enumerate(lines):text(x+20,y+80+i*31,line,18)
 
 canvas(1920,1330,'로컬에서 수집 · 원격에서 정제','Collector는 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.')
-legend(1490,42,'수집·지식 반영','ingest');legend(1490,77,'조회·응답','query');legend(1490,112,'설정·인증·저장','ops',True)
+legend(1110,87,'수집·지식 반영','ingest');legend(1370,87,'조회·응답','query');legend(1600,87,'설정·인증·저장','ops',True)
 # DNS, certificate issuance, and persistent storage are not HTTP intermediaries.
 card(72,180,366,130,'DuckDNS · 도메인',['agent-wiki.duckdns.org','도메인 조회 → VM 공인 주소'],'web','tabler-world')
 card(940,180,280,130,'인증서 발급 기관',['Caddy가 발급·갱신 요청','HTTPS 인증서 자동 관리'],'ops','letsencrypt')
 card(1280,180,320,170,'연결 볼륨 · 50GB',['PostgreSQL 데이터','Caddy 인증서·설정','부트 볼륨 50GB 별도'],'data','oracle')
 group(40,370,430,912);text(64,406,'사용자 기기',24,True,'#FFFFFF')
-group(590,370,1010,830);text(614,406,'OCI A1 VM · 2 OCPU / 12GB',24,True,'#FFFFFF');text(1330,406,'Docker Compose',20,True,'#FFFFFF')
+group(590,370,1010,830)
 path('M200 450 V310',True,both=True)
 path('M438 245 H745 V450',True);text(490,230,'도메인 → VM 공인 주소',18)
-path('M940 255 H885 V420 H800 V450',True,both=True)
+path('M940 255 H800 V450',True,both=True)
 path('M860 480 H905 V335 H1280',True);text(960,329,'인증서 상태 보관',17)
 path('M1450 350 V640',True);text(1468,530,'데이터 연결',17)
 # Interactive reads and background writes use separate lanes.
 path('M438 520 H630',flow='query',both=True)
 path('M860 520 H940',flow='query',both=True)
-path('M438 710 H630',flow='query',both=True)
-path('M860 710 H940',flow='query',both=True)
+path('M438 855 H630',flow='query',both=True)
+path('M860 855 H940',flow='query',both=True)
 path('M1080 580 V640',flow='query',both=True)
 path('M1220 710 H1280',flow='query',both=True)
 path('M1220 790 H1280',flow='ingest')
 path('M1560 710 H1640',True,both=True)
 # Repaint headers above connectors crossing group boundaries.
-for hx,hw,label in [(40,430,'사용자 기기'),(590,1010,'OCI A1 VM · 2 OCPU / 12GB')]:
- box(hx+1,371,hw-2,52,'#344256','#344256');text(hx+24,406,label,24,True,'#FFFFFF')
-text(1330,406,'Docker Compose',20,True,'#FFFFFF')
+for hx,hw in [(40,430),(590,1010)]:
+ box(hx+1,371,hw-2,52,'#344256','#344256')
+text(64,406,'사용자 기기',24,True,'#FFFFFF')
+icon('oracle',614,383,32);text(660,406,'A1 VM · 2 OCPU / 12GB',24,True,'#FFFFFF')
+a('<g role="img" aria-label="Docker Compose"><title>Docker Compose</title>');icon('docker',1534,378,40);a('</g>')
 card(72,450,366,130,'웹 Wiki',['agent-wiki.duckdns.org','지식·근거 확인 · AI 설정'],'web','user')
 card(72,640,366,140,'작업 에이전트',['Claude · Codex 등','필요한 지식 조회 · 사용자와 작업'],'app','tabler-terminal-2')
 # The retrieval skill guides the agent; the existing CLI handles transport.
-path('M250 825 V780',True);text(267,812,'조회 지침·도구',17)
-card(72,825,366,170,'조회 Skill',['필요성 판단 · 근거 선택·인용','자동 · 항상 조회 · 조회 안 함','기존 CLI로 검색·개정·원문 조회'],'app','tabler-clipboard-check')
+path('M155 825 V780',True)
+path('M355 780 V825',flow='query',both=True)
+card(72,825,166,170,'조회 Skill',['조회·생략 판단','근거 선택·인용','자동·항상·생략'],'app','tabler-clipboard-check')
+card(272,825,166,170,'Wiki CLI',['명령줄 도구','검색·원문 조회','원격 API 호출'],'app','tabler-terminal-2')
 # Collection remains independent from skill use and the agent's retrieval decision.
-card(72,1050,366,200,'Collector',['세션 ID · 파일별 수신 위치','마스킹 · zstd 증분 압축','Object Storage 직접 전송','중복·등록 판단은 서버'],'ingest','tabler-cloud-upload')
-path('M438 1120 H520 V790 H630',flow='ingest',both=True);text(476,760,'수집 제어',18,True,FLOW_COLORS['ingest'])
-path('M860 790 H940',flow='ingest',both=True)
-card(630,450,230,440,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
-text(650,682,'조회 ↔ API',18,True,FLOW_COLORS['query'])
-text(650,762,'위치·허가·완료',18,True,FLOW_COLORS['ingest'])
+card(72,1050,366,200,'Collector',['세션 ID · 파일별 수신 위치','마스킹 · 텍스트·이미지 분리','Object Storage 직접 전송','중복·등록 판단은 서버'],'ingest','tabler-cloud-upload')
+path('M438 1120 H520 V885 H630',flow='ingest',both=True);text(535,1030,'수집 제어',18,True,FLOW_COLORS['ingest'])
+path('M860 885 H940',flow='ingest',both=True)
+card(630,450,230,460,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
 card(940,450,280,130,'Next.js · 웹',['지식·근거 확인 · AI 설정','내부 전용 연결'],'web','nextdotjs')
-card(940,640,280,250,'Fastify API',['업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
+card(940,640,280,270,'Fastify API',['업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
 card(1280,640,280,200,'PostgreSQL',['지식·개정·근거 연결','세션·출처별 수신 위치','업로드·정제 작업 이력','AI 제공자·모델 설정'],'data','postgresql')
 card(1640,640,240,140,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web','tabler-terminal-2')
 # Raw storage is outside the VM; its API connection is a straight horizontal line.
 path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확정',18)
-card(1640,820,240,190,'Object Storage',['임시 업로드 영역','검증 후 불변 L1 확정','이미지 포함 · 마스킹 L1'],'data','oracle')
+card(1640,820,240,190,'Object Storage',['임시 업로드 영역','검증 후 불변 L1 확정','텍스트·이미지 분리'],'data','oracle')
 # L2 is a server-side process using the internal API, never the user's agent session.
-path('M1080 890 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',17,True,FLOW_COLORS['ingest'])
+path('M1080 910 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',17,True,FLOW_COLORS['ingest'])
 card(940,970,280,198,'Worker · 원격 정제',['텍스트 추출 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','범위·모델·사용량 기록'],'ingest')
 # This card describes configuration stored in Wiki, not another container.
 card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 ID','API 연결 · 호출 한도','웹에서 변경 · 다음 정제'],'ops')
 path('M880 1070 H940',True)
 path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',18,True,FLOW_COLORS['ingest'])
-card(1640,1050,240,112,'외부 AI API',['설정의 제공자·모델 호출'],'ai','tabler-cloud')
+card(1640,1050,240,82,'AI Provider',[],'ai','openai')
 path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'압축 증분 직접 업로드 · 본문은 API를 통과하지 않음',18,True,FLOW_COLORS['ingest'])
 for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(90,1034,'L1 · 수집',130),(960,954,'L2 · 정제',112),(1420,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1740,804,'L1 · 원문',124)]:
  box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,label,17,True,'#FFFFFF')
 end('docs/assets/wiki-deployment.svg')
 
-canvas(1560,1210,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
+canvas(1560,1145,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
 legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변','query')
 box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',22,True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',19,True,'#FFFFFF')
 rows=[
- (5,240,'Answers','작업 에이전트 · 조회 Skill','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
- (4,420,'Query','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
+ (5,240,'에이전트 답변·작업','Skill · Wiki CLI로 조회','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
+ (4,420,'검색·근거 제공','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
  (3,600,'Wiki','Wiki 서버','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
- (2,780,'Ingest','원격 Worker · 외부 AI API','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
+ (2,780,'Ingest','원격 Worker · AI Provider','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
  (1,960,'Raw sources','Collector → Storage','증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
 for n,y,name,who,title,example,role in rows:
  component(40,y,1480,145,role)
@@ -124,13 +126,17 @@ for n,y,name,who,title,example,role in rows:
  text(184,y+43,name,25,True);text(146,y+82,who,18)
  a(f'<path d="M430 {y+20} V{y+125}" stroke="#929EAD"/>')
  if n==5:
-  card(456,y+16,460,114,'조회 Skill',['과거 맥락 필요성 판단 · 근거 선택'],'ai','tabler-clipboard-check')
-  path(f'M916 {y+77} H990',True);text(929,y+61,'지침',16)
-  card(990,y+16,500,114,'작업 에이전트',['필요한 근거로 답변·업무 수행'],'app','tabler-terminal-2')
+  card(456,y+16,290,114,'조회 Skill',['조회 판단 · 근거 선택'],'ai','tabler-clipboard-check')
+  path(f'M746 {y+77} H796',True)
+  card(796,y+16,290,114,'작업 에이전트',['근거를 활용해 답변·작업'],'app','tabler-terminal-2')
+  path(f'M1086 {y+77} H1136',flow='query',both=True)
+  card(1136,y+16,354,114,'Wiki CLI',['Wiki API 검색·원문 조회'],'app','tabler-terminal-2')
  else:
   text(456,y+43,title,24,True);text(456,y+91,example,21)
- if n<5:path(f'M80 {y} V{y-35}',flow='ingest' if n<=2 else 'query')
-text(40,1163,'Collector는 L1만 전송한다. 원격 L2는 Wiki의 AI 설정을 사용하며 사용자 조회를 기다리게 하지 않는다.',20)
+ if n==4:
+  path(f'M80 {y} V{y-35}',flow='query',both=True)
+  text(146,y-12,'조회 요청 / 근거 반환',16,True,FLOW_COLORS['query'])
+ elif n<5:path(f'M80 {y} V{y-35}',flow='ingest' if n<=2 else 'query')
 end('docs/assets/wiki-layers.svg')
 
 canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 원격 Worker 정제 실행의 입력이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')

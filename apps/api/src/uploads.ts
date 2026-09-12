@@ -23,6 +23,8 @@ const hex = z.string().regex(/^[a-f0-9]{64}$/),
   });
 const part = z
   .object({
+    kind: z.enum(["text", "image"]).optional(),
+    asset: hex.optional(),
     hash: hex,
     compressedHash: hex,
     bytes: z.number().int().min(1).max(4194304),
@@ -37,7 +39,7 @@ const schema = identity
     recordStart: z.number().int().nonnegative(),
     recordEnd: z.number().int().positive(),
     prefixHash: hex,
-    maskVersion: z.literal("stream-mask-1"),
+    maskVersion: z.enum(["stream-mask-1", "stream-mask-2"]),
     codec: z.literal("zstd"),
     parts: z.array(part).min(1).max(128),
   })
@@ -73,6 +75,12 @@ export function registerUploads(app: FastifyInstance, scoped: Scoped) {
   });
   app.post(base + "/uploads", options, (r) => {
     const v = schema.parse(r.body);
+    if (
+      v.maskVersion === "stream-mask-2" &&
+      (!v.parts.some((p) => p.kind === "text") ||
+        v.parts.some((p) => !p.kind || (p.kind === "image") !== !!p.asset))
+    )
+      throw new AppError(400, "INVALID_INPUT");
     if (v.end <= v.start || v.recordEnd <= v.recordStart)
       throw new AppError(400, "INVALID_RANGE");
     const { stream, origin } = ids(v),

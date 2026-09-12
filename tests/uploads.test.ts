@@ -16,7 +16,12 @@ import { join } from "node:path";
 import pg from "pg";
 import { buildApp } from "../apps/api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
-import { hash, putBlob, getSource } from "../packages/core/src/storage.js";
+import {
+  hash,
+  putBlob,
+  getSource,
+  deleteBlob,
+} from "../packages/core/src/storage.js";
 import { processUpload } from "../apps/worker/src/ingest.js";
 // @ts-expect-error standalone collector module
 import { collect } from "../packages/collector/collector.mjs";
@@ -335,4 +340,72 @@ test("an interrupted upload keeps its exact range when new messages are appended
   assert.equal(t.manifests[2].start, initial);
   assert.equal(t.manifests[2].recordEnd, 2);
   while (await processUpload(owner, new AbortController().signal)) {}
+});
+
+test("split L1 resolves exact evidence without reading an image or permanent gzip copy", async () => {
+  const file = join(root, "image-separated.jsonl");
+  await writeFile(
+    file,
+    JSON.stringify({
+      type: "session_meta",
+      payload: { id: "image-separated", cwd: "/allowed" },
+    }) +
+      "\n" +
+      JSON.stringify({
+        role: "user",
+        content: [
+          { type: "text", text: "이미지 대신 텍스트만 정제한다." },
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/png",
+              data: "A".repeat(100000),
+            },
+          },
+        ],
+      }) +
+      "\n",
+  );
+  const t = transport();
+  await collect(config(), { files: {} }, t.request, async () => {}, t.transfer);
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const upload = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT id,manifest FROM collection_uploads WHERE workspace_id=$1 AND manifest->>'sessionId'='image-separated'",
+        [ws],
+      ),
+    )
+  ).rows[0];
+  assert.equal(upload.manifest.maskVersion, "stream-mask-2");
+  assert.ok(upload.manifest.parts.some((p: any) => p.kind === "image"));
+  for (let i = 0; i < upload.manifest.parts.length; i++)
+    if (upload.manifest.parts[i].kind === "image")
+      await deleteBlob(`raw/${ws}/${upload.id}/${i}.zst`);
+  const sources = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT * FROM sources WHERE workspace_id=$1 AND metadata->>'rawUploadId'=$2",
+        [ws, upload.id],
+      ),
+    )
+  ).rows;
+  assert.ok(sources.length);
+  const texts = [];
+  for (const source of sources) {
+    assert.ok(source.object_key.endsWith(".ref.zst"));
+    const text = await getSource(source.object_key);
+    assert.equal(hash(text), source.content_hash);
+    texts.push(text);
+    const info = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/source-records/${source.id}/info`,
+      headers,
+    });
+    assert.equal(info.statusCode, 200);
+    assert.equal(info.json().text, undefined);
+  }
+  assert.ok(texts.join("").includes("이미지 대신 텍스트만 정제한다."));
+  assert.ok(!texts.join("").includes("A".repeat(100)));
 });

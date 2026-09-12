@@ -54,3 +54,14 @@ test("progress distinguishes manual pause, provider cooldown, daily allowance, a
     { reason: "retry_wait", nextAttemptAt: "2026-09-13T23:52:00.000Z" },
   );
 });
+
+test("pause status distinguishes draining and stopped even without pending jobs", () => {
+  assert.equal(
+    refinementSchedule({ ...state, enabled: false, running: 1 }).reason,
+    "pausing",
+  );
+  assert.equal(
+    refinementSchedule({ ...state, enabled: false, pending: 0 }).reason,
+    "paused",
+  );
+});

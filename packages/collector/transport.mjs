@@ -1,3 +1,4 @@
+import { separateImages } from "./assets.mjs";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdtemp, rm, open, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,7 +12,7 @@ import Replace from "stream-json/filters/Replace.js";
 import Stringer from "stream-json/Stringer.js";
 export const sha = (data) => createHash("sha256").update(data).digest("hex");
 export const PART_BYTES = 4 * 1024 * 1024;
-export const MASK_VERSION = "stream-mask-1";
+export const MASK_VERSION = "stream-mask-2";
 const sensitive =
   /(?:^|\.)(?:password|secret|api[_-]?key|access[_-]?token|authorization|private[_-]?key)$/i;
 // Strings stay bounded even when a single JSON event embeds a very large image.
@@ -84,7 +85,8 @@ export async function prepareUpload(file, start, end, redact) {
     throw new Error("SECRET_EXCEEDS_MASK_WINDOW");
   const dir = await mkdtemp(join(tmpdir(), "wiki-upload-"));
   try {
-    const normalized = join(dir, "masked.jsonl");
+    const normalized = join(dir, "masked.jsonl"),
+      assets = [];
     await pipeline(
       createReadStream(file, { start, end: end - 1 }),
       new Parser({
@@ -102,44 +104,55 @@ export async function prepareUpload(file, start, end, redact) {
         ],
       }),
       maskStrings(redact),
+      separateImages(dir, assets),
       new Stringer({ useKeyValues: true }),
       createWriteStream(normalized, { mode: 0o600 }),
     );
-    const handle = await open(normalized, "r"),
-      parts = [];
-    let position = 0;
-    try {
-      while (true) {
-        const buf = Buffer.allocUnsafe(PART_BYTES);
-        let size = 0;
-        while (size < buf.length) {
-          const r = await handle.read(
-            buf,
-            size,
-            buf.length - size,
-            position + size,
-          );
-          if (!r.bytesRead) break;
-          size += r.bytesRead;
+    const parts = [];
+    for (const input of [
+      { file: normalized, kind: "text" },
+      ...[...new Map(assets.map((a) => [a.asset, a])).values()].map((a) => ({
+        ...a,
+        kind: "image",
+      })),
+    ]) {
+      const handle = await open(input.file, "r");
+      let position = 0;
+      try {
+        while (true) {
+          const buf = Buffer.allocUnsafe(PART_BYTES);
+          let size = 0;
+          while (size < buf.length) {
+            const r = await handle.read(
+              buf,
+              size,
+              buf.length - size,
+              position + size,
+            );
+            if (!r.bytesRead) break;
+            size += r.bytesRead;
+          }
+          if (!size) break;
+          const raw = buf.subarray(0, size),
+            compressed = zstdCompressSync(raw, {
+              params: { [constants.ZSTD_c_compressionLevel]: 1 },
+            }),
+            part = parts.length;
+          await writeFile(join(dir, String(part)), compressed, { mode: 0o600 });
+          parts.push({
+            kind: input.kind,
+            ...(input.asset ? { asset: input.asset } : {}),
+            hash: sha(raw),
+            compressedHash: sha(compressed),
+            bytes: size,
+            compressedBytes: compressed.length,
+          });
+          position += size;
+          if (parts.length > 128) throw new Error("UPLOAD_TOO_LARGE");
         }
-        if (!size) break;
-        const raw = buf.subarray(0, size),
-          compressed = zstdCompressSync(raw, {
-            params: { [constants.ZSTD_c_compressionLevel]: 1 },
-          }),
-          part = parts.length;
-        await writeFile(join(dir, String(part)), compressed, { mode: 0o600 });
-        parts.push({
-          hash: sha(raw),
-          compressedHash: sha(compressed),
-          bytes: size,
-          compressedBytes: compressed.length,
-        });
-        position += size;
-        if (parts.length > 128) throw new Error("UPLOAD_TOO_LARGE");
+      } finally {
+        await handle.close();
       }
-    } finally {
-      await handle.close();
     }
     return {
       dir,

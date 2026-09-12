@@ -377,7 +377,13 @@ test("progress totals cover all workspace jobs, not just the displayed 100, with
       ),
     )
   ).rows[0];
-  assert.equal(data.items.length, 100);
+  assert.equal(data.items.length, 25);
+  const second = (await request("GET", "/refinements?jobsPage=2")).json();
+  assert.equal(second.items.length, 25);
+  assert.equal(second.progress.summary.total, data.progress.summary.total);
+  assert.ok(
+    second.items.every((x: any) => !data.items.some((y: any) => x.id === y.id)),
+  );
   assert.equal(data.progress.summary.total, actual.total);
   assert.equal(data.progress.summary.chunks_done, actual.done);
   assert.equal(data.progress.summary.chunks_total, actual.chunks);
@@ -386,4 +392,82 @@ test("progress totals cover all workspace jobs, not just the displayed 100, with
   assert.ok(data.progress.schedule.nextAttemptAt);
   assert.ok(!response.body.includes("encrypted_key"));
   assert.ok(!response.body.includes("key_hash"));
+});
+
+test("live pause/resume changes only enabled, preserves drafts through versions, and keeps admitted work safe", async () => {
+  const current = (await request("GET", "/ai-settings")).json();
+  const config = { ...defaults, enabled: true, dailyCalls: 1000 };
+  await request("PUT", "/ai-settings", { config, version: current.version });
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  await admin.query("UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'", [ws]);
+  await request("POST", "/collection", { ...source, sessionId:"pause-control-session", start:0 });
+  const saved = (await request("GET", "/ai-settings")).json();
+  let calls = 0;
+  await runOne(owner, new AbortController().signal, async () => {
+    calls++;
+    const paused = await request("PATCH", "/ai-settings/enabled", {
+      enabled: false,
+      version: saved.version,
+    });
+    assert.equal(paused.statusCode, 200, paused.body);
+    const state = (await request("GET", "/refinements")).json();
+    assert.equal(state.progress.schedule.reason, "pausing");
+    return { output: { changes: [] }, usage: { total_tokens: 1 } };
+  });
+  assert.equal(calls, 1);
+  assert.equal(
+    await runOne(owner, new AbortController().signal, async () => {
+      throw new Error("must not call while paused");
+    }),
+    false,
+  );
+  const paused = (await request("GET", "/ai-settings")).json();
+  assert.equal(paused.enabled, false);
+  assert.equal(paused.dailyCalls, 1000);
+  assert.equal(paused.model, config.model);
+  assert.equal(paused.hasKey, true);
+  assert.equal(
+    (
+      await request("PATCH", "/ai-settings/enabled", {
+        enabled: true,
+        version: saved.version,
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await request("PATCH", "/ai-settings/enabled", {
+        enabled: true,
+        version: paused.version,
+      })
+    ).statusCode,
+    200,
+  );
+  const resumed = (await request("GET", "/ai-settings")).json();
+  assert.equal(resumed.enabled, true);
+  const key = (
+    await request("POST", "/keys", { name: "read-only", scope: "read" })
+  ).json().token;
+  assert.equal(
+    (
+      await request(
+        "PATCH",
+        "/ai-settings/enabled",
+        { enabled: false, version: resumed.version },
+        {
+          authorization: "Bearer " + key,
+          "content-type": "application/json",
+        } as any,
+      )
+    ).statusCode,
+    403,
+  );
+  await request("PATCH", "/ai-settings/enabled", {
+    enabled: false,
+    version: resumed.version,
+  });
 });

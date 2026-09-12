@@ -15,13 +15,17 @@ export function refinementSchedule(input: {
   now: Date;
 }) {
   const { now } = input;
+  if (!input.enabled)
+    return {
+      reason: input.running ? "pausing" : "paused",
+      nextAttemptAt: null,
+    };
   if (input.running) return { reason: "running", nextAttemptAt: null };
   if (!input.pending)
     return {
       reason: input.failed ? "needs_attention" : "idle",
       nextAttemptAt: null,
     };
-  if (!input.enabled) return { reason: "paused", nextAttemptAt: null };
   if (!input.hasKey) return { reason: "key_missing", nextAttemptAt: null };
   const tomorrow = new Date(now);
   tomorrow.setUTCHours(24, 0, 0, 0);
@@ -79,7 +83,7 @@ export async function refinementProgress(
   ).rows[0];
   const settings = (
     await c.query(
-      "SELECT config,encrypted_key FROM ai_settings WHERE workspace_id=$1",
+      "SELECT config,encrypted_key,version FROM ai_settings WHERE workspace_id=$1",
       [ws],
     )
   ).rows[0];
@@ -114,6 +118,11 @@ export async function refinementProgress(
     storage,
     lastProgressAt,
     checkedAt: now.toISOString(),
+    control: {
+      enabled: config.enabled,
+      version: settings?.version ?? 0,
+      dailyCalls: config.dailyCalls,
+    },
     schedule: refinementSchedule({
       ...summary,
       enabled: config.enabled,

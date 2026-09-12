@@ -18,7 +18,7 @@ import {
   scanFile,
   PART_BYTES,
 } from "../packages/collector/transport.mjs";
-test("streaming preparation preserves large image in L1 while masking structured credentials and detecting partial lines", async () => {
+test("streaming preparation separates a 105 MiB image from text while preserving its bytes and masking credentials", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wiki-large-")),
     file = join(dir, "session.jsonl");
   let prepared;
@@ -44,7 +44,28 @@ test("streaming preparation preserves large image in L1 while masking structured
     ).toString();
     assert.ok(first.includes("[REDACTED]"));
     assert.ok(!first.includes('"secret"'));
-    assert.ok(first.includes("data:image/png;base64,"));
+    assert.equal(prepared.parts[0].kind, "text");
+    assert.ok(first.includes("data:image/agent-wiki;ref="));
+    assert.ok(first.includes("보존할 텍스트"));
+    assert.ok(first.length < 1000);
+    let imageBytes = 0;
+    const imageHash = (await import("node:crypto")).createHash("sha256");
+    for (let i = 1; i < prepared.parts.length; i++) {
+      const p = prepared.parts[i];
+      assert.equal(p.kind, "image");
+      const raw = zstdDecompressSync(
+        await readFile(join(prepared.dir, String(i))),
+      );
+      if (i === 1)
+        assert.ok(raw.toString().startsWith("data:image/png;base64,"));
+      imageBytes += raw.length;
+      imageHash.update(raw);
+    }
+    assert.equal(
+      imageBytes,
+      105 * 1024 * 1024 + "data:image/png;base64,".length,
+    );
+    assert.equal(imageHash.digest("hex"), prepared.parts[1].asset);
   } finally {
     if (prepared) await prepared.cleanup();
     await rm(dir, { recursive: true, force: true });
