@@ -1,55 +1,31 @@
 "use client";
 import { Pagination } from "./pagination";
 import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useState, useRef } from "react";
-import { Plus, ArrowLeft } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { api, useApi } from "@/lib/api";
+import { useApi } from "@/lib/api";
 import { Heading, Empty, Failure, Loading, When } from "./common";
 export function SourceList() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  const router = useRouter();
   const query = useSearchParams();
   const { data, error } = useApi(
     `/api/workspaces/${workspaceId}/source-sessions?${query}`,
   );
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [name, setName] = useState("");
-  const [failed, setFailed] = useState<unknown>();
-  const [busy, setBusy] = useState(false);
-  const last = useRef({ body: "", key: "" });
   return (
     <>
       <Heading
         title="수집 자료"
         description="지식의 근거가 되는 대화·문서·코드의 보관본입니다."
-        action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus />
-            원문 보관
-          </Button>
-        }
       />
       {error ? (
         <Failure error={error} />
       ) : !data ? (
         <Loading />
       ) : !data.items.length ? (
-        <Empty>
-          아직 수집한 자료가 없습니다. Collector를 연결하거나 문서를 직접
-          보관하세요.
-        </Empty>
+        <Empty>아직 수집한 자료가 없습니다. Collector를 연결해 주세요.</Empty>
       ) : (
         <div className="divide-y border-y overflow-x-auto">
           {data.items.map((s: any) => (
@@ -74,86 +50,6 @@ export function SourceList() {
         </div>
       )}
       <Pagination data={data?.pagination} label="수집 자료" />
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-auto">
-          <DialogTitle>원문 보관</DialogTitle>
-          <DialogDescription>
-            자료를 보관합니다. 지식 반영은 별도의 정제 작업에서 진행합니다.
-          </DialogDescription>
-          <form
-            className="space-y-4"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              const body = JSON.stringify({
-                name,
-                text,
-                origin: String(f.get("origin")),
-                kind: "document",
-              });
-              if (last.current.body !== body)
-                last.current = { body, key: crypto.randomUUID() };
-              setBusy(true);
-              try {
-                const s = await api(
-                  `/api/workspaces/${workspaceId}/source-records`,
-                  {
-                    method: "POST",
-                    headers: { "Idempotency-Key": last.current.key },
-                    body,
-                  },
-                );
-                setOpen(false);
-                router.push(`/workspaces/${workspaceId}/sources/${s.id}`);
-              } catch (e) {
-                setFailed(e);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <label className="block space-y-2">
-              <span>이름</span>
-              <Input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <label className="block space-y-2">
-              <span>원래 위치</span>
-              <Input name="origin" placeholder="문서 주소 또는 대화의 위치" />
-            </label>
-            <Input
-              type="file"
-              aria-label="원문 파일"
-              accept=".txt,.md,.json"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  if (f.size > 100000) {
-                    setFailed(new Error("too large"));
-                    return;
-                  }
-                  setName(f.name);
-                  setText(await f.text());
-                }
-              }}
-            />
-            <label className="block space-y-2">
-              <span>본문 · 100KB 이하</span>
-              <Textarea
-                className="min-h-60"
-                required
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            </label>
-            {!!failed && <Failure error={failed} />}
-            <Button disabled={busy}>{busy ? "보관 중…" : "보관"}</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
