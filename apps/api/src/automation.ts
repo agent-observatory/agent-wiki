@@ -25,100 +25,110 @@ export function registerAutomation(
   sessionOnly: (r: FastifyRequest) => void,
 ) {
   const base = "/api/workspaces/:workspaceId";
-  app.post(base + "/collection", { bodyLimit: 2000000 }, async (r) => {
-    const input = z
-      .object({
-        machine: z.string().min(1).max(100),
-        client: z.enum(["codex", "claude"]),
-        sessionId: z.string().min(1).max(200),
-        name: z.string().min(1).max(180),
-        start: z.number().int().min(0),
-        records: z.array(z.string().min(1).max(1000000)).min(1).max(100),
-      })
-      .strict()
-      .parse(r.body);
-    if (Buffer.byteLength(input.records.join("\n")) > 1000000)
-      throw new AppError(413, "COLLECTION_TOO_LARGE");
-    const records = input.records.map((line) => {
-      try {
-        return JSON.stringify(maskRecord(JSON.parse(line)));
-      } catch {
-        throw new AppError(400, "INVALID_RECORD");
-      }
-    });
-    const stream = hash(
-      JSON.stringify([input.machine, input.client, input.sessionId]),
-    );
-    return scoped(r, async (c, ws) => {
-      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-        ws + stream,
-      ]);
-      await c.query(
-        "INSERT INTO collection_streams(workspace_id,id,client,session_id,name) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
-        [ws, stream, input.client, input.sessionId, mask(input.name)],
+  app.post(
+    base + "/collection",
+    {
+      bodyLimit: 2000000,
+      config: {
+        rateLimit: {
+          max: 600,
+          timeWindow: "1 minute",
+          keyGenerator: (r: FastifyRequest) => "collection:" + r.ip,
+        },
+      },
+    },
+    async (r) => {
+      const input = z
+        .object({
+          machine: z.string().min(1).max(100),
+          client: z.enum(["codex", "claude"]),
+          sessionId: z.string().min(1).max(200),
+          name: z.string().min(1).max(180),
+          start: z.number().int().min(0),
+          records: z.array(z.string().min(1).max(1000000)).min(1).max(100),
+        })
+        .strict()
+        .parse(r.body);
+      if (Buffer.byteLength(input.records.join("\n")) > 1000000)
+        throw new AppError(413, "COLLECTION_TOO_LARGE");
+      const records = input.records.map((line) => {
+        try {
+          return JSON.stringify(maskRecord(JSON.parse(line)));
+        } catch {
+          throw new AppError(400, "INVALID_RECORD");
+        }
+      });
+      const stream = hash(
+        JSON.stringify([input.machine, input.client, input.sessionId]),
       );
-      const existing = (
-        await c.query(
-          "SELECT position,content_hash FROM collection_events WHERE workspace_id=$1 AND stream_id=$2 AND position BETWEEN $3 AND $4",
-          [ws, stream, input.start, input.start + records.length - 1],
-        )
-      ).rows;
-      const seen = new Set(
-        existing.map((x) => x.position + ":" + x.content_hash),
-      );
-      const fresh = records
-        .map((text, i) => ({
-          text,
-          position: input.start + i,
-          hash: hash(text),
-        }))
-        .filter((x) => !seen.has(x.position + ":" + x.hash));
-      if (!fresh.length) return { accepted: 0, duplicate: records.length };
-      const text = fresh
-          .map((x) => JSON.stringify(JSON.parse(x.text), null, 2))
-          .join("\n"),
-        id = randomUUID(),
-        job = randomUUID(),
-        contentHash = hash(text),
-        objectKey = ws + "/" + contentHash + ".txt.gz";
-      await putSource(objectKey, text);
-      await c.query(
-        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,$3,'conversation',$4,$5,$5,$6,$7,$8,true)",
-        [
-          id,
-          ws,
-          mask(input.name),
-          input.client + ":" + mask(input.sessionId),
-          contentHash,
-          objectKey,
-          text.split("\n").length,
-          "collect-" + id,
-        ],
-      );
-      for (const record of fresh)
-        await c.query("INSERT INTO collection_events VALUES($1,$2,$3,$4,$5)", [
-          ws,
-          stream,
-          record.position,
-          record.hash,
-          id,
+      return scoped(r, async (c, ws) => {
+        await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+          ws + stream,
         ]);
-      await c.query(
-        "UPDATE collection_streams SET last_position=GREATEST(last_position,$3),updated_at=now() WHERE workspace_id=$1 AND id=$2",
-        [ws, stream, input.start + records.length - 1],
-      );
-      await c.query(
-        "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
-        [job, ws, id],
-      );
-      return {
-        accepted: fresh.length,
-        duplicate: records.length - fresh.length,
-        sourceId: id,
-        jobId: job,
-      };
-    });
-  });
+        await c.query(
+          "INSERT INTO collection_streams(workspace_id,id,client,session_id,name) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
+          [ws, stream, input.client, input.sessionId, mask(input.name)],
+        );
+        const existing = (
+          await c.query(
+            "SELECT position,content_hash FROM collection_events WHERE workspace_id=$1 AND stream_id=$2 AND position BETWEEN $3 AND $4",
+            [ws, stream, input.start, input.start + records.length - 1],
+          )
+        ).rows;
+        const seen = new Set(
+          existing.map((x) => x.position + ":" + x.content_hash),
+        );
+        const fresh = records
+          .map((text, i) => ({
+            text,
+            position: input.start + i,
+            hash: hash(text),
+          }))
+          .filter((x) => !seen.has(x.position + ":" + x.hash));
+        if (!fresh.length) return { accepted: 0, duplicate: records.length };
+        const text = fresh
+            .map((x) => JSON.stringify(JSON.parse(x.text), null, 2))
+            .join("\n"),
+          id = randomUUID(),
+          job = randomUUID(),
+          contentHash = hash(text),
+          objectKey = ws + "/" + contentHash + ".txt.gz";
+        await putSource(objectKey, text);
+        await c.query(
+          "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,$3,'conversation',$4,$5,$5,$6,$7,$8,true)",
+          [
+            id,
+            ws,
+            mask(input.name),
+            input.client + ":" + mask(input.sessionId),
+            contentHash,
+            objectKey,
+            text.split("\n").length,
+            "collect-" + id,
+          ],
+        );
+        for (const record of fresh)
+          await c.query(
+            "INSERT INTO collection_events VALUES($1,$2,$3,$4,$5)",
+            [ws, stream, record.position, record.hash, id],
+          );
+        await c.query(
+          "UPDATE collection_streams SET last_position=GREATEST(last_position,$3),updated_at=now() WHERE workspace_id=$1 AND id=$2",
+          [ws, stream, input.start + records.length - 1],
+        );
+        await c.query(
+          "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+          [job, ws, id],
+        );
+        return {
+          accepted: fresh.length,
+          duplicate: records.length - fresh.length,
+          sourceId: id,
+          jobId: job,
+        };
+      });
+    },
+  );
   app.get(base + "/ai-settings", (r) => {
     sessionOnly(r);
     return scoped(r, async (c, ws) => {

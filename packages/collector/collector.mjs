@@ -81,12 +81,49 @@ async function* walk(root) {
   }
 }
 export async function collect(config, state, send) {
-  const stats = { files: 0, accepted: 0, duplicate: 0, failed: 0 };
+  const stats = { files: 0, accepted: 0, duplicate: 0, failed: 0, errors: {} };
   for (const root of config.roots)
     for await (const file of walk(root.path)) {
       if ((config.exclude ?? []).some((pattern) => file.includes(pattern)))
         continue;
       try {
+        // Establish project scope from metadata before loading unrelated large sessions.
+        const fileHandle = await open(file, "r");
+        let prefix;
+        try {
+          const buffer = Buffer.alloc(262144);
+          const { bytesRead } = await fileHandle.read(
+            buffer,
+            0,
+            buffer.length,
+            0,
+          );
+          prefix = buffer.subarray(0, bytesRead).toString("utf8");
+        } finally {
+          await fileHandle.close();
+        }
+        const metadata = prefix
+          .split("\n")
+          .slice(0, -1)
+          .flatMap((line) => {
+            try {
+              return [JSON.parse(line)];
+            } catch {
+              return [];
+            }
+          });
+        const knownCwd = metadata
+          .map((x) => x.cwd ?? x.payload?.cwd)
+          .find(Boolean);
+        if (
+          knownCwd &&
+          !config.projects.some(
+            (p) =>
+              resolve(knownCwd) === resolve(p) ||
+              resolve(knownCwd).startsWith(resolve(p) + "/"),
+          )
+        )
+          continue;
         const info = await stat(file);
         if (info.size > 256 * 1024 * 1024) throw new Error("FILE_TOO_LARGE");
         const buffer = await readFile(file, "utf8"),
@@ -140,7 +177,15 @@ export async function collect(config, state, send) {
         }
         state.files[file] = fingerprint;
         stats.files++;
-      } catch {
+      } catch (error) {
+        const code = /^(?:HTTP_[0-9]{3}|FILE_TOO_LARGE|RECORD_TOO_LARGE)$/.test(
+          error.message,
+        )
+          ? error.message
+          : error instanceof SyntaxError
+            ? "INVALID_JSON"
+            : "COLLECTION_FAILED";
+        stats.errors[code] = (stats.errors[code] ?? 0) + 1;
         stats.failed++;
       }
     }
@@ -270,27 +315,48 @@ async function main() {
       if (e.code !== "ENOENT") throw e;
     }
     const result = await collect(config, state, async (payload) => {
-      const response = await fetch(
-        config.server.replace(/\/$/, "") +
-          "/api/workspaces/" +
-          config.workspace +
-          "/collection",
-        {
-          method: "POST",
-          redirect: "error",
-          signal: AbortSignal.timeout(60000),
-          headers: {
-            authorization: "Bearer " + token,
-            "content-type": "application/json",
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const response = await fetch(
+          config.server.replace(/\/$/, "") +
+            "/api/workspaces/" +
+            config.workspace +
+            "/collection",
+          {
+            method: "POST",
+            redirect: "error",
+            signal: AbortSignal.timeout(60000),
+            headers: {
+              authorization: "Bearer " + token,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(payload),
           },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!response.ok) {
-        await response.body?.cancel();
-        throw new Error("Collection HTTP " + response.status);
+        );
+        if (
+          (response.status === 429 || response.status >= 500) &&
+          attempt < 3
+        ) {
+          const seconds =
+            response.status === 429
+              ? Math.min(
+                  120,
+                  Math.max(
+                    1,
+                    Number(response.headers.get("retry-after")) || 60,
+                  ),
+                )
+              : 2 ** attempt;
+          await response.body?.cancel();
+          await new Promise((r) => setTimeout(r, seconds * 1000));
+          continue;
+        }
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error("HTTP_" + response.status);
+        }
+        return response.json();
       }
-      return response.json();
+      throw new Error("HTTP_RETRY_EXHAUSTED");
     });
     await atomic(statePath, state);
     console.log(JSON.stringify({ time: new Date().toISOString(), ...result }));

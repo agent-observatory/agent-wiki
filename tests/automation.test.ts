@@ -299,3 +299,11 @@ test("transient model errors are bounded and interrupted leases recover without 
   assert.equal(end.attempts, 3);
   assert.equal(calls, 2);
 });
+
+test("collection rate limits do not consume the interactive API budget", async () => {
+  for (let i = 0; i < 125; i++) {
+    const response = await request("POST", "/collection", source);
+    assert.equal(response.statusCode, 200);
+  }
+  assert.equal((await request("GET", "/ai-settings")).statusCode, 200);
+});
