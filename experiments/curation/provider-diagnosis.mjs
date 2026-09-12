@@ -318,7 +318,23 @@ async function main() {
       ],
       ["hello-control-after-short", hello],
     ];
-    for (const [name, body] of cases) {
+    const { chat_template_kwargs: _template, ...originalFull } = full;
+    const alternatives = [2048, 8192, 16384].map((maxTokens) => [
+      `full-original-wire-${maxTokens}`,
+      { ...originalFull, max_tokens: maxTokens, reasoning_effort: "none" },
+    ]);
+    const requested =
+      process.env.PROVIDER_DIAGNOSTIC_CASES?.split(",").filter(Boolean);
+    const selected = requested
+      ? requested.map((name) => {
+          const entry = [...cases, ...alternatives].find(
+            ([key]) => key === name,
+          );
+          if (!entry) throw Error("Unknown diagnostic case");
+          return entry;
+        })
+      : cases;
+    for (const [name, body] of selected) {
       signal.throwIfAborted();
       const current = await tx(
         owner,
