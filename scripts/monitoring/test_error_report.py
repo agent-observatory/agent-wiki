@@ -18,6 +18,13 @@ class ErrorTests(unittest.TestCase):
         self.assertIsNone(extract(event(severity=9)))
         self.assertIsNone(extract(event(severity=13)))
 
+    def test_oci_flattened_json_preserves_service_code_and_event_identity(self):
+        original=event();flat=copy.deepcopy(original);data=flat['logContent']['data']
+        for prefix in ('resource','attributes'):
+            data.update({prefix+'.'+k:v for k,v in data.pop(prefix).items()})
+        flat['logContent']['id']='different-ingestion-id'
+        self.assertEqual(extract(original),extract(flat))
+
     def test_duplicates_grouped_and_secret_body_excluded(self):
         sent=[];saved=[];state={}
         run([event(),event(),event('e2')],state,lambda s:saved.append(copy.deepcopy(s)),NOW,'https://example.com',sent.append)

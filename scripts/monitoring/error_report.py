@@ -37,16 +37,18 @@ def extract(item):
     event = token(d.get('eventName')) or 'unknown_error'
     resource, attrs = d.get('resource') or {}, d.get('attributes') or {}
     if not isinstance(resource, dict) or not isinstance(attrs, dict): return None
-    service = token(resource.get('service.name')) or 'agent-wiki'
+    # OCI Log Search flattens nested JSON keys; local fixtures/logs are nested.
+    service = token(d.get('resource.service.name') or resource.get('service.name')) or 'agent-wiki'
     if not service.startswith('agent-wiki'): return None
-    event_id = token(attrs.get('agent_wiki.event_id')) or token(content.get('id'))
+    def attr(name):
+        return token(d.get('attributes.agent_wiki.'+name) or attrs.get('agent_wiki.'+name))
+    event_id = attr('event_id') or token(content.get('id'))
     if not event_id: raise ValueError('Error event has no stable identity')
     ts = stamp(content.get('time') or d.get('timestamp'))
-    code = token(attrs.get('agent_wiki.error_code')) or 'UNSPECIFIED'
+    code = attr('error_code') or 'UNSPECIFIED'
     return {'id': hashlib.sha256(event_id.encode()).hexdigest(), 'time': ts.isoformat(),
             'event': event, 'service': service, 'code': code,
-            'request': token(attrs.get('agent_wiki.request_id')),
-            'job': token(attrs.get('agent_wiki.job_id'))}
+            'request': attr('request_id'), 'job': attr('job_id')}
 
 
 def fingerprint(event):
@@ -128,7 +130,11 @@ def main():
     try:
         rows=fetch_errors(oci.loggingsearch.LogSearchClient(config,retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY),
                           config['tenancy'],ids['log_group_id'],ids['log_id'],now)
-        url='https://cloud.oracle.com/logging/logs/'+ids['log_id']+'?'+urlencode({'region':config['region'],'logGroupId':ids['log_group_id']})
+        url='https://cloud.oracle.com/logging/search?'+urlencode({
+            'searchQuery':f'search "{config["tenancy"]}/{ids["log_group_id"]}/{ids["log_id"]}" | where data.severityNumber >= 17 | sort by datetime desc',
+            'start':(now-timedelta(hours=24)).isoformat().replace('+00:00','Z'),
+            'end':now.isoformat().replace('+00:00','Z'),
+            'region':config['region'], 'regions':config['region']})
         if args.preview:
             print(f'Preview: {sum(extract(r) is not None for r in rows)} eligible error rows; no message sent.')
         else:run(rows,state,store.write,now,url)
