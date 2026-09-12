@@ -70,6 +70,7 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 - VM 생성은 약 37초에 성공했다. 볼륨의 PV 전송 중 암호화와 VM 옵션 불일치를 수정했고, 재시작 후 암호화된 볼륨 연결을 확인했다. Terraform `prevent_destroy`는 유지했다.
 - 생성 전용 암호화 필드와 cloud-init user data 변경은 기존 VM을 교체하지 않도록 처리한다. 실제 암호화 상태는 `launch_options`, 기존 호스트 설정 갱신은 `scripts/configure-host.sh`가 담당한다. 수정 뒤 Terraform 모의 검사와 실제 `No changes`를 확인했다.
 - Ubuntu AppArmor에 로그 소켓 경로만 허용하고 로그 디렉터리 소유권을 수정했다. `configure-host.sh`로 로그 기록·부팅 시 Compose 서비스 등록을 복구했으며 실제 JSON 로그와 systemd active를 확인했다.
-- GitHub Actions run `34679399455`에서 테스트·ARM64 이미지 게시·배포가 모두 성공했다. 앱 이미지 기준 커밋은 `0a06948bd5e245fe86976d07a09e3ce646cb1440`이다.
+- GitHub Actions run `34679399455`로 첫 배포한 뒤 최종 run `34679670518`에서도 테스트·ARM64 이미지 게시·배포가 모두 성공했다. 현재 앱 이미지 기준 커밋은 `047af5a9e301d51373c6a818f8aacdfa89e73604`이며 앱 교체 중 PostgreSQL 컨테이너는 유지됐다.
 - Caddy·웹·API·Worker·PostgreSQL 5개 컨테이너 실행, API readiness 200, 실제 HTTPS 200과 GitHub 소유자 로그인, 외부 DB TLS 접속을 확인했다. DataGrip 접속 값은 `.env.local`에 저장했다.
+- 합성 자료로 웹 문서 생성·키워드 검색·개정과 출처를 포함한 Context, 에이전트 키를 사용한 원격 Context API 200을 검증했다. 검증용 공간·문서·개정·임시 키는 모두 정리했다.
 - 예산·비용 알림과 OCI Logging→알림 Function→Slack 연결은 아직 완료하지 않았다. 웹훅은 비활성화했으며 기존 봇 토큰을 쓰는 방향을 유지한다. 이 미완료 경로를 운영 중이라고 표현하지 않는다.
