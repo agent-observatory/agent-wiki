@@ -23,7 +23,7 @@ const hex = z.string().regex(/^[a-f0-9]{64}$/),
   });
 const part = z
   .object({
-    kind: z.enum(["text", "image"]).optional(),
+    kind: z.enum(["text", "image"]),
     asset: hex.optional(),
     hash: hex,
     compressedHash: hex,
@@ -39,7 +39,7 @@ const schema = identity
     recordStart: z.number().int().nonnegative(),
     recordEnd: z.number().int().positive(),
     prefixHash: hex,
-    maskVersion: z.enum(["stream-mask-1", "stream-mask-2"]),
+    maskVersion: z.literal("stream-mask-2"),
     codec: z.literal("zstd"),
     parts: z.array(part).min(1).max(128),
   })
@@ -76,9 +76,8 @@ export function registerUploads(app: FastifyInstance, scoped: Scoped) {
   app.post(base + "/uploads", options, (r) => {
     const v = schema.parse(r.body);
     if (
-      v.maskVersion === "stream-mask-2" &&
-      (!v.parts.some((p) => p.kind === "text") ||
-        v.parts.some((p) => !p.kind || (p.kind === "image") !== !!p.asset))
+      !v.parts.some((p) => p.kind === "text") ||
+      v.parts.some((p) => (p.kind === "image") !== !!p.asset)
     )
       throw new AppError(400, "INVALID_INPUT");
     if (v.end <= v.start || v.recordEnd <= v.recordStart)

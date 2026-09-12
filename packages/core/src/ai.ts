@@ -11,7 +11,7 @@ export const aiConfig = z
       .min(1)
       .max(160)
       .default("deepseek-ai/deepseek-v4-flash-0731"),
-    dailyCalls: z.number().int().min(1).max(1000).default(24),
+    dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
     maxTokens: z.number().int().min(512).max(16384).default(2048),
     maxInputTokens: z.number().int().min(3000).max(32000).default(8000),
     maxInputChars: z.number().int().min(2000).max(60000).default(24000),

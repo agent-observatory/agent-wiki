@@ -174,7 +174,7 @@
 <text x="960" y="1050" font-size="18" font-weight="400" fill="#172C4B">텍스트 추출 · 구조 청킹</text>
 <text x="960" y="1081" font-size="18" font-weight="400" fill="#172C4B">청크별 주장·근거 추출</text>
 <text x="960" y="1112" font-size="18" font-weight="400" fill="#172C4B">기존 지식 비교·검증</text>
-<text x="960" y="1143" font-size="18" font-weight="400" fill="#172C4B">범위·모델·사용량 기록</text>
+<text x="960" y="1143" font-size="18" font-weight="400" fill="#172C4B">최대 20 RPM · 동시 실행 1개</text>
 <rect x="630" y="970" width="250" height="168" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="650" y="989" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
@@ -182,9 +182,9 @@
   <path d="M9 14l2 2l4 -4" />
 </svg>
 <text x="688" y="1012" font-size="23" font-weight="700" fill="#172C4B">Wiki · AI 설정</text>
-<text x="650" y="1050" font-size="18" font-weight="400" fill="#172C4B">제공자 · 모델 ID</text>
-<text x="650" y="1081" font-size="18" font-weight="400" fill="#172C4B">API 연결 · 호출 한도</text>
-<text x="650" y="1112" font-size="18" font-weight="400" fill="#172C4B">웹에서 변경 · 다음 정제</text>
+<text x="650" y="1050" font-size="18" font-weight="400" fill="#172C4B">제공자 · 모델 · API 연결</text>
+<text x="650" y="1081" font-size="18" font-weight="400" fill="#172C4B">기본: 일일 제한 없음</text>
+<text x="650" y="1112" font-size="18" font-weight="400" fill="#172C4B">일일 한도는 선택 설정</text>
 <path d="M880 1070 H940" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <path d="M1220 1080 H1640" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
 <text x="1320" y="1060" font-size="18" font-weight="700" fill="#B35C00">텍스트 청크·결과</text>

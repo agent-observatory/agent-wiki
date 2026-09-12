@@ -99,9 +99,9 @@ path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확
 card(1640,820,240,190,'Object Storage',['임시 업로드 영역','검증 후 불변 L1 확정','텍스트·이미지 분리'],'data','oracle')
 # L2 is a server-side process using the internal API, never the user's agent session.
 path('M1080 910 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',17,True,FLOW_COLORS['ingest'])
-card(940,970,280,198,'Worker · 원격 정제',['텍스트 추출 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','범위·모델·사용량 기록'],'ingest')
+card(940,970,280,198,'Worker · 원격 정제',['텍스트 추출 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','최대 20 RPM · 동시 실행 1개'],'ingest')
 # This card describes configuration stored in Wiki, not another container.
-card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 ID','API 연결 · 호출 한도','웹에서 변경 · 다음 정제'],'ops')
+card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 · API 연결','기본: 일일 제한 없음','일일 한도는 선택 설정'],'ops')
 path('M880 1070 H940',True)
 path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',18,True,FLOW_COLORS['ingest'])
 card(1640,1050,240,82,'AI Provider',[],'ai','openai')
@@ -171,7 +171,7 @@ rows=[(190,'01','인프라',[
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[
- ('tabler-cloud-upload','Collector → Storage','허가 후 zstd 증분 직접 업로드','기기별 위치 · 실패 시 재시도'),('tabler-clipboard-check','서버 검증·L1 등록','세션 ID·내용으로 중복 판정','원문 확정 뒤 연속 수신 위치 갱신'),('tabler-terminal-2','원격 Worker → 외부 AI','텍스트 청킹 · 설정 모델 호출','청크 상태·근거·실행 이력')])]
+ ('tabler-cloud-upload','Collector → Storage','허가 후 zstd 증분 직접 업로드','기기별 위치 · 실패 시 재시도'),('tabler-clipboard-check','서버 검증·L1 등록','세션 ID·내용으로 중복 판정','원문 확정 뒤 연속 수신 위치 갱신'),('tabler-terminal-2','원격 Worker → 외부 AI','최대 20 RPM · 동시 실행 1개','최소 2분 재시도 · 이력 보존')])]
 for y,n,label,items in rows:
  text(40,y+32,n,20,True);text(40,y+73,label,25,True)
  for i,(ico,title,b,c) in enumerate(items):

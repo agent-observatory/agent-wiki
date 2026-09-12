@@ -90,6 +90,13 @@ export async function collect(
   checkpoint = async () => {},
   transfer = uploadPart,
 ) {
+  if (
+    config.projects !== undefined &&
+    (!Array.isArray(config.projects) ||
+      config.projects.some((p) => typeof p !== "string" || !p.trim()))
+  )
+    throw new Error("projects must be an array of non-empty paths");
+  const projects = config.projects ?? [];
   const stats = {
     files: 0,
     accepted: 0,
@@ -124,12 +131,13 @@ export async function collect(
           });
         const cwd = metadata.map((x) => x.cwd ?? x.payload?.cwd).find(Boolean);
         if (
-          !cwd ||
-          !config.projects.some(
-            (p) =>
-              resolve(cwd) === resolve(p) ||
-              resolve(cwd).startsWith(resolve(p) + "/"),
-          )
+          projects.length > 0 &&
+          (!cwd ||
+            !projects.some(
+              (p) =>
+                resolve(cwd) === resolve(p) ||
+                resolve(cwd).startsWith(resolve(p) + "/"),
+            ))
         )
           continue;
         let local = state.files[file];
@@ -354,9 +362,9 @@ async function main() {
     const workspace = opt("workspace"),
       project = opt("project"),
       server = opt("server", "https://agent-wiki.duckdns.org");
-    if (!workspace || !project)
+    if (!workspace)
       throw new Error(
-        "Use init --workspace UUID --project /absolute/project [--server URL]",
+        "Use init --workspace UUID [--project /absolute/project] [--server URL]",
       );
     try {
       await stat(configPath);
@@ -370,7 +378,7 @@ async function main() {
       name: opt("name", "Agent Wiki"),
       machine: randomUUID(),
       envFile: resolve(opt("env", ".env.local")),
-      projects: [resolve(project)],
+      projects: project ? [resolve(project)] : [],
       exclude: [],
       roots: [
         { client: "codex", path: join(homedir(), ".codex", "sessions") },
@@ -416,13 +424,11 @@ async function main() {
   }
   if (command !== "once") {
     console.log(
-      "wiki-collector init --workspace UUID --project PATH [--env .env.local]\nwiki-collector once [--config PATH]\nwiki-collector install [--config PATH]",
+      "wiki-collector init --workspace UUID [--project PATH] [--env .env.local]\nwiki-collector once [--config PATH]\nwiki-collector install [--config PATH]",
     );
     return;
   }
   const config = JSON.parse(await readFile(configPath, "utf8"));
-  if (!config.projects?.length)
-    throw new Error("Explicit project allowlist required");
   const url = new URL(config.server);
   if (
     url.protocol !== "https:" &&

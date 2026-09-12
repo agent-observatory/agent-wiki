@@ -65,3 +65,19 @@ test("pause status distinguishes draining and stopped even without pending jobs"
     "paused",
   );
 });
+
+test("unlimited daily budget keeps work ready but still honors provider cooldown", () => {
+  assert.deepEqual(
+    refinementSchedule({ ...state, calls: 1000000, dailyCalls: null }),
+    { reason: "ready", nextAttemptAt: null },
+  );
+  assert.deepEqual(
+    refinementSchedule({
+      ...state,
+      calls: 1000000,
+      dailyCalls: null,
+      cooldown: "2026-09-14T01:00:00Z",
+    }),
+    { reason: "provider_cooldown", nextAttemptAt: "2026-09-14T01:00:00.000Z" },
+  );
+});

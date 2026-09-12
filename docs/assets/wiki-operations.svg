@@ -121,6 +121,6 @@
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
 <text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">원격 Worker → 외부 AI</text>
-<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">텍스트 청킹 · 설정 모델 호출</text>
-<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">청크 상태·근거·실행 이력</text>
+<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">최대 20 RPM · 동시 실행 1개</text>
+<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">최소 2분 재시도 · 이력 보존</text>
 </g></svg>

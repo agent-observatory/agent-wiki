@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   callModel,
   defaults,
+  aiConfig,
   ModelError,
   parseRetryAfter,
 } from "../packages/core/src/ai.js";
@@ -118,4 +119,12 @@ test("invalid model JSON still reports HTTP success and consumed tokens without 
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("daily limit is optional and explicit limits remain positive bounded integers", () => {
+  assert.equal(defaults.dailyCalls, null);
+  assert.equal(aiConfig.parse({ dailyCalls: null }).dailyCalls, null);
+  assert.equal(aiConfig.parse({ dailyCalls: 24 }).dailyCalls, 24);
+  for (const dailyCalls of [0, -1, 1.5, 1001, "unlimited"])
+    assert.equal(aiConfig.safeParse({ dailyCalls }).success, false);
 });

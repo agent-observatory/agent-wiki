@@ -78,7 +78,6 @@ export async function processUpload(owner: string, signal: AbortSignal) {
       for (const id of Object.values(upload.grants))
         await revokeUploadGrant(String(id));
       const v = upload.manifest;
-      const split = v.maskVersion === "stream-mask-2";
       async function* bytes() {
         const assetHashes = new Map<string, ReturnType<typeof createHash>>();
         const referencedAssets = new Set<string>();
@@ -100,12 +99,12 @@ export async function processUpload(owner: string, signal: AbortSignal) {
           if (raw.length !== p.bytes || hash(raw) !== p.hash)
             throw new Error("UPLOAD_HASH_MISMATCH");
           await putBlob(final, compressed);
-          if (split && p.kind === "image") {
+          if (p.kind === "image") {
             if (!assetHashes.has(p.asset))
               assetHashes.set(p.asset, createHash("sha256"));
             assetHashes.get(p.asset)!.update(raw);
           } else {
-            if (split) {
+            {
               const scan = referenceTail + raw.toString("utf8");
               for (const match of scan.matchAll(
                 /data:image\/agent-wiki;ref=([a-f0-9]{64})/g,
@@ -117,9 +116,8 @@ export async function processUpload(owner: string, signal: AbortSignal) {
           }
         }
         if (
-          split &&
-          (referencedAssets.size !== assetHashes.size ||
-            [...referencedAssets].some((asset) => !assetHashes.has(asset)))
+          referencedAssets.size !== assetHashes.size ||
+          [...referencedAssets].some((asset) => !assetHashes.has(asset))
         )
           throw new Error("UPLOAD_ASSET_MISMATCH");
         for (const [asset, digest] of assetHashes)
@@ -158,20 +156,16 @@ export async function processUpload(owner: string, signal: AbortSignal) {
             key =
               ws +
               "/" +
-              (split
-                ? hash(upload.id + ":" + projectionLine + ":" + contentHash) +
-                  ".ref.zst"
-                : contentHash + ".txt.gz");
+              hash(upload.id + ":" + projectionLine + ":" + contentHash) +
+              ".ref.zst";
           await putSource(
             key,
-            split
-              ? JSON.stringify({
-                  workspace: ws,
-                  upload: upload.id,
-                  start: projectionLine,
-                  count: lines.length,
-                })
-              : text,
+            JSON.stringify({
+              workspace: ws,
+              upload: upload.id,
+              start: projectionLine,
+              count: lines.length,
+            }),
           );
           projectionLine += lines.length;
           await c.query(
@@ -255,22 +249,21 @@ export async function processUpload(owner: string, signal: AbortSignal) {
           accepted++;
         }
         await flush();
-        if (split)
-          await putBlob(
-            `raw-meta/${ws}/${upload.id}/0.zst`,
-            zstdCompressSync(
-              Buffer.from(
-                JSON.stringify({
-                  recordStart: v.recordStart,
-                  accepted: pendingEvents.map((e) => e[0]),
-                  parts: v.parts.map((p: any, index: number) => ({
-                    ...p,
-                    index,
-                  })),
-                }),
-              ),
+        await putBlob(
+          `raw-meta/${ws}/${upload.id}/0.zst`,
+          zstdCompressSync(
+            Buffer.from(
+              JSON.stringify({
+                recordStart: v.recordStart,
+                accepted: pendingEvents.map((e) => e[0]),
+                parts: v.parts.map((p: any, index: number) => ({
+                  ...p,
+                  index,
+                })),
+              }),
             ),
-          );
+          ),
+        );
         for (const [position, contentHash, sourceId, nativeId] of pendingEvents)
           await c.query(
             "INSERT INTO collection_events(workspace_id,stream_id,position,content_hash,source_id,native_id) VALUES($1,$2,$3,$4,$5,$6)",

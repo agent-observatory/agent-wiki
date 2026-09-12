@@ -32,7 +32,7 @@ type Config = {
   provider: string;
   baseUrl: string;
   model: string;
-  dailyCalls: number;
+  dailyCalls: number | null;
   maxTokens: number;
   maxInputChars: number;
   maxInputTokens: number;
@@ -130,7 +130,10 @@ function AutomationContent() {
       setControlBusy(false);
     }
   }
-  const update = (name: keyof Config, value: string | number | boolean) => {
+  const update = (
+    name: keyof Config,
+    value: string | number | boolean | null,
+  ) => {
     if (name === "reasoning" && !value) return;
     setSaved(false);
     setConfig((c) => (c ? { ...c, [name]: value } : c));
@@ -212,12 +215,20 @@ function AutomationContent() {
           {!!controlError && <Failure error={controlError} />}
         </section>
         <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">오늘 정제 시도 / 한도</p>
+          <p className="text-sm text-muted-foreground">오늘 정제 시도</p>
           <p className="mt-3 text-xl font-semibold">
-            {jobs.data.today.calls} / {jobs.data.progress.control.dailyCalls}
+            {jobs.data.today.calls}회
+            {jobs.data.progress.control.dailyCalls !== null && (
+              <span className="text-sm font-normal text-muted-foreground">
+                {" "}
+                / {jobs.data.progress.control.dailyCalls}회
+              </span>
+            )}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            실패·중단 시도 포함 · UTC 자정 초기화
+            {jobs.data.progress.control.dailyCalls === null
+              ? "일일 제한 없음 · 최대 20 RPM · 동시 실행 1개"
+              : "설정한 한도 도달 시 UTC 자정까지 대기"}
           </p>
         </section>
         <section className="rounded-lg border p-5">
@@ -345,10 +356,56 @@ function AutomationContent() {
                 }
               />
             </div>
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">일일 시도 제한</label>
+                <Select
+                  value={config.dailyCalls === null ? "unlimited" : "limited"}
+                  onValueChange={(v) =>
+                    update(
+                      "dailyCalls",
+                      v === "unlimited" ? null : (config.dailyCalls ?? 100),
+                    )
+                  }
+                >
+                  <SelectTrigger aria-label="일일 시도 제한">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unlimited">제한 없음</SelectItem>
+                    <SelectItem value="limited">직접 설정</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  최대 20 RPM · 동시 실행 1개. 제공자 제한과 오류 대기는
+                  유지합니다.
+                </p>
+              </div>
+              {config.dailyCalls !== null && (
+                <div className="space-y-2">
+                  <label htmlFor="dailyCalls" className="text-sm font-medium">
+                    일일 호출 한도
+                  </label>
+                  <Input
+                    id="dailyCalls"
+                    type="number"
+                    min={1}
+                    max={1000}
+                    required
+                    value={config.dailyCalls}
+                    onChange={(e) =>
+                      update("dailyCalls", Number(e.target.value))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    실패·중단을 포함한 정제 시도 수입니다.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
               {(
                 [
-                  ["dailyCalls", "일일 호출 한도", 1, 1000],
                   ["maxTokens", "최대 출력 토큰", 512, 16384],
                   ["maxInputTokens", "입력 예산 · 보수 추정", 3000, 32000],
                 ] as const

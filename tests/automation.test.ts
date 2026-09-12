@@ -509,3 +509,53 @@ test("live pause/resume changes only enabled, preserves drafts through versions,
     version: resumed.version,
   });
 });
+
+test("unlimited setting persists and processes work beyond the former daily cap", async () => {
+  const current = (await request("GET", "/ai-settings")).json();
+  const saved = await request("PUT", "/ai-settings", {
+    config: { ...defaults, enabled: true, dailyCalls: null },
+    version: current.version,
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.equal((await request("GET", "/ai-settings")).json().dailyCalls, null);
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  await request("POST", "/collection", {
+    ...source,
+    sessionId: "unlimited-test",
+    start: 0,
+  });
+  const job = (
+    await admin.query(
+      "SELECT id FROM refinement_jobs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [ws],
+    )
+  ).rows[0].id;
+  await admin.query(
+    "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status) SELECT gen_random_uuid(),$1,$2,'{}','synthetic','failed' FROM generate_series(1,25)",
+    [ws, job],
+  );
+  let calls = 0;
+  assert.equal(
+    await runOne(owner, new AbortController().signal, async () => {
+      calls++;
+      return { output: { changes: [] }, usage: { total_tokens: 1 } };
+    }),
+    true,
+  );
+  assert.equal(calls, 1);
+  const progress = (await request("GET", "/refinements")).json();
+  assert.ok(progress.today.calls > 24);
+  assert.equal(progress.progress.control.dailyCalls, null);
+  const latest = (await request("GET", "/ai-settings")).json();
+  await request("PATCH", "/ai-settings/enabled", {
+    enabled: false,
+    version: latest.version,
+  });
+});

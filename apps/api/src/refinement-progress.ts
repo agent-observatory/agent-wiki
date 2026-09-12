@@ -6,7 +6,7 @@ export function refinementSchedule(input: {
   enabled: boolean;
   hasKey: boolean;
   calls: number;
-  dailyCalls: number;
+  dailyCalls: number | null;
   pending: number;
   running: number;
   failed: number;
@@ -40,7 +40,10 @@ export function refinementSchedule(input: {
     },
     {
       reason: "daily_limit",
-      at: input.calls >= input.dailyCalls ? tomorrow.getTime() : 0,
+      at:
+        input.dailyCalls !== null && input.calls >= input.dailyCalls
+          ? tomorrow.getTime()
+          : 0,
     },
   ].sort((a, b) => b.at - a.at);
   return waits[0].at > now.getTime()

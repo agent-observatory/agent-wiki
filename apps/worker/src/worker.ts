@@ -76,7 +76,12 @@ export async function runOne(
           [ws],
         )
       ).rows[0].n;
-      if (!job.output && calls >= config.dailyCalls) return null;
+      if (
+        !job.output &&
+        config.dailyCalls !== null &&
+        calls >= config.dailyCalls
+      )
+        return null;
       // A publish-only recovery is its own execution; preserve the failed attempt.
       const runId = randomUUID();
       const diagnostics = {

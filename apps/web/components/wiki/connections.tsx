@@ -223,7 +223,7 @@ export function Guide() {
             수집과 정제는 백그라운드에서 실행합니다
           </h2>
           <p className="leading-7 text-muted-foreground">
-            Collector가 허용한 프로젝트의 세션 기록을 읽어 보냅니다. 원격
+            Collector가 수집 범위에 포함된 세션 기록을 읽어 보냅니다. 원격
             Worker가 외부 AI로 정제하고 정확한 원문 근거를 검사해 지식에
             반영합니다. 수집·AI 정제 메뉴에서 모델, 호출 한도, 처리 상태를
             확인하세요.
@@ -238,8 +238,9 @@ export function Guide() {
           </h2>
           <p className="leading-7 text-muted-foreground">
             “왜 단일 VM을 선택했지?”처럼 물으면 저장된 결정과 당시 근거를
-            찾아옵니다. 웹에서는 인용한 줄과 과거 Version을 확인하고 잘못된 내용을
-            정정할 수 있습니다. 저장하지 않은 대화까지 복구하지는 못합니다.
+            찾아옵니다. 웹에서는 인용한 줄과 과거 Version을 확인하고 잘못된
+            내용을 정정할 수 있습니다. 저장하지 않은 대화까지 복구하지는
+            못합니다.
           </p>
         </section>
         <section className="rounded-lg border p-5 space-y-3">
@@ -254,7 +255,8 @@ export function Guide() {
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm link ./packages/collector\nwiki-collector init --workspace ${workspaceId} --project /absolute/project --env /absolute/project/.env.local\nwiki-collector once\nwiki-collector install`}</pre>
           <p className="text-muted-foreground">
             Collector 키는 WIKI_COLLECTOR_TOKEN으로 저장합니다. macOS에서는
-            30분마다 허용한 기록을 전송합니다.
+            30분마다 기록을 전송합니다. 기본은 전체 프로젝트이며, --project로
+            수집 범위를 제한할 수 있습니다.
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>

@@ -130,3 +130,50 @@ test("stream masking does not leak a known secret across the output boundary", a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("collector defaults to all projects and an explicit scope excludes other projects", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wiki-scope-"));
+  try {
+    for (const [name, cwd] of [
+      ["wiki", "/work/agent-wiki"],
+      ["child", "/work/agent-wiki/docs"],
+      ["similar", "/work/agent-wiki-other"],
+      ["other", "/work/other"],
+      ["unknown", undefined],
+    ])
+      await writeFile(
+        join(root, name + ".jsonl"),
+        JSON.stringify({ cwd, text: "synthetic" }) + "\n",
+      );
+    const base = {
+      machine: "m",
+      name: "test",
+      roots: [{ client: "codex", path: root }],
+    };
+    // Stop at the first request; the state reveals exactly which files passed the scope filter.
+    for (const [projects, expected] of [
+      [undefined, 5],
+      [[], 5],
+      [["/work/agent-wiki"], 2],
+    ]) {
+      const state = { files: {} };
+      await collect({ ...base, projects }, state, async () => {
+        throw new Error("offline");
+      });
+      assert.equal(Object.keys(state.files).length, expected);
+      if (expected === 2)
+        assert.deepEqual(
+          Object.keys(state.files)
+            .map((p) => p.split("/").at(-1))
+            .sort(),
+          ["child.jsonl", "wiki.jsonl"],
+        );
+    }
+    await assert.rejects(
+      collect({ ...base, projects: "wrong" }, { files: {} }, async () => {}),
+      /projects must be/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

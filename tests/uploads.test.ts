@@ -139,6 +139,17 @@ test("direct upload does not advance until verified; only appended bytes travel;
   assert.equal(await processUpload(owner, new AbortController().signal), true);
   await collect(config(), state, t.request, async () => {}, t.transfer);
   assert.equal(t.manifests.length, 1);
+  const obsolete = await app.inject({
+    method: "POST",
+    url: `/api/workspaces/${ws}/collection/uploads`,
+    headers: {
+      authorization: "Bearer " + key,
+      "content-type": "application/json",
+    },
+    payload: { ...t.manifests[0], maskVersion: "stream-mask-1" },
+  });
+  assert.equal(obsolete.statusCode, 400);
+
   const size = (await stat(file)).size;
   await appendFile(
     file,

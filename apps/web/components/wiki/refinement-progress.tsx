@@ -9,7 +9,7 @@ export const waitingReasons: Record<string, string> = {
   paused: "자동 정제 일시 중지",
   pausing: "중지 요청됨 · 현재 작업 마무리 중",
   key_missing: "API 키 확인 필요",
-  daily_limit: "오늘 한도 소진 · 다음 날 재개",
+  daily_limit: "설정한 일일 한도 소진 · 다음 날 재개",
   provider_cooldown: "API 호출 간격·제공자 제한 대기",
   retry_wait: "일시 오류 · 자동 재시도 대기",
   ready: "다음 자료 처리 대기",
