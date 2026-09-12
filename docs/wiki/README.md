@@ -2,9 +2,9 @@
 
 [문서 안내](../README.md) · [아키텍처](architecture.md) · [수집·정제 계약](agent-memory.md)
 
-**그림은 단일 Wiki CLI의 조회·백그라운드 수집과 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
+**그림은 하나의 패키지에 포함된 조회 Skill·Wiki CLI·Collector와 원격 Worker의 역할을 구분한다.** 현재 저장·조회 API·웹의 배포 상태는 [운영 현황](../OPERATIONS.md)을 따른다.
 
-![작업 에이전트·별도 Collector·원격 Wiki와 DNS·인증서](../assets/wiki-deployment.svg)
+![작업 에이전트·통합 패키지·원격 Wiki와 DNS·인증서](../assets/wiki-deployment.svg)
 
 ![수집·정제와 사용자 조회의 분리](../assets/wiki-layers.svg)
 
@@ -12,7 +12,7 @@
 
 ![사용자 작업과 별도 수집·정제의 운영](../assets/wiki-operations.svg)
 
-[프로젝트 역사](project-history.md)는 원격 Wiki에서 관리한다. [서버 Worker 정제](../archive/server-ingest/ARCHIVE.md)와 [Container Instances 구성](../archive/container-instances/ARCHIVE.md)은 과거 설계 보존본이다.
+[프로젝트 역사](project-history.md)는 원격 Wiki에서 관리한다. [이전 정제 설계](../archive/server-ingest/ARCHIVE.md)와 [Container Instances 구성](../archive/container-instances/ARCHIVE.md)은 과거 설계 보존본이다.
 
 ## 레퍼런스
 

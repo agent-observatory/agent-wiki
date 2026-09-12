@@ -245,15 +245,31 @@ export function Guide() {
         </section>
         <section className="rounded-lg border p-5 space-y-3">
           <h2 className="font-bold">처음 연결하기 · 한 번만 설정</h2>
-          <p>
-            Wiki CLI 하나에 조회 Skill과 백그라운드 수집이 함께 들어 있습니다.
-          </p>
-          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`npm install --global ./packages/cli\nwiki setup --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nwiki collector start\nwiki recall --project agent-wiki`}</pre>
+          <p>한 패키지를 설치하면 세 역할을 함께 사용할 수 있습니다.</p>
+          <ul className="space-y-1 text-sm">
+            <li>조회 Skill · 조회 필요성과 근거 활용을 안내하는 지침</li>
+            <li>Wiki CLI · 에이전트가 실행하는 검색·조회 명령</li>
+            <li>Collector · 작업 대화와 독립된 백그라운드 수집</li>
+          </ul>
+          <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`# 저장소 루트에서 설치
+npm install --global ./packages/cli
+# 사용할 프로젝트 디렉터리에서 실행
+wiki skill install --client codex\nwiki setup --no-skill --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nwiki collector start`}</pre>
           <p className="text-muted-foreground">
             인증 키는 에이전트 연결에서 발급해 Git 제외 .env.local에
             WIKI_TOKEN으로 보관합니다. 조회와 수집을 함께 쓰려면 원문 보관
-            권한이 필요합니다. setup은 내장 Skill과 연결 설정을 준비하고,
-            collector start가 자동 수집을 켭니다.
+            권한이 필요합니다. setup은 Skill과 연결 설정을 준비하고, collector
+            start가 자동 수집을 켭니다.
+          </p>
+          <p className="text-muted-foreground">
+            Codex 지침은 현재 프로젝트의 .agents/skills/agent-wiki에 설치됩니다.
+            Claude Code는 --client claude로 .claude/skills/agent-wiki에, 둘 다
+            사용하면 --client all로 설치합니다.
+          </p>
+          <p className="text-muted-foreground">
+            지침 설치만으로 검색이 자동 실행되지는 않습니다. 에이전트가 과거
+            결정이 필요할 때 wiki search를 실행하고, 현재 코드로 충분하면
+            생략합니다. 시작·재개·컴팩션마다 호출하지 않습니다.
           </p>
           <p className="text-muted-foreground">
             기본은 전체 프로젝트·10분 주기입니다. --path로 수집 범위를 제한하고,

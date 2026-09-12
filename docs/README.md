@@ -10,14 +10,16 @@
 | [디자인 규칙](DESIGN.md) | UI·문서·SVG 기준 |
 | [작업 원칙](../AGENTS.md) | 범위·데이터 보호·검증·Git |
 
-## 현재 결정
+## 읽는 순서
 
-- 독립 제품 `agent-observatory/agent-wiki`. 주 용례는 에이전트 질답·작업의 근거 조회이며, 웹은 편집·정정·근거 확인을 보조한다.
-- Workspace로 자료·권한·AI 맥락을 격리하고 Folder·Tag로 분류한다.
-- 세션은 Workspace·에이전트 종류·원본 세션 ID로 구분한다. Collector는 서버가 확인한 위치 이후를 마스킹·zstd 압축해 Object Storage에 직접 올리고, 서버가 중복 검사·L1 등록·수신 위치 확정을 맡는다.
-- 작업 에이전트는 필요할 때 조회한다. Collector는 별도 프로세스로 기록을 읽고, 원격 Worker가 외부 AI로 정제한다. 텍스트를 대화 구조로 나눠 DeepSeek Flash로 정제하고 Workspace 설정에서 모델·키·한도를 관리한다. Pro 재검토·Kimi 교체는 선택이다.
-- A1 Compute VM 1대·2 OCPU·12GB에서 앱·PostgreSQL을 Compose로 실행하고 로그는 기성 호스트 에이전트가 전송한다. DB와 인증서는 연결 볼륨에, 원문은 Object Storage에 둔다. 외부 빌드 후 변경된 앱만 교체한다. [이전 분리 구성 보존본](archive/container-instances/ARCHIVE.md).
-- 백업·복원은 초기 범위에서 제외하고 나중에 검토한다. 앱은 오류 로그만 남기며 오류는 OCI 기본 경보·Notifications가, 비용·사용량은 GitHub Actions가 Slack Webhook으로 보낸다. 이메일은 사용하지 않는다.
-- 임베딩·OpenMetadata 전체 도입은 보류한다. 웹 편집기·그래프 재사용 범위는 미확정이다.
+처음에는 `wiki/architecture.md`로 전체 구조를 보고, 설치·명령·데이터 계약이 필요하면 `wiki/agent-memory.md`를 읽는다. 그림만 볼 때는 `wiki/README.md`, 현재 배포와 검증 결과는 `OPERATIONS.md`다.
 
-세부 결정과 변경 기준은 [아키텍처](wiki/architecture.md)를 따른다. 현재는 개발 모드이며 Wiki 데이터·API·키를 초기화하고 하위 호환성 없이 재구성할 수 있다. 사용자가 운영 모드라고 선언하면 보존 정책을 다시 정한다. 프로젝트 역사와 리니지는 원격 Wiki에 보관한다.
+## 유지할 원칙
+
+- 주 용례는 에이전트의 근거 조회다. 조회 Skill·Wiki CLI·Collector는 하나의 설치 패키지에 포함되며 수집은 작업 대화와 독립적으로 실행한다.
+- Workspace는 격리 단위, Folder·Tag는 분류다. 불변 L1에서 정제 실행과 L3 지식 Version까지 근거를 연결한다.
+- 원문은 텍스트·이미지를 분리해 zstd로 보관한다. L2는 텍스트만 처리하고 L4 조회에는 모델을 호출하지 않는다.
+- 기존 OCI 단일 VM과 Object Storage를 사용한다. 유료 사용·백업·임베딩 도입은 현재 범위 밖이다.
+- 설계는 아키텍처에, 명령·계약은 사용법에, 실제 구현·배포·검증은 운영 현황에 기록한다. 과거 설계는 `archive/`에 보존하며 현재 지침으로 읽지 않는다.
+
+현재는 개발 모드다. 사용자 요청 범위에서 데이터를 재구성할 수 있으며 운영 모드 선언 후 보존 정책을 다시 정한다. 프로젝트 역사와 리니지는 원격 Wiki에 쌓고 로컬 문서에 중복 관리하지 않는다.

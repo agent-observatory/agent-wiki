@@ -4,16 +4,16 @@ A personal knowledge space for you and your agents. Store decisions, edit linked
 
 - Workspace isolation, GitHub owner login, scoped agent API keys
 - Keyword and glossary-alias search; no embedding dependency
-- Agent-curated knowledge with source spans and revision lineage
+- Background text refinement with source spans and revision lineage
 - Next.js, Fastify, PostgreSQL, Docker Compose, Terraform
 
-**First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Agent-curated knowledge, source lineage, and URL-based pages are live. See [implementation and deployment status](docs/OPERATIONS.md).
+**First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Source collection, knowledge APIs, and URL-based pages are live. See [implementation and deployment status](docs/OPERATIONS.md).
 
-A read-only Collector and remote AI Worker run outside the active conversation. Workspace settings control the provider, model, credentials and daily limits. One CLI package in `packages/cli` includes retrieval, the Skill and background collection. Install once; use `wiki setup` and `wiki collector start`. Development mode allows a clean data reset; backward compatibility is not required.
+A read-only Collector and remote AI Worker run outside the active conversation. Workspace settings control the provider, model, credentials and optional limits. One CLI package in `packages/cli` includes retrieval, the Skill and background collection. The Skill guides retrieval decisions, the CLI executes queries, and the Collector runs independently. See the installation guide below. Development mode allows a clean data reset; backward compatibility is not required.
 
 ## Development
 
-Node.js 22+, Docker and PostgreSQL 17 are required.
+Node.js 22.21+, Docker and PostgreSQL 17 are required.
 
 ```sh
 npm ci

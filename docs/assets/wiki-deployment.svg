@@ -84,25 +84,32 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="130" y="867" font-size="23" font-weight="700" fill="#172C4B">Agent Wiki CLI</text>
+<text x="130" y="867" font-size="23" font-weight="700" fill="#172C4B">Agent Wiki 패키지</text>
 <text x="92" y="905" font-size="18" font-weight="400" fill="#172C4B">한 번 설치 · 인증·설정 통합</text>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="937" color="#172C4B">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="918" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="130" y="959" font-size="23" font-weight="700" fill="#172C4B">조회 · 내장 Skill</text>
-<text x="92" y="994" font-size="18" font-weight="400" fill="#172C4B">wiki recall · wiki search</text>
-<path d="M92 1020 H418" stroke="#929EAD"/>
-<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1055" color="#172C4B">
+<text x="126" y="938" font-size="20" font-weight="700" fill="#172C4B">조회 Skill · 사용 지침</text>
+<text x="92" y="969" font-size="18" font-weight="400" fill="#172C4B">조회 필요성 판단 · 근거 활용</text>
+<path d="M92 990 H418" stroke="#929EAD"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1008" color="#172C4B">
+  <path d="M8 9l3 3l-3 3" />
+  <path d="M13 15l3 0" />
+  <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+</svg>
+<text x="126" y="1028" font-size="20" font-weight="700" fill="#172C4B">Wiki CLI · 검색 실행</text>
+<text x="92" y="1059" font-size="18" font-weight="400" fill="#172C4B">wiki recall · wiki search</text>
+<path d="M92 1080 H418" stroke="#929EAD"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="1098" color="#172C4B">
   <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="130" y="1077" font-size="23" font-weight="700" fill="#172C4B">백그라운드 수집</text>
-<text x="92" y="1115" font-size="18" font-weight="400" fill="#172C4B">wiki collector · 기본 10분</text>
-<text x="92" y="1146" font-size="18" font-weight="400" fill="#172C4B">마스킹 · 텍스트·이미지 분리</text>
-<text x="92" y="1177" font-size="18" font-weight="400" fill="#172C4B">압축 증분 직접 전송</text>
+<text x="126" y="1118" font-size="19" font-weight="700" fill="#172C4B">Collector · 백그라운드 수집</text>
+<text x="92" y="1149" font-size="18" font-weight="400" fill="#172C4B">wiki collector · 기본 10분</text>
+<text x="92" y="1180" font-size="18" font-weight="400" fill="#172C4B">마스킹 · 압축 증분 직접 전송</text>
 <path d="M438 1120 H520 V885 H630" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>
 <text x="535" y="1030" font-size="18" font-weight="700" fill="#B35C00">수집 제어</text>
 <path d="M860 885 H940" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)" marker-start="url(#arrow-ingest)"/>

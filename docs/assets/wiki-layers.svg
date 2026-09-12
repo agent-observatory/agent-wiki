@@ -26,8 +26,8 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="514" y="298" font-size="23" font-weight="700" fill="#172C4B">내장 조회 Skill</text>
-<text x="476" y="336" font-size="18" font-weight="400" fill="#172C4B">조회 판단 · 근거 선택</text>
+<text x="514" y="298" font-size="23" font-weight="700" fill="#172C4B">조회 Skill</text>
+<text x="476" y="336" font-size="18" font-weight="400" fill="#172C4B">사용 지침 · 조회 필요성 판단</text>
 <path d="M746 317 H796" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <rect x="796" y="256" width="290" height="114" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="816" y="275" color="#172C4B">
@@ -44,8 +44,8 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1194" y="298" font-size="23" font-weight="700" fill="#172C4B">Agent Wiki CLI</text>
-<text x="1156" y="336" font-size="18" font-weight="400" fill="#172C4B">조회 명령 · 내장 Skill</text>
+<text x="1194" y="298" font-size="23" font-weight="700" fill="#172C4B">Wiki CLI</text>
+<text x="1156" y="336" font-size="18" font-weight="400" fill="#172C4B">검색 실행 · 근거 반환</text>
 <rect x="40" y="420" width="1480" height="145" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <rect x="40" y="420" width="82" height="145" rx="6" fill="#344256" stroke="#344256"/>
 <text x="56" y="504" font-size="31" font-weight="700" fill="#FFFFFF">L4</text>

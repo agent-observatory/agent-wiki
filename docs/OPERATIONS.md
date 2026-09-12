@@ -1,10 +1,32 @@
 # 구현·배포 현황
 
+현재 상태를 먼저 읽고, 이전 수치·명령은 아래의 당시 검증 기록으로만 참고한다. 설계·명령의 기준은 [아키텍처](wiki/architecture.md)와 [사용법](wiki/agent-memory.md)이다.
+
+| 구분 | 확인한 상태 |
+| --- | --- |
+| 원격 앱 | 단일 OCI VM 배포, main → Actions → GHCR → SSH 자동 갱신 |
+| 로컬 패키지 | Wiki CLI·조회 Skill·Collector 통합, 공유 설정 사용 |
+| 수집 | Agent Wiki 프로젝트만 · 10분, 텍스트·이미지 분리 zstd 증분 |
+| 정제 | 기능 배포, 자동 정제 중지. 실제 지식 품질 검증은 별도 |
+| 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
+| 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
+
 ## Wiki CLI·Collector 단일 설치
 
-2026-09-13. 그림을 먼저 단일 Agent Wiki CLI로 합쳤고 조회 명령·내장 Skill·백그라운드 수집을 `packages/cli`에 통합했다. 별도 Collector 패키지와 명령을 제거했다. `wiki setup`으로 연결·수집 범위·주기를 설정하며 `wiki collector start|stop|status|run`으로 수집을 관리한다. 설정은 `~/.agent-wiki/config.json` 하나로 공유하고 수집 프로세스·잠금·전송 상태는 조회와 독립적으로 유지한다.
+2026-09-13. 그림을 먼저 단일 패키지로 합쳤고 조회 Skill · 사용 지침, Wiki CLI · 검색 실행, Collector · 백그라운드 수집을 구분했다. 조회 명령·Skill·백그라운드 수집을 `packages/cli`에 통합했다. 별도 Collector 패키지와 명령을 제거했다. `wiki setup`으로 연결·수집 범위·주기를 설정하며 `wiki collector start|stop|status|run`으로 수집을 관리한다. 설정은 `~/.agent-wiki/config.json` 하나로 공유하고 수집 프로세스·잠금·전송 상태는 조회와 독립적으로 유지한다.
 
-로컬 설치를 0.3.0으로 교체했다. 기존 기기 ID·전송 상태 파일의 해시를 유지한 채 설정을 합쳤고, 실제 조회와 증분 수집이 성공했다. 현재 범위는 Agent Wiki만, 주기는 10분이다. npm tarball을 저장소 밖에 단독 설치해 의존성·명령 실행을 검증했다. 합성 검사 57개·타입 검사·프로덕션 빌드, 그림 4개의 XML·실제 렌더링을 확인했다. 웹 안내의 배포 검증은 아래에 추가한다. 원격 데이터 초기화·AI 정제 활성화·npm 공개 게시는 하지 않았다.
+로컬 설치를 0.3.0으로 교체했다. 기존 기기 ID·전송 상태 파일의 해시를 유지한 채 설정을 합쳤고, 실제 조회와 증분 수집이 성공했다. 현재 범위는 Agent Wiki만, 주기는 10분이다. npm tarball을 저장소 밖에 단독 설치해 의존성·명령 실행을 검증했다. 합성 검사 57개·타입 검사·프로덕션 빌드, 그림 4개의 XML·실제 렌더링을 확인했다. 앱 `e41065d`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34713046259)가 성공했고 API·Web·Worker 건강 상태와 기존 PostgreSQL 컨테이너 유지를 확인했다. 원격 데이터 초기화·AI 정제 활성화·npm 공개 게시는 하지 않았다.
+
+## 문서·설치 안내 정리
+
+2026-09-13. 문서 안내·아키텍처·사용법·디자인·작업 지침을 정리했다. 구조와 계약의 중복을 줄이고 이미 구현한 직접 업로드 설명, Version 표기, 삭제된 원격 지식 링크를 고쳤다. 과거 설계·운영 기록은 당시 검증으로 구분했다.
+
+CLI 0.3.1은 `wiki skill install --client codex|claude|all`을 지원한다. 프로젝트의 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki` 경로에 설치하며 로컬 두 경로와 통합 CLI 설치를 확인했다. Skill은 조회 판단 지침이며 매번 CLI 실행을 강제하지 않는다. 설치·공유 연결·범위 유지 합성 검사와 타입 검사·빌드를 통과했다. Markdown 상대 링크·SVG XML·재생성·변경 그림 렌더링도 확인했다. 클라이언트가 새 세션에서 지침을 선택하는 실제 행동은 별도 검증 대상이다.
+
+웹 안내 배포 확인은 후속 검증 결과로 추가한다.
+
+<details>
+<summary>이전 구현·배포 검증 기록 (당시 수치·명령)</summary>
 
 ## 수집 범위·일일 제한·개발 데이터 정리 · 배포 완료
 
@@ -254,3 +276,5 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 실제 GitHub 실행에서 [정기 비용 요약](https://github.com/agent-observatory/agent-wiki/actions/runs/34683657189)과 [오류 알림](https://github.com/agent-observatory/agent-wiki/actions/runs/34683778380)이 성공했다. Slack 채널에서 두 한국어 카드의 실제 수신·표시를 확인했다. OCI가 JSON 속성을 평탄화하는 차이도 반영해 서비스·오류 코드·요청 ID를 보존한다. 현재 수신 비용은 SGD 0이나 A1 CPU·메모리와 전일 비교 자료는 아직 미집계다. 전체 비용 0을 확정한 상태는 아니다.
 
 오류 재실행에서 추가 알림 0건, 같은 날 비용 요약 재실행에서도 중복 전송이 없는 것을 확인했다. 오류 확인 링크는 해당 로그·ERROR 필터·조회 시간 범위를 연다. Slack 클릭 응답 서버 없이 사용할 수 있도록 카드의 이동 요소는 일반 링크로 마무리했다.
+
+</details>

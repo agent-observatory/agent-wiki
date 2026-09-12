@@ -21,3 +21,4 @@ __pycache__/
 
 # Installed copy; canonical Skill is distributed in packages/cli/skill
 .agents/skills/agent-wiki/
+.claude/skills/agent-wiki/

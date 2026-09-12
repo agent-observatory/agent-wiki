@@ -27,20 +27,34 @@ function option(name, fallback) {
 const configPath = resolve(option("config", defaultConfigPath()));
 const jsonFile = async (p) => JSON.parse(await readFile(p, "utf8"));
 const output = (x) => process.stdout.write(JSON.stringify(x, null, 2) + "\n");
-async function installSkill(force) {
-  const target = resolve(".agents/skills/agent-wiki");
-  await mkdir(target, { recursive: true });
-  await cp(fileURLToPath(new URL("./skill/", import.meta.url)), target, {
-    recursive: true,
-    force,
-  });
-  return target;
+function skillClient() {
+  const client = option("client", "codex");
+  if (!["codex", "claude", "all"].includes(client))
+    throw new Error("--client must be codex, claude or all");
+  return client;
+}
+async function installSkill(force, client) {
+  const roots =
+    client === "all"
+      ? [".agents", ".claude"]
+      : [client === "claude" ? ".claude" : ".agents"];
+  const targets = [];
+  for (const root of roots) {
+    const target = resolve(root, "skills/agent-wiki");
+    await mkdir(target, { recursive: true });
+    await cp(fileURLToPath(new URL("./skill/", import.meta.url)), target, {
+      recursive: true,
+      force,
+    });
+    targets.push(target);
+  }
+  return targets;
 }
 async function main() {
   if (!command || command === "help" || command === "--help") {
     output({
       commands: [
-        "setup --workspace ID [--project NAME --tag TAG --path PATH --interval MINUTES --env FILE]",
+        "setup --workspace ID [--project NAME --tag TAG --path PATH --interval MINUTES --env FILE --client codex|claude|all --no-skill]",
         "collector start [--interval MINUTES] | stop | status | run",
         "recall --project NAME",
         'search "question" [--tag TAG]',
@@ -49,7 +63,7 @@ async function main() {
         "publish FILE.json",
         "publication status KEY",
         "article ID [--revision N]",
-        "skill install",
+        "skill install [--client codex|claude|all]",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -59,6 +73,7 @@ async function main() {
   if (command === "collector")
     return collectorMain(args, configPath, fileURLToPath(import.meta.url));
   if (command === "setup") {
+    const client = skillClient();
     let config = { version: 1, projects: {} };
     try {
       config = await readConfig(configPath);
@@ -112,7 +127,7 @@ async function main() {
       ],
     };
     await writeConfig(configPath, config);
-    if (!args.includes("--no-skill")) await installSkill(false);
+    if (!args.includes("--no-skill")) await installSkill(false, client);
     output({
       configured: project,
       config: configPath,
@@ -127,7 +142,7 @@ async function main() {
     return;
   }
   if (command === "skill" && args[0] === "install") {
-    const target = await installSkill(true);
+    const target = await installSkill(true, skillClient());
     output({
       installed: target,
       note: "필요한 지식을 조회할 때 사용합니다. 수집은 wiki collector start로 별도 실행합니다.",

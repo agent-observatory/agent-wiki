@@ -54,6 +54,12 @@ test("one setup shares query and collector settings, preserves scope and machine
     assert.equal(c.collector.connection, "work");
     const machine = c.collector.machine;
     await stat(join(dir, ".agents/skills/agent-wiki/SKILL.md"));
+    await run("skill", "install", "--client", "all");
+    await stat(join(dir, ".claude/skills/agent-wiki/SKILL.md"));
+    await assert.rejects(
+      run("skill", "install", "--client", "unknown"),
+      /--client must be/,
+    );
     await run("setup", "--path", dir, "--interval", "20");
     c = JSON.parse(await readFile(config, "utf8"));
     assert.equal(c.collector.machine, machine);
