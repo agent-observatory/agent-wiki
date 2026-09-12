@@ -80,7 +80,7 @@ card(72,640,366,140,'작업 에이전트',['Claude · Codex 등','필요한 지�
 path('M250 780 V820',flow='ops');text(267,806,'클라이언트가 기록',16)
 card(72,820,366,115,'클라이언트 세션 기록',['변경 중인 파일 · 원격 원문과 구분'],'web')
 path('M250 935 V990',flow='ingest');text(267,976,'완성된 기록만 읽기',17,True,FLOW_COLORS['ingest'])
-card(72,990,366,200,'Collector · Watcher',['읽기 전용 · 별도 프로세스','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
+card(72,990,366,200,'Collector',['읽기 전용 · 별도 프로세스','변경분 수집 · 제외·마스킹','대화 삽입·응답 대기 없음','전송 실패는 별도로 재시도'],'ingest')
 # All background traffic still enters through HTTPS/Caddy.
 path('M438 1100 H520 V915 H690 V890',flow='ingest');text(480,900,'원문 전송',18,True,FLOW_COLORS['ingest'])
 path('M860 790 H940',flow='ingest')

@@ -82,7 +82,7 @@
 <path d="M250 935 V990" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <text x="267" y="976" font-size="17" font-weight="700" fill="#B35C00">완성된 기록만 읽기</text>
 <rect x="72" y="990" width="366" height="200" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
-<text x="92" y="1032" font-size="23" font-weight="700" fill="#172C4B">Collector · Watcher</text>
+<text x="92" y="1032" font-size="23" font-weight="700" fill="#172C4B">Collector</text>
 <text x="92" y="1070" font-size="18" font-weight="400" fill="#172C4B">읽기 전용 · 별도 프로세스</text>
 <text x="92" y="1101" font-size="18" font-weight="400" fill="#172C4B">변경분 수집 · 제외·마스킹</text>
 <text x="92" y="1132" font-size="18" font-weight="400" fill="#172C4B">대화 삽입·응답 대기 없음</text>
