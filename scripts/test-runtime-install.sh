@@ -10,7 +10,7 @@ mkdir -p /opt/agent-wiki
 chown ubuntu:ubuntu /opt/agent-wiki
 for attempt in 1 2; do
  stage=$(runuser -u ubuntu -- mktemp -d /opt/agent-wiki/.bootstrap.XXXXXXXX)
- for name in .env api.env worker.env migration.env compose.yaml Caddyfile init-db.sql pg_hba.conf server.key server.crt ca.crt; do
+ for name in .env api.env migration.env compose.yaml Caddyfile init-db.sql pg_hba.conf server.key server.crt ca.crt; do
   runuser -u ubuntu -- sh -c 'umask 077; printf "synthetic fixture\n" > "$1"' sh "$stage/$name"
  done
  bash /install-runtime.sh "$stage"

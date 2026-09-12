@@ -34,140 +34,105 @@ def icon(n,x,y,z=28):
 def start(h,title,desc):a(f'''<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="{h}" viewBox="0 0 1560 {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#59769B" stroke-width="1.8"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="{h}" fill="#FFFFFF"/>''')
 def end(file):
  a('</g></svg>');Path(file).write_text(('\n'.join(p)+'\n').replace('</defs>',flow_markers()+'</defs>',1))
-# Deployment: short primary flows; secondary storage use is labelled at each component.
-p=[]
-a('<svg xmlns="http://www.w3.org/2000/svg" width="1952" height="1520" viewBox="0 0 1952 1520" role="img" aria-labelledby="title desc"><title id="title">단일 A1 VM · 조회와 지식 반영</title><desc id="desc">A1 VM 1대 2 OCPU 12GB에서 Compose 컨테이너 5개가 CPU를 공유한다. 왼쪽 웹과 에이전트는 Caddy를 통해 API에 접근한다. API에서 PostgreSQL로 파란 조회 경로와 주황 작업 등록 경로가 분리된다. 아래 Worker는 같은 PostgreSQL의 작업을 수신하고 지식을 반영한다. 원문 저장은 오른쪽 Object Storage, LLM 호출은 Worker 바로 아래 NVIDIA API, DataGrip은 DB 오른쪽에 둔다. 연결 볼륨은 DB 아래에 배치하며 DB 데이터와 Caddy 상태의 별도 경로를 보관한다. 외부 신규 유입 차단 후 내부 요청과 작업을 마무리한다. 실제 기능별 검증 상태는 운영 현황 문서에서 구분한다.</desc><defs></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1952" height="1520" fill="#FFFFFF"/>')
-text(40,48,'AGENT WIKI · OCI Osaka / ap-osaka-1',16,True,'#526A86')
-text(40,112,'단일 A1 VM · 조회와 지식 반영',39,True)
-legend(1412,55,'수집·지식 반영','ingest');legend(1412,87,'조회·응답','query');legend(1412,119,'인증·운영 연결','ops',True)
-a('<path d="M40 149 H1912" stroke="#172C4B" stroke-width="2"/>')
-component(40,190,450,120,'ops');icon('tabler-world',60,211,30);text(104,241,'Duck DNS',25,True);text(60,281,'위키 도메인 → VM 공인 IP',20)
-component(650,190,400,120,'ops');icon('letsencrypt',670,211,30);text(714,241,'Let’s Encrypt',25,True);text(670,281,'Caddy · 인증서 자동 발급·갱신',19)
-group(40,390,284,700);text(72,426,'LOCAL',18,True,'#FFFFFF')
-group(364,390,1288,880);icon('oracle',387,409,28);text(429,436,'Compute VM · A1 · 2 OCPU / 12GB',27,True,'#FFFFFF')
-text(1180,435,'Compose · 5개 컨테이너 · CPU 공유',19,True,'#FFFFFF')
-# DNS/ACME reach the web client and gateway, without crossing application paths.
-path('M177 310 V490',True);text(191,363,'DNS 조회',16)
-path('M850 310 V348 H379 V505 H396',True);text(670,341,'ACME',16)
-# Three ingress ports on one Caddy instance.
-path('M292 555 H396',flow='query',both=True)
-path('M292 755 H396',flow='query',both=True)
-path('M292 975 H354 V855 H396',flow='ingest')
-path('M646 555 H780',flow='query',both=True);text(663,540,'화면',16)
-path('M930 630 V710',flow='query',both=True);text(944,677,'내부 조회',16,True,FLOW_COLORS['query'])
-path('M646 760 H780',flow='query',both=True);text(661,745,'조회',16,True,FLOW_COLORS['query'])
-path('M646 855 H780',flow='ingest');text(661,840,'수집',16,True,FLOW_COLORS['ingest'])
-# API reads and enqueue use separate short corridors into the same DB.
-path('M1080 785 H1260',flow='query',both=True);text(1097,769,'근거 조회',17,True,FLOW_COLORS['query'])
-path('M1080 885 H1260',flow='ingest');text(1097,869,'작업 등록',17,True,FLOW_COLORS['ingest'])
-path('M1080 1090 H1200 V1005 H1260',flow='ingest',both=True);text(1085,1142,'작업 수신·반영',17,True,FLOW_COLORS['ingest'])
-# External source storage and model call are deliberately on separate sides.
-path('M1080 730 H1120 V580 H1712',flow='ingest');text(1250,564,'원문 저장',17,True,FLOW_COLORS['ingest'])
-path('M930 1220 V1320',flow='ingest',both=True);text(948,1300,'추출·검증',17,True,FLOW_COLORS['ingest'])
-path('M1620 860 H1712',True,both=True)
-path('M1440 1030 V1320');text(1456,1225,'연결·마운트',18)
-# Clients.
-component(72,490,220,135,'web');icon('user',89,509,28);text(129,539,'웹 Wiki',24,True);text(90,578,'편집·근거 확인',18);text(90,609,'HTTPS · 보조 화면',17)
-component(72,690,220,130,'app');icon('tabler-terminal-2',89,709,28);text(129,739,'에이전트',24,True);text(90,778,'주 용례 · 근거 조회',18,True);text(90,807,'질답·작업에 활용',17)
-component(72,910,220,135,'ingest');icon('tabler-cloud-upload',89,929,28);text(129,959,'Collector',24,True);text(90,999,'세션·메모·문서',18);text(90,1028,'선택·마스킹·업로드',17)
-# One gateway serves all ingress paths.
-component(396,490,250,400,'app');icon('caddy',418,509,30);text(462,542,'Caddy',26,True)
-text(418,591,'HTTPS · 경로 분기',19);text(418,636,'0.25GB',18);text(418,673,'영속 /data · /config',18)
-text(418,749,'조회 요청 ↔ API',18,True,FLOW_COLORS['query']);text(418,840,'수집 접수 → API',18,True,FLOW_COLORS['ingest'])
-component(780,490,300,140,'web');icon('nextdotjs',799,509,28);text(840,542,'Next.js · 웹 관리',23,True);text(800,584,'편집·정정·출처 확인',19);text(800,616,'2GB · web:3000',17)
-component(780,710,300,230,'app');icon('fastify',799,730,28);text(840,761,'Fastify API',24,True);text(800,805,'키워드·별칭 → Context',19);text(800,847,'인증·접수·편집·권한',19);text(800,915,'2GB · api:3001',17)
-component(780,1020,300,200,'ingest');icon('tabler-cpu',799,1040,28);text(840,1071,'Worker · Ingest',23,True);text(800,1112,'추출·검증·지식 갱신',19);text(800,1147,'원문: Object Storage',18);text(800,1200,'2GB · CPU 최대 0.5 · 동시성 1',16)
-component(1260,690,360,340,'data');icon('postgresql',1280,710,32);text(1326,743,'PostgreSQL',27,True);text(1282,797,'문서·개정·근거·연결',20);text(1282,843,'pg_trgm · pg-boss',20);text(1282,888,'3GB · postgres:5432 · TLS',18);text(1282,951,'앱 배포 시 계속 실행',20,True);text(1282,1004,'DB·Caddy 상태는 연결 볼륨에',17)
-component(396,1020,300,200,'ops');icon('ubuntu',416,1037,28);text(456,1068,'호스트 로그',23,True);text(416,1110,'Docker syslog → rsyslog',18);text(416,1147,'OCI Unified Monitoring Agent',16);text(416,1198,'기성 도구 · 컨테이너 추가 없음',17)
+# All current diagrams describe the target, not deployment completion.
+def canvas(w,h,title,desc):
+ global p
+ p=[]
+ a(f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><defs></defs><g font-family="Noto Sans KR, sans-serif"><rect width="{w}" height="{h}" fill="#FFFFFF"/>')
+ text(40,42,'AGENT WIKI / TARGET ARCHITECTURE',15,True,'#526A86')
+ text(40,98,title,34,True)
+ a(f'<path d="M40 137 H{w-40}" stroke="#172C4B" stroke-width="2"/>')
+def card(x,y,w,h,title,lines,role='app',ico=None):
+ component(x,y,w,h,role)
+ if ico:icon(ico,x+20,y+19,26)
+ text(x+(58 if ico else 20),y+42,title,23,True)
+ for i,line in enumerate(lines):text(x+20,y+80+i*31,line,18)
 
-# OCI object service, administrator client and NVIDIA are outside the VM boundary.
-component(1712,505,200,160,'data');icon('oracle',1732,521,27);text(1732,585,'Object Storage',20,True);text(1732,620,'비공개 원문 버킷',17);text(1732,651,'객체·해시',17)
-component(1712,800,200,150,'web');icon('tabler-terminal-2',1732,816,27);text(1772,845,'DataGrip',21,True);text(1732,889,'ID / 비밀번호 · TLS',16);text(1732,921,'IP 제한 없음',17)
-component(780,1320,300,160,'ai');icon('tabler-cloud',800,1338,28);text(842,1370,'NVIDIA API',25,True);text(800,1414,'Kimi K3 · DeepSeek',20,True);text(800,1455,'외부 LLM · 지식 추출',18)
-component(1260,1320,360,160,'data');icon('oracle',1280,1338,28);text(1322,1370,'Block Volume · 50GB',23,True);text(1282,1414,'PostgreSQL · Caddy 영속 상태',18);text(1282,1455,'별도 경로·권한 · 부트 50GB 별도',17)
+canvas(1800,1120,'개인 에이전트 정제 · 원격 Wiki 보관','전환 목표. 개인 에이전트가 자신의 모델 사용량으로 정제하며 CLI로 원문과 지식을 올린다. 서버는 Caddy, Web, API, PostgreSQL 4개 컨테이너이며 서버 추론 Worker와 큐는 없다. 원문은 Object Storage, DB와 Caddy 상태는 연결 볼륨에 보관한다.')
+legend(1390,42,'원문·지식 반영','ingest');legend(1390,77,'조회·Context','query');legend(1390,112,'저장·운영 연결','ops',True)
+group(40,180,320,670);text(64,216,'개인 작업 환경',23,True,'#FFFFFF')
+group(420,180,1020,670);text(448,216,'OCI A1 VM · 2 OCPU / 12GB',25,True,'#FFFFFF');text(1130,214,'Compose · 4개',20,True,'#FFFFFF')
+# Aligned client, gateway, API and DB routes.
+path('M328 350 H460',flow='query',both=True)
+path('M660 350 H760',flow='query',both=True)
+path('M910 430 V490',flow='query',both=True)
+path('M328 570 H460',flow='query',both=True)
+path('M328 670 H460',flow='ingest')
+path('M660 570 H760',flow='query',both=True)
+path('M660 670 H760',flow='ingest')
+path('M1060 570 H1120',flow='query',both=True)
+path('M1060 670 H1120',flow='ingest')
+path('M1400 570 H1480',True,both=True)
+path('M910 730 V900',flow='ingest');text(926,865,'원문 저장',18,True,FLOW_COLORS['ingest'])
+path('M1260 730 V900',True);text(1276,865,'연결·마운트',18)
+card(72,290,256,140,'웹 Wiki',['agent-wiki.duckdns.org','편집·정정·근거 확인'],'web','user')
+card(72,490,256,280,'개인 에이전트',['사용 중인 모델·플랜','원문 선택·정제·답변','Skill · 작업 지침','CLI · 조회·등록·반영'],'ingest','tabler-terminal-2')
+card(460,290,200,440,'Caddy',['HTTPS · 경로 분기','DuckDNS → VM IP','ACME 자동 갱신','','조회 ↔ API','','반영 → API'],'app','caddy')
+card(760,290,300,140,'Next.js · 웹',['문서·개정·원문 확인','web:3000'],'web','nextdotjs')
+card(760,490,300,240,'Fastify API',['시작 Context · 키워드 조회','원문·근거·권한 검사','개정·멱등 반영','api:3001'],'app','fastify')
+card(1120,490,280,240,'PostgreSQL',['지식·개정·리니지','반영 결과 · 검색 색인','postgres:5432 · TLS','모델·큐 실행 없음'],'data','postgresql')
+card(1480,490,280,165,'DataGrip',['공인 5432 · ID/PWD · TLS','IP 제한 없음'],'web','tabler-terminal-2')
+card(460,765,200,60,'호스트 로그',[],'ops','ubuntu')
+card(760,900,300,170,'Object Storage',['비공개 원문 보관본','고정 개정 · 해시 · 구간'],'data','oracle')
+card(1120,900,320,170,'Block Volume · 50GB',['DB · Caddy 상태 / 별도 경로','부트 50GB 별도'],'data','oracle')
 end('docs/assets/wiki-deployment.svg')
-# Operations lanes.
-p=[];start(1220,'단일 VM · Compose 운영','Terraform으로 A1 VM과 볼륨을 만들고 cloud-init으로 Docker와 마운트를 초기 구성한다. 외부 ARM64 빌드와 미리 pull 후 새 요청과 작업 수신을 중지하고 진행 중 처리를 마친 다음 변경된 앱 컨테이너만 교체한다. DB와 Caddy는 앱 배포에서 유지한다. 오류 로그는 Docker syslog와 rsyslog, OCI 호스트 에이전트를 통해 OCI Logging에 모은다. GitHub Actions가 오류를 5분마다 조회해 한국어 Slack Webhook 카드로 전송한다. 비용과 사용량은 6시간마다 점검하고 매일 요약한다. 단일 서버의 짧은 중단을 허용한다.')
-text(42,50,'OPERATIONS AS CODE',15,True,'#48627F');text(42,112,'단일 VM · Compose · 정상 종료 후 교체',38,True);a('<path d="M42 149 H1518" stroke="#172C4B" stroke-width="2"/>')
-rows=[(204,'01','인프라','#EBDFFA','#6852A4',[
-('terraform','Terraform / HCL','A1 VM · 2 OCPU / 12GB','볼륨 · 원문 버킷 · IAM'),('oracle','OCI · Terraform 적용','로컬 plan → apply · state 보관','무료 한도 · 기존 사용량 확인'),('ubuntu','cloud-init / systemd','Docker·Compose · 볼륨 마운트','OS·Docker 업데이트 직접 관리')]),
-(395,'02','실행 정의','#FDE7C2','#936522',[
-('github','Compose · 컨테이너 5개','앱 4 + PostgreSQL · 로그는 호스트','CPU 공유 · Worker 최대 0.5'),('tabler-terminal-2','영속 데이터 마운트','DB 데이터 · Caddy 인증서 상태','마운트 확인 후 기동'),('tabler-clipboard-check','종료 신호 · SIGTERM','외부 차단 · 내부 처리 종료 유예','결과 커밋 후 완료 · 연결 정리')]),
-(586,'03','앱 배포','#D4EDE4','#237964',[
-('github','외부 ARM64 빌드 → GHCR','VM에서 미리 pull · 단일 배포 잠금','기존 앱은 실행 유지'),('tabler-terminal-2','변경 앱만 Compose 교체','외부 차단 → 내부 완료 → 교체','DB·Caddy 유지 · 짧은 중단 허용'),('tabler-clipboard-check','health check · 기능 확인','로그인 · 검색 · 근거 · 수집','실패 시 이전 앱 이미지로 복구')]),
-(777,'04','오류 로그','#DBEAFE','#28589E',[
-('ubuntu','stdout → 호스트 로그','Docker syslog · rsyslog 파일','OCI 기성 에이전트 → Logging'),('github','Actions · 5분마다 조회','ERROR 이상 · 같은 이벤트 제외','같은 오류는 시간당 1회 알림'),('tabler-bell','한국어 카드 → Slack','Webhook · 오류 코드·확인 링크','업무 API·Worker는 로그만 기록')]),
-(968,'05','비용·사용량','#E3E7ED','#526A86',[
-('oracle','OCI Usage API','비용 · CPU·메모리·저장소·전송','미집계와 0 구분 · 통화·단위 유지'),('github','Actions · 6시간마다 점검','비용 발생 · 예산 접근 · 사용 급증','매일 09:13 한국 시각 정기 요약'),('tabler-bell','한국어 카드 → Slack','수치·증감 · 비용 확인 링크','앱 VM과 독립된 전송 경로')])]
 
-
-for y,n,label,fill,accent,items in rows:
- text(42,y+31,n,19,True,accent);text(42,y+67,label,26,True)
- for i,(ico,h,b,c) in enumerate(items):
-  x=237+i*435;box(x,y,388,146,fill);a(f'<rect x="{x}" y="{y}" width="5" height="146" rx="3" fill="{accent}"/>');icon(ico,x+20,y+16,27);text(x+59,y+40,h,21,True);text(x+24,y+82,b,19);text(x+24,y+119,c,17,False,'#526A86')
-  if i<2:path(f'M{x+390} {y+73} H{x+430}')
-text(42,1170,'예산은 강제 차단이 아님 · 집계·예약 실행 지연 가능 · 전체 중단·지표 경보는 후속 과제',17,False,'#526A86')
-end('docs/assets/wiki-operations.svg')
-
-# Logical layers. Same synthetic source throughout; lineage is cross-layer.
-p=[]
-a('''<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1650" viewBox="0 0 1680 1650" role="img" aria-labelledby="title desc">
-<title id="title">Wiki 지식 계층과 Lineage</title><desc id="desc">아래 L1 Raw sources부터 L2 Ingest, L3 Wiki의 Memory·Article·Glossary, L4 Query, L5 Answers까지 하나의 합성 결제 정책 예제를 따른다. 오른쪽에는 원천 자료에서 Ingest 실행, Memory, Article 개정, Context으로 이어지는 계보를 표시한다. Workspace 권한은 모든 계층에 적용한다. Query는 키워드와 용어집 별칭으로 문서를 찾고 연결된 근거로 Context를 구성한다.</desc>
-<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#59769B" stroke-width="1.8"/></marker></defs>
-<g font-family="Noto Sans KR, sans-serif"><rect width="1680" height="1650" fill="#FFFFFF"/>''')
-text(48,46,'AGENT WIKI / KNOWLEDGE ARCHITECTURE',16,True,'#526A86')
-text(48,107,'에이전트의 질답과 작업에 근거를 제공한다',40,True)
-text(1398,105,'L1 → L5',24,True,'#526A86')
-a('<path d="M48 137 H1632" stroke="#172C4B" stroke-width="2"/>')
-box(48,157,1584,44,'#172C4B','#172C4B');text(65,186,'업무 Workspace',20,True,'#FFFFFF');text(292,186,'Data Governance · 접근 권한 / 마스킹 / 보관',18,False,'#FFFFFF');text(1125,186,'취미 자료·검색·AI 맥락과 분리',18,False,'#FFFFFF')
-rows=[(5,225,144,'응답·활용','Answers','#EAF1FF','#2B56A7','에이전트가 활용'),(4,395,204,'질의','Query','#E4EDFF','#285BC0','요청에 맞는 맥락'),(3,625,328,'누적 지식','Wiki','#E4F4F0','#237964','지식과 의미의 연결'),(2,979,208,'지식 반영','Ingest','#FFF3DC','#936522','사실·결정 후보 추출'),(1,1213,225,'원천 자료','Raw sources','#EDF2F8','#536E90','세션 · 메모 · 문서')]
-for n,y,h,ko,en,fill,color,sub in rows:
- box(48,y,1296,h,'#F1F2F4','#929EAD');a(f'<rect x="48" y="{y}" width="82" height="{h}" fill="{color}"/>');text(63,y+h/2+12,f'L{n}',33,True,'#FFFFFF')
- text(154,y+44,ko,29,True);text(154,y+77,en,18,True,color);text(154,y+112,sub,17,False,'#526A86');a(f'<path d="M332 {y+18} V{y+h-18}" stroke="#BED0DE"/>')
- if n<5:path(f'M89 {y-4} V{y-22}',flow='ingest' if n<=2 else 'query')
-# L5: future work is a plan, not a verified result.
-text(358,258,'주 용례 · 에이전트의 질답·작업',17,True,'#2B56A7');text(358,296,'조회한 정책·출처를 근거로',21,True);text(358,333,'현재 에이전트가 답변·작업',21,True);text(855,258,'보조 · 웹 WIKI',17,True,'#2B56A7');text(855,296,'정책을 편집·정정하고',21,True);text(855,333,'인용된 근거·개정을 확인',18)
-# L4: lexical lookup, glossary aliases and cited context inside the Workspace.
-text(358,430,'키워드·별칭 조회 → 제목·태그 우선 정렬 → 연결된 근거 확인',21,True,'#285BC0')
-component(358,450,365,128,'app')
-text(374,478,'키워드 색인 · Folder / Tag 필터',17,True,'#285BC0')
-text(374,509,'질의: 결제 idempotency',18)
-text(374,539,'별칭: idempotency → 멱등성',17)
-text(374,566,'결제 · 멱등성 → 문서 a1@r1',17)
-path('M724 514 H752',flow='query')
-component(754,450,562,128,'app')
-text(770,478,'Context · c1 · 결제 재시도 정책',18,True,'#285BC0')
-text(770,510,'현재 결정: 동일 요청은 같은 멱등 키',19)
-text(770,539,'상태: 정책 확정 · 구현 전',17)
-text(770,566,'근거: a1@r1 → m1 → session-demo#e3',16)
-# L3: enduring memories, readable articles, explicit semantic definitions.
-for x,w,title in [(358,280,'Memory · m1'),(658,334,'Article · a1@r1'),(1012,304,'Glossary · 용어집')]:
- component(x,650,w,172,'data');text(x+16,680,title,20,True,'#237964')
-text(374,714,'동일 결제 요청에는',20);text(374,742,'같은 멱등 키를 쓴다.',20,True);text(374,776,'정책 확정 · 구현 전',17);text(374,802,'근거: session-demo#e3',15,False,'#526A86')
-text(674,715,'# 결제 재시도 정책',21,True);text(674,747,'결정 + 이유 + 적용 범위',19);text(674,778,'[[멱등성]]  [[결제 일지]]',18);text(674,803,'읽을 수 있는 Markdown 문서',15,False,'#526A86')
-text(1028,714,'Glossary Term: 멱등성',18,True);text(1028,743,'별칭: idempotency',18);text(1028,774,'의미: 반복해도 효과는 동일',17);text(1028,802,'별칭으로 같은 용어 검색',16,False,'#526A86')
-text(358,850,'TYPED RELATIONS',14,True,'#237964')
-box(358,873,238,48);text(374,904,'Article a1@r1',19,True)
-box(805,873,195,48);text(822,904,'Memory m1',19,True)
-path('M596 897 H805',flow='relation');text(623,885,'supported_by',17,False,'#237964')
-box(1135,873,181,48);text(1151,904,'Term: 멱등성',18,True)
-path('M1000 897 H1135',flow='relation');text(1030,885,'about',17,False,'#237964')
-# L2: candidate schema, compact but valid JSON fragment represented as JSON.
-text(358,1012,'AI 추출 + JSON 계약·출처 검증 → 지식 갱신 후보',20,True,'#936522')
-for i,s in enumerate(['{ "type": "decision", "claim": "동일 요청은 같은 멱등 키",','  "evidence_status": "user_confirmed", "implementation": "not_started",','  "source": "session-demo#e3", "run_id": "r7" }']):text(358,1054+i*32,s,18)
-text(358,1160,'중복·상충 검사 → 확정된 Memory와 Article 개정 반영',20,True,'#936522')
-# L1: everything needed to check the example is on the same figure.
-text(358,1248,'Document · session-demo.json · 합성 대화',18,True,'#536E90')
-for y,s in [(1287,'e1 사용자  “재시도할 때 중복 결제는 막아야 해.”'),(1326,'e2 에이전트  “동일 요청에는 같은 멱등 키를 쓰는 정책을 제안합니다.”'),(1365,'e3 사용자  “좋아. 같은 키를 쓰자. 정책만 정했고 구현은 아직이야.”')]:text(358,y,s,21)
-text(358,1410,'원문 위치 + content hash + 접수 시각',17,False,'#526A86')
-# Data Lineage rail: generation order, bottom to top. Entity revisions are explicit.
-box(1370,225,262,1213,'#F1F2F4','#929EAD');text(1390,261,'Data Lineage',25,True,'#67429B');text(1390,290,'원문부터 맥락까지의 계보',16,False,'#67429B')
-rail=[(379,'Context c1','선택된 지식·인용 목록'),(569,'Article a1@r1','문서 개정·근거 연결'),(759,'Memory m1','주장·상태·유효 시점'),(949,'Ingest r7','모델·프롬프트 버전'),(1223,'Source e3','원문 위치·해시')]
-for i,(y,t,b) in enumerate(rail):
- component(1390,y,222,100,'ai');text(1406,y+34,t,20,True,'#67429B');text(1406,y+69,b,16)
- if i<len(rail)-1:
-  lower=rail[i+1][0];path(f'M1500 {lower} V{y+100}',flow='relation');text(1510,(lower+y+100)/2,['선택','반영','생성','사용'][i],14,False,'#67429B')
-text(1390,1368,'Log · 실행 이력',20,True,'#67429B');text(1390,1400,'주체 · 시각 · 입력 · 버전',16)
-box(48,1458,1584,88,'#F1F2F4','#929EAD');text(68,1490,'Schema · 위키 구조와 작성·갱신 규칙',20,True);text(68,1525,'전 계층의 지식 반영·질의·점검에 적용',17,False,'#526A86');text(850,1490,'Lint · 지식 정합성 점검',20,True);text(850,1525,'상충 · 오래된 주장 · 누락된 연결을 찾아 갱신',17,False,'#526A86')
-legend(68,1595,'수집·지식 반영','ingest');legend(510,1595,'조회·응답','query');legend(930,1595,'근거·관계·계보','relation')
+canvas(1560,1210,'지식은 Wiki에 · 정제와 답변은 에이전트에','L1부터 L5의 논리 계층. 합성 단일 VM 결정을 원문에서 개인 에이전트가 정제하고 Wiki에서 조회해 다음 작업에 사용한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
+legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변','query')
+box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',22,True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',19,True,'#FFFFFF')
+rows=[
+ (5,240,'Answers','개인 에이전트','조회한 근거로 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
+ (4,420,'Query','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → memory:m1@r1 · source:s1@r1#L1','app'),
+ (3,600,'Wiki','Wiki 서버','Memory · Article · Glossary','m1@r1: 단일 VM 결정 / 분류: 사용자 결정 · 검토 미완료','data'),
+ (2,780,'Ingest','개인 에이전트 → API','원문·기존 지식 비교 → 근거 연결 → 구조 검증·반영','정제 p1: s1@r1#L1 → 주장 c1 → m1@r1','ingest'),
+ (1,960,'Raw sources','Wiki 보관 · CLI 등록','선택한 대화·문서·코드의 고정 보관본','s1@r1#L1: “지금은 단일 VM으로 운영하자.”','ops')]
+for n,y,name,who,title,example,role in rows:
+ component(40,y,1480,145,role)
+ box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',31,True,'#FFFFFF')
+ text(146,y+43,name,25,True);text(146,y+82,who,18)
+ a(f'<path d="M430 {y+20} V{y+125}" stroke="#929EAD"/>')
+ text(456,y+43,title,24,True);text(456,y+91,example,21)
+ if n<5:path(f'M80 {y} V{y-35}',flow='ingest' if n<=2 else 'query')
+text(40,1163,'Schema · 구조 규칙     Index · 목차·색인     Log · 실행 이력     Lint · 구조 점검 / 의미 검토는 에이전트',20)
 end('docs/assets/wiki-layers.svg')
+
+canvas(1560,1130,'리니지 · 실제 원문에서 현재 결정까지','합성 예시. 원문 보관본과 기존 지식의 고정 개정이 실제 개인 에이전트 정제 실행의 입력이다. 결과 지식의 주장마다 정확한 근거 구간을 연결하고 고정 개정 Context를 반환한다. 관련 문서 링크는 근거와 구분한다.')
+legend(1140,43,'정제·반영','ingest');legend(1140,78,'조회·활용','query');legend(1140,113,'근거 참조','relation')
+group(40,190,430,380);text(62,226,'1 · 입력의 고정 보관본',23,True,'#FFFFFF')
+card(72,284,366,118,'Source s1@r1',['L1 · “단일 VM으로 운영하자.”'],'data')
+card(72,426,366,112,'기존 지식 m1@r1',['현재 구성 · 미완료 작업'],'data')
+group(540,190,430,380);text(562,226,'2 · 개인 에이전트 정제',23,True,'#FFFFFF')
+card(572,284,366,254,'정제 실행 p2',['입력: s1@r1 · m1@r1','비교·정정·주장별 근거 선택','주체 · Skill 버전 · 시점','새 결과: m1@r2'],'ingest')
+path('M470 380 H540',flow='ingest')
+group(1040,190,480,380);text(1062,226,'3 · Wiki 원자적 반영',23,True,'#FFFFFF')
+card(1072,284,416,254,'Knowledge m1@r2',['주장 c1: 단일 VM 운영','유형: 사용자 결정','작성: 에이전트 / 확인: 미완료','c1 → s1@r1#L1'],'data')
+path('M970 380 H1040',flow='ingest')
+# Evidence returns under the three cards, independently from processing flow.
+path('M1270 570 V632 H250 V570',flow='relation');text(550,618,'주장별 근거 · 보관본 개정·구간을 고정',20,True,FLOW_COLORS['relation'])
+card(1040,750,480,210,'Context · 고정 개정 인용',['“왜 VM으로 시작했지?”','m1@r2 · c1 · s1@r1#L1','조회 시점 · 대체·미확인 상태'],'app')
+path('M1340 570 V750',flow='query')
+card(540,750,430,210,'다음 세션의 에이전트',['Context를 읽고 답변·작업','근거가 부족하면 추가 조회','현재 작업에 필요한 내용만'],'app','tabler-terminal-2')
+path('M1040 855 H970',flow='query')
+card(40,750,430,210,'웹에서 확인',['인용된 원문 구간·과거 개정','작성 주체와 확인 상태 구분','관련 문서 링크 ≠ 근거'],'web','user')
+text(40,1040,'원문이 없으면 작성자 진술 · 모델 이름은 알 때만 기록 · 과거 정제 실행을 만들어 넣지 않음',21)
+text(40,1080,'서버는 구간·권한·개정·중복을 검사한다. 해석의 타당성과 실제 답변 사용 여부는 별개다.',20)
+end('docs/assets/wiki-lineage.svg')
+
+canvas(1560,1210,'운영 · 정제 Worker 없이 4개 컨테이너','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
+rows=[(190,'01','인프라',[
+ ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','Docker·마운트 · 부팅 시 기동','OS·Docker 업데이트 직접 관리'),('github','Compose · 4개','Caddy · Web · API · PostgreSQL','정제는 개인 에이전트에서 실행')]),
+ (385,'02','앱 배포',[
+ ('github','외부 ARM64 빌드','GHCR 게시 → VM 미리 pull','새 구조 검증 후 일괄 교체'),('tabler-terminal-2','외부 차단 → API 종료','진행 요청·내부 호출·DB 정리','API 30초 · Compose 유예 45초'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Caddy 유지 · 짧은 중단','쓰기 결과는 멱등 키로 확인')]),
+ (580,'03','오류 로그',[
+ ('ubuntu','stdout → OCI Logging','Docker syslog · rsyslog','OCI 기성 호스트 에이전트'),('oracle','OCI Monitoring 경보','Connector Hub · ERROR 이상 집계','5분 구간 감지 · 수집 대기 5분'),('tabler-bell','Notifications → Slack','한국어 제목·본문 · 로그 링크','상태 변경 시 알림 · 반복 없음')]),
+ (775,'04','비용·사용량',[
+ ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
+ (970,'05','실제 사용',[
+ ('tabler-terminal-2','개인 에이전트·CLI','원문 등록 → 정제 → 반영','정제 실패는 클라이언트에 표시'),('tabler-clipboard-check','Wiki API 구조 검사','원문 구간·권한·개정·멱등성','변경 묶음 전체 반영 또는 거부'),('user','새 세션 재개','시작 Context → 근거 상세','정정·삭제·근거 없음 확인')])]
+for y,n,label,items in rows:
+ text(40,y+32,n,20,True);text(40,y+73,label,25,True)
+ for i,(ico,title,b,c) in enumerate(items):
+  x=225+i*438
+  card(x,y,388,150,title,[b,c],'ops' if n in ['01','04'] else 'app',ico)
+  if i<2:path(f'M{x+388} {y+75} H{x+432}')
+end('docs/assets/wiki-operations.svg')

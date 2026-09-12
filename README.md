@@ -4,10 +4,12 @@ A personal knowledge space for you and your agents. Store decisions, edit linked
 
 - Workspace isolation, GitHub owner login, scoped agent API keys
 - Keyword and glossary-alias search; no embedding dependency
-- Source ingestion with NVIDIA Kimi / DeepSeek and PostgreSQL jobs
+- Agent-curated knowledge with source spans and revision lineage
 - Next.js, Fastify, PostgreSQL, Docker Compose, Terraform
 
-**First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Cloud alerts and live NVIDIA extraction verification remain pending; see [implementation and deployment status](docs/OPERATIONS.md).
+**First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. The agent-curated rewrite is implemented locally and awaiting deployment. See [implementation and deployment status](docs/OPERATIONS.md).
+
+The CLI and Skill are in `packages/cli`. Development mode allows a clean data reset; backward compatibility is not required.
 
 ## Development
 
@@ -22,4 +24,4 @@ npm run build
 
 Configure separate application and migration database roles before running `scripts/test-local.sh`. Test credentials are synthetic and restricted to localhost / CI.
 
-[Architecture](docs/wiki/architecture.md) · [Diagrams](docs/wiki/README.md) · [Operations](docs/OPERATIONS.md)
+[Agent workflow](docs/wiki/agent-memory.md) · [Architecture](docs/wiki/architecture.md) · [Diagrams](docs/wiki/README.md) · [Operations](docs/OPERATIONS.md)

@@ -60,6 +60,7 @@ services:
     command: ["node", "dist/apps/api/src/server.js"]
     environment:
       SERVICE_NAME: agent-wiki-api
+      IMAGE_TAG: ${IMAGE_TAG}
     stop_grace_period: 45s
     healthcheck:
       test:
@@ -72,14 +73,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 4
-  worker:
-    <<: *app
-    env_file: worker.env
-    command: ["node", "dist/apps/api/src/worker.js"]
-    environment:
-      SERVICE_NAME: agent-wiki-worker
-    cpus: 0.5
-    stop_grace_period: 120s
   postgres:
     image: postgres:17.9-bookworm
     restart: unless-stopped

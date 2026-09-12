@@ -6,6 +6,7 @@ export IMAGE_TAG="$1"
 exec 9>/tmp/agent-wiki-deploy.lock
 flock -n 9 || exit 1
 mountpoint -q /srv/agent-wiki/data
+if [[ -f compose.next.yaml ]]; then mv compose.next.yaml compose.yaml; fi
 docker compose pull
 docker compose up -d --wait postgres
 docker run --rm --network agent-wiki_wiki --env-file migration.env -v /srv/agent-wiki/data/tls/ca.crt:/run/wiki-ca.crt:ro "ghcr.io/agent-observatory/agent-wiki-app:$IMAGE_TAG" node dist/packages/core/src/migrate.js

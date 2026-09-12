@@ -27,7 +27,7 @@ subprocess.run(ssh+['sudo cloud-init status --wait'], check=True, timeout=900)
 subprocess.run(ssh+['sudo /usr/local/sbin/wiki-mount && sudo chmod 755 /srv/agent-wiki/data/tls'], check=True, timeout=660)
 scp = ['scp', '-i', str(key), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(known)]
 private = root/'.runtime/deploy'
-names = ['.env','api.env','worker.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
+names = ['.env','api.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
 stage = subprocess.check_output(ssh+['mktemp -d /opt/agent-wiki/.bootstrap.XXXXXXXX'], text=True).strip()
 if not re.fullmatch(r'/opt/agent-wiki/\.bootstrap\.[A-Za-z0-9]+', stage):
     raise SystemExit('Unexpected remote staging directory')

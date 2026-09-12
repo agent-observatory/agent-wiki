@@ -1,5 +1,25 @@
 # 구현·배포 현황
 
+## 개인 에이전트 정제·메뉴별 페이지 · 로컬 검증 완료
+
+2026-09-12, 서버 Worker·NVIDIA·pg-boss를 제거하고 불변 원문·다중 근거·지식 개정·멱등 반영·시작 Context를 구현했다. 메뉴별 Next.js URL, shadcn/ui 기본 컴포넌트와 사용법 화면, `wiki` CLI·Skill을 추가했다. **이 기록 시점에는 새 버전의 운영 배포 전이다.** 아래 첫 버전 기록과 구분한다.
+
+- API 통합·정상 종료 검사 16개 통과: 중복 반영·개정 충돌·Workspace 격리·근거 구간·과거 개정·대체 순환·Context 크기 제한·실제 SIGTERM.
+- CLI로 원문 6개 → 지식 6개 → 동일 묶음 재시도 → 시작 Context → 고정 개정·근거 조회를 로컬에서 확인했다. 사용자가 제공한 대화 발췌와 커밋이 고정된 이전 README를 사용했다. 당시 자동 추출이나 사람 검토 완료로 표시하지 않았다.
+- 최초 전환은 기존 Wiki 테이블·키·큐만 초기화한다. 사용자·세션·Workspace, VM·DB 컨테이너·인증서·Object Storage 운영 체크포인트를 보존한다. 실패하면 외부 유지보수 응답을 유지해 옛 앱과 새 스키마가 섞이지 않게 한다.
+
+## shadcn/ui 기본 디자인 선택 · 문서 반영
+
+2026-09-12 공식 저장소·컴포넌트·테마 문서를 확인하고 웹 기본 디자인을 shadcn/ui로 선택했다. Neutral 테마·Radix 계열·Lucide와 화면별 컴포넌트 조합을 `docs/DESIGN.md` 및 전환 계획에 반영했다. 기존 앱의 자체 CSS·Radix Select는 아직 교체하지 않았으며 이번 변경은 문서만 반영했다.
+
+## 개인 에이전트 정제 전환 · 계획만 작성
+
+2026-09-12, 개인 에이전트가 정제하고 Wiki는 저장·근거 검증·조회하는 방향으로 문서와 그림을 변경했다. [실행 계획](wiki/agent-memory.md)과 목표 4개 컨테이너 그림은 구현 완료 증거가 아니다. 이 작업에서는 앱 코드·운영 DB·원문·키·클라우드 자원·배포를 변경하지 않았다. 기존 Worker·NVIDIA 경로와 수동 등록 지식 5개는 전환 전 상태로 남아 있다.
+
+사용자는 **개발 모드에서 DB·원문·기존 지식·키 초기화와 하위 호환성 없는 재구성**을 허용했다. 사용자가 운영 모드로 선언하기 전까지 적용한다. 다음 구현에서는 새 구조를 검증한 뒤 일괄 교체하고 실제 근거에서 프로젝트 역사를 다시 작성한다.
+
+계획 검증: 계층·배포·리니지·운영 SVG 4개를 재생성하고 XML·편집 가능한 텍스트·재생성 일치·문서 상대 링크와 앵커를 검사했다. PNG로 실제 렌더링해 겹침·잘림을 확인했다. 앱 테스트·배포는 이번 문서 작업의 검증에 포함하지 않는다.
+
 ## 개인 위키 테마·접근 제한 갱신
 
 2026-09-12, 앱 커밋 `3f8ce7f93dee6440144d7afe88500155c8bf3727`을 [GitHub Actions](https://github.com/agent-observatory/agent-wiki/actions/runs/34683743055)로 배포했다. CI 검증·ARM64 이미지 게시·배포가 모두 성공했다(2분 31초). 다크가 기본이며 로그인 화면과 앱 헤더에서 라이트로 전환할 수 있다.
@@ -16,7 +36,7 @@
 
 첫 버전을 OCI에 배포했다. **https://agent-wiki.duckdns.org 에서 HTTPS 접속·GitHub 소유자 로그인을 확인했다.** 비용·오류 모니터링은 아래 별도 검증 기록을 따른다. 실제 NVIDIA 추출 성공은 미완료 항목이다.
 
-## 현재 상태
+## 첫 배포 당시 상태
 
 | 항목           | 상태                                                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -29,7 +49,7 @@
 | DNS·HTTPS      | DuckDNS를 VM에 연결, Caddy 인증서 자동 발급·HTTPS 200 확인                                                        |
 | 로그인         | 실제 GitHub OAuth 로그인 성공. 등록한 소유자의 GitHub ID만 허용                                                         |
 | GitHub Actions | 테스트 → ARM64 이미지 게시 → 실제 VM 배포 성공. `DEPLOY_ENABLED=true` |
-| 모니터링       | OCI 구조화 로그 수집·한국어 Slack 오류 카드·중복 억제 확인. GitHub Actions 정기 실행 등록 |
+| 모니터링       | 오류는 OCI 기본 경보로 전환. 비용·사용량 Actions 유지. 아래 전환 검증 기록 참고 |
 
 이 문서는 실제 수행 상태다. [아키텍처](wiki/architecture.md)와 그림은 목표 구조를 설명하며, 구현·배포 검증의 증거를 대신하지 않는다.
 
@@ -89,7 +109,23 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 - 합성 자료로 웹 문서 생성·키워드 검색·개정과 출처를 포함한 Context, 에이전트 키를 사용한 원격 Context API 200을 검증했다. 검증용 공간·문서·개정·임시 키는 모두 정리했다.
 - 첫 앱 배포 당시 비용·오류 알림은 미완료였다. 이후 사용자가 Incoming Webhook을 제공했으며 현재 구성과 검증은 아래 기록을 따른다.
 
-## 비용·오류 모니터링
+## 오류 알림 · OCI 기본 경보
+
+2026-09-12, 오류 알림만 다음 경로로 전환했다. 앱·VM·DB와 비용·사용량 알림은 변경하지 않았다.
+
+`stdout → Docker syslog → rsyslog → OCI Unified Monitoring Agent → OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack`
+
+- 기존 Connector Hub와 확인된 Slack 구독을 재사용한다. `data.severityNumber >= 17`만 `agent_wiki_errors / ErrorLogCount` 지표로 보낸다. 원본 JSON은 Slack에 전달하지 않는다.
+- 경보는 `ErrorLogCount[5m].grouping().count() > 0`, 평가 간격 1분·발동 대기 1분·집계 대기 5분이다. 로그 전송 지연을 포함하므로 즉시 알림은 아니다.
+- 한국어 제목·요약·본문과 오류 로그 링크를 사용한다. 상태 변경 시 알리며 정기 반복은 없다. 오류 종류별 중복 제거는 하지 않는다. `OK`는 경보 해제이며 앱·로그 수집 정상의 증명이 아니다.
+- 원격 `Application error monitor` 워크플로는 중지했다. 로컬 오류 조회 워크플로·포매터·전용 테스트를 제거했다. 비용 Actions와 공유 운영 체크포인트는 유지한다.
+- Terraform 적용: 경보 1개 생성·기존 권한/커넥터 2개 수정, 삭제 없음. 합성 로그 전달 검증 진행 중.
+
+[OCI 로그 경보 구성](https://docs.oracle.com/en-us/iaas/Content/connector-hub/alarmlogs.htm)과 [제목·본문 설정](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Tasks/update-alarm-dynamic-variables.htm)을 따른다. 기존 커넥터 1개를 재사용하며 Monitoring 월 수집 5억·조회 10억, HTTPS 알림 100만 건의 [무료 범위](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) 안에서 운영한다. 별도 Function·서버는 없다.
+
+## 초기 비용·오류 모니터링 기록
+
+아래는 전환 전 검증 기록이다. 비용·사용량 구성은 그대로 유지하고, 오류 Actions·Connector Hub 비활성 설명은 위 OCI 경보 구성으로 대체했다.
 
 2026-09-12, 월 예산 SGD 1과 전용 조회 계정을 만들고 GitHub Actions의 두 예약 워크플로를 활성화했다. 앱 VM·DB 사양은 유지했다. 예산은 지출을 강제로 차단하지 않는다.
 

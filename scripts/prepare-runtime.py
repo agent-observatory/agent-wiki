@@ -32,7 +32,6 @@ def write_env(name,data):
 def dburl(user,pwd):return 'postgresql://'+user+':'+urllib.parse.quote(pwd,safe='')+'@postgres:5432/agent_wiki?sslmode=verify-full&sslrootcert=/run/wiki-ca.crt'
 common={'DATABASE_URL':dburl('wiki_app',env['PG_APP_PASSWORD']),'NODE_ENV':'production','IMAGE_TAG':args.image,'SOURCE_STORAGE':'oci','OCI_NAMESPACE':state['namespace']['value'],'OCI_BUCKET':state['bucket']['value']}
 write_env('api.env',{**common,**{k:env[k] for k in ['GITHUB_CLIENT_ID','GITHUB_CLIENT_SECRET','OWNER_GITHUB_ID']},'APP_URL':'https://'+domain})
-write_env('worker.env',{**common,'NVIDIA_API_KEY':env['NVIDIA_API_KEY']})
 write_env('migration.env',{'MIGRATION_DATABASE_URL':dburl('wiki_owner',env['PG_OWNER_PASSWORD'])})
 write_env('.env',{'DOMAIN':domain,'IMAGE_TAG':args.image,**{k:env[k] for k in ['PG_OWNER_PASSWORD','PG_APP_PASSWORD','PG_ADMIN_PASSWORD']}})
 (out/'init-db.sql').write_text("CREATE ROLE wiki_app LOGIN PASSWORD '"+env['PG_APP_PASSWORD']+"';\nCREATE ROLE wiki_admin LOGIN BYPASSRLS PASSWORD '"+env['PG_ADMIN_PASSWORD']+"';\n");(out/'init-db.sql').chmod(0o600)

@@ -5,7 +5,6 @@ import pg from "pg";
 import { buildApp } from "../apps/api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
 import { hash } from "../packages/core/src/storage.js";
-import { processSource } from "../packages/core/src/ingest.js";
 const admin = new pg.Pool({
   connectionString: process.env.MIGRATION_DATABASE_URL,
   max: 2,
@@ -172,255 +171,361 @@ test("missing owner configuration fails closed including OAuth entry", async () 
   }
 });
 
-test("edits are revision-checked and glossary aliases are searchable", async () => {
-  const r = await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/articles`,
-    headers,
-    payload: {
-      title: "결제 멱등성 정책",
-      content: "같은 멱등 키를 재사용합니다.",
-      tags: ["결제"],
-      folder: "payments",
-    },
+const base = () => `/api/workspaces/${ws}`;
+async function call(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  path: string,
+  payload?: unknown,
+  extra = {},
+) {
+  return app.inject({
+    method,
+    url: base() + path,
+    headers: { ...headers, ...extra },
+    payload: payload === undefined ? undefined : JSON.stringify(payload),
   });
+}
+async function source(text = "첫째 근거\n둘째 근거", key = randomUUID()) {
+  const r = await call(
+    "POST",
+    "/source-records",
+    { name: "합성 기록", text, kind: "note", origin: "synthetic" },
+    { "idempotency-key": key },
+  );
   assert.equal(r.statusCode, 200, r.body);
-  article = r.json().id;
-  const update = {
-    title: "결제 멱등성 정책",
-    content: "같은 키와 같은 요청이면 기존 결과를 반환합니다.",
-    revision: 1,
-  };
-  assert.equal(
-    (
-      await app.inject({
-        method: "PUT",
-        url: `/api/workspaces/${ws}/articles/${article}`,
-        headers,
-        payload: update,
-      })
-    ).statusCode,
-    200,
-  );
-  assert.equal(
-    (
-      await app.inject({
-        method: "PUT",
-        url: `/api/workspaces/${ws}/articles/${article}`,
-        headers,
-        payload: update,
-      })
-    ).statusCode,
-    409,
-  );
-  await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/articles`,
-    headers,
-    payload: {
-      title: "멱등성",
-      content: "반복 요청은 같은 효과",
-      kind: "glossary",
-      aliases: ["idempotency"],
-    },
-  });
-  const found = await app.inject({
-    url: `/api/workspaces/${ws}/articles?q=idempotency`,
-    headers,
-  });
-  assert.equal(found.statusCode, 200, found.body);
-  assert.ok(found.json().items.some((a: { id: string }) => a.id === article));
-  const rev = await app.inject({
-    url: `/api/workspaces/${ws}/articles/${article}/revisions/1`,
-    headers,
-  });
-  assert.equal(rev.json().content, "같은 멱등 키를 재사용합니다.");
-});
-test("workspace-bound read key returns citations but cannot write", async () => {
-  const key = (
-    await app.inject({
-      method: "POST",
-      url: `/api/workspaces/${ws}/keys`,
-      headers,
-      payload: { name: "test", scope: "read" },
-    })
-  ).json();
-  assert.ok(key.token);
-  const auth = {
-    authorization: "Bearer " + key.token,
-    "content-type": "application/json",
-  };
-  const context = await app.inject({
-    url: `/api/workspaces/${ws}/context?q=${encodeURIComponent("결제")}`,
-    headers: auth,
-  });
-  assert.equal(context.statusCode, 200, context.body);
-  assert.ok(
-    context
-      .json()
-      .citations.some(
-        (c: { id: string; revision: number }) =>
-          c.id === article && c.revision === 2,
-      ),
-  );
-  assert.equal(
-    (
-      await app.inject({
-        method: "POST",
-        url: `/api/workspaces/${ws}/articles`,
-        headers: auth,
-        payload: { title: "bad", content: "" },
-      })
-    ).statusCode,
-    403,
-  );
-  assert.equal(
-    (
-      await app.inject({
-        url: `/api/workspaces/${other}/context?q=test`,
-        headers: auth,
-      })
-    ).statusCode,
-    404,
-  );
-  await app.inject({
-    method: "DELETE",
-    url: `/api/workspaces/${ws}/keys/${key.id}`,
-    headers,
-    payload: {},
-  });
-  assert.equal(
-    (await app.inject({ url: `/api/workspaces/${ws}/articles`, headers: auth }))
-      .statusCode,
-    401,
-  );
-});
-test("source acceptance is idempotent; committed ingest is not applied twice; deletion hides derived knowledge", async () => {
-  const payload = {
-    name: "합성 메모",
-    text: "사용자: 동일 결제에는 같은 키를 쓴다.",
-    allowExternalAI: true,
-  };
-  const h = { ...headers, "idempotency-key": randomUUID() };
-  const r = await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/sources`,
-    headers: h,
-    payload,
-  });
-  assert.equal(r.statusCode, 200, r.body);
-  const id = r.json().id;
-  const again = await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/sources`,
-    headers: h,
-    payload,
-  });
-  assert.equal(again.json().id, id);
-  assert.equal(
-    (
-      await app.inject({
-        method: "POST",
-        url: `/api/workspaces/${ws}/sources`,
-        headers: h,
-        payload: { ...payload, text: "different" },
-      })
-    ).statusCode,
-    409,
-  );
-  let calls = 0;
-  const fake = async () => {
-    calls++;
-    return {
-      model: "synthetic",
-      result: {
-        title: "합성 정책",
-        summary: "동일 결제에는 같은 키를 쓴다.",
-        tags: ["결제"],
-        memories: [
+  return r.json();
+}
+function publication(s: any, extra: Record<string, unknown> = {}) {
+  return {
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "test" },
+    changes: [
+      {
+        clientRef: "m",
+        title: "검증한 지식",
+        content: "첫째 주장",
+        tags: ["test-project"],
+        claims: [
           {
-            claim: "같은 키 사용",
-            quote: "동일 결제에는 같은 키를 쓴다.",
-            status: "user_confirmed" as const,
+            anchor: "c1",
+            text: "첫째 주장",
+            type: "observation",
+            evidence: [
+              {
+                sourceId: s.id,
+                revision: 1,
+                lines: [1, 1],
+                quote: s.text.split("\n")[0],
+              },
+            ],
           },
         ],
       },
-    };
+    ],
+    ...extra,
   };
-  const data = { sourceId: id, workspaceId: ws, userId: "test-owner" };
-  await processSource(data, 0, new AbortController().signal, fake);
-  await processSource(data, 1, new AbortController().signal, fake);
-  assert.equal(calls, 1);
-  const rows = await tx("test-owner", ws, (c) =>
-    c.query("SELECT * FROM articles WHERE source_id=$1", [id]),
+}
+test("source-only registration is immutable, normalized, idempotent and starts no queue", async () => {
+  const key = randomUUID();
+  const s = await source("첫 줄\r\napi_key=synthetic-secret", key);
+  assert.equal(s.lineCount, 2);
+  assert.ok(s.text.includes("[REDACTED]"));
+  assert.equal(
+    (await source("첫 줄\r\napi_key=synthetic-secret", key)).id,
+    s.id,
   );
-  assert.equal(rows.rowCount, 2);
-  await app.inject({
-    method: "DELETE",
-    url: `/api/workspaces/${ws}/sources/${id}`,
-    headers,
-    payload: {},
-  });
-  const hidden = await app.inject({
-    url: `/api/workspaces/${ws}/articles/${rows.rows[0].id}`,
-    headers,
-  });
-  assert.equal(hidden.statusCode, 404);
+  assert.equal(
+    (
+      await call(
+        "POST",
+        "/source-records",
+        { name: "different", text: "changed" },
+        { "idempotency-key": key },
+      )
+    ).statusCode,
+    409,
+  );
+  const read = await call(
+    "GET",
+    `/source-records/${s.id}/revisions/1?start=2&end=2`,
+  );
+  assert.equal(read.json().text, "api_key=[REDACTED]");
+  assert.equal(
+    (await call("GET", `/source-records/${s.id}/revisions/1?start=3`))
+      .statusCode,
+    400,
+  );
+  assert.equal(
+    (await admin.query("SELECT to_regnamespace('pgboss') AS schema")).rows[0]
+      .schema,
+    null,
+  );
 });
-test("expired queue work becomes retryable in the UI; an old delivery cannot apply to a new attempt", async () => {
-  const accepted = await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/sources`,
-    headers: { ...headers, "idempotency-key": randomUUID() },
-    payload: {
-      name: "종료 복구 검증",
-      text: "합성 기록",
-      allowExternalAI: true,
-    },
+test("publication is atomic with multiple sources and supports replay without duplicate revisions", async () => {
+  const s = await source();
+  const s2 = await source("추가 근거");
+  const p = publication(s);
+  p.changes[0].claims[0].evidence.push({
+    sourceId: s2.id,
+    revision: 1,
+    lines: [1, 1],
+    quote: s2.text,
   });
-  assert.equal(accepted.statusCode, 200, accepted.body);
-  const id = accepted.json().id;
-  const oldJob = (
-    await admin.query("SELECT queue_job_id FROM sources WHERE id=$1", [id])
-  ).rows[0].queue_job_id;
-  await admin.query(
-    "UPDATE pgboss.job SET state='failed',completed_on=now() WHERE id=$1",
-    [oldJob],
-  );
-  const listing = await app.inject({
-    url: `/api/workspaces/${ws}/sources`,
-    headers,
-  });
+  const results = await Promise.all([
+    call("POST", "/publications", p),
+    call("POST", "/publications", p),
+  ]);
+  for (const r of results) assert.equal(r.statusCode, 200, r.body);
+  assert.deepEqual(results[0].json(), results[1].json());
+  article = results[0].json().items[0].id;
   assert.equal(
-    listing.json().items.find((s: { id: string }) => s.id === id).status,
-    "failed",
+    (await call("GET", `/publications/${p.idempotencyKey}`)).json().id,
+    results[0].json().id,
   );
-  const retry = await app.inject({
-    method: "POST",
-    url: `/api/workspaces/${ws}/sources/${id}/retry`,
-    headers,
-    payload: {},
+  const detail = (await call("GET", `/articles/${article}`)).json();
+  assert.equal(detail.revision, 1);
+  assert.equal(detail.claims[0].evidence.length, 2);
+  assert.equal(detail.producer.type, "agent");
+  assert.equal(detail.reviewed_at, null);
+  assert.equal(
+    (await call("POST", "/publications", { ...p, reason: "different" }))
+      .statusCode,
+    409,
+  );
+  const bad = publication(s);
+  bad.changes.push({
+    ...bad.changes[0],
+    clientRef: "second",
+    claims: [
+      {
+        ...bad.changes[0].claims[0],
+        evidence: [
+          { sourceId: s.id, revision: 1, lines: [1, 1], quote: "invented" },
+        ],
+      },
+    ],
   });
-  assert.equal(retry.statusCode, 200, retry.body);
-  let called = false;
-  const shouldNotRun = async () => {
-    called = true;
-    throw new Error("Stale job must not call AI");
+  assert.equal((await call("POST", "/publications", bad)).statusCode, 400);
+  assert.equal(
+    (await call("GET", `/publications/${bad.idempotencyKey}`)).statusCode,
+    404,
+  );
+});
+test("new revisions, historical evidence, conflict and owner review are distinct", async () => {
+  const s = await source();
+  const p = publication(s);
+  p.changes[0] = {
+    ...p.changes[0],
+    articleId: article,
+    baseRevision: 1,
+  } as any;
+  let r = await call("POST", "/publications", p);
+  assert.equal(r.statusCode, 200, r.body);
+  r = await call("POST", "/publications", {
+    ...p,
+    idempotencyKey: randomUUID(),
+  });
+  assert.equal(r.statusCode, 409);
+  const history = (
+    await call("GET", `/articles/${article}/revisions/1`)
+  ).json();
+  assert.equal(history.revision, 1);
+  assert.equal(history.currentRevision, 2);
+  assert.equal(history.claims[0].evidence.length, 2);
+  assert.equal(
+    (await call("POST", `/articles/${article}/review`, { revision: 1 }))
+      .statusCode,
+    409,
+  );
+  assert.equal(
+    (await call("POST", `/articles/${article}/review`, { revision: 2 }))
+      .statusCode,
+    200,
+  );
+  assert.ok((await call("GET", `/articles/${article}`)).json().reviewed_at);
+});
+test("scoped keys allow only their operations and cannot claim human authorship", async () => {
+  for (const scope of ["read", "source:write", "publish"]) {
+    const k = (await call("POST", "/keys", { name: "test", scope })).json();
+    assert.ok(k.token);
+    const auth = { authorization: "Bearer " + k.token };
+    assert.equal(
+      (await call("GET", "/recall?tag=test-project", undefined, auth))
+        .statusCode,
+      200,
+    );
+    const s = await source();
+    const p = publication(s);
+    assert.equal(
+      (await call("POST", "/publications", p, auth)).statusCode,
+      scope === "publish" ? 200 : 403,
+    );
+    assert.equal(
+      (
+        await call(
+          "POST",
+          "/publications",
+          {
+            ...p,
+            idempotencyKey: randomUUID(),
+            producer: { type: "human", client: "fake" },
+          },
+          auth,
+        )
+      ).statusCode,
+      403,
+    );
+    assert.equal(
+      (
+        await call(
+          "POST",
+          "/keys",
+          { name: "forbidden", scope: "publish" },
+          auth,
+        )
+      ).statusCode,
+      403,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          url: `/api/workspaces/${other}/recall?tag=test-project`,
+          headers: auth,
+        })
+      ).statusCode,
+      404,
+    );
+  }
+});
+test("cross-workspace evidence cannot be attached even for another Workspace owned by the same user", async () => {
+  const newWs = (
+    await app.inject({
+      method: "POST",
+      url: "/api/workspaces",
+      headers,
+      payload: { name: "other owned" },
+    })
+  ).json().id;
+  const s = await source();
+  const r = await app.inject({
+    method: "POST",
+    url: `/api/workspaces/${newWs}/publications`,
+    headers,
+    payload: publication(s),
+  });
+  assert.equal(r.statusCode, 404, r.body);
+});
+test("recall uses an explicit start page, search finds later text and pins citations", async () => {
+  const s = await source();
+  const p = publication(s, {
+    startContext: { tag: "test-project", articleRef: "m" },
+  });
+  p.changes[0].content = "가".repeat(5000) + " 첫째 주장 검색후반";
+  const r = await call("POST", "/publications", p);
+  assert.equal(r.statusCode, 200, r.body);
+  const context = (
+    await call("GET", "/context?q=" + encodeURIComponent("검색후반"))
+  ).json();
+  assert.ok(context.citations[0].excerpt.includes("검색후반"));
+  assert.ok(context.citations[0].url.includes("?revision=1"));
+  const recall = (await call("GET", "/recall?tag=test-project")).json();
+  assert.equal(recall.citations[0].id, r.json().items[0].id);
+  assert.equal(recall.startContextMissing, false);
+  assert.equal(
+    (await call("GET", "/recall?tag=unknown")).json().startContextMissing,
+    true,
+  );
+});
+test("source deletion marks missing evidence without cascading into knowledge", async () => {
+  const s = await source();
+  const r = await call("POST", "/publications", publication(s));
+  const id = r.json().items[0].id;
+  assert.equal(
+    (await call("DELETE", `/source-records/${s.id}`, {})).statusCode,
+    200,
+  );
+  assert.equal(
+    (await call("GET", `/source-records/${s.id}/revisions/1`)).statusCode,
+    404,
+  );
+  const detail = (await call("GET", `/articles/${id}`)).json();
+  assert.equal(detail.claims[0].evidence[0].unavailable, true);
+  assert.equal(
+    (await call("POST", "/publications", publication(s))).statusCode,
+    404,
+  );
+  assert.equal(
+    (await call("DELETE", `/articles/${id}`, { revision: 1 })).statusCode,
+    200,
+  );
+  assert.equal(
+    (await call("GET", `/articles/${id}/revisions/1`)).statusCode,
+    404,
+  );
+});
+test("human edits use publication validation and never self-verify", async () => {
+  const r = await call(
+    "POST",
+    "/articles",
+    { title: "사람 메모", content: "메모 본문" },
+    { "idempotency-key": randomUUID() },
+  );
+  assert.equal(r.statusCode, 200, r.body);
+  assert.equal(r.json().claims[0].type, "author_statement");
+  assert.equal(r.json().reviewed_at, null);
+});
+test("supersession preserves historical links, hides old recall and rejects cycles", async () => {
+  const s = await source();
+  const first = publication(s, {
+    startContext: { tag: "cycle-test", articleRef: "m" },
+  });
+  first.changes[0].tags = ["cycle-test"];
+  const old = (await call("POST", "/publications", first)).json().items[0].id;
+  const p: any = publication(s);
+  p.changes[0].supersedes = [old];
+  p.changes[0].tags = ["cycle-test"];
+  const r = await call("POST", "/publications", p);
+  assert.equal(r.statusCode, 200, r.body);
+  const newer = r.json().items[0].id;
+  const recall = (await call("GET", "/recall?tag=cycle-test")).json();
+  assert.equal(recall.startContextMissing, true);
+  assert.ok(!recall.citations.some((x: any) => x.id === old));
+  const cycle: any = publication(s);
+  cycle.changes[0] = {
+    ...cycle.changes[0],
+    articleId: old,
+    baseRevision: 1,
+    supersedes: [newer],
   };
-  await processSource(
-    { sourceId: id, workspaceId: ws, userId: "test-owner" },
-    0,
-    new AbortController().signal,
-    shouldNotRun,
-    oldJob,
-  );
-  assert.equal(called, false);
-  const refreshed = await app.inject({
-    url: `/api/workspaces/${ws}/sources`,
-    headers,
-  });
+  assert.equal((await call("POST", "/publications", cycle)).statusCode, 400);
+  const edit: any = publication(s);
+  edit.changes[0] = { ...edit.changes[0], articleId: newer, baseRevision: 1 };
+  assert.equal((await call("POST", "/publications", edit)).statusCode, 200);
   assert.equal(
-    refreshed.json().items.find((s: { id: string }) => s.id === id).status,
-    "queued",
+    (await call("GET", `/articles/${newer}/revisions/1`)).json().links[0].id,
+    old,
+  );
+  assert.deepEqual((await call("GET", `/articles/${newer}`)).json().links, []);
+});
+test("Context bounds provenance and marks deleted start pages missing", async () => {
+  const s = await source();
+  const p: any = publication(s, {
+    startContext: { tag: "bounded", articleRef: "m" },
+  });
+  p.changes[0].tags = ["bounded"];
+  p.changes[0].claims = Array.from({ length: 100 }, (_, i) => ({
+    ...p.changes[0].claims[0],
+    anchor: "claim-" + i,
+  }));
+  const r = await call("POST", "/publications", p);
+  assert.equal(r.statusCode, 200, r.body);
+  const context = (await call("GET", "/recall?tag=bounded")).json();
+  assert.ok(JSON.stringify(context).length <= 16000);
+  assert.equal(context.truncated, true);
+  assert.equal(context.citations[0].claimsTruncated, true);
+  await call("DELETE", `/articles/${r.json().items[0].id}`, { revision: 1 });
+  assert.equal(
+    (await call("GET", "/recall?tag=bounded")).json().startContextMissing,
+    true,
   );
 });
