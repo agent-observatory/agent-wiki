@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-09-12T23:26:00Z",
+  "model": "deepseek-ai/deepseek-v4-flash-0731",
+  "requestMessagesBytes": 5127,
+  "maxOutputTokens": 2048,
+  "status": "failed",
+  "error_code": "AI_HTTP_504",
+  "usage": null,
+  "diagnostics": {
+    "stage": "model",
+    "attempt": 1,
+    "retryAt": "2026-09-13T00:02:01.032Z",
+    "version": 1,
+    "retryable": true,
+    "durationMs": 302107,
+    "generation": 1,
+    "httpStatus": 504,
+    "concurrency": 1,
+    "requestedAt": "2026-09-12T23:20:42.897Z",
+    "httpRequests": 1,
+    "inputVersion": "text-fields-2",
+    "leaseSeconds": 420,
+    "minIntervalMs": 3000,
+    "modelTimeoutMs": 330000,
+    "retryDelaySeconds": 2176,
+    "sourceOmittedBytes": 57459,
+    "sourceOmittedLines": 158,
+    "providerRetryAfterSeconds": 60
+  },
+  "interpretation": "Provider returned HTTP 504 before the caller deadline; one observation does not establish a provider-wide timeout policy."
+}
