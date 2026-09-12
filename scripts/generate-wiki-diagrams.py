@@ -77,7 +77,6 @@ path('M880 855 H940',flow='query',both=True)
 path('M1080 580 V640',flow='query',both=True)
 path('M1220 710 H1280',flow='query',both=True)
 path('M1220 790 H1280',flow='ingest')
-path('M1560 710 H1640',True,both=True)
 # Repaint headers above connectors crossing group boundaries.
 for hx,hw in [(40,430),(590,1010)]:
  box(hx+1,371,hw-2,52,'#344256','#344256')
@@ -101,7 +100,6 @@ card(630,450,250,460,'agent-wiki-gateway',['Caddy · HTTPS','웹·API 경로 분
 card(940,450,280,130,'agent-wiki-web',['웹 UI · Next.js','지식·근거 확인 · AI 설정'],'web','nextdotjs')
 card(940,640,280,270,'agent-wiki-api',['Fastify · 검색·수집 API','업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
 card(1280,640,280,200,'agent-wiki-db',['PostgreSQL · 지식·근거','세션·출처별 수신 위치','업로드·정제 작업 이력','AI 제공자·모델 설정'],'data','postgresql')
-card(1640,640,240,140,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web','tabler-terminal-2')
 # Raw storage is outside the VM; its API connection is a straight horizontal line.
 path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확정',FONT["label"])
 card(1640,820,240,190,'agent-wiki-sources',['OCI Object Storage','검증 후 불변 L1 확정','텍스트·이미지 분리'],'data','oracle')

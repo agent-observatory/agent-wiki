@@ -52,7 +52,7 @@ Agent Wiki (제품)
 | `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
 | `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
 
-`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Compose 서비스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code·DataGrip은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Compose 서비스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](agent-memory.md#연결과-지침).
 
@@ -201,7 +201,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 | 연결 Block Volume 50GB | PostgreSQL 데이터와 Caddy 인증서·설정을 별도 경로에 보관 |
 | 부트 볼륨 50GB | 운영체제·Docker 등 호스트 구성 |
 | Object Storage | 원격 원문 보관본. 인증서 저장소와 구분 |
-| DataGrip | 공인 5432·별도 ID/비밀번호·TLS. 사용자 선택에 따라 IP 제한·Bastion 없음 |
+| DB 관리 접속 | 공인 5432·별도 ID/비밀번호·TLS. 사용자 선택에 따라 IP 제한·Bastion 없음 |
 | 내부 연결 | Compose 서비스 이름. 웹·API 포트는 내부 전용 |
 
 기존 메모리 상한은 Caddy 0.25GB·Web 2GB·API 2GB·DB 3GB다. DNS 갱신과 인증서 갱신은 다른 작업이며 VM 공인 주소가 바뀌면 DNS 연결을 갱신해야 한다. Caddy 재배포 때 인증서 볼륨을 유지한다.
