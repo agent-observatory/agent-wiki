@@ -1,5 +1,9 @@
 # 구현·배포 현황
 
+## 제품 문구 정리 · 배포 완료
+
+2026-09-12, 앱 `60c365c`의 [CI·배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34696655794)가 성공했다. 로그인 소개는 개인 위키, 안내 제목은 위키 사용법으로 정리하고 운영 Edge 화면에서 제목을 확인했다. 현재 지식 두 건도 시작 문서 r3·정제 역할 r2로 수정하고 CLI로 읽어 확인했다. 원문 인용과 과거 개정은 보존했다.
+
 ## 개인 에이전트 정제·메뉴별 페이지 · 운영 전환 완료
 
 2026-09-12 앱 `0bf20179694b808f90481380ab61512e9e662a6a`의 [CI·ARM64 빌드·배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34696016139)가 성공했다. Actions 전체는 2분 40초다. Caddy·Web·API·PostgreSQL 4개 실행과 건강 검사를 확인했고 PostgreSQL 컨테이너 ID는 교체 전과 같았다. Worker 컨테이너·런타임 파일·이전 큐를 제거했다.
