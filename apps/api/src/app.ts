@@ -1,3 +1,4 @@
+import { registerUploads } from "./uploads.js";
 import { registerAutomation } from "./automation.js";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
@@ -168,7 +169,9 @@ export async function buildApp() {
         const suffix = req.url.split("?")[0];
         const allowed =
           req.method === "POST" &&
-          (/^\/api\/workspaces\/[^/]+\/(?:source-records|collection)$/.test(suffix) ||
+          (/^\/api\/workspaces\/[^/]+\/(?:source-records|collection(?:\/cursor|\/uploads(?:\/[a-f0-9-]+\/(?:complete|parts\/\d+))?)?)$/.test(
+            suffix,
+          ) ||
             (req.identity.scope === "publish" &&
               /^\/api\/workspaces\/[^/]+\/publications$/.test(suffix)));
         if (!allowed) throw new AppError(403, "SCOPE_REJECTED");
@@ -274,6 +277,7 @@ export async function buildApp() {
   });
   registerKnowledge(app, scoped, sessionOnly, appUrl);
   registerAutomation(app, scoped, sessionOnly);
+  registerUploads(app, scoped);
   app.get("/api/workspaces/:workspaceId/keys", async (req) => {
     sessionOnly(req);
     return scoped(req, async (c, ws) => ({

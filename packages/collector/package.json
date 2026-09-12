@@ -1,1 +1,12 @@
-{"name":"@agent-observatory/wiki-collector","version":"0.1.0","type":"module","private":true,"bin":{"wiki-collector":"collector.mjs"}}
+{
+  "name": "@agent-observatory/wiki-collector",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "wiki-collector": "collector.mjs"
+  },
+  "engines": {
+    "node": ">=22.21"
+  }
+}

@@ -15,9 +15,11 @@ import { homedir } from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createReadStream } from "node:fs";
+import { prepareUpload, scanFile, MASK_VERSION } from "./transport.mjs";
 const digest = (x) => createHash("sha256").update(x).digest("hex");
-export function redact(value) {
-  if (Array.isArray(value)) return value.map(redact);
+export function redact(value, preserveImages = false) {
+  if (Array.isArray(value)) return value.map((x) => redact(x, preserveImages));
   if (value && typeof value === "object")
     return Object.fromEntries(
       Object.entries(value).map(([k, v]) => [
@@ -26,14 +28,15 @@ export function redact(value) {
           k,
         )
           ? "[REDACTED]"
-          : redact(v),
+          : redact(v, preserveImages),
       ]),
     );
   if (typeof value !== "string") return value;
-  value = value.replace(
-    /data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+/g,
-    "[IMAGE_DATA_OMITTED]",
-  );
+  if (!preserveImages)
+    value = value.replace(
+      /data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+/g,
+      "[IMAGE_DATA_OMITTED]",
+    );
   for (const [name, secret] of Object.entries(process.env))
     if (
       /TOKEN|PASSWORD|SECRET|API_KEY|ENCRYPTION_KEY/.test(name) &&
@@ -80,27 +83,34 @@ async function* walk(root) {
     else if (e.isFile() && e.name.endsWith(".jsonl")) yield p;
   }
 }
-export async function collect(config, state, send) {
-  const stats = { files: 0, accepted: 0, duplicate: 0, failed: 0, errors: {} };
+export async function collect(
+  config,
+  state,
+  request,
+  checkpoint = async () => {},
+  transfer = uploadPart,
+) {
+  const stats = {
+    files: 0,
+    accepted: 0,
+    duplicate: 0,
+    failed: 0,
+    pending: 0,
+    errors: {},
+  };
   for (const root of config.roots)
     for await (const file of walk(root.path)) {
-      if ((config.exclude ?? []).some((pattern) => file.includes(pattern)))
-        continue;
+      if ((config.exclude ?? []).some((p) => file.includes(p))) continue;
+      let prepared;
       try {
-        // Establish project scope from metadata before loading unrelated large sessions.
-        const fileHandle = await open(file, "r");
+        const fh = await open(file, "r");
         let prefix;
         try {
-          const buffer = Buffer.alloc(262144);
-          const { bytesRead } = await fileHandle.read(
-            buffer,
-            0,
-            buffer.length,
-            0,
-          );
-          prefix = buffer.subarray(0, bytesRead).toString("utf8");
+          const b = Buffer.alloc(262144);
+          const { bytesRead } = await fh.read(b, 0, b.length, 0);
+          prefix = b.subarray(0, bytesRead).toString("utf8");
         } finally {
-          await fileHandle.close();
+          await fh.close();
         }
         const metadata = prefix
           .split("\n")
@@ -112,30 +122,7 @@ export async function collect(config, state, send) {
               return [];
             }
           });
-        const knownCwd = metadata
-          .map((x) => x.cwd ?? x.payload?.cwd)
-          .find(Boolean);
-        if (
-          knownCwd &&
-          !config.projects.some(
-            (p) =>
-              resolve(knownCwd) === resolve(p) ||
-              resolve(knownCwd).startsWith(resolve(p) + "/"),
-          )
-        )
-          continue;
-        const info = await stat(file);
-        if (info.size > 256 * 1024 * 1024) throw new Error("FILE_TOO_LARGE");
-        const buffer = await readFile(file, "utf8"),
-          end = buffer.lastIndexOf("\n");
-        if (end < 0) continue;
-        const complete = buffer.slice(0, end),
-          fingerprint = digest(complete);
-        // Hash the complete prefix too: preserved mtimes and same-size replacements are detectable.
-        if (state.files[file] === fingerprint) continue;
-        const lines = complete.split("\n").filter((x) => x.trim());
-        const records = lines.map((x) => JSON.parse(x));
-        const cwd = records.map((x) => x.cwd ?? x.payload?.cwd).find(Boolean);
+        const cwd = metadata.map((x) => x.cwd ?? x.payload?.cwd).find(Boolean);
         if (
           !cwd ||
           !config.projects.some(
@@ -145,51 +132,184 @@ export async function collect(config, state, send) {
           )
         )
           continue;
-        const session = String(
-          records.find((x) => x.type === "session_meta")?.payload?.id ??
-            records.find((x) => x.sessionId)?.sessionId ??
-            digest(file),
-        );
-        const cleaned = records.map((x) => JSON.stringify(redact(x)));
-        let start = 0;
-        while (start < cleaned.length) {
-          let count = 0,
-            size = 0;
-          while (start + count < cleaned.length && count < 50) {
-            const bytes = Buffer.byteLength(cleaned[start + count]) + 1;
-            if (bytes > 1000000) throw new Error("RECORD_TOO_LARGE");
-            if (count && size + bytes > 16000) break;
-            size += bytes;
-            count++;
-          }
-          const result = await send({
-            machine: config.machine,
-            client: root.client,
-            sessionId: session,
-            name:
-              config.name + " · " + root.client + " · " + session.slice(0, 8),
-            start,
-            records: cleaned.slice(start, start + count),
-          });
-          stats.accepted += result.accepted;
-          stats.duplicate += result.duplicate;
-          start += count;
+        let local = state.files[file];
+        if (!local || typeof local === "string")
+          local = {
+            generation: randomUUID(),
+            end: 0,
+            prefixHash: digest(""),
+            fallbackSession: randomUUID(),
+          };
+        let snapshot = await scanFile(file, local.end);
+        if (!snapshot.end) continue;
+        if (
+          snapshot.end < local.end ||
+          snapshot.previousHash !== local.prefixHash
+        ) {
+          local = {
+            ...local,
+            generation: randomUUID(),
+            end: 0,
+            prefixHash: digest(""),
+            pending: undefined,
+          };
         }
-        state.files[file] = fingerprint;
+        state.files[file] = local;
+        await checkpoint();
+        const session = String(
+          metadata.find((x) => x.type === "session_meta")?.payload?.id ??
+            metadata.find((x) => x.sessionId)?.sessionId ??
+            local.fallbackSession,
+        );
+        const identity = {
+          machine: config.machine,
+          fileId: digest(file),
+          generation: local.generation,
+          client: root.client,
+          sessionId: session,
+        };
+        if (local.pending) {
+          const status = await request(
+            "/uploads/" + local.pending,
+            undefined,
+            "GET",
+          );
+          if (status.status === "completed") {
+            stats.accepted += status.result.accepted;
+            stats.duplicate += status.result.duplicate;
+            delete local.pending;
+            delete local.parts;
+          } else if (["queued", "verifying"].includes(status.status)) {
+            stats.pending++;
+            continue;
+          } else if (status.status === "failed")
+            throw new Error("UPLOAD_VALIDATION_FAILED");
+          else if (status.status === "expired") {
+            local.generation = randomUUID();
+            delete local.pending;
+            local.end = 0;
+            local.prefixHash = digest("");
+            await checkpoint();
+            continue;
+          }
+        }
+        const cursor = await request("/cursor", identity);
+        cursor.end = Number(cursor.end);
+        // Server cursor is authoritative, but it only applies to the unchanged prefix
+        // of this exact file generation. Another machine has its own cursor.
+        if (cursor.end > 0) {
+          const check = await scanFile(file, cursor.end);
+          if (
+            cursor.end > snapshot.end ||
+            check.previousHash !== cursor.prefixHash
+          ) {
+            local.generation = randomUUID();
+            local.end = 0;
+            local.prefixHash = digest("");
+            delete local.pending;
+            await checkpoint();
+            continue;
+          }
+        }
+        local.end = cursor.end;
+        local.prefixHash = cursor.prefixHash || digest("");
+        if (cursor.end === snapshot.end) {
+          stats.files++;
+          await checkpoint();
+          continue;
+        }
+        prepared = await prepareUpload(file, cursor.end, snapshot.end, (x) =>
+          redact(x, true),
+        );
+        // Detect edits made while preparing the snapshot; never assign old offsets to new content.
+        const check = await scanFile(file, snapshot.end);
+        if (check.previousHash !== snapshot.prefixHash)
+          throw new Error("FILE_CHANGED_DURING_READ");
+        const payload = {
+          ...identity,
+          name: config.name + " · " + root.client + " · " + session.slice(0, 8),
+          start: cursor.end,
+          end: snapshot.end,
+          recordStart: cursor.recordEnd,
+          recordEnd: snapshot.records,
+          prefixHash: snapshot.prefixHash,
+          maskVersion: MASK_VERSION,
+          codec: "zstd",
+          parts: prepared.parts,
+        };
+        const upload = await request("/uploads", payload);
+        if (local.pending !== upload.id) local.parts = [];
+        local.pending = upload.id;
+        local.parts ??= [];
+        await checkpoint();
+        if (upload.status === "uploading") {
+          for (let i = 0; i < prepared.parts.length; i++) {
+            if (local.parts[i] === prepared.parts[i].compressedHash) continue;
+            const grant = await request(
+              "/uploads/" + upload.id + "/parts/" + i,
+              {},
+            );
+            await transfer(grant.url, join(prepared.dir, String(i)));
+            local.parts[i] = prepared.parts[i].compressedHash;
+            await checkpoint();
+          }
+          await request("/uploads/" + upload.id + "/complete", {});
+        } else if (upload.status === "failed")
+          throw new Error("UPLOAD_VALIDATION_FAILED");
+        stats.pending++;
         stats.files++;
       } catch (error) {
-        const code = /^(?:HTTP_[0-9]{3}|FILE_TOO_LARGE|RECORD_TOO_LARGE)$/.test(
-          error.message,
-        )
-          ? error.message
-          : error instanceof SyntaxError
-            ? "INVALID_JSON"
+        const code =
+          /^(HTTP_[0-9]{3}|UPLOAD_[A-Z_]+|FILE_CHANGED_DURING_READ)$/.test(
+            error.message,
+          )
+            ? error.message
             : "COLLECTION_FAILED";
         stats.errors[code] = (stats.errors[code] ?? 0) + 1;
         stats.failed++;
+      } finally {
+        if (prepared) await prepared.cleanup();
       }
     }
+  await checkpoint();
   return stats;
+}
+async function uploadPart(url, file) {
+  if (typeof url !== "string") throw new Error("UPLOAD_URL_MISSING");
+  const u = new URL(url);
+  if (
+    u.protocol !== "https:" ||
+    u.username ||
+    u.password ||
+    !/^objectstorage\.[a-z0-9-]+\.oraclecloud\.com$/.test(u.hostname)
+  )
+    throw new Error("UPLOAD_URL_REJECTED");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const stream = createReadStream(file);
+    try {
+      const r = await fetch(url, {
+        method: "PUT",
+        redirect: "error",
+        signal: AbortSignal.timeout(120000),
+        headers: {
+          "content-type": "application/zstd",
+          "content-length": String((await stat(file)).size),
+        },
+        body: stream,
+        duplex: "half",
+      });
+      await r.body?.cancel();
+      if (r.ok) return;
+      if (r.status < 500 && r.status !== 429)
+        throw new Error("HTTP_" + r.status);
+    } catch (e) {
+      if (e.message?.startsWith("HTTP_") || attempt === 2) throw e;
+    } finally {
+      stream.destroy();
+    }
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+  }
+  throw new Error("UPLOAD_TRANSFER_FAILED");
 }
 async function main() {
   const args = process.argv.slice(2),
@@ -314,50 +434,55 @@ async function main() {
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }
-    const result = await collect(config, state, async (payload) => {
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const response = await fetch(
-          config.server.replace(/\/$/, "") +
-            "/api/workspaces/" +
-            config.workspace +
-            "/collection",
-          {
-            method: "POST",
-            redirect: "error",
-            signal: AbortSignal.timeout(60000),
-            headers: {
-              authorization: "Bearer " + token,
-              "content-type": "application/json",
+    const result = await collect(
+      config,
+      state,
+      async (path, payload, method = "POST") => {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const response = await fetch(
+            config.server.replace(/\/$/, "") +
+              "/api/workspaces/" +
+              config.workspace +
+              "/collection" +
+              path,
+            {
+              method,
+              redirect: "error",
+              signal: AbortSignal.timeout(60000),
+              headers: {
+                authorization: "Bearer " + token,
+                "content-type": "application/json",
+              },
+              ...(payload === undefined
+                ? {}
+                : { body: JSON.stringify(payload) }),
             },
-            body: JSON.stringify(payload),
-          },
-        );
-        if (
-          (response.status === 429 || response.status >= 500) &&
-          attempt < 3
-        ) {
-          const seconds =
-            response.status === 429
-              ? Math.min(
-                  120,
-                  Math.max(
-                    1,
-                    Number(response.headers.get("retry-after")) || 60,
-                  ),
-                )
-              : 2 ** attempt;
-          await response.body?.cancel();
-          await new Promise((r) => setTimeout(r, seconds * 1000));
-          continue;
+          );
+          if (
+            (response.status === 429 || response.status >= 500) &&
+            attempt < 3
+          ) {
+            const delay = Math.min(
+              120,
+              Math.max(
+                1,
+                Number(response.headers.get("retry-after")) || 2 ** attempt,
+              ),
+            );
+            await response.body?.cancel();
+            await new Promise((r) => setTimeout(r, delay * 1000));
+            continue;
+          }
+          if (!response.ok) {
+            await response.body?.cancel();
+            throw new Error("HTTP_" + response.status);
+          }
+          return response.json();
         }
-        if (!response.ok) {
-          await response.body?.cancel();
-          throw new Error("HTTP_" + response.status);
-        }
-        return response.json();
-      }
-      throw new Error("HTTP_RETRY_EXHAUSTED");
-    });
+        throw new Error("HTTP_RETRY_EXHAUSTED");
+      },
+      () => atomic(statePath, state),
+    );
     await atomic(statePath, state);
     console.log(JSON.stringify({ time: new Date().toISOString(), ...result }));
     if (result.failed) process.exitCode = 1;

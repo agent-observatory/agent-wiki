@@ -100,9 +100,9 @@
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Collector</text>
-<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">파일 변경 감지 · 원문 전송</text>
-<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">실패 시 재시도 · 대화 대기 없음</text>
+<text x="283" y="1012" font-size="23" font-weight="700" fill="#172C4B">Collector → Storage</text>
+<text x="245" y="1050" font-size="18" font-weight="400" fill="#172C4B">허가 후 zstd 증분 직접 업로드</text>
+<text x="245" y="1081" font-size="18" font-weight="400" fill="#172C4B">기기별 위치 · 실패 시 재시도</text>
 <path d="M613 1045 H657" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="663" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="683" y="989" color="#172C4B">
@@ -110,9 +110,9 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">서버 적재 판단</text>
-<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">세션 식별자·원문 해시로 중복 검사</text>
-<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">원문 불변 보관 · 적재 위치 기록</text>
+<text x="721" y="1012" font-size="23" font-weight="700" fill="#172C4B">서버 검증·L1 등록</text>
+<text x="683" y="1050" font-size="18" font-weight="400" fill="#172C4B">세션 ID·내용으로 중복 판정</text>
+<text x="683" y="1081" font-size="18" font-weight="400" fill="#172C4B">원문 확정 뒤 연속 수신 위치 갱신</text>
 <path d="M1051 1045 H1095" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ops)"/>
 <rect x="1101" y="970" width="388" height="150" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1121" y="989" color="#172C4B">
@@ -121,6 +121,6 @@
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
 <text x="1159" y="1012" font-size="23" font-weight="700" fill="#172C4B">원격 Worker → 외부 AI</text>
-<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">Wiki 설정의 제공자·모델 사용</text>
-<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">근거·결과·실행 이력 보존</text>
+<text x="1121" y="1050" font-size="18" font-weight="400" fill="#172C4B">텍스트 청킹 · 설정 모델 호출</text>
+<text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">청크 상태·근거·실행 이력</text>
 </g></svg>

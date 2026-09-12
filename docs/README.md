@@ -14,7 +14,8 @@
 
 - 독립 제품 `agent-observatory/agent-wiki`. 주 용례는 에이전트 질답·작업의 근거 조회이며, 웹은 편집·정정·근거 확인을 보조한다.
 - Workspace로 자료·권한·AI 맥락을 격리하고 Folder·Tag로 분류한다.
-- 작업 에이전트는 필요할 때 조회한다. Collector는 별도 프로세스로 기록을 읽고, 원격 Worker가 외부 AI로 정제한다. Workspace 설정에서 모델·키·한도를 관리한다.
+- 세션은 Workspace·에이전트 종류·원본 세션 ID로 구분한다. Collector는 서버가 확인한 위치 이후를 마스킹·zstd 압축해 Object Storage에 직접 올리고, 서버가 중복 검사·L1 등록·수신 위치 확정을 맡는다.
+- 작업 에이전트는 필요할 때 조회한다. Collector는 별도 프로세스로 기록을 읽고, 원격 Worker가 외부 AI로 정제한다. 텍스트를 대화 구조로 나눠 DeepSeek Flash로 정제하고 Workspace 설정에서 모델·키·한도를 관리한다. Pro 재검토·Kimi 교체는 선택이다.
 - A1 Compute VM 1대·2 OCPU·12GB에서 앱·PostgreSQL을 Compose로 실행하고 로그는 기성 호스트 에이전트가 전송한다. DB와 인증서는 연결 볼륨에, 원문은 Object Storage에 둔다. 외부 빌드 후 변경된 앱만 교체한다. [이전 분리 구성 보존본](archive/container-instances/ARCHIVE.md).
 - 백업·복원은 초기 범위에서 제외하고 나중에 검토한다. 앱은 오류 로그만 남기며 오류는 OCI 기본 경보·Notifications가, 비용·사용량은 GitHub Actions가 Slack Webhook으로 보낸다. 이메일은 사용하지 않는다.
 - 임베딩·OpenMetadata 전체 도입은 보류한다. 웹 편집기·그래프 재사용 범위는 미확정이다.

@@ -101,3 +101,106 @@ export function maskRecord(value: unknown): unknown {
       )
     : value;
 }
+
+// Upload URLs only address staging objects. Final keys are never exposed for writes.
+function blobPath(key: string) {
+  if (!/^(?:staging|raw)\/[a-f0-9-]+\/[a-f0-9-]+\/\d+\.zst$/.test(key))
+    throw new Error("Invalid upload key");
+  return path.join(process.env.LOCAL_SOURCE_DIR ?? ".runtime/sources", key);
+}
+export async function putBlob(key: string, body: Buffer) {
+  if (process.env.SOURCE_STORAGE === "local") {
+    const file = blobPath(key);
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, body, { mode: 0o600 });
+    return;
+  }
+  const c = await ociClient();
+  await c.putObject({
+    namespaceName: process.env.OCI_NAMESPACE!,
+    bucketName: process.env.OCI_BUCKET!,
+    objectName: key,
+    putObjectBody: body,
+    contentType: "application/zstd",
+  });
+}
+export async function getBlob(key: string, limit = 5 * 1024 * 1024) {
+  let input: AsyncIterable<Uint8Array>;
+  if (process.env.SOURCE_STORAGE === "local") {
+    const { createReadStream } = await import("node:fs");
+    input = createReadStream(blobPath(key));
+  } else {
+    const c = await ociClient();
+    const r = await c.getObject({
+      namespaceName: process.env.OCI_NAMESPACE!,
+      bucketName: process.env.OCI_BUCKET!,
+      objectName: key,
+    });
+    input = r.value as AsyncIterable<Uint8Array>;
+  }
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of input) {
+    size += chunk.length;
+    if (size > limit) throw new Error("UPLOAD_SIZE_MISMATCH");
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+export async function deleteBlob(key: string) {
+  if (process.env.SOURCE_STORAGE === "local") {
+    const { rm } = await import("node:fs/promises");
+    await rm(blobPath(key), { force: true });
+    return;
+  }
+  const c = await ociClient();
+  try {
+    await c.deleteObject({
+      namespaceName: process.env.OCI_NAMESPACE!,
+      bucketName: process.env.OCI_BUCKET!,
+      objectName: key,
+    });
+  } catch (e: any) {
+    if (e.statusCode !== 404) throw e;
+  }
+}
+export async function createUploadGrant(key: string) {
+  if (process.env.SOURCE_STORAGE === "local")
+    return {
+      id: "local",
+      url: null,
+      expiresAt: new Date(Date.now() + 900000).toISOString(),
+    };
+  const c = await ociClient(),
+    expiresAt = new Date(Date.now() + 900000);
+  const r = await c.createPreauthenticatedRequest({
+    namespaceName: process.env.OCI_NAMESPACE!,
+    bucketName: process.env.OCI_BUCKET!,
+    createPreauthenticatedRequestDetails: {
+      name: "wiki-upload",
+      objectName: key,
+      accessType:
+        objectstorage.models.CreatePreauthenticatedRequestDetails.AccessType
+          .ObjectWrite,
+      timeExpires: expiresAt,
+    },
+  });
+  return {
+    id: r.preauthenticatedRequest.id,
+    url: c.endpoint + r.preauthenticatedRequest.accessUri,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+export async function revokeUploadGrant(id: string) {
+  if (process.env.SOURCE_STORAGE === "local" || id === "local") return;
+  const c = await ociClient();
+  try {
+    await c.deletePreauthenticatedRequest({
+      namespaceName: process.env.OCI_NAMESPACE!,
+      bucketName: process.env.OCI_BUCKET!,
+      parId: id,
+    });
+  } catch (e: any) {
+    if (e.statusCode !== 404) throw e;
+  }
+}

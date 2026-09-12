@@ -32,9 +32,14 @@ type Config = {
   dailyCalls: number;
   maxTokens: number;
   maxInputChars: number;
+  maxInputTokens: number;
   reasoning: string;
 };
 const statuses: Record<string, string> = {
+  uploading: "전송 중",
+  queued: "검증 대기",
+  verifying: "검증 중",
+  expired: "만료",
   pending: "대기",
   running: "진행 중",
   completed: "완료",
@@ -42,6 +47,9 @@ const statuses: Record<string, string> = {
   interrupted: "중단",
 };
 const reasons: Record<string, string> = {
+  AI_LINE_TOO_LARGE:
+    "단일 근거 줄이 너무 깁니다. 새 수집 경로로 재수집하거나 입력 예산을 늘려 주세요.",
+  AI_INPUT_BUDGET_TOO_SMALL: "지침과 근거를 담기에 입력 예산이 작습니다.",
   AI_INPUT_LIMIT: "원문이 입력 한도를 초과했습니다.",
   AI_OUTPUT_LIMIT: "모델 출력 한도에 도달했습니다.",
   AI_INVALID_JSON: "모델이 올바른 JSON을 반환하지 않았습니다.",
@@ -50,6 +58,7 @@ const reasons: Record<string, string> = {
   EVIDENCE_MISMATCH: "인용이 원문과 다릅니다.",
   AI_HTTP_401: "API 키를 확인하세요.",
   AI_HTTP_403: "모델 접근 권한을 확인하세요.",
+  AI_HTTP_529: "제공자 일시 오류로 재시도 대기 중입니다.",
   AI_HTTP_429: "제공자 호출 한도로 재시도 대기 중입니다.",
   AI_HTTP_202: "모델 처리 대기 시간이 초과됐습니다.",
   AI_CONNECTION_FAILED: "모델 연결이 끊기거나 시간이 초과됐습니다.",
@@ -180,7 +189,7 @@ export function Automation() {
                     일시 중지 · 원문 수집은 계속
                   </SelectItem>
                   <SelectItem value="true">
-                    활성 · 외부 AI로 원문 전송
+                    활성 · 외부 AI로 텍스트 전송
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -220,6 +229,17 @@ export function Automation() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  update("model", "deepseek-ai/deepseek-v4-flash-0731");
+                  update("reasoning", "none");
+                }}
+              >
+                DeepSeek Flash · 기본
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -280,7 +300,7 @@ export function Automation() {
                 [
                   ["dailyCalls", "일일 호출 한도", 1, 1000],
                   ["maxTokens", "최대 출력 토큰", 512, 16384],
-                  ["maxInputChars", "최대 원문 글자 수", 2000, 60000],
+                  ["maxInputTokens", "입력 예산 · 보수 추정", 3000, 32000],
                 ] as const
               ).map(([key, label, min, max]) => (
                 <div key={key} className="space-y-2">
@@ -309,25 +329,38 @@ export function Automation() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["default", "none", "low", "high", "max"].map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {
-                        (
-                          {
-                            default: "모델 기본값",
-                            none: "사용 안 함",
-                            low: "낮음",
-                            high: "높음",
-                            max: "최대",
-                          } as any
-                        )[v]
-                      }
-                    </SelectItem>
-                  ))}
+                  {["default", "none", "low", "high", "max"]
+                    .filter(
+                      (v) =>
+                        config.provider !== "nvidia" ||
+                        (config.model.startsWith("deepseek-ai/deepseek-v4-")
+                          ? v !== "low"
+                          : config.model === "moonshotai/kimi-k3"
+                            ? v !== "none"
+                            : true),
+                    )
+                    .map((v) => (
+                      <SelectItem key={v} value={v}>
+                        {
+                          (
+                            {
+                              default: "모델 기본값",
+                              none: "사용 안 함",
+                              low: "낮음",
+                              high: "높음",
+                              max: "최대",
+                            } as any
+                          )[v]
+                        }
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
             <p className="text-sm text-muted-foreground">
+              입력은 텍스트만 사용하며 UTF-8 바이트로 토큰 사용량을 보수적으로
+              추정합니다. 실제 토큰은 호출 이력에서 확인합니다. Pro는 모델을
+              직접 선택한 작업에 사용하며 자동으로 이중 호출하지 않습니다.
               저장한 설정은 다음 정제부터 적용됩니다. 진행 중인 작업은 시작 당시
               설정을 사용합니다. 호출 한도는 제공자의 무료 제공량이나 금액
               상한을 보장하지 않습니다.
@@ -356,6 +389,7 @@ export function Automation() {
                   <TableRow>
                     <TableHead>원문</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead>청크 반영</TableHead>
                     <TableHead>시도</TableHead>
                     <TableHead>최근 변경</TableHead>
                     <TableHead />
@@ -396,6 +430,9 @@ export function Automation() {
                         >
                           {statuses[job.status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {job.chunk_index} / {job.chunk_count || "분할 대기"}
                       </TableCell>
                       <TableCell>{job.attempts}</TableCell>
                       <TableCell className="text-xs">
@@ -457,6 +494,56 @@ export function Automation() {
           )}
         </TabsContent>
         <TabsContent value="collectors" className="pt-6">
+          {!!jobs.data.uploads?.length && (
+            <section className="mb-8">
+              <h2 className="font-semibold mb-4">최근 원본 업로드</h2>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>세션</TableHead>
+                      <TableHead>원본 보관</TableHead>
+                      <TableHead>압축 크기</TableHead>
+                      <TableHead>신규 / 중복 기록</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {jobs.data.uploads.map((u: any) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="max-w-sm break-words">
+                          {u.name}
+                          {u.error_code && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {u.error_code}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              u.status === "failed"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {statuses[u.status] ?? u.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {(Number(u.compressed_bytes) / 1048576).toFixed(2)} MB
+                        </TableCell>
+                        <TableCell>
+                          {u.result
+                            ? `${u.result.accepted} / ${u.result.duplicate}`
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          )}
           {!jobs.data.streams.length ? (
             <Empty>
               아직 수집한 세션이 없습니다. 에이전트 연결에서 원문 보관 권한의
@@ -470,9 +557,14 @@ export function Automation() {
                     {s.name} <Badge variant="outline">{s.client}</Badge>
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    최근 수신 <When value={s.updated_at} /> · 확인한 최대 기록
-                    위치 {s.last_position + 1}
+                    최근 수신 <When value={s.updated_at} />
                   </p>
+                  {s.origins?.map((o: any, i: number) => (
+                    <p key={i} className="mt-1 text-xs text-muted-foreground">
+                      {o.machine} · 검증 완료 {o.records}개 기록 ·{" "}
+                      {(Number(o.bytes) / 1048576).toFixed(2)} MB 위치
+                    </p>
+                  ))}
                 </div>
               ))}
             </div>

@@ -6,16 +6,30 @@ export const aiConfig = z
     enabled: z.boolean().default(false),
     provider: z.enum(["nvidia", "openai-compatible"]).default("nvidia"),
     baseUrl: z.string().url().default("https://integrate.api.nvidia.com/v1"),
-    model: z.string().min(1).max(160).default("moonshotai/kimi-k3"),
+    model: z
+      .string()
+      .min(1)
+      .max(160)
+      .default("deepseek-ai/deepseek-v4-flash-0731"),
     dailyCalls: z.number().int().min(1).max(1000).default(24),
-    maxTokens: z.number().int().min(512).max(16384).default(8192),
+    maxTokens: z.number().int().min(512).max(16384).default(2048),
+    maxInputTokens: z.number().int().min(3000).max(32000).default(8000),
     maxInputChars: z.number().int().min(2000).max(60000).default(24000),
-    reasoning: z.enum(["default", "none", "low", "high", "max"]).default("low"),
+    reasoning: z
+      .enum(["default", "none", "low", "high", "max"])
+      .default("none"),
   })
   .strict();
 export type AiConfig = z.infer<typeof aiConfig>;
 export const defaults = aiConfig.parse({});
 export function validateEndpoint(config: AiConfig) {
+  if (
+    config.provider === "nvidia" &&
+    ((config.model.startsWith("deepseek-ai/deepseek-v4-") &&
+      config.reasoning === "low") ||
+      (config.model === "moonshotai/kimi-k3" && config.reasoning === "none"))
+  )
+    throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   const url = new URL(config.baseUrl);
   const hosts = (
     process.env.AI_ALLOWED_HOSTS ?? "integrate.api.nvidia.com,api.deepseek.com"

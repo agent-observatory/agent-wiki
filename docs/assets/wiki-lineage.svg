@@ -45,8 +45,8 @@
 </svg>
 <text x="630" y="326" font-size="23" font-weight="700" fill="#172C4B">정제·반영 기록</text>
 <text x="592" y="364" font-size="18" font-weight="400" fill="#172C4B">입력: 원문 A · 지식 A의 첫 개정</text>
-<text x="592" y="395" font-size="18" font-weight="400" fill="#172C4B">비교·정정·주장별 근거 선택</text>
-<text x="592" y="426" font-size="18" font-weight="400" fill="#172C4B">제공자·모델 · 지침 버전 · 시점</text>
+<text x="592" y="395" font-size="18" font-weight="400" fill="#172C4B">텍스트 청크·주장별 근거 선택</text>
+<text x="592" y="426" font-size="18" font-weight="400" fill="#172C4B">처리 범위 · 모델·지침 버전</text>
 <text x="592" y="457" font-size="18" font-weight="400" fill="#172C4B">새 결과: 지식 A의 두 번째 개정</text>
 <path d="M470 380 H540" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <rect x="1040" y="190" width="480" height="380" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>

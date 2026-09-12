@@ -219,6 +219,7 @@ resource "oci_identity_policy" "wiki" {
   description    = "Only Wiki source bucket and host logging"
   statements = [
     "Allow dynamic-group agent-wiki-vm to manage objects in tenancy where target.bucket.name = '${oci_objectstorage_bucket.sources.name}'",
+    "Allow dynamic-group agent-wiki-vm to manage buckets in tenancy where all {target.bucket.name = '${oci_objectstorage_bucket.sources.name}', request.permission = 'PAR_MANAGE'}",
     "Allow dynamic-group agent-wiki-vm to use log-content in tenancy"
   ]
 

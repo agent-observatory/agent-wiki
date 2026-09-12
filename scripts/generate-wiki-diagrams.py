@@ -50,7 +50,7 @@ def card(x,y,w,h,title,lines,role='app',ico=None):
  text(x+(58 if ico else 20),y+42,title,23,True)
  for i,line in enumerate(lines):text(x+20,y+80+i*31,line,18)
 
-canvas(1920,1400,'로컬에서 수집 · 원격에서 정제','Collector는 로컬 기록을 L1 원문으로 전송한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.')
+canvas(1920,1330,'로컬에서 수집 · 원격에서 정제','Collector는 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.')
 legend(1490,42,'수집·지식 반영','ingest');legend(1490,77,'조회·응답','query');legend(1490,112,'설정·인증·저장','ops',True)
 # DNS, certificate issuance, and persistent storage are not HTTP intermediaries.
 card(72,180,366,130,'DuckDNS · 도메인',['agent-wiki.duckdns.org','도메인 조회 → VM 공인 주소'],'web','tabler-world')
@@ -82,27 +82,28 @@ card(72,640,366,140,'작업 에이전트',['Claude · Codex 등','필요한 지�
 path('M250 825 V780',True);text(267,812,'조회 지침·도구',17)
 card(72,825,366,170,'조회 Skill',['필요성 판단 · 근거 선택·인용','자동 · 항상 조회 · 조회 안 함','기존 CLI로 검색·개정·원문 조회'],'app','tabler-clipboard-check')
 # Collection remains independent from skill use and the agent's retrieval decision.
-card(72,1050,366,200,'Collector',['기록 파일 감지·제외·마스킹','원문 전송 · 실패 시 재시도','중복·적재 판단은 서버','작업 대화와 별도 실행'],'ingest','tabler-cloud-upload')
-path('M438 1160 H520 V790 H630',flow='ingest');text(480,776,'원문 전송',18,True,FLOW_COLORS['ingest'])
-path('M860 790 H940',flow='ingest')
+card(72,1050,366,200,'Collector',['세션 ID · 파일별 수신 위치','마스킹 · zstd 증분 압축','Object Storage 직접 전송','중복·등록 판단은 서버'],'ingest','tabler-cloud-upload')
+path('M438 1120 H520 V790 H630',flow='ingest',both=True);text(476,760,'수집 제어',18,True,FLOW_COLORS['ingest'])
+path('M860 790 H940',flow='ingest',both=True)
 card(630,450,230,440,'Caddy',['HTTPS 접속 처리','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
 text(650,682,'조회 ↔ API',18,True,FLOW_COLORS['query'])
-text(650,762,'원문 → API',18,True,FLOW_COLORS['ingest'])
+text(650,762,'위치·허가·완료',18,True,FLOW_COLORS['ingest'])
 card(940,450,280,130,'Next.js · 웹',['지식·근거 확인 · AI 설정','내부 전용 연결'],'web','nextdotjs')
-card(940,640,280,250,'Fastify API',['원문 수신·중복 검사','세션별 적재·근거 검사','지식 검색·조회','정제 작업·결과 반영','AI 설정 저장·조회'],'app','fastify')
-card(1280,640,280,200,'PostgreSQL',['지식·개정·근거 연결','세션별 적재 위치·원문','정제 작업·실행 이력','AI 제공자·모델 설정'],'data','postgresql')
+card(940,640,280,250,'Fastify API',['업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
+card(1280,640,280,200,'PostgreSQL',['지식·개정·근거 연결','세션·출처별 수신 위치','업로드·정제 작업 이력','AI 제공자·모델 설정'],'data','postgresql')
 card(1640,640,240,140,'DataGrip',['공인 5432 · 암호·TLS','IP 제한 없음'],'web','tabler-terminal-2')
 # Raw storage is outside the VM; its API connection is a straight horizontal line.
-path('M1220 870 H1640',True,both=True);text(1320,902,'원문 보관·조회',18)
-card(1640,820,240,190,'Object Storage',['원격 원문 보관본','내용·순서·시각 보존','새 기록은 새 원문으로'],'data','oracle')
+path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확정',18)
+card(1640,820,240,190,'Object Storage',['임시 업로드 영역','검증 후 불변 L1 확정','이미지 포함 · 마스킹 L1'],'data','oracle')
 # L2 is a server-side process using the internal API, never the user's agent session.
 path('M1080 890 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',17,True,FLOW_COLORS['ingest'])
-card(940,970,280,198,'Worker · 원격 정제',['새 원문·관련 지식 조회','군집화·주장·근거 정제','유한 재시도 · 중복 방지','모델·지침·사용량 기록'],'ingest')
+card(940,970,280,198,'Worker · 원격 정제',['텍스트 추출 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','범위·모델·사용량 기록'],'ingest')
 # This card describes configuration stored in Wiki, not another container.
 card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 ID','API 연결 · 호출 한도','웹에서 변경 · 다음 정제'],'ops')
 path('M880 1070 H940',True)
-path('M1080 1168 V1250',flow='ingest',both=True);text(1098,1230,'정제 요청·결과',18,True,FLOW_COLORS['ingest'])
-card(940,1250,360,112,'외부 AI API',['Wiki 설정의 제공자·모델 호출'],'ai','tabler-cloud')
+path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',18,True,FLOW_COLORS['ingest'])
+card(1640,1050,240,112,'외부 AI API',['설정의 제공자·모델 호출'],'ai','tabler-cloud')
+path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'압축 증분 직접 업로드 · 본문은 API를 통과하지 않음',18,True,FLOW_COLORS['ingest'])
 for bx,by,label,width in [(300,434,'L5 · 활용',124),(300,624,'L5 · 활용',124),(90,1034,'L1 · 수집',130),(960,954,'L2 · 정제',112),(1420,624,'L3 · 지식',126),(1094,624,'L4 · 조회',112),(1740,804,'L1 · 원문',124)]:
  box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,label,17,True,'#FFFFFF')
 end('docs/assets/wiki-deployment.svg')
@@ -114,8 +115,8 @@ rows=[
  (5,240,'Answers','작업 에이전트 · 조회 Skill','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
  (4,420,'Query','Wiki 서버','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
  (3,600,'Wiki','Wiki 서버','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
- (2,780,'Ingest','원격 Worker · 외부 AI API','군집화·기존 지식 비교 → 근거 연결 → 검증·반영','입력·근거·결과와 사용한 제공자·모델·지침 버전을 기록','ingest'),
- (1,960,'Raw sources','Collector → Wiki','Collector가 보낸 원문을 서버에서 중복 검사·불변 보관','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
+ (2,780,'Ingest','원격 Worker · 외부 AI API','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
+ (1,960,'Raw sources','Collector → Storage','증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
 for n,y,name,who,title,example,role in rows:
  component(40,y,1480,145,role)
  box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',31,True,'#FFFFFF')
@@ -138,7 +139,7 @@ group(40,190,430,380);text(62,226,'1 · 원격 입력 보관본',23,True,'#FFFFF
 card(72,284,366,118,'원문 A · 첫 번째 개정',['1행 · “단일 VM으로 운영하자.”'],'data')
 card(72,426,366,112,'지식 A · 첫 번째 개정',['현재 구성 · 미완료 작업'],'data')
 group(540,190,430,380);text(562,226,'2 · 원격 Worker 정제',23,True,'#FFFFFF')
-card(572,284,366,254,'정제·반영 기록',['입력: 원문 A · 지식 A의 첫 개정','비교·정정·주장별 근거 선택','제공자·모델 · 지침 버전 · 시점','새 결과: 지식 A의 두 번째 개정'],'ingest')
+card(572,284,366,254,'정제·반영 기록',['입력: 원문 A · 지식 A의 첫 개정','텍스트 청크·주장별 근거 선택','처리 범위 · 모델·지침 버전','새 결과: 지식 A의 두 번째 개정'],'ingest')
 path('M470 380 H540',flow='ingest')
 group(1040,190,480,380);text(1062,226,'3 · Wiki 검증·일괄 반영',23,True,'#FFFFFF')
 card(1072,284,416,254,'지식 A · 두 번째 개정',['주장: 단일 VM 운영','유형: 사용자 결정','작성: 원격 AI / 확인: 미완료','근거: 원문 A · 첫 번째 개정 · 1행'],'data')
@@ -164,7 +165,7 @@ rows=[(190,'01','인프라',[
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[
- ('tabler-cloud-upload','Collector','파일 변경 감지 · 원문 전송','실패 시 재시도 · 대화 대기 없음'),('tabler-clipboard-check','서버 적재 판단','세션 식별자·원문 해시로 중복 검사','원문 불변 보관 · 적재 위치 기록'),('tabler-terminal-2','원격 Worker → 외부 AI','Wiki 설정의 제공자·모델 사용','근거·결과·실행 이력 보존')])]
+ ('tabler-cloud-upload','Collector → Storage','허가 후 zstd 증분 직접 업로드','기기별 위치 · 실패 시 재시도'),('tabler-clipboard-check','서버 검증·L1 등록','세션 ID·내용으로 중복 판정','원문 확정 뒤 연속 수신 위치 갱신'),('tabler-terminal-2','원격 Worker → 외부 AI','텍스트 청킹 · 설정 모델 호출','청크 상태·근거·실행 이력')])]
 for y,n,label,items in rows:
  text(40,y+32,n,20,True);text(40,y+73,label,25,True)
  for i,(ico,title,b,c) in enumerate(items):

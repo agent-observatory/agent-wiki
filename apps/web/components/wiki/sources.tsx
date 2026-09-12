@@ -188,6 +188,19 @@ export function SourceDetail() {
         {s.masked && (
           <Badge variant="outline">민감한 패턴을 마스킹한 보관본</Badge>
         )}
+        {s.metadata?.rawUploadId && (
+          <p>
+            이미지 분석을 생략한 텍스트 보기 ·{" "}
+            <a
+              className="underline"
+              href={`/api/workspaces/${workspaceId}/collection/uploads/${s.metadata.rawUploadId}/raw`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              원본 보관 정보·다운로드
+            </a>
+          </p>
+        )}
         {filter.size > 0 && (
           <Link
             className="block underline"
