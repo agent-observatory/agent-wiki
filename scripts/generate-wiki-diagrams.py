@@ -203,7 +203,7 @@ card(40,468,288,188,layer_label(1),['새로 확정된 증분','텍스트 · 이�
 card(368,468,288,188,'세션 순서 · 청킹',['저장 조각을 이어 읽기','요청·도구 결과 연결','입력 예산에 맞춰 분할'],'ingest','tabler-cpu')
 card(696,468,288,188,'입력 조립',['새 청크 + 세션 맥락','본문과 참고 범위 분리','참고 지식 · 근거 예산'],'ingest','tabler-book-2')
 card(1024,468,288,188,'주장 추출 · 비교',['AI Provider · 텍스트 호출','추가 · 정정 · 취소','불명확하면 보강 요청'],'ai','openai')
-card(1352,468,268,188,'검증',['원문 인용 · 변경 범위','기준 Version · 관계','해석 불명확 → 보류'],'ingest','tabler-clipboard-check')
+card(1352,468,268,188,'검증',['원문 역할 · 인용','Version · 정정 권한','불확실 → 미확인'],'ingest','tabler-clipboard-check')
 for x in [328,656,984,1312]:path(f'M{x} 560 H{x+40}',flow='ingest')
 # Optional history lookup uses a dedicated lower lane.
 path('M1168 656 V748 H330 V820',flow='query',both=True)

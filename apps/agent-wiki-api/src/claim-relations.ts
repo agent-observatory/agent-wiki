@@ -82,7 +82,7 @@ export async function storeClaimRelations(
     )
       throw new AppError(400, "CLAIM_SCOPE_MISMATCH");
     if (
-      ["supersedes", "retracts"].includes(relation.relation) &&
+      ["supersedes", "retracts", "contradicts"].includes(relation.relation) &&
       target.type === "user_decision" &&
       from.type !== "user_decision"
     )

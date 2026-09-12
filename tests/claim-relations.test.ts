@@ -244,3 +244,16 @@ test("history follows fixed revisions even when the replacement is another versi
     "CLAIM_TARGET_NOT_PRIOR",
   );
 });
+
+test("query distinguishes processed knowledge from pending curation", async () => {
+  const p = await proposal("아직 반영하지 않은 새로운 결정");
+  const source = p.changes[0].claims[0].evidence[0].sourceId;
+  await admin.query(
+    "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+    [randomUUID(), ws, source],
+  );
+  const result = (await call("GET", "/context?q=VersionExample")).json();
+  assert.equal(result.curation.hasUnprocessedInputs, true);
+  assert.equal(result.curation.pending, 1);
+  assert.ok(result.notice.includes("최신 결정이 미반영"));
+});

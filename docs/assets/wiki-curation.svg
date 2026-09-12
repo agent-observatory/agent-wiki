@@ -75,9 +75,9 @@
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="1406" y="548" font-size="18" font-weight="400" fill="#172C4B">원문 인용 · 변경 범위</text>
-<text x="1372" y="579" font-size="18" font-weight="400" fill="#172C4B">기준 Version · 관계</text>
-<text x="1372" y="610" font-size="18" font-weight="400" fill="#172C4B">해석 불명확 → 보류</text>
+<text x="1406" y="548" font-size="18" font-weight="400" fill="#172C4B">원문 역할 · 인용</text>
+<text x="1372" y="579" font-size="18" font-weight="400" fill="#172C4B">Version · 정정 권한</text>
+<text x="1372" y="610" font-size="18" font-weight="400" fill="#172C4B">불확실 → 미확인</text>
 <path d="M328 560 H368" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M656 560 H696" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M984 560 H1024" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>

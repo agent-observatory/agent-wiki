@@ -185,14 +185,27 @@ test("incremental curation sees prior claim context and adds a grounded replacem
     await putSource(key, text);
     await tx(owner, ws, (c) =>
       c.query(
-        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'decision','conversation','synthetic',$3,$3,$4,1,$5,true)",
-        [id, ws, h, key, randomUUID()],
+        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'decision','conversation','synthetic',$3,$3,$4,$6,$5,true)",
+        [id, ws, h, key, randomUUID(), text.split("\n").length],
       ),
     );
     return id;
   }
   const first = await addSource(oldText),
-    second = await addSource(newText);
+    second = await addSource(
+      [
+        JSON.stringify({
+          event: 1,
+          field: JSON.stringify(["payload", "role"]),
+          text: "user",
+        }),
+        JSON.stringify({
+          event: 1,
+          field: JSON.stringify(["payload", "message"]),
+          text: newText,
+        }),
+      ].join("\n"),
+    );
   const previous = await tx(owner, ws, (c) =>
     publish(
       c,
@@ -249,8 +262,8 @@ test("incremental curation sees prior claim context and adds a grounded replacem
     const evidence = {
       sourceId: second,
       revision: 1,
-      lines: [1, 1],
-      quote: newText,
+      lines: [2, 2],
+      quote: input.source.text.split("\n")[1],
     };
     return {
       output: {
@@ -304,4 +317,102 @@ test("incremental curation sees prior claim context and adds a grounded replacem
   assert.equal(result.article.revision, 1);
   assert.equal(result.article.content, oldText);
   assert.equal(result.relations.length, 1);
+  const assistantText = "PostgreSQL 설치를 완료했습니다. 검증 결과는 없습니다.";
+  const assistantSource = await addSource(
+    [
+      JSON.stringify({
+        event: 2,
+        field: JSON.stringify(["payload", "role"]),
+        text: "assistant",
+      }),
+      JSON.stringify({
+        event: 2,
+        field: JSON.stringify(["payload", "message"]),
+        text: assistantText,
+      }),
+    ].join("\n"),
+  );
+  const assistantJob = randomUUID();
+  await tx(owner, ws, (c) =>
+    c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [assistantJob, ws, assistantSource],
+    ),
+  );
+  await releaseGate();
+  await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
+    const input = JSON.parse(
+      z.object({ content: z.string() }).parse(m[1]).content,
+    );
+    assert.ok(input.source.roles.every((r: any) => r.role === "assistant"));
+    const target = input.related.find(
+      (a: any) => a.id === result.relations[0].from_article_id,
+    );
+    const evidence = {
+      sourceId: assistantSource,
+      revision: 1,
+      lines: [2, 2],
+      quote: input.source.text.split("\n")[1],
+    };
+    return {
+      output: {
+        changes: [
+          {
+            clientRef: "unsafe",
+            title: "설치 완료 주장",
+            content: assistantText,
+            claims: [
+              {
+                anchor: "installed",
+                text: assistantText,
+                type: "user_decision",
+                subject: "database",
+                scope: "production",
+                state: "current",
+                evidence: [evidence],
+              },
+            ],
+            claimRelations: [
+              {
+                anchor: "installed",
+                relation: "supersedes",
+                target: {
+                  articleId: target.id,
+                  revision: target.revision,
+                  anchor: target.anchor,
+                },
+                evidence: [evidence],
+              },
+            ],
+          },
+        ],
+      },
+      usage: { total_tokens: 20 },
+    };
+  });
+  const guarded = await tx(owner, ws, async (c) => ({
+    claims: (
+      await c.query(
+        "SELECT cl.type,cl.state FROM claims cl JOIN evidence e USING(workspace_id,article_id,revision,anchor) WHERE e.source_id=$1",
+        [assistantSource],
+      )
+    ).rows,
+    relations: (
+      await c.query(
+        "SELECT count(*)::int AS n FROM claim_relations WHERE to_article_id=$1",
+        [result.relations[0].from_article_id],
+      )
+    ).rows[0].n,
+    diagnostics: (
+      await c.query(
+        "SELECT diagnostics FROM refinement_runs WHERE job_id=$1 ORDER BY created_at DESC LIMIT 1",
+        [assistantJob],
+      )
+    ).rows[0].diagnostics,
+  }));
+  assert.deepEqual(guarded.claims, [
+    { type: "unconfirmed", state: "unconfirmed" },
+  ]);
+  assert.equal(guarded.relations, 0);
+  assert.equal(guarded.diagnostics.unconfirmedClaims, 1);
 });
