@@ -1,5 +1,6 @@
 "use client";
 import { layerLabel, LAYER_NAMES } from "@/lib/layers";
+import { StatusBadge } from "./status-badge";
 import { Pagination } from "./pagination";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -496,66 +497,7 @@ function AutomationContent() {
               <h2 className="font-semibold mb-4">호출 이력</h2>
               <div className="divide-y border-y">
                 {jobs.data.runs.map((r: any) => (
-                  <div
-                    key={r.id}
-                    className="py-4 flex flex-wrap gap-3 justify-between"
-                  >
-                    <div>
-                      <p className="text-sm">
-                        {r.settings.provider} · {r.settings.model}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {r.prompt_version} · {statuses[r.status] ?? r.status} ·{" "}
-                        {r.usage?.total_tokens ?? "미집계"} 토큰
-                      </p>
-                      {r.diagnostics?.skippedReason ===
-                        "omitted_fields_only" && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          모델 호출 생략 · 정제 대상 텍스트 없음
-                        </p>
-                      )}
-                      {r.diagnostics?.requestedAt && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          시도 {r.diagnostics.attempt} ·{" "}
-                          {r.diagnostics.durationMs != null
-                            ? `${(r.diagnostics.durationMs / 1000).toFixed(1)}초`
-                            : "소요 시간 미집계"}
-                          {r.diagnostics.httpStatus != null &&
-                            ` · HTTP ${r.diagnostics.httpStatus}`}
-                          {r.diagnostics.httpRequests != null &&
-                            ` · HTTP 요청 ${r.diagnostics.httpRequests}회`}
-                        </p>
-                      )}
-                      {r.diagnostics?.evidenceValidation?.checked > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          원문 인용 {r.diagnostics.evidenceValidation.checked}개
-                          중 {r.diagnostics.evidenceValidation.matched}개 일치
-                          {r.diagnostics.evidenceValidation.mismatched > 0 &&
-                            ` · 불일치 ${r.diagnostics.evidenceValidation.mismatched}개`}
-                        </p>
-                      )}
-                      {r.error_code && (
-                        <p className="text-xs mt-1 break-all">
-                          {stages[r.diagnostics?.stage] ?? "단계 미집계"} ·{" "}
-                          {reasons[r.error_code] ?? r.error_code}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            ({r.error_code})
-                          </span>
-                        </p>
-                      )}
-                      {r.diagnostics?.retryAt && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          당시 재시도 예약 ·{" "}
-                          <When value={r.diagnostics.retryAt} /> · 대기{" "}
-                          {Math.round(r.diagnostics.retryDelaySeconds)}초
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      <When value={r.created_at} />
-                    </span>
-                  </div>
+                  <CallHistoryRow key={r.id} run={r} />
                 ))}
               </div>
             </section>
@@ -592,15 +534,9 @@ function AutomationContent() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              u.status === "failed"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
+                          <StatusBadge status={u.status}>
                             {statuses[u.status] ?? u.status}
-                          </Badge>
+                          </StatusBadge>
                         </TableCell>
                         <TableCell>
                           {(Number(u.compressed_bytes) / 1048576).toFixed(2)} MB
@@ -630,13 +566,15 @@ function AutomationContent() {
           ) : (
             <div className="divide-y border-y">
               {jobs.data.streams.map((s: any) => (
-                <div key={s.id} className="py-4">
-                  <p>
-                    {s.name} <Badge variant="outline">{s.client}</Badge>
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    최근 수신 <When value={s.updated_at} />
-                  </p>
+                <div key={s.id} className="py-3 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                    <p className="min-w-0 break-words">
+                      {s.name} <Badge variant="outline">{s.client}</Badge>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      최근 수신 <When value={s.updated_at} compact />
+                    </p>
+                  </div>
                   {s.origins?.map((o: any, i: number) => (
                     <p key={i} className="mt-1 text-xs text-muted-foreground">
                       {o.machine} · 검증 완료 {o.records}개 기록 ·{" "}
@@ -664,6 +602,92 @@ function AutomationContent() {
         }}
       />
     </>
+  );
+}
+
+function CallHistoryRow({ run: r }: { run: any }) {
+  const diagnostics = r.diagnostics;
+  const evidence = diagnostics?.evidenceValidation;
+  return (
+    <div className="py-3 space-y-1.5" data-call-status={r.status}>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+        <StatusBadge status={r.status}>
+          {r.status === "completed" ? "성공" : (statuses[r.status] ?? r.status)}
+        </StatusBadge>
+        <span className="min-w-0 break-all text-sm text-foreground">
+          {r.settings.provider} · {r.settings.model}
+        </span>
+        <span>{r.prompt_version}</span>
+        <span className="inline-flex flex-wrap gap-x-2 gap-y-1 tabular-nums">
+          {diagnostics?.requestedAt && <span>시도 {diagnostics.attempt}</span>}
+          {diagnostics?.durationMs != null && (
+            <span>{(diagnostics.durationMs / 1000).toFixed(1)}초</span>
+          )}
+          <span>
+            {r.usage?.total_tokens?.toLocaleString() ?? "미집계"} 토큰
+          </span>
+          {diagnostics?.httpStatus != null && (
+            <span title={`HTTP 요청 ${diagnostics.httpRequests ?? "미집계"}회`}>
+              HTTP {diagnostics.httpStatus}
+            </span>
+          )}
+          {diagnostics?.httpRequests != null &&
+            (diagnostics.httpStatus == null ||
+              diagnostics.httpRequests > 1) && (
+              <span>HTTP 요청 {diagnostics.httpRequests}회</span>
+            )}
+        </span>
+        {!r.error_code && evidence?.checked > 0 && (
+          <span>
+            인용 {evidence.matched}/{evidence.checked} 일치
+          </span>
+        )}
+        <span className="ml-auto">
+          <When value={r.created_at} compact />
+        </span>
+      </div>
+      {(r.error_code ||
+        diagnostics?.retryAt ||
+        diagnostics?.skippedReason === "omitted_fields_only") && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {r.error_code && (
+            <span className="break-words text-foreground">
+              {stages[diagnostics?.stage] ?? "단계 미집계"} ·{" "}
+              {reasons[r.error_code] ?? r.error_code}
+              {reasons[r.error_code] && (
+                <span className="text-muted-foreground"> ({r.error_code})</span>
+              )}
+            </span>
+          )}
+          {r.error_code && evidence?.checked > 0 && (
+            <span>
+              인용 {evidence.matched}/{evidence.checked} 일치
+              {evidence.mismatched > 0 && ` · 불일치 ${evidence.mismatched}개`}
+            </span>
+          )}
+          {diagnostics?.retryAt && (
+            <span
+              title={new Date(diagnostics.retryAt).toLocaleString("ko-KR", {
+                timeZone: "Asia/Seoul",
+              })}
+            >
+              당시 재시도 예약{" "}
+              {new Intl.DateTimeFormat("ko-KR", {
+                timeZone: "Asia/Seoul",
+                hour: "2-digit",
+                minute: "2-digit",
+                hourCycle: "h23",
+              }).format(new Date(diagnostics.retryAt))}
+              {diagnostics.retryDelaySeconds != null &&
+                ` · 대기 ${Math.round(diagnostics.retryDelaySeconds)}초`}
+            </span>
+          )}
+          {diagnostics?.skippedReason === "omitted_fields_only" && (
+            <span>모델 호출 생략 · 정제 대상 텍스트 없음</span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -757,14 +781,14 @@ function RefinementHealth({ data }: { data: any }) {
                 <span className="font-medium">
                   {reasons[e.error_code] ?? e.error_code}
                 </span>{" "}
-                · {e.count}회{" "}
+                <StatusBadge status="failed">{e.count}회</StatusBadge>{" "}
                 <span className="text-muted-foreground">
                   · {stages[e.stage] ?? "단계 미집계"} · {e.provider} /{" "}
                   {e.model}
                 </span>
               </div>
               <span className="text-muted-foreground">
-                최근 <When value={e.last_seen} />
+                최근 <When value={e.last_seen} compact />
               </span>
             </div>
           ))}
@@ -782,8 +806,12 @@ function RefinementHealth({ data }: { data: any }) {
                 className="flex flex-wrap justify-between gap-2 py-2 text-xs"
               >
                 <span>{d.day} (UTC)</span>
-                <span>
-                  시도 {d.attempts} · 완료 {d.completed} · 실패 {d.failed}
+                <span className="flex flex-wrap items-center gap-2">
+                  시도 {d.attempts}
+                  <StatusBadge status="completed">
+                    완료 {d.completed}
+                  </StatusBadge>
+                  <StatusBadge status="failed">실패 {d.failed}</StatusBadge>
                 </span>
               </div>
             ))}

@@ -2,7 +2,7 @@
 import { layerLabel } from "@/lib/layers";
 import { Database, ListChecks, FileCheck2, Clock3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "./status-badge";
 import { Progress } from "@/components/ui/progress";
 import { When } from "./common";
 
@@ -128,9 +128,9 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           대기 {s.pending.toLocaleString()} · 진행 {s.running.toLocaleString()}
         </span>
         {s.failed > 0 && (
-          <Badge variant="destructive">
+          <StatusBadge status="failed">
             확인 필요 {s.failed.toLocaleString()}
-          </Badge>
+          </StatusBadge>
         )}
         {schedule.nextAttemptAt && (
           <span className="text-muted-foreground">

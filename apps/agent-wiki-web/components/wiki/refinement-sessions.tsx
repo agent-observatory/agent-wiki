@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
 import { useApi, api, errorText } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "./status-badge";
 import {
   Table,
   TableBody,
@@ -107,12 +107,26 @@ export function RefinementSessions(props: Props) {
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {session.running.toLocaleString()}
+                  {session.running > 0 ? (
+                    <StatusBadge
+                      status="running"
+                      aria-label={`진행 중 ${session.running}개`}
+                    >
+                      {session.running.toLocaleString()}
+                    </StatusBadge>
+                  ) : (
+                    "0"
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {session.failed > 0 ? (
                     <div className="flex items-center justify-end gap-2">
-                      <Badge variant="destructive">{session.failed}</Badge>
+                      <StatusBadge
+                        status="failed"
+                        aria-label={`실패 ${session.failed}개`}
+                      >
+                        {session.failed}
+                      </StatusBadge>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -128,7 +142,16 @@ export function RefinementSessions(props: Props) {
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {session.completed.toLocaleString()}
+                  {session.completed > 0 ? (
+                    <StatusBadge
+                      status="completed"
+                      aria-label={`완료 ${session.completed}개`}
+                    >
+                      {session.completed.toLocaleString()}
+                    </StatusBadge>
+                  ) : (
+                    "0"
+                  )}
                 </TableCell>
                 <TableCell className="text-xs tabular-nums">
                   {session.chunks_total > 0

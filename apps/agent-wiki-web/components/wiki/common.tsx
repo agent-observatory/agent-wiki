@@ -81,7 +81,32 @@ export function CopyButton({
     </span>
   );
 }
-export function When({ value }: { value: string }) {
+export function When({
+  value,
+  compact = false,
+}: {
+  value: string;
+  compact?: boolean;
+}) {
+  const date = new Date(value);
+  if (compact)
+    return (
+      <time
+        dateTime={value}
+        title={date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+        className="whitespace-nowrap tabular-nums"
+      >
+        {date.toLocaleString("ko-KR", {
+          timeZone: "Asia/Seoul",
+          year: "2-digit",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })}
+      </time>
+    );
   return (
     <time dateTime={value}>
       {new Date(value).toLocaleString("ko-KR", {

@@ -35,22 +35,22 @@ export function Activity() {
       ) : !data.items.length ? (
         <Empty>아직 지식 반영 이력이 없습니다.</Empty>
       ) : (
-        <div className="space-y-5">
+        <div className="divide-y border-y">
           {data.items.map((p: any) => (
-            <section key={p.id} className="rounded-lg border p-5">
+            <section key={p.id} className="py-3 space-y-2">
               <div className="flex flex-wrap gap-3 items-center">
                 <Badge variant="outline">
                   {p.producer.type === "agent" ? "에이전트" : "직접 작성"}
                 </Badge>
-                <strong>{p.producer.client}</strong>
-                <span className="text-xs text-muted-foreground">
-                  <When value={p.created_at} />
+                <strong className="text-sm">{p.producer.client}</strong>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  <When value={p.created_at} compact />
                 </span>
               </div>
-              {p.reason && <p className="mt-3">{p.reason}</p>}
-              <ul className="mt-3 space-y-2">
+              {p.reason && <p className="text-sm break-words">{p.reason}</p>}
+              <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 {p.result.items.map((a: any) => (
-                  <li key={a.id}>
+                  <li key={a.id} className="min-w-0 max-w-full">
                     <Link
                       className="inline-flex max-w-full items-center gap-2 rounded-md hover:bg-accent/50"
                       href={`/workspaces/${workspaceId}/knowledge/${a.id}?revision=${a.revision}`}

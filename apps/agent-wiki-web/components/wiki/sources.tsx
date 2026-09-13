@@ -28,22 +28,22 @@ export function SourceList() {
       ) : !data.items.length ? (
         <Empty>아직 수집한 자료가 없습니다. Collector를 연결해 주세요.</Empty>
       ) : (
-        <div className="divide-y border-y overflow-x-auto">
+        <div className="divide-y border-y">
           {data.items.map((s: any) => (
             <Link
               key={s.id}
               href={`/workspaces/${workspaceId}/sources/${s.id}`}
-              className="flex min-w-[32rem] items-center gap-4 py-3 hover:bg-accent/50"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 hover:bg-accent/50"
             >
               <h2
-                className="min-w-0 flex-1 truncate text-sm font-medium"
+                className="min-w-0 basis-full sm:basis-auto sm:flex-1 truncate text-sm font-medium"
                 title={s.name}
               >
                 {s.name}
               </h2>
               <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground">
-                <span>{s.line_count}줄</span>
-                <When value={s.created_at} />
+                <span>{Number(s.line_count).toLocaleString()}줄</span>
+                <When value={s.created_at} compact />
                 {s.masked && <Badge variant="outline">마스킹 보관본</Badge>}
               </div>
             </Link>
