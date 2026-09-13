@@ -9,7 +9,7 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="94" y="215" font-size="18" font-weight="400" fill="#172C4B">PostgreSQL은 → 원형도 검색</text>
+<text x="94" y="215" font-size="18" font-weight="400" fill="#172C4B">원래 표현 + 조사 제거형 검색</text>
 <text x="60" y="246" font-size="18" font-weight="400" fill="#172C4B">별칭 · 검색어별 대안 묶기</text>
 <text x="60" y="277" font-size="18" font-weight="400" fill="#172C4B">중복 검색어는 한 번 계산</text>
 <rect x="420" y="135" width="335" height="190" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>

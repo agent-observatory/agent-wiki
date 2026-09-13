@@ -57,54 +57,63 @@
   "weighted": {
     "cases": 8,
     "top1": 7,
+    "candidateHits": 8,
     "results": [
       {
         "query": "임베딩 비용",
         "expected": "embedding-decision",
         "top": "embedding-decision",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "임베딩을 왜 미뤘지?",
         "expected": "embedding-decision",
         "top": "embedding-reference",
-        "passed": false
+        "passed": false,
+        "expectedRank": 2
       },
       {
         "query": "PostgreSQL은 어디에 둬?",
         "expected": "database",
         "top": "database",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "인증서는 어디에 저장해?",
         "expected": "certificate",
         "top": "certificate",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "Retry-After 대기",
         "expected": "retry",
         "top": "retry",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "수집 프로젝트",
         "expected": "collector",
         "top": "collector",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "pg",
         "expected": "database",
         "top": "database",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       },
       {
         "query": "limit_%",
         "expected": "literal",
         "top": "literal",
-        "passed": true
+        "passed": true,
+        "expectedRank": 1
       }
     ]
   }

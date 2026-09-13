@@ -64,6 +64,9 @@ test("Korean personal-memory questions rank the relevant decision before single-
       headers,
     });
     assert.equal(r.statusCode, 200, r.body);
+    const expectedIndex = r
+      .json()
+      .items.findIndex((a: any) => a.id === ids.get(item.expected));
     results.push({
       query: item.q,
       expected: item.expected,
@@ -72,6 +75,7 @@ test("Korean personal-memory questions rank the relevant decision before single-
           (d: any) => ids.get(d.key) === r.json().items[0]?.id,
         )?.key ?? null,
       passed: r.json().items[0]?.id === ids.get(item.expected),
+      expectedRank: expectedIndex < 0 ? null : expectedIndex + 1,
     });
     if (!item.semantic) {
       const context = await app.inject({
@@ -91,6 +95,7 @@ test("Korean personal-memory questions rank the relevant decision before single-
         {
           cases: results.length,
           top1: results.filter((r) => r.passed).length,
+          candidateHits: results.filter((r) => r.expectedRank !== null).length,
           results,
         },
         null,
