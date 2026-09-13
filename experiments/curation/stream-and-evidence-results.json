@@ -100,5 +100,31 @@
     "durationMs": 30276,
     "totalTokens": 1677,
     "wholeSessionCompleted": false
+  },
+  "evidenceDiagnostics": {
+    "deployedCommit": "26fb259",
+    "readOnlyHistoricalCheck": true,
+    "failedResponses": [
+      {
+        "checked": 3,
+        "matched": 2,
+        "mismatched": 1
+      },
+      {
+        "checked": 9,
+        "matched": 4,
+        "mismatched": 5
+      },
+      {
+        "checked": 9,
+        "matched": 8,
+        "mismatched": 1
+      }
+    ],
+    "historicalRunsModified": false,
+    "articles": 3,
+    "storedEvidence": 8,
+    "exactL1Matches": 8,
+    "sourceHashesVerified": true
   }
 }
