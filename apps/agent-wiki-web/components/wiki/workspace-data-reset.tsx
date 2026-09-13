@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Failure } from "./common";
 
-export function CurationRebuild({
+export function WorkspaceDataReset({
   base,
   enabled,
   running,
@@ -56,7 +56,7 @@ export function CurationRebuild({
     <div className="mt-8 border-t pt-4 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          원문을 유지하고 지식을 처음부터 다시 만들 수 있습니다.
+          L1 · Raw Sources 유지 · L2 · Curation 결과와 L3 · Knowledge 초기화
         </p>
         <AlertDialog
           open={open}
@@ -72,18 +72,18 @@ export function CurationRebuild({
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" disabled={blocked}>
               <RotateCcw />
-              지식 다시 만들기
+              L2·L3 초기화
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                이 Workspace의 지식을 다시 만들까요?
+                이 Workspace의 L2·L3를 초기화할까요?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Knowledge 전체와 정제 결과를 지우고 보관한 원문을 다시 대기열에
-                넣습니다. 수동으로 작성한 지식도 삭제됩니다. 원문·수집 위치·AI
-                설정·호출 이력은 유지됩니다.
+                L3 · Knowledge 전체와 L2 · Curation 결과를 지우고 L1 원문을 다시
+                대기열에 넣습니다. 수동으로 작성한 지식도 삭제됩니다. 원문·수집
+                위치·AI 설정·호출 이력은 유지됩니다.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <p className="text-sm">

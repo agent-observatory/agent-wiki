@@ -7,6 +7,7 @@ import { Login } from "./shell";
 import { Heading, Loading, Failure } from "./common";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { WorkspaceDataReset } from "./workspace-data-reset";
 import ThemeToggle from "@/app/theme-toggle";
 export function Workspaces() {
   const { data, error, reload } = useApi("/api/workspaces");
@@ -29,13 +30,7 @@ export function Workspaces() {
       ) : (
         <div className="divide-y rounded-lg border">
           {data.items.map((s: any) => (
-            <Link
-              key={s.id}
-              className="flex p-6 hover:bg-accent"
-              href={"/workspaces/" + s.id + "/knowledge"}
-            >
-              {s.name} →
-            </Link>
+            <WorkspaceRow key={s.id} workspace={s} />
           ))}
         </div>
       )}
@@ -70,5 +65,48 @@ export function Workspaces() {
       </form>
       {!!failed && <Failure error={failed} />}
     </main>
+  );
+}
+
+function WorkspaceRow({
+  workspace,
+}: {
+  workspace: { id: string; name: string };
+}) {
+  const [opened, setOpened] = useState(false);
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          className="font-medium hover:underline"
+          href={"/workspaces/" + workspace.id + "/knowledge"}
+        >
+          {workspace.name} →
+        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={opened}
+          onClick={() => setOpened(!opened)}
+        >
+          데이터 관리
+        </Button>
+      </div>
+      {opened && <WorkspaceDataManagement id={workspace.id} />}
+    </div>
+  );
+}
+function WorkspaceDataManagement({ id }: { id: string }) {
+  const base = "/api/workspaces/" + id;
+  const status = useApi(base + "/refinements?pageSize=1", 15000);
+  if (status.error) return <Failure error={status.error} />;
+  if (!status.data) return <Loading />;
+  return (
+    <WorkspaceDataReset
+      base={base}
+      enabled={status.data.progress.control.enabled}
+      running={status.data.progress.summary.running}
+      onRebuilt={status.reload}
+    />
   );
 }
