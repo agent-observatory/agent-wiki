@@ -51,7 +51,7 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 AI 설정은 **BYOK 단일 연결의 읽기 전용 요약**이다. API 키 원문은 표시하지 않는다. 설정·Hello 테스트·자동 정제 재개는 별도 CLI 명령이다. Free 선택기·저장 폼·웹의 테스트·재개 버튼은 두지 않는다.
 
-BYOK 필드명은 API/SDK 명칭인 `base_url`, `model`, `api_key`, `max_tokens` 또는 `max_completion_tokens`, `enable_thinking`, `thinking_budget`, `reasoning_effort`를 사용한다. 제공자에서 지원하는 옵션만 보인다. Wiki 자체 제한인 `dailyCalls`, `maxInputTokens`, `requestsPerMinute`, `concurrency`, `retryDelaySeconds`는 코드 이름으로 표시하고 제공자 파라미터와 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.
+AI 연결 요약에는 `model`, `maxInputTokens`, 출력 한도 한 개(`max_tokens` 또는 `max_completion_tokens`), 추론 설정, `requestsPerMinute`, `concurrency`를 표시한다. 추론이 꺼졌거나 설정되지 않은 부가 값·일일 제한은 생략한다. 주소·키 원문·내부 문자 제한·Version·중복 출력 한도·CLI 안내는 표시하지 않는다. 제공자 파라미터는 영문 필드명을 유지하고 Wiki 자체 제한과 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.
 
 ## 테마 토큰
 
