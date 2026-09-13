@@ -96,7 +96,7 @@ export async function refinementProgress(
   ).rows[0];
   const settings = (
     await c.query(
-      "SELECT config,encrypted_key,version FROM ai_settings WHERE workspace_id=$1",
+      "SELECT config,encrypted_key,version,stopped_reason FROM ai_settings WHERE workspace_id=$1",
       [ws],
     )
   ).rows[0];
@@ -152,6 +152,7 @@ export async function refinementProgress(
     checkedAt: now.toISOString(),
     control: {
       enabled: config.enabled,
+      stoppedReason: settings?.stopped_reason ?? null,
       version: settings?.version ?? 0,
       dailyCalls: config.dailyCalls,
       requestsPerMinute: config.requestsPerMinute,

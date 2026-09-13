@@ -210,6 +210,13 @@ function SourcesContent() {
                         </span>
                       )}
                     </p>
+                    {!liveControl.enabled &&
+                      jobs.data.progress.control.stoppedReason ===
+                        "AI_FREE_QUOTA_EXHAUSTED" && (
+                        <p className="text-destructive">
+                          무료 할당량 소진으로 중지됨
+                        </p>
+                      )}
                     {liveControl.enabled && (
                       <p>
                         {waitingReasons[jobs.data.progress.schedule.reason]}

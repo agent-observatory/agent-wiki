@@ -279,10 +279,11 @@ test("transient errors pause the key without exhausting jobs and expired leases 
     "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
     [owner],
   );
-  await configureAndControl({
+  const configured = await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: 24 },
-    version: 2,
+    version: (await request("GET", "/ai-settings")).json().version,
   });
+  assert.equal(configured.statusCode, 200, configured.body);
   let calls = 0;
   const failed = async () => {
     calls++;

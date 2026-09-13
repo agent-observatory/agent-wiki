@@ -58,6 +58,9 @@ export function useApi<T = any>(url: string | null, refreshMs = 0) {
   };
 }
 const messages: Record<string, string> = {
+  AI_FREE_QUOTA_EXHAUSTED:
+    "무료 할당량을 모두 사용했습니다. 연결 설정을 확인하세요.",
+  USE_CURATION_CONTROL: "정제 시작·중지는 Curation의 제어 버튼을 사용하세요.",
   AI_ENDPOINT_NOT_ALLOWED:
     "허용된 API 호스트를 입력하세요. 추가 호스트는 서버에서 허용해야 합니다.",
   CURATION_PAUSE_REQUIRED: "자동 정제를 먼저 중지해 주세요.",
