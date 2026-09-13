@@ -47,6 +47,8 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 복사·편집·삭제 버튼을 모든 행에 나열하지 않는다. 문서는 클릭해 열고 부가 행동은 DropdownMenu에 둔다. 본문 전체를 Card로 감싸거나 카드 안에 카드를 반복하지 않는다. 관리자 대시보드 블록의 매출·가입·통계 UI를 개인 Wiki에 그대로 가져오지 않는다.
 
+설정 메뉴에는 **AI 연결 · Client 연결**을 둔다. Curation에는 AI 설정 탭을 두지 않는다.
+
 AI 설정은 **BYOK 단일 연결의 읽기 전용 요약**이다. API 키 원문은 표시하지 않는다. 설정·Hello 테스트·자동 정제 재개는 별도 CLI 명령이다. Free 선택기·저장 폼·웹의 테스트·재개 버튼은 두지 않는다.
 
 BYOK 필드명은 API/SDK 명칭인 `base_url`, `model`, `api_key`, `max_tokens` 또는 `max_completion_tokens`, `enable_thinking`, `thinking_budget`, `reasoning_effort`를 사용한다. 제공자에서 지원하는 옵션만 보인다. Wiki 자체 제한인 `dailyCalls`, `maxInputTokens`, `requestsPerMinute`, `concurrency`, `retryDelaySeconds`는 코드 이름으로 표시하고 제공자 파라미터와 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.

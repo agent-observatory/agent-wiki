@@ -160,13 +160,7 @@ async function main() {
   if (!connection)
     throw new Error("Project connection missing. Run agent-wiki setup.");
   validateServer(connection.server);
-  const token = await loadToken(
-    connection,
-    ["ai", "api", "workspace", "publish"].includes(command) ||
-      (command === "review" && args[0] === "confirm")
-      ? "management"
-      : "query",
-  );
+  const token = await loadToken(connection);
   const base = connection.server + "/api/workspaces/" + connection.workspace;
   async function request(
     path,

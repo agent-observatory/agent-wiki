@@ -5,17 +5,10 @@ import { Pagination } from "./pagination";
 
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import {
-  RefreshCw,
-  Play,
-  Pause,
-  Cpu,
-  Activity,
-  CheckCircle2,
-} from "lucide-react";
+import { RefreshCw, Play, Pause, Activity } from "lucide-react";
 import { RefinementProgress } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
-import { api, useApi } from "@/lib/api";
+import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
@@ -30,25 +23,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Heading, Loading, Failure, Empty, When } from "./common";
-type Mode = "byok";
-type Config = {
-  mode: Mode;
-  enabled: boolean;
-  provider: string;
-  baseUrl: string;
-  model: string;
-  dailyCalls: number | null;
-  requestsPerMinute: number;
-  concurrency: number;
-  retryDelaySeconds: number;
-  maxTokens: number;
-  enable_thinking?: boolean;
-  thinking_budget?: number | null;
-  max_completion_tokens?: number | null;
-  maxInputChars: number;
-  maxInputTokens: number;
-  reasoning: string;
-};
 const statuses: Record<string, string> = {
   uploading: "전송 중",
   queued: "검증 대기",
@@ -90,19 +64,16 @@ function AutomationContent() {
   const base = "/api/workspaces/" + workspaceId;
   const query = useSearchParams(),
     router = useRouter();
-  const tab = query.get("tab") ?? "jobs";
+  const tab = query.get("tab") === "collectors" ? "collectors" : "jobs";
   function setTab(value: string) {
     const next = new URLSearchParams(query);
     next.set("tab", value);
     router.push(`?${next}`, { scroll: false });
   }
-  const settings = useApi(base + "/ai-settings", 15000),
-    jobs = useApi(base + "/refinements?" + query, 15000);
-  const config = settings.data as Config | undefined;
+  const jobs = useApi(base + "/refinements?" + query, 15000);
   const liveControl = jobs.data?.progress.control;
-  if (settings.error || jobs.error)
-    return <Failure error={settings.error ?? jobs.error} />;
-  if (!config || !jobs.data || !settings.data) return <Loading />;
+  if (jobs.error) return <Failure error={jobs.error} />;
+  if (!jobs.data) return <Loading />;
   return (
     <>
       <Heading
@@ -113,7 +84,6 @@ function AutomationContent() {
             variant="outline"
             onClick={() => {
               jobs.reload();
-              settings.reload();
             }}
           >
             <RefreshCw />
@@ -176,47 +146,8 @@ function AutomationContent() {
             <Activity className="size-4 mr-2" />
             {LAYER_NAMES.L2}
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Cpu className="size-4 mr-2" />
-            AI 설정
-          </TabsTrigger>
           <TabsTrigger value="collectors">수집 상태</TabsTrigger>
         </TabsList>
-        <TabsContent value="settings" className="pt-6">
-          <div className="mb-4 flex items-center gap-3">
-            <Badge variant="outline">BYOK</Badge>
-            <span className="inline-flex items-center gap-2 text-sm">
-              <CheckCircle2
-                className={
-                  settings.data.hasKey
-                    ? "size-4 text-emerald-500"
-                    : "size-4 text-muted-foreground"
-                }
-              />
-              {settings.data.hasKey ? "키 연결됨" : "키 없음"}
-            </span>
-          </div>
-          <dl className="divide-y border-y">
-            {Object.entries(config)
-              .filter(([key]) => !["hasKey", "mode"].includes(key))
-              .map(([key, value]) => (
-                <div
-                  key={key}
-                  className="grid grid-cols-[220px_1fr] gap-6 py-3 text-sm"
-                >
-                  <dt className="text-muted-foreground">{key}</dt>
-                  <dd className="break-all">
-                    {value === null || value === undefined
-                      ? "—"
-                      : String(value)}
-                  </dd>
-                </div>
-              ))}
-          </dl>
-          <p className="mt-4 text-xs text-muted-foreground">
-            <code>agent-wiki ai show · update · test · pause · resume</code>
-          </p>
-        </TabsContent>
         <TabsContent value="jobs" className="pt-6">
           <RefinementSessions workspaceId={workspaceId} />
           <RefinementHealth data={jobs.data.health} />

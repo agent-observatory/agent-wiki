@@ -30,7 +30,7 @@ export function validateServer(server) {
     throw new Error("HTTPS required; URL credentials forbidden");
   return server.replace(/\/$/, "");
 }
-export async function loadToken(connection, role = "query") {
+export async function loadToken(connection) {
   if (connection.envFile) {
     try {
       const values = parseEnv(
@@ -42,19 +42,8 @@ export async function loadToken(connection, role = "query") {
       if (e.code !== "ENOENT") throw e;
     }
   }
-  const token =
-    role === "management"
-      ? process.env.WIKI_MANAGEMENT_TOKEN
-      : role === "collector"
-        ? (process.env.WIKI_COLLECTOR_TOKEN ?? process.env.WIKI_TOKEN)
-        : process.env.WIKI_TOKEN;
+  const token = process.env.WIKI_TOKEN;
   if (!token)
-    throw new Error(
-      role === "management"
-        ? "Set WIKI_MANAGEMENT_TOKEN in the configured env file"
-        : role === "collector"
-          ? "Set WIKI_COLLECTOR_TOKEN or WIKI_TOKEN in the configured env file"
-          : "Set WIKI_TOKEN in the configured env file",
-    );
+    throw new Error("Set WIKI_TOKEN in the configured env file");
   return token;
 }

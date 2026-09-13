@@ -618,7 +618,7 @@ export async function collectorMain(args, configPath, cliPath) {
     throw new Error("HTTPS required");
   if (url.username || url.password)
     throw new Error("URL credentials forbidden");
-  const token = await loadToken(connection, "collector");
+  const token = await loadToken(connection);
   const lockPath = configPath + ".lock";
   let lock;
   try {

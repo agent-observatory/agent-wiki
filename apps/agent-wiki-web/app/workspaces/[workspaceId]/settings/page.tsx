@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { Connections } from "@/components/wiki/connections";
+import { Settings } from "@/components/wiki/settings";
 import { Loading } from "@/components/wiki/common";
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <Connections />
+      <Settings />
     </Suspense>
   );
 }

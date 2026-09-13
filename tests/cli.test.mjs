@@ -119,7 +119,7 @@ test("one setup shares query and collector settings, preserves scope and machine
   }
 });
 
-test("management CLI keeps query privilege separate, preserves pause and does not retry writes", async () => {
+test("CLI shares one Client credential, preserves pause and does not retry writes", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wiki-manage-")),
     requests = [];
   const server = createServer(async (req, res) => {
@@ -170,13 +170,12 @@ test("management CLI keeps query privilege separate, preserves pause and does no
       cwd: dir,
       env: {
         ...process.env,
-        WIKI_TOKEN: "query-secret",
-        WIKI_MANAGEMENT_TOKEN: "manage-secret",
+        WIKI_TOKEN: "client-secret",
       },
     });
   try {
     await run("ai", "show");
-    assert.equal(requests[0].auth, "Bearer manage-secret");
+    assert.equal(requests[0].auth, "Bearer client-secret");
     const file = join(dir, "config-update.json");
     await writeFile(file, JSON.stringify({ model: "new-synthetic" }));
     await assert.rejects(run("ai", "update", file), /synthetic unavailable/);
@@ -204,7 +203,7 @@ test("management CLI keeps query privilege separate, preserves pause and does no
     await assert.rejects(run("ai", "update", file), /pause or ai resume/);
     await run("review", "diff", uuid, "--revision", "2");
     assert.ok(requests.at(-1).url.endsWith("/comparison?revision=2"));
-    assert.equal(requests.at(-1).auth, "Bearer query-secret");
+    assert.equal(requests.at(-1).auth, "Bearer client-secret");
   } finally {
     await new Promise((r) => server.close(r));
     await rm(dir, { recursive: true, force: true });

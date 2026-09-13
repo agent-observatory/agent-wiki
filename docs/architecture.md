@@ -20,7 +20,7 @@
 
 GitHub 로그인 후 별도 Workspace 선택 화면 없이 접근 가능한 첫 Workspace의 Knowledge로 바로 들어간다. Workspace 변경은 위키 사이드바의 선택 메뉴에서 한다. Workspace가 없거나 조회에 실패하면 진입 화면에서 해당 상태를 표시한다.
 
-메뉴는 **L3 · Knowledge → L2 · Curation → L1 · Raw Sources → 반영 이력 → 에이전트 연결** 순서다. L4 검색은 지식 화면에서, L5 답변·작업은 연결한 개인 에이전트에서 사용한다. 웹 개정 표기는 `Version 1`로 쓰고 이력 링크는 해당 개정의 문서 제목과 배지로 표시한다.
+메뉴는 **L3 · Knowledge → L2 · Curation → L1 · Raw Sources → 반영 이력 → 설정** 순서다. L4 검색은 지식 화면에서, L5 답변·작업은 연결한 개인 에이전트에서 사용한다. 웹 개정 표기는 `Version 1`로 쓰고 이력 링크는 해당 개정의 문서 제목과 배지로 표시한다.
 
 Raw Sources 목록은 같은 세션을 하나로 묶어 보여주며 각 증분 L1 기록은 불변으로 보존한다. 상세 화면의 수집 횟수·마지막 수집·보관 기록 수·압축 용량와 접힌 수집 이력은 확정된 업로드 메타데이터로 집계한다. 한 업로드에서 나뉜 보관 조각은 한 번으로 세고, 재시도·중복만 있는 업로드는 제외한다. 이력은 최신순·페이지네이션이며 원문을 풀지 않는다. ‘전체 기록 보기’를 요청하면 기존처럼 이어진 기록을 읽는다.
 
@@ -111,7 +111,7 @@ Agent Wiki (제품)
 | `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
 | `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
 
-`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Traefik·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Kubernetes 앱 리소스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Traefik·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Kubernetes 앱 리소스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. 설정 화면에 AI 연결과 Client 연결을 모은다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](client-and-api.md#연결과-지침).
 

@@ -43,7 +43,7 @@ agent-wiki search "임베딩" --project agent-wiki
 agent-wiki recall --project agent-wiki
 ```
 
-`collector start`는 별도로 자동 수집을 켠다. `setup`·Skill 설치·조회는 수집을 시작하지 않는다. 현재 웹의 **에이전트 연결**은 키 메타데이터를 보여주는 읽기 전용 화면이다. 기존 관리 키가 있는 경우 CLI 관리 API로 키를 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 최초 클라이언트의 브라우저 로그인·승인·자격 증명 자동 저장 절차는 별도로 구현해야 한다. 조회와 수집을 같은 키로 사용할 경우 원문 보관 권한이 필요하다. 수집 권한을 따로 제한하려면 같은 env 파일에 `WIKI_COLLECTOR_TOKEN`을 추가한다. 비밀 값은 설정 JSON에 넣지 않는다.
+`collector start`는 별도로 자동 수집을 켠다. `setup`·Skill 설치·조회는 수집을 시작하지 않는다. 현재 웹의 **에이전트 연결**은 키 메타데이터를 보여주는 읽기 전용 화면이다. 기존 관리 키가 있는 경우 CLI 관리 API로 키를 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 최초 클라이언트의 브라우저 로그인·승인·자격 증명 자동 저장 절차는 별도로 구현해야 한다. 기기별 Agent Wiki Client 하나에 Workspace 관리 권한을 발급하고 CLI 조회·반영·관리와 Collector가 같은 `WIKI_TOKEN`을 사용한다. 역할별 키는 따로 설치하지 않는다. 비밀 값은 설정 JSON에 넣지 않는다.
 
 새 설정은 전체 프로젝트·10분 주기가 기본이다. `setup --path <경로>`는 해당 프로젝트·하위 경로로 제한하고, `setup --all-projects`는 전체로 되돌린다. 기존 설정으로 `setup`을 다시 실행하면 수집 범위·기기 식별자를 유지한다. 현재 검증 환경은 Agent Wiki만 수집한다. 설정 JSON의 `collector.projects`에는 여러 경로를 넣을 수 있다.
 
@@ -210,7 +210,7 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 
 검색 응답과 Context의 `queryStatus`는 `browse`(검색어 생략), `ready`(검색어 있음), `needs_terms`(정리 후 핵심어 없음)로 구분한다. `needs_terms`는 지식이 없다는 뜻이 아니며, 항목·인용을 비우고 검색할 대상이나 핵심어 추가를 안내한다. 실제 빈 검색어의 전체 목록·시작 Context 조회는 유지한다.
 
-작업 에이전트는 `read`, Collector는 `source:write` 권한을 사용한다. 반영 전용 자동 Worker는 `publish`, 사용자의 관리 작업을 수행하는 CLI는 Workspace 범위 `manage` 권한을 사용한다. `WIKI_TOKEN`은 조회, `WIKI_COLLECTOR_TOKEN`은 수집, `WIKI_MANAGEMENT_TOKEN`은 관리에만 사용하며 서로 자동 대체하지 않는다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
+설치된 Client는 Workspace 범위 `manage` 권한의 `WIKI_TOKEN` 하나를 공유한다. CLI·Collector는 실행 역할이며 별도 인증 주체가 아니다. 서버의 작업별 인가·Workspace 격리는 유지한다. 브라우저 승인·계정 범위 기기 토큰은 별도 구현이며 현재 키가 다른 Workspace 접근까지 자동 허용하지 않는다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
 
 수동 반영 JSON은 [근거 계약](../packages/agent-wiki-client/skill/references/publication.md)을 따른다. 일반 수동 원문 등록은 100KB다. Collector의 대용량 원문은 위 직접 업로드 제한을 따른다. 이미지 본문은 마스킹 L1에 보관하지만 이미지 해석·PDF 파싱은 수행하지 않는다.
 

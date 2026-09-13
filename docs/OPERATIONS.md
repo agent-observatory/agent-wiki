@@ -5,11 +5,20 @@
 | 구분 | 확인한 상태 |
 | --- | --- |
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
-| 로컬 패키지 | 0.7.0 · 조회·검토·관리 CLI·Skill·Collector 통합 |
+| 로컬 패키지 | 0.7.1 · 조회·검토·관리 CLI·Skill·Collector 통합 |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 자동 정제 중지 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## 설정·Client 연결 통합
+
+2026-09-14. 사이드바의 에이전트 연결을 **설정**으로 바꾸고 **AI 연결 · Client 연결** 탭으로 구성했다. AI 요약은 Curation에서 옮기고 중복 토큰 필드·내부 설정·CLI 안내를 제거했다. 사이드바 계정 이름·개인 위키 문구도 제거했다. 편집은 CLI에서 수행한다.
+
+- **구현:** Client 0.7.1의 CLI·Collector·관리 명령은 `WIKI_TOKEN` 하나를 공유한다. 서버의 Workspace 인가 경계와 작업별 권한 검사는 유지한다. 브라우저 기반 최초 연결이나 계정 단위 토큰 갱신 구현을 뜻하지 않는다.
+- **실제 설정:** 기존 Workspace에 `Agent Wiki Client · MacBook` 관리 키를 발급·설치하고 역할별 이전 키 3개를 폐기했다. 이전 키 모두 HTTP 401, 현재 연결 목록 1개와 새 키의 조회·AI 설정 조회를 확인했다. 기기 식별자·수신 위치·Codex 프로젝트 제한·10분 주기·Claude 비활성은 유지한다.
+- **AI:** 입력 한도 30,000을 저장·재조회했다. 출력 한도 16,384·DeepSeek Flash·추론 high·20 RPM·동시 5개·자동 정제 중지는 유지했다. 모델 호출은 하지 않았다.
+- **검증:** CLI 검사 2개·Web 타입 검사 통과. 로컬 패키지 재설치와 Codex Skill 갱신 완료. 웹 배포·운영 화면 검증은 진행 중이다.
 
 ## OCI 기본 오류 알림
 
@@ -19,7 +28,7 @@
 - **설정:** ERROR/FATAL(`severityNumber >= 17`), 5분 구간 오류 수 > 0, 평가 간격 1분·대기 1분·집계 지연 허용 5분. 같은 오류 종류별 중복 제거 대신 경보 상태 변경으로 묶는다.
 - **자원:** Function·OCIR·별도 알림 서버를 생성하지 않는다. 원문·DB·정제 활성 상태·기존 비용 체크포인트는 유지한다.
 - **배포:** Terraform으로 기존 경보를 활성화하고 비용 조회 계정의 로그 권한을 제거했다. Connector·Slack 구독 ACTIVE를 확인했다. GitHub 오류 workflow를 비활성화하고 전용 `OCI_LOG_CONFIG` secret을 삭제했다.
-- **검증:** Terraform mock plan 3개·비용 알림 테스트 12개 통과, SVG XML·실제 렌더링 확인. 02:05:37 한국 시각에 Worker stdout으로 합성 ERROR를 넣어 실제 전달을 확인 중이다. 아래 이전 GitHub 오류 점검 기록은 당시 방식이며 현재 설계로 읽지 않는다.
+- **검증:** Terraform mock plan 3개·비용 알림 테스트 12개 통과, SVG XML·실제 렌더링 확인. 02:05:37 한국 시각 Worker stdout 합성 ERROR → OCI Logging 1건 → 02:09 오류 지표 1건 → 02:14:30 경보 FIRING → 02:14:32 Slack 수신을 확인했다. 전체 약 9분이며 경보 후 전달은 약 2초다. 아래 이전 GitHub 오류 점검 기록은 당시 방식이며 현재 설계로 읽지 않는다.
 
 공식 형식: [OCI 기본 Slack 경보](https://docs.oracle.com/en-us/iaas/Content/Monitoring/alarm-message-examples.htm).
 
@@ -27,7 +36,7 @@
 
 2026-09-14. 에이전트 연결의 권한 발급 안내·Workspace ID·복사 버튼을 제거했다. 기존 연결 목록과 인증·인가 동작은 유지한다. 계정 단위 클라이언트 로그인·토큰 갱신 방식으로의 변경은 이번 범위에 포함하지 않는다. Web 타입 검사와 [CI·K3s 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34767825223)를 통과하고 운영 Edge에서 안내 박스 제거를 확인했다. 배포 코드 `51605ea`.
 
-사용자와 정리한 연결 단위는 기기별 Agent Wiki Client 하나다. CLI·Collector·관리는 같은 계정 연결을 공유하고 Workspace는 작업 대상을 선택하는 단위다. 현재 표시된 세 항목은 초기 역할별 API 키이며 실제 Client 세 개가 아니다. 브라우저 승인 기반 최초 연결·기기별 자격 증명·갱신/폐기와 기존 키 교체는 별도 구현이 필요하다.
+사용자와 정리한 연결 단위는 기기별 Agent Wiki Client 하나다. CLI·Collector·관리는 같은 계정 연결을 공유하고 Workspace는 작업 대상을 선택하는 단위다. 당시 표시된 세 항목은 초기 역할별 API 키였다. 위 최신 설정·Client 연결 통합에서 키 교체를 완료했다. 브라우저 승인 기반 최초 연결·자동 만료/갱신·계정 전체 Workspace 접근은 후속 구현이다.
 
 ## 로그인 직후 위키 진입
 

@@ -74,10 +74,9 @@ export function Connections() {
   };
   return (
     <>
-      <Heading
-        title="에이전트 연결"
-        description="연결된 에이전트의 접근 권한을 확인합니다."
-      />
+      <p className="mb-4 text-sm text-muted-foreground">
+        CLI와 Collector가 공유하는 기기 연결입니다.
+      </p>
       <div className="divide-y border-y">
         {error ? (
           <Failure error={error} />

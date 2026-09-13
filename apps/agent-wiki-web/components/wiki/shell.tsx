@@ -7,7 +7,7 @@ import {
   BookOpen,
   FileText,
   History,
-  KeyRound,
+  Settings,
   Library,
   Menu,
   LogOut,
@@ -70,7 +70,7 @@ export function Shell({
     ["automation", layerLabel("L2"), Cpu],
     ["sources", layerLabel("L1"), FileText],
     ["activity", "반영 이력", History],
-    ["connections", "에이전트 연결", KeyRound],
+    ["settings", "설정", Settings],
   ] as const;
   const nav = (
     <div className="flex h-full flex-col gap-6">
@@ -123,7 +123,6 @@ export function Shell({
         ))}
       </nav>
       <div className="mt-auto flex flex-col gap-3 text-xs text-muted-foreground">
-        <span>{me.user.login} · 개인 위키</span>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button
