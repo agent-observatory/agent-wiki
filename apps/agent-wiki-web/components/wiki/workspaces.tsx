@@ -1,48 +1,34 @@
 "use client";
-import Link from "next/link";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { api, useApi } from "@/lib/api";
-import { Login } from "./shell";
-import { Heading, Loading, Failure } from "./common";
+import { useApi } from "@/lib/api";
+import { EntryFrame, GitHubLogin } from "./entry";
+import { Loading, Failure, Empty } from "./common";
 
-import ThemeToggle from "@/app/theme-toggle";
+type Workspace = { id: string; name: string };
+
 export function Workspaces() {
-  const { data, error, reload } = useApi("/api/workspaces");
-  if (error && "status" in error && error.status === 401) return <Login />;
-  return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <Heading
-        title="나의 공간"
-        description="같은 공간 안에서 기록을 쌓고 근거를 찾아봅니다."
-        action={<ThemeToggle />}
-      />
-      {error ? (
-        <Failure error={error} />
-      ) : !data ? (
-        <Loading />
-      ) : (
-        <div className="divide-y rounded-lg border">
-          {data.items.map((s: any) => (
-            <WorkspaceRow key={s.id} workspace={s} />
-          ))}
-        </div>
-      )}
-    </main>
-  );
-}
+  const router = useRouter();
+  const { data, error } = useApi<{ items: Workspace[] }>("/api/workspaces");
+  const workspaceId = data?.items[0]?.id;
+  const loginRequired = error && "status" in error && error.status === 401;
 
-function WorkspaceRow({
-  workspace,
-}: {
-  workspace: { id: string; name: string };
-}) {
+  useEffect(() => {
+    if (workspaceId) router.replace(`/workspaces/${workspaceId}/knowledge`);
+  }, [router, workspaceId]);
+
   return (
-    <Link
-      className="block p-6 font-medium hover:underline"
-      href={"/workspaces/" + workspace.id + "/knowledge"}
-    >
-      {workspace.name} →
-    </Link>
+    <EntryFrame>
+      {loginRequired ? (
+        <GitHubLogin />
+      ) : error ? (
+        <Failure error={error} />
+      ) : data && !workspaceId ? (
+        <Empty>등록된 Workspace가 없습니다.</Empty>
+      ) : (
+        <Loading />
+      )}
+    </EntryFrame>
   );
 }

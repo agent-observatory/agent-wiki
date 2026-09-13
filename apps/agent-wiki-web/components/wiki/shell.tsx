@@ -30,25 +30,7 @@ import {
 import { api, useApi } from "@/lib/api";
 import { Failure, Loading } from "./common";
 import ThemeToggle from "@/app/theme-toggle";
-export function Login() {
-  return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="absolute top-6 right-6">
-        <ThemeToggle />
-      </div>
-      <section className="max-w-2xl space-y-6">
-        <Library className="size-10" />
-        <h1 className="text-3xl font-bold">Agent Wiki</h1>
-        <p className="text-muted-foreground leading-7 whitespace-nowrap">
-          에이전트의 결정과 근거를 보관하고 다시 활용하는 개인 위키.
-        </p>
-        <Button asChild>
-          <a href="/api/auth/github">GitHub로 로그인</a>
-        </Button>
-      </section>
-    </main>
-  );
-}
+import { Login } from "./entry";
 export function Shell({
   workspaceId,
   children,
@@ -79,7 +61,7 @@ export function Shell({
     return (
       <main className="p-8">
         <p>접근할 수 없는 Workspace입니다.</p>
-        <Link href="/workspaces">공간 목록</Link>
+        <Link href="/workspaces">위키로 돌아가기</Link>
       </main>
     );
   const root = "/workspaces/" + workspaceId;
@@ -141,7 +123,6 @@ export function Shell({
         ))}
       </nav>
       <div className="mt-auto flex flex-col gap-3 text-xs text-muted-foreground">
-        <Link href="/workspaces">공간 관리</Link>
         <span>{me.user.login} · 개인 위키</span>
         <div className="flex items-center gap-2">
           <ThemeToggle />
