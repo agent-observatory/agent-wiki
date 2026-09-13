@@ -1,0 +1,77 @@
+{
+  "description": "Synthetic selection-only evaluation. No model calls or semantic extraction score.",
+  "baseline": {
+    "cases": 3,
+    "passed": 2,
+    "results": [
+      {
+        "name": "explicit-cross-session-change",
+        "selected": 3,
+        "sameSession": 3,
+        "databaseIncluded": false,
+        "inputBytes": 1693,
+        "passed": false
+      },
+      {
+        "name": "same-session-continuation",
+        "selected": 3,
+        "sameSession": 3,
+        "databaseIncluded": false,
+        "inputBytes": 1693,
+        "passed": true
+      },
+      {
+        "name": "new-session-topic",
+        "selected": 3,
+        "sameSession": 0,
+        "databaseIncluded": true,
+        "inputBytes": 1550,
+        "passed": true
+      }
+    ]
+  },
+  "sessionAnchorAndRelevance": {
+    "cases": 3,
+    "passed": 3,
+    "results": [
+      {
+        "name": "explicit-cross-session-change",
+        "selected": 3,
+        "sameSession": 2,
+        "databaseIncluded": true,
+        "inputBytes": 1548,
+        "passed": true
+      },
+      {
+        "name": "same-session-continuation",
+        "selected": 3,
+        "sameSession": 3,
+        "databaseIncluded": false,
+        "inputBytes": 1693,
+        "passed": true
+      },
+      {
+        "name": "new-session-topic",
+        "selected": 3,
+        "sameSession": 0,
+        "databaseIncluded": true,
+        "inputBytes": 1550,
+        "passed": true
+      }
+    ]
+  },
+  "liveBudgetAudit": {
+    "claims": 7,
+    "inputBudget": 1800,
+    "individualInputBytes": [
+      539,
+      643,
+      717,
+      655,
+      561,
+      590,
+      459
+    ],
+    "tooLargeIndividually": 0
+  }
+}

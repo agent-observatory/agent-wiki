@@ -77,6 +77,14 @@ test("successful chunks survive a later failure and resume at the failed chunk w
     assert.equal(MODEL_TIMEOUT_MS, 330_000);
     assert.equal(lease.diagnostics.modelTimeoutMs, 330_000);
     assert.equal(lease.diagnostics.leaseSeconds, JOB_LEASE_SECONDS);
+    assert.equal(
+      lease.diagnostics.contextSelection.version,
+      "session-anchor-relevance-1",
+    );
+    assert.ok(
+      lease.diagnostics.contextSelection.inputBytes <=
+        lease.diagnostics.contextSelection.budget,
+    );
     assert.ok(lease.remaining > MODEL_TIMEOUT_MS / 1000 + 60);
     const input = JSON.parse(
       z.object({ content: z.string() }).parse(m[1]).content,

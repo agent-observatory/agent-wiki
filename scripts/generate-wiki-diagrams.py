@@ -195,7 +195,7 @@ legend(1120,55,'정제·반영','ingest');legend(1400,55,'참고 조회','query'
 text(40,207,'작업 대화와 독립된 백그라운드 실행',FONT['component'],True)
 text(40,245,'전체를 다시 읽지 않고 필요한 맥락만 연결',FONT['body'])
 card(696,185,288,170,'이전 세션 맥락',['현재 결정 · 미해결 질문','직전 대화 · 근거 위치','요약은 사실 근거가 아님'],'ops','tabler-clipboard-check')
-card(1024,185,288,170,layer_label(3),['검색 → 재정렬 → 선택','관련 주장 본문 · Version','대체·충돌 관계 · 근거'],'data','postgresql')
+card(1024,185,288,170,layer_label(3),['세션 참조 1개 우선','나머지 · 본문 관련도','Version · 관계 · 근거'],'data','postgresql')
 path('M840 355 V398',flow='query');path('M1168 355 V398',flow='query')
 group(348,400,1292,295)
 text(372,436,'agent-wiki-worker · '+layer_label(2),FONT['group'],True,'#FFFFFF')

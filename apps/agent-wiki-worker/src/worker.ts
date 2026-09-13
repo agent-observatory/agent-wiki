@@ -14,7 +14,11 @@ import {
   estimateTokens,
 } from "../../../packages/core/src/chunking.js";
 import { processUpload } from "./ingest.js";
-import { curationContext, CONTEXT_BUDGET } from "./curation-context.js";
+import {
+  curationContext,
+  CONTEXT_BUDGET,
+  CONTEXT_POLICY_VERSION,
+} from "./curation-context.js";
 import { nextCurationJob } from "../../../packages/core/src/curation-queue.js";
 import { normalizeModelIdentifiers } from "../../../packages/core/src/model-identifiers.js";
 import {
@@ -185,6 +189,13 @@ export async function runOne(
           const lines = text.split("\n");
           const chunkText = lines.slice(chunk.start - 1, chunk.end).join("\n");
           const related = await curationContext(c, ws, source.id, chunkText);
+          diagnostics.contextSelection = {
+            version: CONTEXT_POLICY_VERSION,
+            selected: related.length,
+            sameSession: related.filter((claim) => claim.same_session).length,
+            inputBytes: estimateTokens(JSON.stringify(related)),
+            budget: CONTEXT_BUDGET,
+          };
           const referenceLines: string[] = [];
           let referenceBytes = 0;
           for (let i = chunk.contextStart - 1; i < chunk.contextEnd; i++) {
