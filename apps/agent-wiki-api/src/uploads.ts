@@ -39,7 +39,18 @@ const schema = identity
     recordStart: z.number().int().nonnegative(),
     recordEnd: z.number().int().positive(),
     prefixHash: hex,
-    maskVersion: z.literal("stream-mask-2"),
+    maskVersion: z.literal("stream-mask-3"),
+    selectionVersion: z.literal("conversation-1"),
+    selection: z
+      .object({
+        selected: z.number().int().nonnegative(),
+        messages: z.number().int().nonnegative(),
+        toolCalls: z.number().int().nonnegative(),
+        toolResults: z.number().int().nonnegative(),
+        snapshotRecovered: z.number().int().nonnegative(),
+        excluded: z.number().int().nonnegative(),
+      })
+      .strict(),
     codec: z.literal("zstd"),
     parts: z.array(part).min(1).max(128),
   })

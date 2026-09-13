@@ -42,7 +42,7 @@ export function SourceList() {
                 {s.name}
               </h2>
               <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground">
-                <span>{Number(s.line_count).toLocaleString()}줄</span>
+                <span>{Number(s.event_count).toLocaleString()}개 기록</span>
                 <When value={s.created_at} compact />
                 {s.masked && <Badge variant="outline">마스킹 보관본</Badge>}
               </div>
@@ -89,9 +89,15 @@ export function SourceDetail() {
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">누적 기록량</dt>
+          <dt className="text-muted-foreground">보관 기록</dt>
           <dd className="mt-1 font-medium tabular-nums">
-            {s.collection.line_count.toLocaleString()}줄
+            {s.collection.event_count.toLocaleString()}개
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">압축 보관 용량</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {(s.collection.stored_bytes / 1024 / 1024).toFixed(2)} MB
           </dd>
         </div>
       </dl>
@@ -130,6 +136,7 @@ type CollectionHistory = {
     id: string;
     collected_at: string;
     line_count: number;
+    event_count: number;
     initial: boolean;
   }[];
   pagination: { page: number; pageSize: number; hasNext: boolean };
@@ -177,7 +184,7 @@ function SourceHistory({ base }: { base: string }) {
                     </span>
                     {item.initial && <Badge variant="outline">최초 수집</Badge>}
                     <span className="tabular-nums">
-                      {item.line_count.toLocaleString()}줄 추가
+                      {item.event_count.toLocaleString()}개 기록 추가
                     </span>
                   </li>
                 ))}

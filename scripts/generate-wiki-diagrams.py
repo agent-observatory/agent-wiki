@@ -113,7 +113,7 @@ card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 · API 연결','�
 path('M880 1070 H940',True)
 path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',FONT["label"],True,FLOW_COLORS['ingest'])
 card(1640,1050,240,82,'AI Provider',[],'ai','openai')
-path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'압축 증분 직접 업로드 · 본문은 API를 통과하지 않음',FONT["label"],True,FLOW_COLORS['ingest'])
+path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'선별·중복 제거한 증분 직접 업로드 · 본문은 API를 통과하지 않음',FONT["label"],True,FLOW_COLORS['ingest'])
 for right,by,n,width in [(424,434,5,150),(424,624,5,150),(404,1054,1,170),(1206,954,2,152),(1546,624,3,172),(1206,624,4,132),(1866,804,1,170)]:
  bx=right-width
  box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,layer_label(n),FONT["label"],True,'#FFFFFF')
@@ -127,7 +127,7 @@ rows=[
  (4,420,LAYER_NAMES['L4'],'agent-wiki-api','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
  (3,600,LAYER_NAMES['L3'],'agent-wiki-db','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
  (2,780,LAYER_NAMES['L2'],'agent-wiki-worker','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
- (1,960,LAYER_NAMES['L1'],'agent-wiki-collector','증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
+ (1,960,LAYER_NAMES['L1'],'agent-wiki-collector','기록 선별·증분 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
 for n,y,name,who,title,example,role in rows:
  component(40,y,1480,145,role)
  box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',FONT["layer"],True,'#FFFFFF')

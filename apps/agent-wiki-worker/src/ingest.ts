@@ -270,12 +270,13 @@ export async function processUpload(owner: string, signal: AbortSignal) {
             "INSERT INTO collection_events(workspace_id,stream_id,position,content_hash,source_id,native_id) VALUES($1,$2,$3,$4,$5,$6)",
             [ws, upload.stream_id, position, contentHash, sourceId, nativeId],
           );
-        if (events !== v.recordEnd - v.recordStart)
+        if (events !== v.selection.selected)
           throw new Error("UPLOAD_RECORD_COUNT_MISMATCH");
         const result = {
           accepted,
           duplicate,
           sources,
+          selection: v.selection,
           end: v.end,
           recordEnd: v.recordEnd,
         };

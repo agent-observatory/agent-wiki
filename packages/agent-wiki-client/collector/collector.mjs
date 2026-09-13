@@ -258,6 +258,7 @@ export async function collect(
               cursor.end,
               snapshot.end,
               (x) => redact(x, true),
+              { client: root.client, recordStart: cursor.recordEnd },
             );
             break;
           } catch (error) {
@@ -287,6 +288,8 @@ export async function collect(
           recordEnd: snapshot.records,
           prefixHash: snapshot.prefixHash,
           maskVersion: MASK_VERSION,
+          selectionVersion: prepared.selectionVersion,
+          selection: prepared.selection,
           codec: "zstd",
           parts: prepared.parts,
         };

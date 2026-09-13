@@ -65,9 +65,17 @@ export async function* projectEvents(
         h = createHash("sha256");
         nativeId = null;
       }
-      if (t.name === "stringChunk" || t.name === "numberChunk")
+      // Provenance may move when another machine stores the same selected item.
+      // Its content-addressed ID/payload remain the dedup identity; raw bytes and
+      // projected evidence are independently verified by upload/source hashes.
+      const rootField =
+        t.name === "keyValue" && frames.length === 1
+          ? t.value
+          : currentPath()[0];
+      const provenance = ["provenance", "timestamp"].includes(rootField);
+      if (!provenance && (t.name === "stringChunk" || t.name === "numberChunk"))
         h.update(t.value);
-      else {
+      else if (!provenance) {
         h.update("|" + t.name + "|");
         if (t.value !== undefined) h.update(String(t.value));
       }

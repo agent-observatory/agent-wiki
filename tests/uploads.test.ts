@@ -184,7 +184,7 @@ test("direct upload does not advance until verified; only appended bytes travel;
     )
   ).rows;
   assert.equal(uploads[2].result.accepted, 0);
-  assert.equal(uploads[2].result.duplicate, 3);
+  assert.equal(uploads[2].result.duplicate, 2);
   const rows = (
     await tx(owner, ws, (c) =>
       c.query("SELECT object_key,metadata FROM sources WHERE workspace_id=$1", [
@@ -300,8 +300,8 @@ test("native event IDs deduplicate shifted records and repeated IDs within an up
       ),
     )
   ).rows[0].result;
-  assert.equal(result.accepted, 2);
-  assert.equal(result.duplicate, 1);
+  assert.equal(result.accepted, 1);
+  assert.equal(result.duplicate, 0);
   await writeFile(
     file,
     metadata +
@@ -335,7 +335,7 @@ test("native event IDs deduplicate shifted records and repeated IDs within an up
     )
   ).rows[0].result;
   assert.equal(shifted.accepted, 1);
-  assert.equal(shifted.duplicate, 2);
+  assert.equal(shifted.duplicate, 1);
 });
 
 test("an interrupted upload keeps its exact range when new messages are appended", async () => {
@@ -420,7 +420,7 @@ test("split L1 resolves exact evidence without reading an image or permanent gzi
       ),
     )
   ).rows[0];
-  assert.equal(upload.manifest.maskVersion, "stream-mask-2");
+  assert.equal(upload.manifest.maskVersion, "stream-mask-3");
   assert.ok(upload.manifest.parts.some((p: any) => p.kind === "image"));
   for (let i = 0; i < upload.manifest.parts.length; i++)
     if (upload.manifest.parts[i].kind === "image")
@@ -654,4 +654,43 @@ test("collection history counts committed uploads, pages newest first, and reads
     ).statusCode,
     404,
   );
+});
+
+test("excluded-only increments advance the raw cursor without creating sources or curation jobs", async () => {
+  while (await processUpload(owner, new AbortController().signal)) {}
+  const dir = join(root, "telemetry-only");
+  await mkdir(dir);
+  const file = join(dir, "events.jsonl");
+  await writeFile(
+    file,
+    JSON.stringify({
+      type: "session_meta",
+      payload: { id: "telemetry-only", cwd: "/allowed" },
+    }) +
+      "\n" +
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "token_count", tokens: 100 },
+      }) +
+      "\n",
+  );
+  const state = { files: {} };
+  const t = transport();
+  const cfg = { ...config(), roots: [{ client: "codex", path: dir }] };
+  assert.equal(
+    (await collect(cfg, state, t.request, async () => {}, t.transfer)).failed,
+    0,
+  );
+  assert.equal(t.manifests[0].selection.selected, 0);
+  await processUpload(owner, new AbortController().signal);
+  await collect(cfg, state, t.request, async () => {}, t.transfer);
+  assert.equal(t.manifests.length, 1);
+  assert.equal((state.files as any)[file].end, (await stat(file)).size);
+  const rows = await tx(owner, ws, (c) =>
+    c.query(
+      "SELECT count(*)::int AS n FROM sources WHERE workspace_id=$1 AND origin='codex:telemetry-only'",
+      [ws],
+    ),
+  );
+  assert.equal(rows.rows[0].n, 0);
 });

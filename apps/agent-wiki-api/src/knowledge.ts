@@ -450,8 +450,9 @@ export function registerKnowledge(
             `SELECT (array_agg(id ORDER BY created_at,id))[1] AS id,
       (array_agg(name ORDER BY created_at DESC,id DESC))[1] AS name,
       max(created_at) AS created_at, sum(line_count)::int AS line_count,
-      bool_or(masked) AS masked, count(*)::int AS records
-      FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL
+      bool_or(masked) AS masked, count(*)::int AS records,
+      sum((SELECT count(*) FROM collection_events e WHERE e.workspace_id=s.workspace_id AND e.source_id=s.id))::int AS event_count
+      FROM sources s WHERE workspace_id=$1 AND deleted_at IS NULL
       GROUP BY CASE WHEN kind='conversation' AND origin<>'' THEN origin ELSE id::text END
       ORDER BY max(created_at) DESC,(array_agg(id ORDER BY created_at,id))[1] DESC LIMIT $2 OFFSET $3`,
             [ws, page.size + 1, page.offset],

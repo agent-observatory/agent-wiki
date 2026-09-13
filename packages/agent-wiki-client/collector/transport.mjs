@@ -9,10 +9,11 @@ import { pipeline } from "node:stream/promises";
 import { zstdCompressSync, constants } from "node:zlib";
 import Parser from "stream-json/Parser.js";
 import Replace from "stream-json/filters/Replace.js";
-import Stringer from "stream-json/Stringer.js";
+import StreamValues from "stream-json/streamers/StreamValues.js";
+import { createSelector, SELECTION_VERSION } from "./selection.mjs";
 export const sha = (data) => createHash("sha256").update(data).digest("hex");
 export const PART_BYTES = 4 * 1024 * 1024;
-export const MASK_VERSION = "stream-mask-2";
+export const MASK_VERSION = "stream-mask-3";
 const sensitive =
   /(?:^|\.)(?:password|secret|api[_-]?key|access[_-]?token|authorization|private[_-]?key)$/i;
 // Strings stay bounded even when a single JSON event embeds a very large image.
@@ -74,7 +75,7 @@ export function maskStrings(redact) {
     },
   });
 }
-export async function prepareUpload(file, start, end, redact) {
+export async function prepareUpload(file, start, end, redact, options = {}) {
   if (
     Object.entries(process.env).some(
       ([name, value]) =>
@@ -87,8 +88,12 @@ export async function prepareUpload(file, start, end, redact) {
   try {
     const normalized = join(dir, "masked.jsonl"),
       assets = [];
+    const selector = createSelector(options.client ?? "codex");
+    const referenced = new Set();
+    let position = 0;
+    const recordStart = options.recordStart ?? 0;
     await pipeline(
-      createReadStream(file, { start, end: end - 1 }),
+      createReadStream(file, { start: 0, end: end - 1 }),
       new Parser({
         jsonStreaming: true,
         packStrings: false,
@@ -105,13 +110,57 @@ export async function prepareUpload(file, start, end, redact) {
       }),
       maskStrings(redact),
       separateImages(dir, assets),
-      new Stringer({ useKeyValues: true }),
+      async function* (tokens) {
+        let value = "",
+          kind = "";
+        for await (const t of tokens) {
+          if (t.name === "startString" || t.name === "startNumber") {
+            value = "";
+            kind = t.name;
+          }
+          if (t.name === "stringChunk" || t.name === "numberChunk")
+            value += t.value;
+          yield t;
+          if (t.name === "endString" || t.name === "endNumber")
+            yield {
+              name: kind === "startString" ? "stringValue" : "numberValue",
+              value,
+            };
+        }
+      },
+      new StreamValues(),
+      async function* (records) {
+        let emitted = false;
+        for await (const { value } of records) {
+          for (const selected of selector.select(
+            value,
+            position,
+            position >= recordStart,
+          )) {
+            const line = JSON.stringify(selected) + "\n";
+            for (const m of line.matchAll(
+              /data:image\/agent-wiki;ref=([a-f0-9]{64})/g,
+            ))
+              referenced.add(m[1]);
+            emitted = true;
+            yield line;
+          }
+          position++;
+        }
+        if (!emitted) yield "\n";
+      },
       createWriteStream(normalized, { mode: 0o600 }),
     );
     const parts = [];
     for (const input of [
       { file: normalized, kind: "text" },
-      ...[...new Map(assets.map((a) => [a.asset, a])).values()].map((a) => ({
+      ...[
+        ...new Map(
+          assets
+            .filter((a) => referenced.has(a.asset))
+            .map((a) => [a.asset, a]),
+        ).values(),
+      ].map((a) => ({
         ...a,
         kind: "image",
       })),
@@ -157,6 +206,8 @@ export async function prepareUpload(file, start, end, redact) {
     return {
       dir,
       parts,
+      selectionVersion: SELECTION_VERSION,
+      selection: selector.stats,
       cleanup: () => rm(dir, { recursive: true, force: true }),
     };
   } catch (e) {

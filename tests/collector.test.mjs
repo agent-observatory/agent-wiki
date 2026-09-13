@@ -29,11 +29,13 @@ test("streaming preparation separates a 105 MiB image from text while preserving
   try {
     const f = await open(file, "w");
     await f.write(
-      '{"role":"user","password":"secret","image":"data:image/png;base64,',
+      '{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,',
     );
     const block = Buffer.alloc(1024 * 1024, 65);
     for (let i = 0; i < 105; i++) await f.write(block);
-    await f.write('","text":"보존할 텍스트"}\n{"partial":');
+    await f.write(
+      '"},{"type":"input_text","text":"보존할 텍스트 password=secret"}]}}\n{"partial":',
+    );
     await f.close();
     const snapshot = await scanFile(file);
     assert.equal(snapshot.records, 1);

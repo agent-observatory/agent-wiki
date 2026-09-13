@@ -105,7 +105,7 @@
 <text x="184" y="1003" font-size="20" font-weight="700" fill="#172C4B">Raw Sources</text>
 <text x="146" y="1042" font-size="18" font-weight="400" fill="#172C4B">agent-wiki-collector</text>
 <path d="M430 980 V1085" stroke="#929EAD"/>
-<text x="456" y="1003" font-size="20" font-weight="700" fill="#172C4B">증분 직접 업로드 → 서버 검증·중복 판정 → 불변 L1 등록</text>
+<text x="456" y="1003" font-size="20" font-weight="700" fill="#172C4B">기록 선별·증분 업로드 → 서버 검증·중복 판정 → 불변 L1 등록</text>
 <text x="456" y="1051" font-size="18" font-weight="400" fill="#172C4B">원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”</text>
 <path d="M80 960 V925" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 </g></svg>

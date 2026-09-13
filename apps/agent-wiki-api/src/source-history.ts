@@ -19,7 +19,9 @@ export async function sourceInfo(c: PoolClient, ws: string, id: string) {
 const collections = `WITH collections AS (
   SELECT coalesce(u.id::text,s.id::text) AS id,
     coalesce(u.updated_at,s.created_at) AS collected_at,
-    sum(s.line_count)::bigint AS line_count
+    sum(s.line_count)::bigint AS line_count,
+    sum((SELECT count(*) FROM collection_events e WHERE e.workspace_id=s.workspace_id AND e.source_id=s.id))::int AS event_count,
+    max(coalesce(u.compressed_bytes,0))::bigint AS stored_bytes
   FROM sources s
   LEFT JOIN collection_uploads u ON u.workspace_id=s.workspace_id
     AND u.id::text=s.metadata->>'rawUploadId'
@@ -44,11 +46,15 @@ export async function collectionSummary(
     await c.query(
       `${collections}
     SELECT count(*)::int AS count,max(collected_at) AS last_collected_at,
-      coalesce(sum(line_count),0)::bigint AS line_count FROM collections`,
+      coalesce(sum(line_count),0)::bigint AS line_count,coalesce(sum(event_count),0)::int AS event_count,coalesce(sum(stored_bytes),0)::bigint AS stored_bytes FROM collections`,
       args(ws, source),
     )
   ).rows[0];
-  return { ...row, line_count: Number(row.line_count) };
+  return {
+    ...row,
+    line_count: Number(row.line_count),
+    stored_bytes: Number(row.stored_bytes),
+  };
 }
 
 export async function collectionHistory(
@@ -60,14 +66,18 @@ export async function collectionHistory(
   const rows = (
     await c.query(
       `${collections}
-    SELECT id,collected_at,line_count,
+    SELECT id,collected_at,line_count,event_count,stored_bytes,
       row_number() OVER (ORDER BY collected_at,id)=1 AS initial
     FROM collections ORDER BY collected_at DESC,id DESC LIMIT $5 OFFSET $6`,
       [...args(ws, source), page.size + 1, page.offset],
     )
   ).rows;
   return paged(
-    rows.map((row) => ({ ...row, line_count: Number(row.line_count) })),
+    rows.map((row) => ({
+      ...row,
+      line_count: Number(row.line_count),
+      stored_bytes: Number(row.stored_bytes),
+    })),
     page,
   );
 }
