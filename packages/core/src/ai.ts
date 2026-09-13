@@ -60,15 +60,28 @@ export function isAlibabaQwen(config: AiConfig) {
     /^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model)
   );
 }
+export function isAlibabaDeepSeek(config: AiConfig) {
+  return (
+    config.provider === "openai-compatible" &&
+    new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
+    /^deepseek-v4-(flash|pro)(?:-\d{4})?$/.test(config.model)
+  );
+}
+export function isAlibabaThinkingModel(config: AiConfig) {
+  return isAlibabaQwen(config) || isAlibabaDeepSeek(config);
+}
 export function validateEndpoint(config: AiConfig) {
   if (
-    !isAlibabaQwen(config) &&
+    !isAlibabaThinkingModel(config) &&
     (config.enable_thinking !== undefined ||
       config.thinking_budget != null ||
       config.max_completion_tokens != null)
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
-  if (isAlibabaQwen(config) && !["none", "default"].includes(config.reasoning))
+  if (
+    isAlibabaThinkingModel(config) &&
+    !["none", "default"].includes(config.reasoning)
+  )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
     config.provider === "nvidia" &&
@@ -162,21 +175,27 @@ export async function callModel(
         model: config.model,
         messages,
         stream: false,
-        ...(isAlibabaQwen(config) && config.max_completion_tokens != null
+        // Every caller expects a JSON object (curation or the Hello test).
+        ...(isAlibabaThinkingModel(config)
+          ? { response_format: { type: "json_object" } }
+          : {}),
+        ...(isAlibabaThinkingModel(config) &&
+        config.max_completion_tokens != null
           ? { max_completion_tokens: config.max_completion_tokens }
           : { max_tokens: config.maxTokens }),
-        ...(isAlibabaQwen(config) && config.enable_thinking !== undefined
+        ...(isAlibabaThinkingModel(config) &&
+        config.enable_thinking !== undefined
           ? { enable_thinking: config.enable_thinking }
           : {}),
-        ...(isAlibabaQwen(config) &&
+        ...(isAlibabaThinkingModel(config) &&
         (config.enable_thinking ?? config.reasoning !== "none") &&
         config.thinking_budget != null
           ? { thinking_budget: config.thinking_budget }
           : {}),
         ...(config.reasoning === "default" ||
-        (isAlibabaQwen(config) && config.enable_thinking !== undefined)
+        (isAlibabaThinkingModel(config) && config.enable_thinking !== undefined)
           ? {}
-          : isAlibabaQwen(config) && config.reasoning === "none"
+          : isAlibabaThinkingModel(config) && config.reasoning === "none"
             ? { enable_thinking: false }
             : config.provider === "nvidia" &&
                 config.model.startsWith("deepseek-ai/deepseek-v4-")

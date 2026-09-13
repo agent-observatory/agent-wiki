@@ -343,6 +343,7 @@ test("Alibaba Qwen disables thinking using its native option and rejects unsuppo
   try {
     await callModel(config, "synthetic", [], AbortSignal.timeout(1000));
     assert.equal(bodies[0].enable_thinking, false);
+    assert.deepEqual(bodies[0].response_format, { type: "json_object" });
     assert.equal(bodies[0].reasoning_effort, undefined);
     await callModel(
       { ...config, reasoning: "default" },
@@ -369,6 +370,92 @@ test("Alibaba Qwen disables thinking using its native option and rejects unsuppo
     );
     assert.equal(bodies[2].reasoning_effort, "none");
     assert.equal(bodies[2].enable_thinking, undefined);
+    assert.equal(bodies[2].response_format, undefined);
+  } finally {
+    globalThis.fetch = original;
+    if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;
+    else process.env.AI_ALLOWED_HOSTS = oldHosts;
+  }
+});
+
+test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requests", async () => {
+  const original = globalThis.fetch;
+  const oldHosts = process.env.AI_ALLOWED_HOSTS;
+  process.env.AI_ALLOWED_HOSTS = "dashscope-intl.aliyuncs.com";
+  const bodies: Record<string, unknown>[] = [];
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: '{"message":"Hello"}' } }],
+      }),
+    );
+  };
+  const config = aiConfig.parse({
+    ...defaults,
+    provider: "openai-compatible",
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    model: "deepseek-v4-flash",
+    enable_thinking: false,
+    thinking_budget: 1024,
+    max_completion_tokens: 16384,
+    enabled: false,
+  });
+  try {
+    for (const model of [
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-0731",
+      "deepseek-v4-pro",
+      "deepseek-v4-pro-0813",
+    ]) {
+      await callModel(
+        { ...config, model },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      );
+      const body = bodies.at(-1)!;
+      assert.equal(body.model, model);
+      assert.equal(body.enable_thinking, false);
+      assert.equal(body.max_completion_tokens, 16384);
+      assert.equal(body.max_tokens, undefined);
+      assert.equal(body.thinking_budget, undefined);
+      assert.equal(body.reasoning_effort, undefined);
+      assert.equal(body.chat_template_kwargs, undefined);
+      assert.deepEqual(body.response_format, { type: "json_object" });
+    }
+    await callModel(
+      { ...config, enable_thinking: true },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies.at(-1)!.thinking_budget, 1024);
+    assert.equal(bodies.at(-1)!.enable_thinking, true);
+    await assert.rejects(
+      callModel(
+        { ...config, model: "unrecognized-model" },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      ),
+      /AI_REASONING_NOT_SUPPORTED/,
+    );
+    await assert.rejects(
+      callModel(
+        {
+          ...config,
+          provider: "nvidia",
+          model: defaults.model,
+          baseUrl: defaults.baseUrl,
+        },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      ),
+      /AI_REASONING_NOT_SUPPORTED/,
+    );
+    assert.equal(bodies.length, 5);
   } finally {
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;

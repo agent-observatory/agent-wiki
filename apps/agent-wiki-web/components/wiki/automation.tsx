@@ -229,7 +229,7 @@ function AutomationContent() {
           config: {
             ...config,
             enabled: liveControl.enabled,
-            ...(qwen
+            ...(alibaba
               ? {
                   enable_thinking: thinking,
                   max_completion_tokens:
@@ -259,7 +259,7 @@ function AutomationContent() {
           config: {
             ...config,
             enabled: liveControl.enabled,
-            ...(qwen
+            ...(alibaba
               ? {
                   enable_thinking: thinking,
                   max_completion_tokens:
@@ -284,10 +284,11 @@ function AutomationContent() {
   if (settings.error || jobs.error)
     return <Failure error={settings.error ?? jobs.error} />;
   if (!config || !jobs.data || !settings.data) return <Loading />;
-  const qwen =
+  const alibaba =
     config.provider === "openai-compatible" &&
     /\.aliyuncs\.com(?:\/|$)/.test(config.baseUrl) &&
-    /^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model);
+    (/^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model) ||
+      /^deepseek-v4-(flash|pro)(?:-\d{4})?$/.test(config.model));
   const thinking = config.enable_thinking ?? config.reasoning !== "none";
   const storedProfile = settings.data.profiles[config.mode];
   let hasStoredKey = false;
@@ -549,29 +550,29 @@ function AutomationContent() {
                           htmlFor="outputLimit"
                           className="text-sm font-medium"
                         >
-                          {qwen ? "max_completion_tokens" : "max_tokens"}
+                          {alibaba ? "max_completion_tokens" : "max_tokens"}
                         </label>
                         <Input
                           id="outputLimit"
                           type="number"
                           required
                           min={512}
-                          max={qwen ? 32768 : 16384}
+                          max={alibaba ? 32768 : 16384}
                           value={
-                            qwen
+                            alibaba
                               ? (config.max_completion_tokens ??
                                 config.maxTokens)
                               : config.maxTokens
                           }
                           onChange={(e) =>
                             update(
-                              qwen ? "max_completion_tokens" : "maxTokens",
+                              alibaba ? "max_completion_tokens" : "maxTokens",
                               Number(e.target.value),
                             )
                           }
                         />
                       </div>
-                      {qwen ? (
+                      {alibaba ? (
                         <>
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
@@ -682,7 +683,7 @@ function AutomationContent() {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       dailyCalls · maxInputTokens는 Wiki 설정입니다. 입력은
-                      {qwen
+                      {alibaba && config.model.startsWith("qwen")
                         ? "토큰 추정치에 10% 여유를 더합니다."
                         : "UTF-8 바이트로 보수 추정합니다."}
                     </p>

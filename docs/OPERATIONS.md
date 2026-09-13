@@ -11,6 +11,12 @@
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [오류 전용 알림](#오류만-slack-알림) 참고 |
 
+## Alibaba DeepSeek Flash 전환
+
+2026-09-13. 사용자 선택에 따라 벤치에서 확인한 범용 `deepseek-v4-flash`를 대상으로 한다. 루트 `.env.local`의 `DASHSCOPE_MODEL`을 변경했으며 API 키·Singapore 주소는 유지한다. Flash·Pro와 각 날짜 ID의 무료 쿼타는 별도이고 한 모델이 합산 4M을 쓰거나 다른 ID로 자동 전환하지 않는다. 자동 정제는 재개하지 않는다.
+
+Alibaba DeepSeek V4도 Qwen과 같이 `enable_thinking`·`thinking_budget`·`max_completion_tokens`를 저장·전달하도록 API와 고급 설정 UI를 확장했다. 추론 OFF일 때 thinking_budget은 보내지 않는다. Alibaba의 정제·Hello 요청에는 `response_format=json_object`를 적용하며 응답 구조·원문 검증은 유지한다. NVIDIA의 요청 형식과 Free 기본 모델은 유지한다. DeepSeek 입력은 현재 보수적 UTF-8 바이트 추정이고, Qwen 전용 토큰 추정기를 그대로 적용하지 않는다. 이 변경의 로컬 검증·배포·운영 설정 확인은 아래에 기록한다.
+
 ## Alibaba 정제 모델 비교
 
 **최신 재비교:** 첫 비교에서 JSON 모드 없이 파싱 실패 모델을 후보에서 좁힌 판단을 수정했다. Plus를 포함한 5개 모델에 같은 작은 입력·`json_object`·추론 OFF를 적용해 각 1회 재호출했다. 모두 JSON 파싱에 성공했으나 Max는 사례 2개와 필드를 누락했다. Alibaba DeepSeek V4 Flash는 변경 의도 9/10·검증 여부 10/10·인용/필수 출처 10/10으로 다음 Worker 검증의 우선 후보다. Plus는 변경 의도·인용은 10/10이나 검증 여부는 2/10이었다. 자동 점수와 별개로 근거 충분성·과잉 해석도 검토했다. [수정된 비교표·한계](../experiments/curation/model-selection/README.md).
