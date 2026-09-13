@@ -45,8 +45,8 @@ jobs:
           terraform test
       - name: Check monitoring rules and delivery semantics
         run: python3 -m unittest discover -s scripts/monitoring -p 'test_*.py'
-      - name: Check runtime installation permissions and reruns
-        run: scripts/test-runtime-install.sh
+      - name: Check K3s runtime contracts
+        run: python3 scripts/test-k3s.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -116,7 +116,7 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy selected app containers
+      - name: Deploy K3s workloads
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
@@ -129,9 +129,7 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/wiki
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes scripts/deploy.sh scripts/first-deploy.sh scripts/registry-deploy.sh scripts/migrate-service-names.sh ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/
-          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes infra/runtime/compose.yaml ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/compose.next.yaml
-          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes infra/runtime/Caddyfile ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/Caddyfile.next
-          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes infra/runtime/agent-wiki.service ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/agent-wiki.service
-          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" "bash /opt/agent-wiki/registry-deploy.sh '$IMAGE_TAG' '$GHCR_USER'"
-          ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" 'sudo install -m 644 /opt/agent-wiki/agent-wiki.service /etc/systemd/system/agent-wiki.service && sudo systemctl daemon-reload'
+          ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" 'mkdir -p /opt/agent-wiki/k3s-runtime/scripts /opt/agent-wiki/k3s-runtime/infra/k3s'
+          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes scripts/deploy-k3s.sh scripts/render-k3s.py scripts/k3s-secrets.py ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/k3s-runtime/scripts/
+          scp -i ~/.ssh/wiki -o StrictHostKeyChecking=yes infra/k3s/versions.env infra/k3s/pg_hba.conf ubuntu@"$DEPLOY_HOST":/opt/agent-wiki/k3s-runtime/infra/k3s/
+          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/wiki -o StrictHostKeyChecking=yes ubuntu@"$DEPLOY_HOST" "sudo bash /opt/agent-wiki/k3s-runtime/scripts/deploy-k3s.sh '$IMAGE_TAG' '$GHCR_USER'"

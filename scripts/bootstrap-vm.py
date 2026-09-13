@@ -1,53 +1,20 @@
 #!/usr/bin/env python3
-"""Bootstrap the VM recorded in local Terraform state; keep credentials out of output."""
-import argparse
-import ipaddress
-import json
-import os
-import re
-import shlex
+"""Migrate the existing, initialized Wiki VM to K3s. Secrets and DB stay on the VM."""
+import argparse,ipaddress,json,re,subprocess
 from pathlib import Path
-import subprocess
-import urllib.parse
-import urllib.request
-
-os.umask(0o077)
-root = Path(__file__).resolve().parents[1]
-p = argparse.ArgumentParser()
-p.add_argument('--image', required=True)
-args = p.parse_args()
-state = json.loads(subprocess.check_output(['/tmp/wiki-tools/terraform', '-chdir='+str(root/'infra/terraform'), 'output', '-json']))
-host = str(ipaddress.ip_address(state['public_ip']['value']))
-subprocess.run(['python3', str(root/'scripts/prepare-runtime.py'), '--host', host, '--image', args.image], check=True)
-key = Path.home()/'.ssh/agent_wiki_deploy'
-known = root/'.runtime/deploy/known_hosts'
-# Initial host-key acceptance is scoped to this dedicated instance and pinned thereafter.
-ssh = ['ssh', '-i', str(key), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile='+str(known), 'ubuntu@'+host]
-subprocess.run(ssh+['sudo cloud-init status --wait'], check=True, timeout=900)
-subprocess.run(ssh+['sudo /usr/local/sbin/wiki-mount && sudo chmod 755 /srv/agent-wiki/data/tls'], check=True, timeout=660)
-scp = ['scp', '-i', str(key), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(known)]
-private = root/'.runtime/deploy'
-names = ['.env','api.env','worker.env','migration.env','init-db.sql','compose.yaml','Caddyfile','pg_hba.conf']
-stage = subprocess.check_output(ssh+['mktemp -d /opt/agent-wiki/.bootstrap.XXXXXXXX'], text=True).strip()
-if not re.fullmatch(r'/opt/agent-wiki/\.bootstrap\.[A-Za-z0-9]+', stage):
-    raise SystemExit('Unexpected remote staging directory')
-try:
-    subprocess.run(scp+[str(private/n) for n in names]+['ubuntu@'+host+':'+stage+'/'], check=True)
-    # The CA signing key stays on the developer machine.
-    subprocess.run(scp+[str(private/'tls'/n) for n in ['server.crt','server.key','ca.crt']]+[str(root/'scripts/install-runtime.sh'), str(root/'scripts/configure-host.sh'), str(root/'infra/runtime/agent-wiki.service'), 'ubuntu@'+host+':'+stage+'/'], check=True)
-    subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/install-runtime.sh')+' '+shlex.quote(stage)], check=True)
-    subprocess.run(ssh+['sudo bash '+shlex.quote(stage+'/configure-host.sh')], check=True)
-finally:
-    subprocess.run(ssh+['rm -rf -- '+shlex.quote(stage)], check=False)
-
-env = {}
-for line in (root/'.env.local').read_text().splitlines():
-    if '=' in line and not line.startswith('#'):
-        k,v=line.split('=',1);env[k]=v.strip().strip('\"\'')
-query = urllib.parse.urlencode({'domains':env['DUCKDNS_DOMAIN'].removesuffix('.duckdns.org'),'token':env['DUCKDNS_TOKEN'],'ip':host})
-with urllib.request.urlopen('https://www.duckdns.org/update?'+query,timeout=30) as response:
-    if response.read().strip()!=b'OK': raise SystemExit('DuckDNS update failed')
-for name,value in {'DEPLOY_HOST':host, 'DEPLOY_KEY':key.read_text(), 'DEPLOY_KNOWN_HOSTS':known.read_text()}.items():
-    subprocess.run(['gh','secret','set',name,'--repo','agent-observatory/agent-wiki'],input=value,text=True,check=True)
-subprocess.run(['gh','variable','set','DEPLOY_ENABLED','--body','true','--repo','agent-observatory/agent-wiki'],check=True)
-print('Runtime prepared, DNS updated and deployment secrets set. Dispatch ci.yml, then verify HTTPS, login and DB TLS.')
+p=argparse.ArgumentParser();p.add_argument('--image',required=True);a=p.parse_args()
+if not re.fullmatch('[a-f0-9]{40}',a.image):raise SystemExit('Expected deployed Git SHA')
+root=Path(__file__).resolve().parents[1]
+state=json.loads(subprocess.check_output(['/tmp/wiki-tools/terraform','-chdir='+str(root/'infra/terraform'),'output','-json']))
+host=str(ipaddress.ip_address(state['public_ip']['value']))
+opts=['-i',str(Path.home()/'.ssh/agent_wiki_deploy'),'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','UserKnownHostsFile='+str(root/'.runtime/deploy/known_hosts')]
+ssh=['ssh',*opts,'ubuntu@'+host];scp=['scp',*opts]
+def run(cmd):subprocess.run(ssh+[cmd],check=True)
+run('test -f /opt/agent-wiki/api.env && sudo test -f /srv/agent-wiki/data/postgres/PG_VERSION && test ! -f /opt/agent-wiki/.k3s-active')
+run('mkdir -p /opt/agent-wiki/k3s-migration/infra /opt/agent-wiki/k3s-migration/scripts')
+subprocess.run(scp+['-r',str(root/'infra/k3s'),'ubuntu@'+host+':/opt/agent-wiki/k3s-migration/infra/'],check=True)
+names=['install-k3s.sh','cutover-k3s.sh','deploy-k3s.sh','render-k3s.py','k3s-secrets.py','configure-k3s-logs.sh']
+subprocess.run(scp+[str(root/'scripts'/x) for x in names]+['ubuntu@'+host+':/opt/agent-wiki/k3s-migration/scripts/'],check=True)
+run('sudo bash /opt/agent-wiki/k3s-migration/scripts/install-k3s.sh')
+run('sudo bash /opt/agent-wiki/k3s-migration/scripts/cutover-k3s.sh '+a.image)
+print('K3s cutover finished. Verify public HTTPS, DB TLS, Collector, logs and the next Actions deployment.')

@@ -32,11 +32,52 @@ L1·L2·L3를 함께 다루는 초기화는 **관리 CLI**에 둔다. L2·L3 초
 
 ## 전체 구성
 
-![사용자 작업·별도 Collector·백그라운드 정제와 원격 Wiki](assets/wiki-deployment.svg)
+### 단일 VM · K3s
+
+![단일 VM 안의 K3s·Traefik·앱·영속 볼륨과 독립된 수집·조회](assets/wiki-deployment.svg)
+
+<details>
+<summary>K3s 구성의 책임</summary>
+
+- 기존 A1 VM 한 대에서 K3s server·containerd와 앱을 함께 실행한다. Web·API·Worker는 Deployment, PostgreSQL은 StatefulSet으로 표현한다.
+- Traefik이 ServiceLB의 80/443 진입점에서 Ingress 경로 규칙에 따라 내부 Service로 전달한다. DuckDNS는 VM 주소를 가리키며 HTTP 중계 서버가 아니다.
+- cert-manager가 ACME 인증서를 발급·갱신하고 TLS Secret을 Traefik에 제공한다. 인증서 발급 기관은 사용자 요청의 중계 경로에 두지 않는다.
+- PostgreSQL은 PVC → local PV → 기존 Block Volume의 마운트 경로를 사용한다. PV는 Retain·노드 고정으로 관리하며 K3s 상태(SQLite·Secrets)도 같은 디스크의 별도 경로에 둔다. 물리 볼륨을 Pod마다 새로 생성하지 않는다.
+- requests/limits·readiness·정상 종료와 NetworkPolicy를 선언한다. CPU 여유 공유는 VM 자원 안에서만 가능하다. 수치·통신 허용 목록은 아래 배포 규칙과 `scripts/render-k3s.py`를 따른다. 일반 Ingress의 경로 라우팅과 NetworkPolicy의 ingress/egress 통신 제어를 구분한다.
+- 원문은 기존 Object Storage를 유지한다. Collector 직접 업로드·Worker의 DB 작업 처리·L1–L5 역할은 바뀌지 않는다. 단일 노드 장애와 앱의 멱등성·재시도 책임은 유지한다.
+
+기술 기준: [K3s 단일 노드](https://docs.k3s.io/architecture) · [기본 네트워크 구성](https://docs.k3s.io/networking/networking-services) · [cert-manager](https://cert-manager.io/docs/usage/certificate/).
+
+K3s 제어·실행 상자는 별도 VM이나 새 Wiki 앱이 아니다. 같은 VM의 `k3s server` 서비스가 관리하는 API Server·Scheduler·kubelet·containerd 등을 묶어 표현한다. SQLite는 파일 기반 상태 저장이며 TLS Secret은 Kubernetes 데이터 객체다.
+
+| 구성 | 포트·접속 범위 |
+| --- | --- |
+| Traefik / ServiceLB | 외부 TCP 80·443 → 내부 Web/API Service |
+| Web | Service·Pod TCP 3000, 내부 전용 |
+| API | Service·Pod TCP 3001, 내부 전용 |
+| PostgreSQL | 내부 TCP 5432. 기존 사용자 선택인 공인 5432/TLS 직접 관리 접속도 유지하는 설계 |
+| Worker / Collector / CLI | 수신 서버 없음. API·Object Storage·AI에 요청하는 클라이언트 |
+| Kubernetes API Server | TCP 6443, 외부 비공개. 관리 명령은 VM 내부에서 실행 |
+| kubelet / Scheduler / Controller Manager | TCP 10250 / 10259 / 10257, 내부 관리용 |
+| containerd | 로컬 Unix socket, 실행·로그 스트림은 로컬 TCP 10010 |
+| SQLite / TLS Secret / PVC·PV / Block Volume | 애플리케이션 수신 포트 없음 |
+| CoreDNS | 내부 UDP·TCP 53 |
+| cert-manager | 내부 Webhook Service 443 → Pod 10250, ACME 발급 기관으로 외부 HTTPS 443 요청 |
+| Object Storage / AI Provider / 인증서 발급 기관 | 외부 서비스의 HTTPS 443으로 요청 |
+
+이 표는 전환 목표이며 열린 운영 포트를 스캔한 결과가 아니다. Web/API/DB는 현재 앱 설정에서 확인한 포트를 유지한다. 게이트웨이 80/443은 외부 Service 포트이며 Traefik Pod의 targetPort와 구분한다. 관리 포트·Webhook·메트릭의 실제 바인딩은 설치 버전의 설정으로 검증한다. **외부에서 앱을 조회하는 진입점은 Gateway지만, DB 직접 관리 접속은 별도 예외다.** Flannel VXLAN 8472/UDP는 다중 노드 통신용이며 인터넷에 공개하지 않는다. 단일 노드 SQLite 구성에는 etcd 2379/2380을 열지 않는다.
+
+포트 기준: [K3s 요구사항](https://docs.k3s.io/installation/requirements) · [Kubernetes 관리 포트](https://kubernetes.io/docs/reference/networking/ports-and-protocols/) · [cert-manager Webhook](https://cert-manager.io/v1.18-docs/troubleshooting/webhook/).
+
+</details>
+
+
+
+K3s의 실제 배포·검증 결과는 [운영 현황](OPERATIONS.md#k3s-아키텍처-검토)에서 확인한다.
 
 ### 애플리케이션 이름
 
-제품명은 **Agent Wiki**, 로컬 설치 패키지는 **agent-wiki-client**다. 앱 이름은 역할을 나타내고 실제 명령·Compose 서비스 키는 아래처럼 연결한다.
+제품명은 **Agent Wiki**, 로컬 설치 패키지는 **agent-wiki-client**다. 앱 이름은 역할을 나타내고 실제 명령·Kubernetes 리소스는 아래처럼 연결한다.
 
 설치 구성의 상하 관계는 다음과 같다. **CLI와 Collector는 client에 포함된 형제 구성**이며, client가 두 프로세스를 감싸서 실행하는 별도 서버는 아니다.
 
@@ -59,16 +100,16 @@ Agent Wiki (제품)
 | `agent-wiki-cli` | 검색·조회와 연결·수집 관리 명령 | `agent-wiki`, `packages/agent-wiki-client/cli/agent-wiki.mjs` |
 | `agent-wiki-collector` | 작업 대화와 독립된 백그라운드 수집 | `agent-wiki collector`, `packages/agent-wiki-client/collector` |
 | `agent-wiki` 조회 Skill | 조회 필요성·검색어·근거 활용 지침 | 패키지의 `skill/` → 에이전트가 읽는 프로젝트 폴더 |
-| `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Caddy, Compose `agent-wiki-gateway` |
-| `agent-wiki-web` | 웹 UI | Next.js, `apps/agent-wiki-web`, Compose `agent-wiki-web` |
-| `agent-wiki-api` | 수집·검색·권한·지식 API | Fastify, `apps/agent-wiki-api`, Compose `agent-wiki-api` |
-| `agent-wiki-worker` | 수신 검증·텍스트 정제 작업 | `apps/agent-wiki-worker`, Compose `agent-wiki-worker` |
-| `agent-wiki-db` | 지식·근거·수집/정제 상태 저장 | PostgreSQL, Compose `agent-wiki-db` |
+| `agent-wiki-gateway` | HTTPS 진입점·웹/API 경로 분기 | Traefik, Helm release `agent-wiki-gateway` |
+| `agent-wiki-web` | 웹 UI | Next.js, `apps/agent-wiki-web`, Deployment·Service `agent-wiki-web` |
+| `agent-wiki-api` | 수집·검색·권한·지식 API | Fastify, `apps/agent-wiki-api`, Deployment·Service `agent-wiki-api` |
+| `agent-wiki-worker` | 수신 검증·텍스트 정제 작업 | `apps/agent-wiki-worker`, Deployment `agent-wiki-worker` |
+| `agent-wiki-db` | 지식·근거·수집/정제 상태 저장 | PostgreSQL, StatefulSet·Service `agent-wiki-db` |
 | `agent-wiki-sources` | 불변 원문 보관 버킷 | OCI Object Storage |
 | `agent-wiki-data` | DB·인증서 영속 데이터 볼륨 | OCI Block Volume |
 | `agent-wiki-vm` | 서버 앱 실행 호스트 | OCI A1 Compute VM |
 
-`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Caddy·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Compose 서비스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
+`agent-wiki-client`는 배포 단위다. 별도 상주 서버가 아니며, 내부 CLI·Collector를 각각 설치하지 않는다. 명령은 제품명과 같은 `agent-wiki`를 사용하고 설정은 `~/.agent-wiki/config.json`을 공유한다. Traefik·Next.js·Fastify·PostgreSQL은 각 컴포넌트의 기반 기술로 표시한다. Kubernetes 앱 리소스·컨테이너 이름은 그림의 고유 이름과 같다. API·Worker·Web의 이미지도 각각 같은 이름으로 게시한다. VM의 OCI 표시 이름도 `agent-wiki-vm`으로 맞춘다. 외부 서비스인 DuckDNS·인증서 발급 기관·AI Provider, 사용자 도구인 Codex·Claude Code은 별도로 구분한다. AI 설정은 웹·API의 기능이며 별도 앱이 아니다.
 
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](client-and-api.md#연결과-지침).
 
@@ -82,7 +123,7 @@ Codex·Claude는 공통 수집 형식을 사용하되 원문 세션을 서로 �
 
 **세션은 `Workspace + 에이전트 종류 + 원본 세션 ID`로 식별한다.** 에이전트 종류는 Codex·Claude Code다. 기기 ID는 수집 출처로 분리하고, 서버의 연속 수신 위치는 기기·파일 세대별로 관리한다. 같은 세션에 메시지 101~110이 추가되면, 이미 받은 1~100을 다시 보내지 않고 확인된 위치 이후만 전송한다.
 
-Collector의 대화·도구 기록 선별·스냅샷 중복 제거 → API의 위치 확인·업로드 허가 → Collector의 마스킹·zstd 압축 → Object Storage 직접 업로드 → 서버 검증·L1 등록 → 별도 L2 정제 순서다. 큰 파일 본문은 Caddy·API를 통과하지 않는다. 임시 파일 도착만으로 적재 완료 처리하지 않으며 **중복 판정·불변 원문 등록·수신 위치 확정은 서버 책임**이다.
+Collector의 대화·도구 기록 선별·스냅샷 중복 제거 → API의 위치 확인·업로드 허가 → Collector의 마스킹·zstd 압축 → Object Storage 직접 업로드 → 서버 검증·L1 등록 → 별도 L2 정제 순서다. 큰 파일 본문은 Gateway·API를 통과하지 않는다. 임시 파일 도착만으로 적재 완료 처리하지 않으며 **중복 판정·불변 원문 등록·수신 위치 확정은 서버 책임**이다.
 
 내용 해시는 전송 묶음의 동일성, 원본 세션 ID는 대화의 동일성을 판별한다. 일부 겹치는 기록은 서버가 별도로 대조한다. 앞부분 수정·파일 축소·다른 기기 수집에서는 오프셋을 그대로 신뢰하지 않는다. [수집 계약과 1~100 → 101~110 예시](client-and-api.md#세션-식별과-증분-수집).
 
@@ -177,35 +218,36 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 ## 단일 Compute VM 배포
 
-기존 A1 VM 1대·2 OCPU·12GB에 Caddy·Next.js·Fastify API·Worker·PostgreSQL 5개를 Compose로 관리한다. Worker는 BYOK 최대 동시성 5, CPU 최대 0.5·메모리 최대 2GB다. 추가 클라우드 자원을 만들지 않는다.
+기존 A1 VM 1대·2 OCPU·12GB에서 K3s server와 앱을 함께 실행한다. Pod `10.52.0.0/16`·Service `10.53.0.0/16`은 OCI VCN `10.42.0.0/16`과 분리한다. 관리 포트는 인터넷에 공개하지 않는다. 앱은 `agent-wiki` Namespace, Traefik은 `kube-system`, 인증서 컨트롤러는 `cert-manager` Namespace에 둔다.
 
 | 구성 | 역할 |
 | --- | --- |
-| DuckDNS | `agent-wiki.duckdns.org`를 VM 공인 주소에 연결. HTTP 요청을 중계하지 않음 |
-| Caddy | HTTPS 접속·웹/API 경로 분기, 인증서 발급 기관과 통신해 자동 발급·갱신 |
-| 연결 Block Volume 50GB | PostgreSQL 데이터와 Caddy 인증서·설정을 별도 경로에 보관 |
-| 부트 볼륨 50GB | 운영체제·Docker 등 호스트 구성 |
-| Object Storage | 원격 원문 보관본. 인증서 저장소와 구분 |
-| DB 관리 접속 | 공인 5432·별도 ID/비밀번호·TLS. 사용자 선택에 따라 IP 제한·Bastion 없음 |
-| 내부 연결 | Compose 서비스 이름. 웹·API 포트는 내부 전용 |
+| DuckDNS | 도메인을 기존 VM 공인 주소에 연결 |
+| Traefik + ServiceLB | 기존 VM의 80/443. 별도 OCI Load Balancer 없음 |
+| cert-manager | 기존 TLS 인증서를 인계하고 ACME 갱신 관리 |
+| Block Volume 50GB | PostgreSQL local PV와 K3s 상태를 별도 경로에 보관 |
+| 부트 볼륨 50GB | OS·실행 이미지·컨테이너 로그 |
+| PostgreSQL | StatefulSet 1개·Retain PV. 기존 데이터·DB TLS 유지 |
+| DB 관리 접속 | 공인 5432·ID/비밀번호·TLS, 기존 사용자 선택 유지 |
+| Object Storage | 기존 비공개 원문 버킷 |
 
-기존 메모리 상한은 Caddy 0.25GB·Web 2GB·API 2GB·DB 3GB다. DNS 갱신과 인증서 갱신은 다른 작업이며 VM 공인 주소가 바뀌면 DNS 연결을 갱신해야 한다. Caddy 재배포 때 인증서 볼륨을 유지한다.
+requests는 API/Web/Worker 각 100m, DB 250m부터 시작한다. CPU limits는 API/Web/DB 1.5, Worker 1이며 남는 CPU를 공유한다. 메모리 상한은 API/Web/Worker 각 2Gi, DB 3Gi다. 시스템·Kubernetes에 CPU 400m·메모리 1,280Mi를 예약한다. Worker의 모델 동시성/RPM과 CPU 할당은 서로 다른 제어다. 실제 사용량으로 조정한다.
 
-사용자는 PAYG 업그레이드를 완료했지만 유료 사용은 허용하지 않았다. 새 자원·사양·모델 연결 전에 계정 전체 사용량·조건·비용을 확인한다. 예산은 강제 지출 상한이 아니다. 백업·복원은 후속 과제다.
+NetworkPolicy는 기본 거부 후 Traefik→Web/API, Web→API, API/Worker→DB, DNS, API/Worker의 HTTPS·OCI 인스턴스 인증만 허용한다. Worker는 현재 별도 HTTP 서버를 호출하지 않고 공통 반영 모듈과 DB를 직접 사용한다. DB 외부 관리 접속은 예외다. Gateway·Worker·앱을 필요 이상 늘리거나 HPA·새 노드를 자동 생성하지 않는다.
 
 ## 배포와 운영
 
-![사용자 작업과 별도 수집·정제의 운영 경로](assets/wiki-operations.svg)
+![별도 수집·정제와 운영 경로](assets/wiki-operations.svg)
 
-GitHub main 변경 → Actions 검증 → 외부 ARM64 이미지 빌드·GHCR 게시 → SSH를 통한 자동 배포로 이어진다. VM은 이미지를 미리 받고 변경된 앱만 교체한다. VM·DB·Caddy·볼륨은 유지하며 전체 Compose 종료는 하지 않는다.
+GitHub main → Actions 검증 → ARM64 이미지 GHCR 게시 → SSH → Kubernetes migration Job → Deployment 교체 → HTTPS 확인으로 이어진다. `.github/workflows/ci.yml`과 `scripts/deploy-k3s.sh`가 실제 배포 경로다. 이미지를 임시 Pod로 먼저 가져오며 짧은 수명의 GHCR 토큰은 Secret으로 전달한다. 값은 출력하지 않는다. 같은 노드의 재기동에는 캐시한 이미지를 사용한다.
 
-계획 배포는 Caddy에서 외부 신규 유입을 막고 Web·내부 API 요청을 마친 뒤 API를 종료한다. Worker는 신규 수신을 멈추고 진행 결과를 최대 90초 동안 마친다. Compose 유예는 120초이며, Web → Worker → API 순으로 종료한다. API 종료 예산 30초·Compose 유예 45초다. 조회 재시도는 일시 오류에 한정하고 쓰기는 같은 멱등 키로 결과부터 확인한다. 짧은 중단은 허용한다.
+Web/API는 `maxSurge: 1`, `maxUnavailable: 0`으로 교체한다. readiness·5초 preStop·SIGTERM 처리를 사용한다. Worker는 Recreate로 중복 실행을 피하고 종료 유예 120초 안에서 진행 중 작업을 마무리한다. 일반 앱 배포는 DB·Traefik·VM·볼륨을 교체하지 않는다. 단일 VM과 DB 장애 한계는 유지하며 무중단을 보장하지 않는다. 쓰기의 멱등성·재시도·COMMIT 응답 유실 확인은 애플리케이션 책임이다.
 
-앱은 OTel Logs Data Model에 맞춘 JSON을 stdout/stderr에 남긴다. Docker syslog → 호스트 rsyslog → OCI Unified Monitoring Agent → OCI Logging으로 전송한다. 호스트 수집기는 VM의 시스템 서비스이며 별도 사이드카 컨테이너가 아니다. 전체 배포도에서는 생략하고 운영도에만 표시한다.
+최초 전환은 `scripts/bootstrap-vm.py --image <현재 배포 SHA>` → `install-k3s.sh` → `cutover-k3s.sh`다. 기존 초기화된 VM을 대상으로 하며, 기존 앱을 정상 종료한 뒤 PostgreSQL의 같은 디렉터리를 K3s에 연결한다. 짧은 전체 중단을 허용하고 전환 이후 Compose를 다시 기동하지 않는다. 이전 실행·배포 경로는 제거한다.
 
-오류는 GitHub Actions가 OCI Logging에서 5분마다 ERROR 이상을 조회해 Slack Webhook으로 보낸다. 새 오류만 전송하며 동일 이벤트를 제외하고 같은 종류는 최대 시간당 한 번 알린다. 복구·OK·RESET 알림은 보내지 않는다. OCI 기본 경보는 해제 알림을 함께 보내므로 비활성화한다. 로그 반영과 예약 실행은 지연될 수 있다. GitHub Actions는 비용을 6시간마다 확인하고 09:13 한국 시각에 일 요약을 보낸다. 실제 연결·검증 상태는 운영 현황을 따른다.
+앱은 OTel JSON을 stdout/stderr에 남긴다. **containerd CRI 로그 → 호스트 rsyslog → 기존 events.jsonl → OCI Unified Monitoring Agent → OCI Logging**으로 전달한다. `configure-k3s-logs.sh`는 CRI의 시간·스트림 접두사를 제거하고 API/Worker 구조화 이벤트만 전달한다. 앱에 Slack 전송 코드나 별도 로그 수집기 컨테이너를 추가하지 않는다.
 
-수집·정제 실패는 별도 처리 상태로 남겨 재시도하며 사용자의 대화로 주입하지 않는다. L2 · Curation 화면에서 최근 업로드 상태·압축 크기·신규/중복 수·기기별 검증 위치와 정제 실패·재시도·실행 이력을 확인한다. 토큰·원문·지식 본문·프롬프트는 운영 로그에 남기지 않는다. 전체 중단·CPU·디스크·HTTP 경보는 후속이다.
+오류 알림·비용 요약은 기존 GitHub Actions를 유지한다. 새 오류만 전송하고 복구·OK·RESET 알림은 보내지 않는다. Collector는 Codex의 Agent Wiki 프로젝트·10분, Claude 비활성, 자동 정제 중지를 유지한다. 배포와 정제 재개는 별개의 작업이다. 실행 결과는 [운영 현황](OPERATIONS.md)에 기록한다.
 
 ## 다음 검증
 

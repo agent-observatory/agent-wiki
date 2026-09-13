@@ -58,65 +58,74 @@ def card(x,y,w,h,title,lines,role='app',ico=None):
   icon(ico,x+w-44,y+20,24)
 
 
-canvas(1920,1330,'로컬에서 수집 · 원격에서 정제','단일 설치하는 Agent Wiki CLI의 백그라운드 수집이 API에서 업로드 허가를 받고 압축 증분을 Object Storage에 직접 전송한다. 서버가 검증·중복 판단 후 L1을 등록한다. 원격 L2 Worker가 Wiki에 저장한 제공자와 모델 설정에 따라 외부 AI API로 정제하고 근거와 실행 기록을 보존한다. 사용자 조회는 정제 완료를 기다리지 않는다.')
+canvas(1920,1280,'단일 VM · K3s 아키텍처','OCI A1 VM 하나에서 K3s server와 containerd가 앱을 관리한다. Traefik이 HTTPS 요청을 Service로 전달하고 cert-manager가 TLS Secret을 관리한다. PostgreSQL은 PVC와 local PV를 통해 기존 Block Volume을 사용한다. Collector 직접 업로드와 L1부터 L5까지의 책임은 유지한다.')
 legend(1110,87,'수집·지식 반영','ingest');legend(1370,87,'조회·응답','query');legend(1600,87,'설정·인증·저장','ops',True)
-# DNS, certificate issuance, and persistent storage are not HTTP intermediaries.
-card(72,180,366,130,'DuckDNS · 도메인',['agent-wiki.duckdns.org','도메인 조회 → VM 공인 주소'],'web','tabler-world')
-card(940,180,280,130,'인증서 발급 기관',['Caddy가 발급·갱신 요청','HTTPS 인증서 자동 관리'],'ops','letsencrypt')
-card(1280,180,320,170,'agent-wiki-data',['Block Volume · 50GB','DB 데이터 · 인증서·설정','부트 볼륨 50GB 별도'],'data','oracle')
-group(40,370,430,912);text(64,406,'사용자 기기',FONT["group"],True,'#FFFFFF')
-group(590,370,1010,830)
-path('M200 450 V310',True,both=True)
-path('M438 245 H745 V450',True);text(490,230,'도메인 → VM 공인 주소',FONT["label"])
-path('M940 255 H800 V450',True,both=True)
-path('M880 480 H905 V335 H1280',True);text(960,329,'인증서 상태 보관',FONT["label"])
-path('M1450 350 V640',True);text(1468,530,'데이터 연결',FONT["label"])
-# Interactive reads and background writes use separate lanes.
-path('M438 520 H630',flow='query',both=True)
-path('M880 520 H940',flow='query',both=True)
-path('M438 855 H630',flow='query',both=True)
-path('M880 855 H940',flow='query',both=True)
-path('M1080 580 V640',flow='query',both=True)
-path('M1220 710 H1280',flow='query',both=True)
-path('M1220 790 H1280',flow='ingest')
-# Repaint headers above connectors crossing group boundaries.
-for hx,hw in [(40,430),(590,1010)]:
- box(hx+1,371,hw-2,52,'#344256','#344256')
-text(64,406,'사용자 기기',FONT["group"],True,'#FFFFFF')
-icon('oracle',614,383,32);text(660,406,'agent-wiki-vm · A1 · 2 OCPU / 12GB',FONT["group"],True,'#FFFFFF')
-a('<g role="img" aria-label="Docker Compose"><title>Docker Compose</title>');icon('docker',1534,378,40);a('</g>')
-card(72,450,366,130,'agent-wiki-web',['브라우저 · 웹 UI','agent-wiki.duckdns.org'],'web','user')
-card(72,640,366,145,'Codex · Claude Code',['작업 에이전트'],'app','tabler-terminal-2')
-component(92,735,326,34,'ai');icon('tabler-clipboard-check',103,741,22)
-text(134,759,'agent-wiki · 설치된 사용 Skill',FONT["label"],True)
-# Runtime placement: installed guidance belongs to the host agent.
-path('M355 785 V825',flow='query',both=True)
-group(72,825,366,425)
-text(92,863,'agent-wiki-client',FONT['group'],True,'#FFFFFF')
-text(92,908,'설치 패키지 · 하나로 배포',FONT['body'])
-card(92,930,326,110,'agent-wiki-cli',['조회 · 검토 · 설정 · 제어'],'app','tabler-terminal-2')
-card(92,1070,326,120,'agent-wiki-collector',['수집 · agent-wiki collector','Codex·Claude · 기본 10분'],'ingest','tabler-cloud-upload')
-path('M438 1120 H520 V885 H630',flow='ingest',both=True);text(535,1030,'수집 제어',FONT["label"],True,FLOW_COLORS['ingest'])
-path('M880 885 H940',flow='ingest',both=True)
-card(630,450,250,460,'agent-wiki-gateway',['Caddy · HTTPS','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
-card(940,450,280,130,'agent-wiki-web',['웹 UI · Next.js','지식·근거·설정 조회'],'web','nextdotjs')
-card(940,640,280,270,'agent-wiki-api',['Fastify · 검색·수집 API','업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
-card(1280,640,280,200,'agent-wiki-db',['PostgreSQL · 지식·근거','세션·출처별 수신 위치','업로드·정제 작업 이력','AI 제공자·모델 설정'],'data','postgresql')
-# Raw storage is outside the VM; its API connection is a straight horizontal line.
-path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확정',FONT["label"])
-card(1640,820,240,190,'agent-wiki-sources',['OCI Object Storage','검증 후 불변 L1 확정','텍스트·이미지 분리'],'data','oracle')
-# L2 is a server-side process using the internal API, never the user's agent session.
-path('M1080 910 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',FONT["label"],True,FLOW_COLORS['ingest'])
-card(940,970,280,198,'agent-wiki-worker',['원격 정제 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','BYOK · 최대 동시성 5개'],'ingest')
-# This card describes configuration stored in Wiki, not another container.
-card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 · API 연결','기본: 일일 제한 없음','일일 한도는 선택 설정'],'ops')
-path('M880 1070 H940',True)
-path('M1220 1080 H1640',flow='ingest',both=True);text(1320,1060,'텍스트 청크·결과',FONT["label"],True,FLOW_COLORS['ingest'])
-card(1640,1050,240,82,'AI Provider',[],'ai','openai')
-path('M438 1215 H1900 V940 H1880',flow='ingest');text(630,1248,'선별·중복 제거한 증분 직접 업로드 · 본문은 API를 통과하지 않음',FONT["label"],True,FLOW_COLORS['ingest'])
-for right,by,n,width in [(424,434,5,150),(424,624,5,150),(404,1054,1,170),(1206,954,2,152),(1546,624,3,172),(1206,624,4,132),(1866,804,1,170)]:
+a('<g transform="translate(0,-250)">')
+card(1640,410,240,120,'DuckDNS · 도메인',['VM 공인 주소 연결','agent-wiki.duckdns.org'],'web','tabler-world')
+card(1640,550,240,160,'agent-wiki-data',['Block Volume · 50GB','DB·K3s 영속 상태','부트 볼륨 50GB 별도'],'data','oracle')
+group(40,430,430,990);text(64,466,'사용자 기기',FONT['group'],True,'#FFFFFF')
+group(590,430,1010,990);icon('oracle',614,443,32)
+text(660,466,'agent-wiki-vm · A1 · 2 OCPU / 12GB',FONT['group'],True,'#FFFFFF')
+icon('kubernetes',1180,443,32)
+text(1224,466,'K3s',FONT['group'],True,'#FFFFFF')
+
+# Request lanes: clients reach Traefik, which routes to internal Services.
+path('M1640 515 H755 V550',True);text(930,504,'DNS 연결 · VM 공인 주소',FONT['label'])
+path('M438 610 H640',flow='query',both=True)
+path('M890 610 H940',flow='query',both=True)
+path('M418 1105 H500 V985 H640',flow='query',both=True)
+path('M890 985 H940',flow='query',both=True)
+path('M1080 680 V820',flow='query',both=True);text(1098,757,'Service',FONT['label'],True,FLOW_COLORS['query'])
+path('M1220 905 H1280',flow='query',both=True)
+path('M1220 985 H1280',flow='ingest')
+path('M418 1240 H520 V1035 H640',flow='ingest',both=True)
+text(531,1130,'수집 제어',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M890 1035 H940',flow='ingest',both=True)
+
+card(72,550,366,130,'브라우저',['agent-wiki-web · 읽기 전용','지식·근거·처리 상태 조회'],'web','user')
+card(72,750,366,150,'Codex · Claude Code',['작업 에이전트'],'app','tabler-terminal-2')
+component(92,842,326,36,'ai');icon('tabler-clipboard-check',103,849,22)
+text(134,867,'agent-wiki · 설치된 사용 Skill',FONT['label'],True)
+path('M438 820 H455 V1055 H418',flow='query',both=True)
+group(72,955,366,430);text(92,993,'agent-wiki-client',FONT['group'],True,'#FFFFFF')
+card(92,1025,326,110,'agent-wiki-cli',['조회 · 검토 · 설정 · 제어'],'app','tabler-terminal-2')
+card(92,1175,326,150,'agent-wiki-collector',['독립된 백그라운드 수집','선별 · 마스킹 · zstd','기본 10분 · 프로젝트 선택'],'ingest','tabler-cloud-upload')
+
+card(640,550,250,530,'agent-wiki-gateway',['Traefik','Reverse Proxy','외부 TCP 80 / 443','Ingress · 경로 분기'],'app','tabler-world')
+text(660,817,'/ → agent-wiki-web',FONT['body'])
+text(660,861,'/api → agent-wiki-api',FONT['body'])
+card(940,550,280,130,'agent-wiki-web',['Next.js · 내부 3000','Deployment + Service'],'web','nextdotjs')
+card(940,820,280,260,'agent-wiki-api',['Fastify · 내부 3001','Deployment + Service','수집 허가·검증·L1 확정','검색·지식·설정·검토','수집·조회 HTTP API'],'app','fastify')
+card(1280,820,280,210,'agent-wiki-db',['PostgreSQL · 내부 5432','StatefulSet + Service','지식·근거·변경 관계','관리 접속 · 외부 5432'],'data','postgresql')
+
+# The disk is attached to the VM. PVC/PV binds its mounted PostgreSQL path.
+path('M1640 625 H1560',True);text(1480,735,'VM 마운트',FONT['label'])
+card(1280,550,280,150,'agent-wiki-db-data',['PVC → local PV','Block Volume의 DB 경로','Retain · 노드 고정'],'data','tabler-book-2')
+path('M1420 820 V700',True);text(1438,764,'데이터 읽기·쓰기',FONT['label'])
+
+# API only orchestrates source registration; collector bytes bypass the VM.
+path('M1220 1060 H1640',True,both=True);text(1310,1090,'원문 허가·검증',FONT['label'])
+card(1640,890,240,190,'agent-wiki-sources',['OCI Object Storage','불변 L1 · 압축 보관','텍스트·이미지 분리'],'data','oracle')
+path('M418 1300 H480 V1470 H1900 V1000 H1880',flow='ingest')
+text(650,1500,'압축 증분 직접 업로드 · 본문은 VM을 통과하지 않음',FONT['label'],True,FLOW_COLORS['ingest'])
+
+# Worker executes domain code and accesses DB directly.
+path('M1220 1195 H1250 V1010 H1280',flow='ingest',both=True)
+card(940,1140,280,220,'agent-wiki-worker',['Deployment · 원격 정제','텍스트 청킹·주장 추출','기존 지식 비교·관계 연결','BYOK · RPM·동시성 제어','수신 포트 없음'],'ingest','tabler-cpu')
+path('M1220 1330 H1640',flow='ingest',both=True)
+text(1310,1357,'텍스트·정제 결과',FONT['label'],True,FLOW_COLORS['ingest'])
+card(1640,1285,240,100,'AI Provider',[],'ai','openai')
+
+# Control components are shown off the application request path.
+card(640,1140,250,220,'K3s 제어·실행',['API Server · 6443','kubelet · 10250','Scheduler · 10259','containerd · 로컬 통신','관리 포트 · 외부 비공개'],'ops','kubernetes')
+card(1280,1140,280,170,'cert-manager',['인증서 발급·자동 갱신','Webhook · 내부 443','ACME · 외부 443'],'ops','tabler-clipboard-check')
+card(1640,1130,240,130,'인증서 발급 기관',['ACME · Let’s Encrypt','도메인 소유 확인'],'ops','letsencrypt')
+path('M1560 1225 H1640',True,both=True)
+path('M1420 1140 V1095 H770 V1080',True);text(785,1119,'TLS Secret',FONT['label'])
+for right,by,n,width in [(424,734,5,150),(404,1159,1,170),(1206,1124,2,152),(1546,804,3,172),(1206,804,4,132),(1866,874,1,170)]:
  bx=right-width
- box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,layer_label(n),FONT["label"],True,'#FFFFFF')
+ box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,layer_label(n),FONT['label'],True,'#FFFFFF')
+a('</g>')
 end('docs/assets/wiki-deployment.svg')
 
 canvas(1560,1145,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
@@ -179,9 +188,9 @@ end('docs/assets/wiki-lineage.svg')
 
 canvas(1560,1210,'운영 · 사용자 작업과 백그라운드 처리 분리','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
 rows=[(190,'01','인프라',[
- ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','Docker·마운트 · 부팅 시 기동','OS·Docker 업데이트 직접 관리'),('docker','Docker Compose','Caddy · Web · API · PostgreSQL','원격 정제 Worker · 별도 실행')]),
+ ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','디스크 마운트 · K3s 기동','OS·K3s 업데이트 직접 관리'),('kubernetes','K3s','Traefik · Web · API · PostgreSQL','원격 정제 Worker · 별도 실행')]),
  (385,'02','앱 배포',[
- ('github','외부 ARM64 빌드','GHCR 게시 → VM 미리 pull','새 구조 검증 후 일괄 교체'),('tabler-terminal-2','외부 차단 → 정상 종료','진행 요청·정제 작업 마무리','미완료 정제는 재시도'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Caddy 유지 · 짧은 중단','쓰기 결과는 멱등 키로 확인')]),
+ ('github','외부 ARM64 빌드','GHCR 게시 → Pod 이미지 확보','migration Job → 앱 교체'),('tabler-terminal-2','외부 차단 → 정상 종료','진행 요청·정제 작업 마무리','미완료 정제는 재시도'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Traefik 유지 · 상태 확인','쓰기 결과는 멱등 키로 확인')]),
  (580,'03','오류 로그',[
  ('ubuntu','stdout → OCI Logging','Docker syslog · rsyslog','OCI 기성 호스트 에이전트'),('github','Actions · 5분마다','OCI Logging · 새 ERROR 조회','같은 오류 최대 시간당 1회'),('tabler-bell','Slack Webhook','한국어 오류 요약 · 로그 링크','오류만 알림 · 복구 알림 없음')]),
  (775,'04','비용·사용량',[

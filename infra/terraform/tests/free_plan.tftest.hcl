@@ -42,6 +42,14 @@ run "single_free_a1" {
   }
 }
 
+run "k3s_keeps_management_private" {
+  command = plan
+  assert {
+    condition     = local.public_tcp_ports == toset([22, 80, 443, 5432]) && local.k3s_pod_cidr == "10.52.0.0/16" && local.k3s_service_cidr == "10.53.0.0/16"
+    error_message = "Keep existing public ports only and use non-overlapping K3s networks."
+  }
+}
+
 run "monitoring_without_function" {
   command = plan
   variables {

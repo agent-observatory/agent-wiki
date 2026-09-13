@@ -66,3 +66,7 @@ Wiki 아이콘은 [Tabler book-2 v3.34.1](https://github.com/tabler/tabler-icons
 | `tabler-bell.svg` | [Tabler bell v3.34.1](https://github.com/tabler/tabler-icons/blob/v3.34.1/icons/outline/bell.svg) | [MIT](TABLER-LICENSE.md) |
 
 Obsidian은 2026-09-12 Tech Stack Icons 3.7.1과 techicons.dev 목록에서 찾지 못해 Simple Icons 원본을 사용했다. 문서 연결·그래프 재사용 검토 이력으로 보존한다. 사용자는 Obsidian 앱을 직접 사용하지 않으며 배포 구성에 포함하지 않는다.
+
+## K3s 구성도
+
+`kubernetes.svg`: Tech Stack Icons 3.7.1 패키지에 없어 [techicons.dev / Kubernetes](https://techicons.dev/icons/kubernetes)의 [원본 SVG](https://icon.icepanel.io/Technology/svg/Kubernetes.svg)를 사용한다. Devicon 기반 [MIT](DEVICON-LICENSE.md). K3s는 Kubernetes 아이콘과 이름으로, Traefik·cert-manager·제어 기능은 기존 Tabler 기능 아이콘으로 표시한다.

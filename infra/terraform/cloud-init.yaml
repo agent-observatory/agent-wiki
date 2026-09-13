@@ -1,6 +1,6 @@
 #cloud-config
 package_update: true
-packages: [docker.io, docker-compose-v2, rsyslog, jq, openssl]
+packages: [curl, rsyslog, jq, openssl, iptables-persistent]
 write_files:
   - path: /etc/apparmor.d/rsyslog.d/agent-wiki
     content: |
@@ -41,34 +41,14 @@ write_files:
       uuid=$(blkid -s UUID -o value "$device")
       grep -q "$uuid" /etc/fstab || echo "UUID=$uuid /srv/agent-wiki/data ext4 defaults,_netdev 0 2" >> /etc/fstab
       mountpoint -q /srv/agent-wiki/data || mount /srv/agent-wiki/data
-      mkdir -p /srv/agent-wiki/data/{postgres,caddy,config,tls} /opt/agent-wiki
+      mkdir -p /srv/agent-wiki/data/{postgres,k3s,tls} /opt/agent-wiki
       chown ubuntu:ubuntu /opt/agent-wiki
-  - path: /etc/systemd/system/agent-wiki.service
-    content: |
-      [Unit]
-      Description=Agent Wiki Compose
-      After=docker.service network-online.target rsyslog.service
-      Requires=docker.service
-      RequiresMountsFor=/srv/agent-wiki/data
-      ConditionPathExists=/opt/agent-wiki/compose.yaml
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      WorkingDirectory=/opt/agent-wiki
-      ExecStart=/usr/bin/docker compose up -d --no-build
-      ExecStop=/usr/bin/docker compose stop -t 120 agent-wiki-web agent-wiki-worker agent-wiki-api
-      TimeoutStartSec=180
-      TimeoutStopSec=180
-      [Install]
-      WantedBy=multi-user.target
 runcmd:
-  - usermod -aG docker ubuntu
   - install -d -o syslog -g adm -m 0750 /var/log/agent-wiki
-  - systemctl enable --now docker
   - systemctl restart rsyslog
   - iptables -I INPUT 1 -p tcp -m multiport --dports 22,80,443,5432 -j ACCEPT
   - mkdir -p /etc/iptables
   - sh -c "iptables-save > /etc/iptables/rules.v4"
   - /usr/local/sbin/wiki-mount
   - systemctl daemon-reload
-  - systemctl enable agent-wiki
+  # Install the pinned K3s runtime after the data volume is attached; no Compose boot service.

@@ -4,12 +4,23 @@
 
 | 구분 | 확인한 상태 |
 | --- | --- |
-| 원격 앱 | 단일 OCI VM 배포, main → Actions → GHCR → SSH 자동 갱신 |
+| 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
 | 로컬 패키지 | 0.7.0 · 조회·검토·관리 CLI·Skill·Collector 통합 |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 자동 정제 중지 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [오류 전용 알림](#오류만-slack-알림) 참고 |
+
+## K3s 전환
+
+2026-09-13. 기존 OCI A1 VM에서 **K3s 실배포·HTTPS·수집 확인 완료**. GitHub Actions의 새 배포 경로는 코드 반영 후 별도로 확인한다.
+
+- 런타임: K3s `v1.36.4+k3s1`, Traefik chart `41.5.0`, cert-manager `v1.21.2`. Web/API/Worker Deployment, PostgreSQL StatefulSet과 기존 데이터 경로의 local PV다. 별도 노드·관리형 LB·볼륨은 만들지 않았다. Terraform apply는 자원 추가/변경/삭제 0, 최종 plan도 변경 없음이다.
+- 전환: 처음 로그 문법·Traefik chart 설정 오류에서 Compose로 두 번 복귀했다. 이후 사용자 지시에 따라 전체 중단을 허용하고 K3s에서 수정해 마쳤다. Compose 설정·이전 배포 스크립트·호스트 실행 서비스는 제거한다. DB는 한 번에 한 프로세스만 같은 디스크를 사용했다.
+- 네트워크: OCI VCN과 겹치지 않게 Pod `10.52.0.0/16`, Service `10.53.0.0/16`을 사용한다. HTTPS API 경로는 Web보다 높은 우선순위로 선언했다. 외부 3000/3001/6443/10250 차단, 기존 443/DB 관리 5432 연결, Web→API 허용과 Web→DB/관리 API/인터넷 차단을 실제 확인했다.
+- 인증·상태: HTTP→HTTPS, GitHub OAuth 시작 302, 인증된 CLI 조회, DB 인증서 검증 접속 성공. cert-manager ACME 발급 요청이 Ready이고 새 인증서를 발급했다. 원문 314건·지식 0에서 시작했으며 BYOK Version 46·자동 정제 false·Claude 비활성·Codex Agent Wiki 제한을 유지했다.
+- 수집·로그: 실제 Collector 증분 56개 기록이 업로드·검증 완료되어 원문 3건을 추가했다. K3s CRI 로그를 기존 rsyslog가 JSON으로 풀어 기존 OCI 수집 파일에 기록한다. syslog 읽기 ACL을 새 로그에도 상속하며 `upload_completed` 기록을 확인했다. 정제 재개나 모델 호출은 하지 않았다.
+- 검증: K3s 계약 7개·Terraform 모의 검사 3개·타입 검사·셸 문법·SVG XML/렌더 통과. 유휴 관측에서 노드 메모리 약 1.8GiB, CPU 약 0.27코어였다. 단일 노드 장애·OS/K3s 업데이트는 여전히 직접 관리한다.
 
 ## 후보 검색과 결정 리니지
 

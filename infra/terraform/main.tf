@@ -74,7 +74,7 @@ resource "oci_core_security_list" "wiki" {
 
   dynamic "ingress_security_rules" {
 
-    for_each = toset([22, 80, 443, 5432])
+    for_each = local.public_tcp_ports
     content {
       protocol = "6"
       source   = "0.0.0.0/0"

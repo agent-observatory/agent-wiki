@@ -1,0 +1,16 @@
+# One existing OCI A1. 10.42/16 is the VCN, never use the K3s default Pod CIDR.
+node-name: agent-wiki-vm
+data-dir: /srv/agent-wiki/data/k3s
+cluster-cidr: 10.52.0.0/16
+service-cidr: 10.53.0.0/16
+cluster-dns: 10.53.0.10
+write-kubeconfig-mode: "0600"
+secrets-encryption: true
+disable:
+  - traefik
+  - local-storage
+kubelet-arg:
+  - system-reserved=cpu=200m,memory=512Mi
+  - kube-reserved=cpu=200m,memory=768Mi
+  - container-log-max-size=10Mi
+  - container-log-max-files=3
