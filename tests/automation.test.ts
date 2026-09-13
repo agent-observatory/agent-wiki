@@ -873,3 +873,178 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
   );
   assert.equal(await getSource(state.source.object_key), raw);
 });
+
+test("invalid model quotations are regenerated after delay without blocking a session permanently or replaying rejected output", async () => {
+  const settings = (await request("GET", "/ai-settings")).json();
+  await request("PUT", "/ai-settings", {
+    config: { ...defaults, enabled: true, dailyCalls: null },
+    version: settings.version,
+  });
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  const quote = "단일 VM으로 시작하자.";
+  const raw = JSON.stringify({
+    event: 1,
+    field: '["payload","content",0,"text"]',
+    text: quote,
+  });
+  const sourceId = randomUUID(),
+    jobId = randomUUID();
+  const objectKey = ws + "/" + hash(raw) + ".txt.gz";
+  await putSource(objectKey, raw);
+  await tx(owner, ws, async (c) => {
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'Evidence retry','conversation','codex:evidence-retry',$3,$3,$4,1,$5,true)",
+      [sourceId, ws, hash(raw), objectKey, randomUUID()],
+    );
+    await c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [jobId, ws, sourceId],
+    );
+  });
+  let calls = 0;
+  const model = async (_config: unknown, _secret: string, messages: any) => {
+    calls++;
+    const input = JSON.parse(messages[1].content);
+    if (calls === 1) assert.equal(input.evidenceRetry, undefined);
+    else {
+      assert.equal(input.evidenceRetry.reason, "EVIDENCE_MISMATCH");
+      assert.ok(input.evidenceRetry.previousRunId);
+      assert.deepEqual(input.evidenceRetry.rejectedEvidence, [0]);
+      assert.equal(
+        input.evidenceRetry.rejectedQuotes[0].quote,
+        "단일 서버로 운영하기로 결정했다.",
+      );
+    }
+    return {
+      output: {
+        changes: [
+          {
+            clientRef: "retry",
+            title: "합성 인용 재생성",
+            content: quote,
+            kind: "memory",
+            claims: [
+              {
+                anchor: "decision",
+                text: quote,
+                type: "unconfirmed",
+                evidence: [
+                  {
+                    sourceId,
+                    revision: 1,
+                    lines: [1, 1],
+                    quote:
+                      calls < 3 ? "단일 서버로 운영하기로 결정했다." : quote,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      usage: { total_tokens: 10 },
+    };
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal(
+      await runOne(owner, new AbortController().signal, model),
+      true,
+    );
+    const state = await tx(owner, ws, async (c) => ({
+      job: (await c.query("SELECT * FROM refinement_jobs WHERE id=$1", [jobId]))
+        .rows[0],
+      runs: (
+        await c.query(
+          "SELECT * FROM refinement_runs WHERE job_id=$1 ORDER BY created_at",
+          [jobId],
+        )
+      ).rows,
+      evidence: (
+        await c.query(
+          "SELECT count(*)::int AS n FROM evidence WHERE source_id=$1",
+          [sourceId],
+        )
+      ).rows[0].n,
+      gate: (
+        await c.query(
+          "SELECT failures FROM model_request_gates WHERE owner_id=$1",
+          [owner],
+        )
+      ).rows[0],
+    }));
+    assert.equal(state.job.status, "pending");
+    assert.equal(state.job.error_code, "EVIDENCE_MISMATCH");
+    assert.equal(
+      state.job.output,
+      null,
+      "a known invalid payload must never enter publish-only recovery",
+    );
+    assert.equal(state.job.chunk_index, 0);
+    assert.equal(state.evidence, 0);
+    assert.equal(state.runs.length, attempt + 1);
+    assert.equal(state.runs.at(-1).diagnostics.retryable, true);
+    assert.equal(
+      state.runs.at(-1).diagnostics.retryKind,
+      "evidence_regeneration",
+    );
+    assert.ok(
+      state.runs.at(-1).diagnostics.retryDelaySeconds >= 120 &&
+        state.runs.at(-1).diagnostics.retryDelaySeconds <= 144,
+    );
+    assert.equal(
+      state.gate.failures,
+      0,
+      "invalid output is not a provider outage",
+    );
+    assert.equal(
+      await runOne(owner, new AbortController().signal, model),
+      false,
+      "respect the retry delay",
+    );
+    await admin.query(
+      "UPDATE refinement_jobs SET available_at=now() WHERE id=$1",
+      [jobId],
+    );
+    await admin.query(
+      "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+      [owner],
+    );
+  }
+  assert.equal(await runOne(owner, new AbortController().signal, model), true);
+  assert.equal(calls, 3);
+  const final = await tx(owner, ws, async (c) => ({
+    job: (
+      await c.query(
+        "SELECT status,chunk_index FROM refinement_jobs WHERE id=$1",
+        [jobId],
+      )
+    ).rows[0],
+    evidence: (
+      await c.query("SELECT quote FROM evidence WHERE source_id=$1", [sourceId])
+    ).rows,
+    runs: (
+      await c.query(
+        "SELECT status,output FROM refinement_runs WHERE job_id=$1 ORDER BY created_at",
+        [jobId],
+      )
+    ).rows,
+  }));
+  assert.equal(final.job.status, "completed");
+  assert.equal(final.job.chunk_index, 1);
+  assert.deepEqual(final.evidence, [{ quote: raw }]);
+  assert.deepEqual(
+    final.runs.map((r) => r.status),
+    ["failed", "failed", "completed"],
+  );
+  assert.equal(
+    final.runs[0].output.changes[0].claims[0].evidence[0].quote,
+    "단일 서버로 운영하기로 결정했다.",
+  );
+});
