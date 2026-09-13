@@ -4,7 +4,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
-import { hash, getSource } from "../packages/core/src/storage.js";
+import { hash, getSource, putSource } from "../packages/core/src/storage.js";
 import {
   defaults,
   decryptSecret,
@@ -656,4 +656,100 @@ test("Curation groups sessions before pagination and pages only selected session
     (x: any) => x.name === "Session 0",
   );
   assert.equal(changed.total, 29);
+});
+
+test("Worker anchors a unique decoded quotation while preserving raw model output and L1", async () => {
+  const current = (await request("GET", "/ai-settings")).json();
+  await request("PUT", "/ai-settings", {
+    config: { ...defaults, enabled: true, dailyCalls: null },
+    version: current.version,
+  });
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  const quote = "단일 VM을 사용한다.";
+  const raw = JSON.stringify({
+    event: 1,
+    field: '["payload","content",0,"text"]',
+    text: quote,
+  });
+  let sourceId = randomUUID();
+  const objectKey = ws + "/" + hash(raw) + ".txt.gz";
+  await putSource(objectKey, raw);
+  await tx(owner, ws, async (c) => {
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'Exact anchor','conversation','codex:exact-quote-anchor',$3,$3,$4,1,$5,true)",
+      [sourceId, ws, hash(raw), objectKey, randomUUID()],
+    );
+    await c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [randomUUID(), ws, sourceId],
+    );
+  });
+  assert.equal(
+    await runOne(
+      owner,
+      new AbortController().signal,
+      async (_config, _secret, messages: any) => {
+        const input = JSON.parse(messages[1].content);
+        sourceId = input.source.id;
+        return {
+          output: {
+            changes: [
+              {
+                clientRef: "anchored",
+                title: "정확한 인용 위치",
+                content: quote,
+                kind: "memory",
+                claims: [
+                  {
+                    anchor: "decision",
+                    text: quote,
+                    type: "unconfirmed",
+                    evidence: [
+                      { sourceId, revision: 1, lines: [10, 13], quote },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          usage: { total_tokens: 20 },
+        };
+      },
+    ),
+    true,
+  );
+  const state = await tx(owner, ws, async (c) => ({
+    run: (
+      await c.query(
+        "SELECT r.status,r.error_code,r.diagnostics,r.output FROM refinement_runs r JOIN refinement_jobs j ON j.id=r.job_id WHERE j.source_id=$1 ORDER BY r.created_at DESC LIMIT 1",
+        [sourceId],
+      )
+    ).rows[0],
+    evidence: (
+      await c.query(
+        "SELECT line_start,line_end,quote FROM evidence WHERE workspace_id=$1 AND source_id=$2",
+        [ws, sourceId],
+      )
+    ).rows,
+    source: (
+      await c.query("SELECT object_key FROM sources WHERE id=$1", [sourceId])
+    ).rows[0],
+  }));
+  assert.equal(state.run.status, "completed", state.run.error_code);
+  assert.equal(state.run.diagnostics.anchoredEvidence, 1);
+  assert.deepEqual(
+    state.run.output.changes[0].claims[0].evidence[0].lines,
+    [10, 13],
+  );
+  assert.deepEqual(state.evidence, [
+    { line_start: 1, line_end: 1, quote: raw },
+  ]);
+  assert.equal(await getSource(state.source.object_key), raw);
 });

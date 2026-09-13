@@ -69,14 +69,14 @@
 <text x="1044" y="579" font-size="18" font-weight="400" fill="#172C4B">추가 · 정정 · 취소</text>
 <text x="1044" y="610" font-size="18" font-weight="400" fill="#172C4B">불명확하면 보강 요청</text>
 <rect x="1352" y="468" width="268" height="188" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
-<text x="1372" y="510" font-size="20" font-weight="700" fill="#172C4B">검증</text>
+<text x="1372" y="510" font-size="20" font-weight="700" fill="#172C4B">근거 연결·검증</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1372" y="528" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
   <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
   <path d="M9 14l2 2l4 -4" />
 </svg>
-<text x="1406" y="548" font-size="18" font-weight="400" fill="#172C4B">원문 역할 · 인용</text>
-<text x="1372" y="579" font-size="18" font-weight="400" fill="#172C4B">Version · 정정 권한</text>
+<text x="1406" y="548" font-size="18" font-weight="400" fill="#172C4B">유일한 인용 → 원문 행</text>
+<text x="1372" y="579" font-size="18" font-weight="400" fill="#172C4B">역할 · Version · 정정 권한</text>
 <text x="1372" y="610" font-size="18" font-weight="400" fill="#172C4B">불확실 → 미확인</text>
 <path d="M328 560 H368" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M656 560 H696" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>

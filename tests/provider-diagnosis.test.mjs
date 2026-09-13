@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { probe } from "../experiments/curation/provider-diagnosis.mjs";
+import {
+  probe,
+  probeNeedsCooldown,
+} from "../experiments/curation/provider-diagnosis.mjs";
 
 async function serverFor(handler, run) {
   const server = createServer(handler);
@@ -123,6 +126,29 @@ test("probe preserves output truncation, provider errors and caller timeouts as 
       const result = await probe(url, "synthetic", {}, { timeoutMs: 30 });
       assert.equal(result.error, "CLIENT_TIMEOUT_OR_ABORT");
       assert.equal(result.status, undefined);
+    },
+  );
+});
+
+test("a stalled HTTP 200 stream still requires the shared retry cooldown", async () => {
+  await serverFor(
+    (_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write('data: {"choices":[{"delta":{"content":"partial"}}]}\n\n');
+    },
+    async (url) => {
+      const result = await probe(
+        url,
+        "synthetic",
+        { stream: true },
+        { timeoutMs: 500 },
+      );
+      assert.equal(result.status, 200);
+      assert.equal(result.complete, false);
+      assert.equal(result.contentChars, 7);
+      assert.equal(probeNeedsCooldown(result), true);
+      assert.equal(probeNeedsCooldown({ status: 200, complete: true }), false);
+      assert.equal(probeNeedsCooldown({ status: 401, complete: false }), false);
     },
   );
 });

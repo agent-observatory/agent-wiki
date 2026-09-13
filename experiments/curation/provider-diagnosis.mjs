@@ -6,6 +6,15 @@ import { pathToFileURL } from "node:url";
 // Do not import Undici's root: it installs a dispatcher used by OCI signed requests.
 const Agent = createRequire(import.meta.url)("undici/lib/dispatcher/agent.js");
 
+export function probeNeedsCooldown(result) {
+  return (
+    !result.complete &&
+    (!result.status ||
+      [200, 202, 408, 429].includes(result.status) ||
+      result.status >= 500)
+  );
+}
+
 export async function probe(
   url,
   secret,
@@ -293,7 +302,7 @@ async function main() {
         "hello-current-wire",
         { ...base, chat_template_kwargs: { thinking: false } },
       ],
-      ["full-2048", full],
+      ["full-2048", { ...full, max_tokens: 2048 }],
       ["hello-control-after-full", hello],
       ["full-8192", { ...full, max_tokens: 8192 }],
       ["hello-control-after-8192", hello],
@@ -323,6 +332,22 @@ async function main() {
       `full-original-wire-${maxTokens}`,
       { ...originalFull, max_tokens: maxTokens, reasoning_effort: "none" },
     ]);
+    alternatives.push(
+      [
+        "hello-original-stream",
+        { ...base, reasoning_effort: "none", stream: true },
+      ],
+      ["hello-current-stream", { ...hello, stream: true }],
+      [
+        "full-original-stream-16384",
+        {
+          ...originalFull,
+          max_tokens: 16384,
+          reasoning_effort: "none",
+          stream: true,
+        },
+      ],
+    );
     const requested =
       process.env.PROVIDER_DIAGNOSTIC_CASES?.split(",").filter(Boolean);
     const selected = requested
@@ -385,13 +410,10 @@ async function main() {
           },
         },
       );
+      signal.throwIfAborted();
       if (result.status === 200 && result.complete)
         await modelResponded(owner, gate);
-      else if (
-        !result.status ||
-        [202, 408, 429].includes(result.status) ||
-        result.status >= 500
-      )
+      else if (probeNeedsCooldown(result))
         result.cooldownSeconds = await tx(owner, null, (c) =>
           coolDownModel(c, owner, gate, parseRetryAfter(result.retryAfter)),
         );
