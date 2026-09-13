@@ -49,6 +49,8 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 AI 설정은 **Free / BYOK** 두 모드다. Free는 NVIDIA·DeepSeek Flash를 자동 선택하고 연결 요약만 보여준다. BYOK는 API 주소·모델·키를 표시하고 한도·추론 옵션은 접힌 고급 설정에 둔다. 키는 최초 입력이나 변경 때만 받으며 모드별 연결을 보관한다. 저장 옆 연결 테스트는 짧은 Hello와 응답 시간·입력/출력 토큰을 표시한다. 테스트는 설정 저장·자동 정제 재개와 독립적이다.
 
+BYOK 필드명은 API/SDK 명칭인 `base_url`, `model`, `api_key`, `max_tokens` 또는 `max_completion_tokens`, `enable_thinking`, `thinking_budget`, `reasoning_effort`를 사용한다. 제공자에서 지원하는 옵션만 보인다. Wiki 자체 제한인 `dailyCalls`, `maxInputTokens`, `requestsPerMinute`, `concurrency`, `retryDelaySeconds`는 코드 이름으로 표시하고 제공자 파라미터와 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.
+
 ## 테마 토큰
 
 공식 CSS 변수와 `.dark` 테마 방식을 따른다. HEX 값을 컴포넌트마다 직접 넣지 않는다. 기본 테마의 표면·글자 쌍을 함께 사용한다. [공식 테마 규칙](https://ui.shadcn.com/docs/theming)

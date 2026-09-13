@@ -9,7 +9,11 @@ export type Chunk = {
   contextStart: number;
   contextEnd: number;
 };
-export function planChunks(text: string, budget: number): Chunk[] {
+export function planChunks(
+  text: string,
+  budget: number,
+  count = estimateTokens,
+): Chunk[] {
   const lines = text.split("\n"),
     groups: { start: number; end: number }[] = [];
   let begin = 0,
@@ -36,7 +40,7 @@ export function planChunks(text: string, budget: number): Chunk[] {
     let start = group.start,
       size = 0;
     for (let i = group.start; i < group.end; i++) {
-      const bytes = estimateTokens(JSON.stringify(lines[i]) + "\n");
+      const bytes = count(JSON.stringify(lines[i]) + "\n");
       if (bytes > budget) throw new Error("AI_LINE_TOO_LARGE");
       if (size + bytes > budget && i > start) {
         units.push({ start, end: i, origin: group.start });
@@ -64,7 +68,7 @@ export function planChunks(text: string, budget: number): Chunk[] {
   for (const u of units) {
     const bytes = lines
       .slice(u.start, u.end)
-      .reduce((n, line) => n + estimateTokens(JSON.stringify(line) + "\n"), 0);
+      .reduce((n, line) => n + count(JSON.stringify(line) + "\n"), 0);
     if (size + bytes > budget && end > start) {
       flush();
       start = u.start;

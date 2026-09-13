@@ -92,3 +92,9 @@ test("retry delay stays near two minutes and honors longer Retry-After", () => {
   assert.equal(retryDelay(180, 0), 185);
   assert.equal(retryDelay(99999, 0), 100004);
 });
+
+test("BYOK retry base preserves provider Retry-After plus five seconds", () => {
+  assert.equal(retryDelay(0, 0, 30), 30);
+  assert.equal(retryDelay(0, 1, 30), 36);
+  assert.equal(retryDelay(60, 0, 30), 65);
+});

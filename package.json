@@ -19,6 +19,7 @@
     "@fastify/oauth2": "8.3.0",
     "@fastify/rate-limit": "11.2.0",
     "fastify": "5.12.4",
+    "js-tiktoken": "1.0.21",
     "oci-common": "2.140.1",
     "oci-objectstorage": "2.140.1",
     "pg": "8.23.0",

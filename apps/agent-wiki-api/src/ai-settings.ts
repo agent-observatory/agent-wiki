@@ -49,6 +49,12 @@ function normalize(config: AiConfig): AiConfig {
         model: defaults.model,
         baseUrl: defaults.baseUrl,
         reasoning: defaults.reasoning,
+        requestsPerMinute: 20,
+        concurrency: 1,
+        retryDelaySeconds: 120,
+        enable_thinking: undefined,
+        thinking_budget: undefined,
+        max_completion_tokens: undefined,
       }
     : config;
 }
@@ -163,9 +169,25 @@ export function registerAiSettings(
         signal = AbortSignal.timeout(20000);
       const started = performance.now();
       try {
-        await waitForModelSlot(owner, gateKey, signal);
+        await waitForModelSlot(
+          owner,
+          gateKey,
+          signal,
+          config.requestsPerMinute,
+        );
         const result = await callModel(
-          { ...config, maxTokens: 512 },
+          {
+            ...config,
+            maxTokens: 512,
+            ...(config.max_completion_tokens != null
+              ? {
+                  max_completion_tokens: Math.max(
+                    512,
+                    (config.thinking_budget ?? 1024) + 512,
+                  ),
+                }
+              : {}),
+          },
           secret,
           [
             {
@@ -174,7 +196,8 @@ export function registerAiSettings(
             },
           ],
           signal,
-          () => waitForModelSlot(owner, gateKey, signal),
+          () =>
+            waitForModelSlot(owner, gateKey, signal, config.requestsPerMinute),
         );
         if (
           !z.object({ message: z.literal("Hello") }).safeParse(result.output)
@@ -191,7 +214,13 @@ export function registerAiSettings(
         if (e instanceof ModelError) {
           if (/^AI_HTTP_(429|5\d\d)$/.test(e.code))
             await tx(owner, null, (c) =>
-              coolDownModel(c, owner, gateKey, e.retryAfter ?? null),
+              coolDownModel(
+                c,
+                owner,
+                gateKey,
+                e.retryAfter ?? null,
+                config.retryDelaySeconds,
+              ),
             );
           throw new AppError(400, e.code);
         }

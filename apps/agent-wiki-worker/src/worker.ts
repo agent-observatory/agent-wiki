@@ -1,3 +1,4 @@
+import { inputTokenCounter } from "../../../packages/core/src/input-tokens.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import {
   captureBatch,
@@ -95,6 +96,13 @@ export async function runOne(
         "UPDATE refinement_jobs SET status='pending',error_code='LEASE_EXPIRED',lease_until=NULL,available_at=now()+interval '60 seconds',updated_at=now() WHERE workspace_id=$1 AND status='running' AND lease_until<now()",
         [ws],
       );
+      const active = (
+        await c.query(
+          "SELECT count(*)::int AS n FROM refinement_jobs WHERE workspace_id=$1 AND status='running'",
+          [ws],
+        )
+      ).rows[0].n;
+      if (active >= config.concurrency) return null;
       let job = await nextCurationJob(c, ws);
       if (!job) return null;
       const secret = decryptSecret(settings.encrypted_key);
@@ -158,8 +166,9 @@ export async function runOne(
         generation: job.generation,
         stage: job.output ? "publish" : "prepare",
         attempt: job.attempts + 1,
-        minIntervalMs: 3000,
-        concurrency: 1,
+        minIntervalMs: 60000 / config.requestsPerMinute,
+        concurrency: config.concurrency,
+        retryBaseSeconds: config.retryDelaySeconds,
         modelTimeoutMs: MODEL_TIMEOUT_MS,
         leaseSeconds: JOB_LEASE_SECONDS,
         ...(job.output ? { recoveryOf: job.run_id } : {}),
@@ -196,6 +205,8 @@ export async function runOne(
     try {
       let payload = task.output;
       if (!payload) {
+        const tokenCounter = await inputTokenCounter(task.config);
+        const countInputTokens = tokenCounter.count;
         const input = await tx(owner, ws, async (c) => {
           const batch = await readBatch(c, ws, task);
           const source = {
@@ -214,7 +225,7 @@ export async function runOne(
           diagnostics.sourceOmittedBytes = projection.omittedBytes;
           const budget =
             task.config.maxInputTokens -
-            estimateTokens(instruction) -
+            countInputTokens(instruction) -
             CONTEXT_BUDGET -
             1600;
           if (budget < 256) throw new ModelError("AI_INPUT_BUDGET_TOO_SMALL");
@@ -223,7 +234,9 @@ export async function runOne(
             promptVersion: PROMPT_VERSION,
             inputVersion: CURATION_INPUT_VERSION,
             sourceHash: source.content_hash,
-            chunks: planChunks(text, budget),
+            tokenCounter: tokenCounter.version,
+            maxInputTokens: task.config.maxInputTokens,
+            chunks: planChunks(text, budget, countInputTokens),
           };
           if (plan.sourceHash !== source.content_hash)
             throw new ModelError("SOURCE_HASH_MISMATCH");
@@ -281,17 +294,23 @@ export async function runOne(
               : null,
             related,
           };
-          if (
-            estimateTokens(instruction) +
-              estimateTokens(
-                JSON.stringify({
-                  ...input,
-                  source: { ...input.source, spans: undefined },
-                }),
-              ) +
-              128 >
-            task.config.maxInputTokens
-          )
+          const estimatedInputTokens =
+            countInputTokens(instruction) +
+            countInputTokens(
+              JSON.stringify({
+                ...input,
+                source: { ...input.source, spans: undefined },
+              }),
+            ) +
+            128;
+          diagnostics.inputBudget = {
+            counter: tokenCounter.version,
+            estimatedTokens: estimatedInputTokens,
+            limit: task.config.maxInputTokens,
+            sourceBudget: budget,
+            sourceRows: chunk.end - chunk.start + 1,
+          };
+          if (estimatedInputTokens > task.config.maxInputTokens)
             throw new ModelError("AI_INPUT_LIMIT");
           const planned = await c.query(
             "UPDATE refinement_jobs SET chunk_plan=$3,chunk_count=$4 WHERE workspace_id=$1 AND id=$2 AND run_id=$5 AND status='running'",
@@ -312,7 +331,12 @@ export async function runOne(
         ]);
         const modelNeeded = input.source.text.trim().length > 0;
         if (modelNeeded)
-          await waitForModelSlot(owner, task.gateKey, callSignal);
+          await waitForModelSlot(
+            owner,
+            task.gateKey,
+            callSignal,
+            task.config.requestsPerMinute,
+          );
         diagnostics.stage = "model";
         if (modelNeeded) diagnostics.requestedAt = new Date().toISOString();
         diagnostics.httpRequests = modelNeeded ? 1 : 0;
@@ -325,7 +349,7 @@ export async function runOne(
         );
         const started = performance.now();
         let response: Awaited<ReturnType<typeof callModel>>;
-        let reportedUsage: Record<string, number | undefined> | undefined;
+        let reportedUsage: Record<string, unknown> | undefined;
         try {
           response = modelNeeded
             ? await modelCall(
@@ -342,7 +366,13 @@ export async function runOne(
                   },
                 ],
                 callSignal,
-                () => waitForModelSlot(owner, task.gateKey, callSignal),
+                () =>
+                  waitForModelSlot(
+                    owner,
+                    task.gateKey,
+                    callSignal,
+                    task.config.requestsPerMinute,
+                  ),
                 (event) => {
                   if (event.type === "poll")
                     diagnostics.httpRequests =
@@ -350,6 +380,10 @@ export async function runOne(
                   if (event.type === "response")
                     diagnostics.httpStatus = event.status;
                   if (event.type === "usage") reportedUsage = event.usage;
+                  if (event.type === "completion") {
+                    diagnostics.finishReason = event.finishReason;
+                    diagnostics.outputChars = event.outputChars;
+                  }
                 },
               )
             : { output: { changes: [] }, usage: { total_tokens: 0 } };
@@ -634,8 +668,9 @@ export async function runOne(
                 owner,
                 task.gateKey,
                 e instanceof ModelError ? e.retryAfter : 0,
+                task.config.retryDelaySeconds,
               )
-            : retryDelay();
+            : retryDelay(null, Math.random(), task.config.retryDelaySeconds);
         diagnostics.retryable = retry;
         if (regenerateOutput) {
           diagnostics.retryKind =
@@ -719,14 +754,32 @@ export async function workerMain(modelCall = callModel) {
   }, 15000);
   heartbeat.unref();
   try {
-    while (!stopping) {
-      await writeFile("/tmp/agent-wiki-worker-heartbeat", String(Date.now()));
-      if (
-        !(await processUpload(owner, controller.signal)) &&
-        !(await runOne(owner, controller.signal, modelCall))
-      )
-        await new Promise((r) => setTimeout(r, 3000));
-    }
+    await writeFile("/tmp/agent-wiki-worker-heartbeat", String(Date.now()));
+    // Bounded I/O lanes share a single VM and the same DB/key gate.
+    // Only lane zero verifies uploads; session ordering is enforced by the queue.
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, (_, lane) =>
+        (async () => {
+          try {
+            while (!stopping) {
+              const uploaded =
+                lane === 0 && (await processUpload(owner, controller.signal));
+              if (
+                !uploaded &&
+                !(await runOne(owner, controller.signal, modelCall))
+              )
+                await new Promise((r) => setTimeout(r, 3000));
+            }
+          } catch (error) {
+            stopping = true;
+            controller.abort();
+            throw error;
+          }
+        })(),
+      ),
+    );
+    const failed = results.find((r) => r.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
   } finally {
     clearInterval(heartbeat);
     if (deadline) clearTimeout(deadline);

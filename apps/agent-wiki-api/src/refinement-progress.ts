@@ -150,6 +150,8 @@ export async function refinementProgress(
       enabled: config.enabled,
       version: settings?.version ?? 0,
       dailyCalls: config.dailyCalls,
+      requestsPerMinute: config.requestsPerMinute,
+      concurrency: config.concurrency,
     },
     schedule: refinementSchedule({
       ...summary,

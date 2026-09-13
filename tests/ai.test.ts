@@ -102,7 +102,7 @@ test("NVIDIA pending responses poll the same request without resubmitting infere
     assert.equal(reservations, 1);
     assert.deepEqual(
       observations.map((e) => e.type),
-      ["response", "poll", "response", "usage"],
+      ["response", "poll", "response", "usage", "completion"],
     );
     assert.deepEqual(
       observations.filter((e) => e.type === "response").map((e) => e.status),
@@ -191,6 +191,7 @@ test("invalid model JSON still reports HTTP success and consumed tokens without 
     assert.deepEqual(observations, [
       { type: "response", status: 200 },
       { type: "usage", usage: { total_tokens: 91 } },
+      { type: "completion", finishReason: "stop", outputChars: 24 },
     ]);
     assert.ok(!JSON.stringify(observations).includes("private-output"));
   } finally {
@@ -372,5 +373,129 @@ test("Alibaba Qwen disables thinking using its native option and rejects unsuppo
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;
     else process.env.AI_ALLOWED_HOSTS = oldHosts;
+  }
+});
+
+test("Qwen forwards explicit thinking budget and total completion cap, preserving usage details", async () => {
+  const original = globalThis.fetch,
+    allowed = process.env.AI_ALLOWED_HOSTS;
+  process.env.AI_ALLOWED_HOSTS = "dashscope-intl.aliyuncs.com";
+  const bodies: any[] = [];
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: '{"changes":[]}',
+              reasoning_content: "synthetic thinking, never persisted",
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 80,
+          total_tokens: 200,
+          prompt_tokens_details: { cached_tokens: 64 },
+          completion_tokens_details: { reasoning_tokens: 50 },
+        },
+      }),
+    );
+  };
+  const config = aiConfig.parse({
+    ...defaults,
+    provider: "openai-compatible",
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    model: "qwen3.7-flash",
+    enable_thinking: true,
+    thinking_budget: 1024,
+    max_completion_tokens: 4096,
+  });
+  try {
+    const r = await callModel(
+      config,
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies[0].enable_thinking, true);
+    assert.equal(bodies[0].thinking_budget, 1024);
+    assert.equal(bodies[0].max_completion_tokens, 4096);
+    assert.equal(bodies[0].max_tokens, undefined);
+    assert.equal(bodies[0].reasoning_effort, undefined);
+    assert.equal(r.usage.completion_tokens_details?.reasoning_tokens, 50);
+    assert.equal(r.usage.prompt_tokens_details?.cached_tokens, 64);
+    assert.equal(JSON.stringify(r).includes("synthetic thinking"), false);
+    await callModel(
+      { ...config, enable_thinking: false },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies[1].thinking_budget, undefined);
+    assert.equal(bodies[1].enable_thinking, false);
+    await assert.rejects(
+      callModel(
+        {
+          ...config,
+          provider: "nvidia",
+          baseUrl: defaults.baseUrl,
+          model: defaults.model,
+        },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      ),
+    );
+    assert.equal(bodies.length, 2);
+  } finally {
+    globalThis.fetch = original;
+    if (allowed === undefined) delete process.env.AI_ALLOWED_HOSTS;
+    else process.env.AI_ALLOWED_HOSTS = allowed;
+  }
+});
+
+test("failed JSON still reports usage and finish reason for later diagnosis", async () => {
+  const original = globalThis.fetch;
+  const events: any[] = [];
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          { finish_reason: "length", message: { content: '{"changes":' } },
+        ],
+        usage: {
+          prompt_tokens: 25,
+          completion_tokens: 512,
+          total_tokens: 537,
+          completion_tokens_details: { reasoning_tokens: 400 },
+        },
+      }),
+    );
+  try {
+    await assert.rejects(
+      callModel(
+        defaults,
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+        undefined,
+        (e) => events.push(e),
+      ),
+      { code: "AI_OUTPUT_LIMIT" },
+    );
+    assert.equal(
+      events.find((e) => e.type === "usage").usage.completion_tokens_details
+        .reasoning_tokens,
+      400,
+    );
+    assert.equal(
+      events.find((e) => e.type === "completion").finishReason,
+      "length",
+    );
+  } finally {
+    globalThis.fetch = original;
   }
 });

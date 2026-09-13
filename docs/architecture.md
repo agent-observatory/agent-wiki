@@ -173,7 +173,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 ## 단일 Compute VM 배포
 
-기존 A1 VM 1대·2 OCPU·12GB에 Caddy·Next.js·Fastify API·Worker·PostgreSQL 5개를 Compose로 관리한다. Worker는 동시성 1·CPU 최대 0.5·메모리 최대 2GB다. 추가 클라우드 자원을 만들지 않는다.
+기존 A1 VM 1대·2 OCPU·12GB에 Caddy·Next.js·Fastify API·Worker·PostgreSQL 5개를 Compose로 관리한다. Worker는 Free 동시성 1·BYOK 최대 5, CPU 최대 0.5·메모리 최대 2GB다. 추가 클라우드 자원을 만들지 않는다.
 
 | 구성 | 역할 |
 | --- | --- |

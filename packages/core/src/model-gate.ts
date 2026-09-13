@@ -27,6 +27,7 @@ export async function waitForModelSlot(
   owner: string,
   key: string,
   signal: AbortSignal,
+  requestsPerMinute = 20,
 ) {
   while (true) {
     signal.throwIfAborted();
@@ -43,8 +44,8 @@ export async function waitForModelSlot(
       ).rows[0];
       if (row.wait_ms > 0) return row.wait_ms as number;
       await c.query(
-        "UPDATE model_request_gates SET next_allowed_at=clock_timestamp()+interval '3 seconds' WHERE owner_id=$1 AND key_hash=$2",
-        [owner, key],
+        "UPDATE model_request_gates SET next_allowed_at=clock_timestamp()+make_interval(secs=>$3) WHERE owner_id=$1 AND key_hash=$2",
+        [owner, key, 60 / Math.min(120, Math.max(1, requestsPerMinute))],
       );
       return 0;
     });
@@ -59,10 +60,14 @@ export async function waitForModelSlot(
 export function retryDelay(
   retryAfter: number | null = null,
   random = Math.random(),
+  baseSeconds = 120,
 ) {
   // Retain failure counts for diagnosis without making this personal wiki wait
   // exponentially longer. Keep a five-second margin beyond the provider Retry-After.
-  return Math.max((retryAfter ?? 0) + 5, Math.ceil(120 * (1 + 0.2 * random)));
+  return Math.max(
+    (retryAfter ?? 0) + 5,
+    Math.ceil(baseSeconds * (1 + 0.2 * random)),
+  );
 }
 
 export async function coolDownModel(
@@ -70,12 +75,13 @@ export async function coolDownModel(
   owner: string,
   key: string,
   retryAfter: number | null,
+  baseSeconds = 120,
 ) {
   await c.query(
     "INSERT INTO model_request_gates(owner_id,key_hash,failures) VALUES($1,$2,1) ON CONFLICT(owner_id,key_hash) DO UPDATE SET failures=least(model_request_gates.failures+1,32)",
     [owner, key],
   );
-  const seconds = retryDelay(retryAfter);
+  const seconds = retryDelay(retryAfter, Math.random(), baseSeconds);
   await c.query(
     "UPDATE model_request_gates SET next_allowed_at=greatest(next_allowed_at,clock_timestamp()+make_interval(secs=>$3)) WHERE owner_id=$1 AND key_hash=$2",
     [owner, key, seconds],

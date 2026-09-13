@@ -2,6 +2,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
+import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
+import { setTimeout as sleep } from "node:timers/promises";
 import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool } from "../packages/core/src/db.js";
 import { hash } from "../packages/core/src/storage.js";
@@ -73,9 +75,23 @@ test("Free normalizes provider options; BYOK switching preserves separate encryp
   assert.equal(view.profiles.byok.hasKey, true);
   assert.equal(JSON.stringify(view).includes("encrypted"), false);
   assert.equal(JSON.stringify(view).includes("synthetic-"), false);
-  assert.equal((await put({ ...byok, mode: "free" })).statusCode, 200);
+  assert.equal(
+    (
+      await put({
+        ...byok,
+        mode: "free",
+        enable_thinking: true,
+        thinking_budget: 1024,
+        max_completion_tokens: 4096,
+      })
+    ).statusCode,
+    200,
+  );
   view = await get();
   assert.equal(view.model, defaults.model);
+  assert.equal(view.enable_thinking, undefined);
+  assert.equal(view.thinking_budget, undefined);
+  assert.equal(view.max_completion_tokens, undefined);
   assert.equal(view.baseUrl, defaults.baseUrl);
   let row = (
     await admin.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
@@ -169,4 +185,85 @@ test("Hello tests unsaved settings, uses target credential, and never saves or q
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("five pending sessions can run concurrently while a sixth stays queued", async () => {
+  // Local fake model only: exercise claims and shared slots without provider calls.
+  for (let i = 0; i < 6; i++) {
+    const r = await app.inject({
+      method: "POST",
+      url: "/api/workspaces/" + ws + "/collection",
+      headers,
+      payload: {
+        machine: "synthetic-concurrency",
+        client: "codex",
+        sessionId: "parallel-" + i,
+        name: "Synthetic parallel " + i,
+        start: 0,
+        records: [
+          JSON.stringify({
+            type: "response_item",
+            payload: {
+              role: "user",
+              content: "운영 데이터베이스는 PostgreSQL을 사용한다. 세션 " + i,
+            },
+          }),
+        ],
+      },
+    });
+    assert.equal(r.statusCode, 200, r.body);
+  }
+  assert.equal(
+    (
+      await put({
+        ...byok,
+        enabled: true,
+        requestsPerMinute: 120,
+        concurrency: 5,
+        retryDelaySeconds: 30,
+      })
+    ).statusCode,
+    200,
+  );
+  let release!: () => void,
+    entered = 0;
+  const barrier = new Promise<void>((r) => (release = r));
+  const fake = async () => {
+    entered++;
+    await barrier;
+    return { output: { changes: [] }, usage: { total_tokens: 0 } };
+  };
+  const signal = AbortSignal.timeout(15000);
+  const attempts = Array.from({ length: 5 }, async () => {
+    while (!signal.aborted) {
+      if (await runOne(owner, signal, fake)) return true;
+      await sleep(50);
+    }
+    return false;
+  });
+  try {
+    for (let i = 0; i < 200 && entered < 5; i++) await sleep(50);
+    assert.equal(entered, 5);
+    assert.equal(await runOne(owner, signal, fake), false);
+    assert.equal(
+      (
+        await admin.query(
+          "SELECT count(*)::int AS n FROM refinement_jobs WHERE workspace_id=$1 AND status='running'",
+          [ws],
+        )
+      ).rows[0].n,
+      5,
+    );
+  } finally {
+    release();
+    await Promise.all(attempts);
+  }
+  let sixth = false;
+  for (let i = 0; i < 20 && !sixth; i++) {
+    sixth = await runOne(owner, signal, fake);
+    if (!sixth) await sleep(100);
+  }
+  assert.equal(sixth, true);
+  assert.equal(entered, 6);
+  await put({ ...byok, enabled: false });
 });

@@ -31,6 +31,18 @@ export const aiConfig = z
       .max(160)
       .default("deepseek-ai/deepseek-v4-flash-0731"),
     dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
+    requestsPerMinute: z.number().int().min(1).max(120).default(20),
+    concurrency: z.number().int().min(1).max(5).default(1),
+    retryDelaySeconds: z.number().int().min(5).max(600).default(120),
+    enable_thinking: z.boolean().optional(),
+    thinking_budget: z.number().int().min(1).max(32768).nullable().optional(),
+    max_completion_tokens: z
+      .number()
+      .int()
+      .min(512)
+      .max(32768)
+      .nullable()
+      .optional(),
     maxTokens: z.number().int().min(512).max(16384).default(2048),
     maxInputTokens: z.number().int().min(3000).max(32000).default(8000),
     maxInputChars: z.number().int().min(2000).max(60000).default(24000),
@@ -41,7 +53,7 @@ export const aiConfig = z
   .strict();
 export type AiConfig = z.infer<typeof aiConfig>;
 export const defaults = aiConfig.parse({});
-function isAlibabaQwen(config: AiConfig) {
+export function isAlibabaQwen(config: AiConfig) {
   return (
     config.provider === "openai-compatible" &&
     new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
@@ -49,6 +61,13 @@ function isAlibabaQwen(config: AiConfig) {
   );
 }
 export function validateEndpoint(config: AiConfig) {
+  if (
+    !isAlibabaQwen(config) &&
+    (config.enable_thinking !== undefined ||
+      config.thinking_budget != null ||
+      config.max_completion_tokens != null)
+  )
+    throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (isAlibabaQwen(config) && !["none", "default"].includes(config.reasoning))
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
@@ -117,7 +136,8 @@ export function parseRetryAfter(value: string | null, now = Date.now()) {
 export type ModelObservation =
   | { type: "poll" }
   | { type: "response"; status: number }
-  | { type: "usage"; usage: Record<string, number | undefined> };
+  | { type: "completion"; finishReason?: string; outputChars: number }
+  | { type: "usage"; usage: Record<string, unknown> };
 export async function callModel(
   config: AiConfig,
   secret: string,
@@ -142,8 +162,19 @@ export async function callModel(
         model: config.model,
         messages,
         stream: false,
-        max_tokens: config.maxTokens,
-        ...(config.reasoning === "default"
+        ...(isAlibabaQwen(config) && config.max_completion_tokens != null
+          ? { max_completion_tokens: config.max_completion_tokens }
+          : { max_tokens: config.maxTokens }),
+        ...(isAlibabaQwen(config) && config.enable_thinking !== undefined
+          ? { enable_thinking: config.enable_thinking }
+          : {}),
+        ...(isAlibabaQwen(config) &&
+        (config.enable_thinking ?? config.reasoning !== "none") &&
+        config.thinking_budget != null
+          ? { thinking_budget: config.thinking_budget }
+          : {}),
+        ...(config.reasoning === "default" ||
+        (isAlibabaQwen(config) && config.enable_thinking !== undefined)
           ? {}
           : isAlibabaQwen(config) && config.reasoning === "none"
             ? { enable_thinking: false }
@@ -228,10 +259,27 @@ export async function callModel(
       prompt_tokens: z.number().nonnegative().optional(),
       completion_tokens: z.number().nonnegative().optional(),
       total_tokens: z.number().nonnegative().optional(),
+      prompt_tokens_details: z
+        .object({ cached_tokens: z.number().nonnegative().optional() })
+        .optional(),
+      completion_tokens_details: z
+        .object({ reasoning_tokens: z.number().nonnegative().optional() })
+        .optional(),
     })
     .parse(data.usage ?? {});
   observe?.({ type: "usage", usage });
   const choice = data.choices?.[0];
+  observe?.({
+    type: "completion",
+    finishReason:
+      typeof choice?.finish_reason === "string"
+        ? choice.finish_reason
+        : undefined,
+    outputChars:
+      typeof choice?.message?.content === "string"
+        ? choice.message.content.length
+        : 0,
+  });
   if (choice?.finish_reason === "length")
     throw new ModelError("AI_OUTPUT_LIMIT");
   if (typeof choice?.message?.content !== "string")

@@ -160,7 +160,7 @@
 <text x="994" y="1050" font-size="18" font-weight="400" fill="#172C4B">원격 정제 · 구조 청킹</text>
 <text x="960" y="1081" font-size="18" font-weight="400" fill="#172C4B">청크별 주장·근거 추출</text>
 <text x="960" y="1112" font-size="18" font-weight="400" fill="#172C4B">기존 지식 비교·검증</text>
-<text x="960" y="1143" font-size="18" font-weight="400" fill="#172C4B">최대 20 RPM · 동시 실행 1개</text>
+<text x="960" y="1143" font-size="18" font-weight="400" fill="#172C4B">Free 1개 · BYOK 최대 5개</text>
 <rect x="630" y="970" width="250" height="168" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <text x="650" y="1012" font-size="20" font-weight="700" fill="#172C4B">Wiki · AI 설정</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="650" y="1030" color="#172C4B">

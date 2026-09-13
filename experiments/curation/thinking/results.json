@@ -1,0 +1,579 @@
+{
+  "model": "qwen3.7-flash-2026-07-15",
+  "region": "ap-southeast-1",
+  "promptVersion": "bounded-thinking-probe-1",
+  "startedAt": "2026-09-13T11:17:04.395Z",
+  "maxRequests": 6,
+  "maxCompletionTokens": 4096,
+  "syntheticOnly": true,
+  "writesWiki": false,
+  "results": [
+    {
+      "batch": 0,
+      "variant": "off",
+      "requestBytes": 2368,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 521,
+        "total_tokens": 900,
+        "completion_tokens": 379,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 521
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "explicit-replacement",
+            "action": "supersede",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "그건 취소하고 OCI PostgreSQL로 가자."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase를 사용한다."
+              }
+            ],
+            "reason": "동일한 주제와 범위에 대해 명확한 취소 및 대체 지시가 있었음"
+          },
+          {
+            "id": "proposal-is-not-decision",
+            "action": "propose",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "OCI PostgreSQL도 괜찮지 않을까? 아직 바꾸자는 건 아니고 검토만 해보자."
+              }
+            ],
+            "reason": "명확한 결정이 아닌 검토 제안으로 기존 결정을 대체할 수 없음"
+          },
+          {
+            "id": "different-scope",
+            "action": "add",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 하자. 로컬 구성은 그대로 둬."
+              }
+            ],
+            "reason": "기존 로컬 환경(Scope: local)과 다른 운영 환경(Scope: production)에 대한 새로운 정보이므로 공존"
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "explicit-replacement",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "proposal-is-not-decision",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        },
+        {
+          "id": "different-scope",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        }
+      ],
+      "ms": 4101
+    },
+    {
+      "batch": 0,
+      "variant": "1024",
+      "requestBytes": 2390,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 519,
+        "total_tokens": 1964,
+        "completion_tokens": 1445,
+        "prompt_tokens_details": {
+          "cached_tokens": 256,
+          "text_tokens": 519
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1024,
+          "text_tokens": 1445
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "explicit-replacement",
+            "action": "supersede",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "그건 취소하고 OCI PostgreSQL로 가자."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase를 사용한다."
+              }
+            ],
+            "reason": "동일한 주체와 범위에 대해 이전 결정을 명시적으로 취소하고 대체하는 명확한 의도임"
+          },
+          {
+            "id": "proposal-is-not-decision",
+            "action": "propose",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "OCI PostgreSQL도 괜찮지 않을까? 아직 바꾸자는 건 아니고 검토만 해보자."
+              }
+            ],
+            "reason": "명시적인 변경 요청이 아닌 검토 제안이므로 기존 결정은 유지되고 새로운 내용은 제안으로 처리됨"
+          },
+          {
+            "id": "different-scope",
+            "action": "add",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 하자. 로컬 구성은 그대로 둬."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "로컬 개발은 SQLite를 사용한다."
+              }
+            ],
+            "reason": "범위가 'local'에서 'production(운영)'으로 달라져 기존 결정과 충돌하지 않으며 병행 존재 가능"
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "explicit-replacement",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "proposal-is-not-decision",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        },
+        {
+          "id": "different-scope",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        }
+      ],
+      "ms": 15386
+    },
+    {
+      "batch": 0,
+      "variant": "2048",
+      "requestBytes": 2390,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 519,
+        "total_tokens": 2957,
+        "completion_tokens": 2438,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 519
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2048,
+          "text_tokens": 2438
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "explicit-replacement",
+            "action": "supersede",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "그건 취소하고 OCI PostgreSQL로 가자."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase로 하자."
+              }
+            ],
+            "reason": "명시적 취소를 통해 동일 주제와 범위(운영 DB)에 대한 기존 결정을 대체함"
+          },
+          {
+            "id": "proposal-is-not-decision",
+            "action": "conflict",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "OCI PostgreSQL도 괜찮지 않을까? 아직 바꾸자는 건 아니고 검토만 해보자."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase를 사용한다."
+              }
+            ],
+            "reason": "검토 제안은 기존 결정(운영 DB: Supabase)을 대체하지 못하며 모순된 상태를 유지함"
+          },
+          {
+            "id": "different-scope",
+            "action": "add",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 하자. 로컬 구성은 그대로 둬."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "로컬 개발은 SQLite를 사용한다."
+              }
+            ],
+            "reason": "기존 로컬(DB: SQLite) 범위와 다른 운영 범위이므로 병행하여 추가됨"
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "explicit-replacement",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        },
+        {
+          "id": "proposal-is-not-decision",
+          "action": false,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "different-scope",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        }
+      ],
+      "ms": 21770
+    },
+    {
+      "batch": 1,
+      "variant": "2048",
+      "requestBytes": 2576,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 566,
+        "total_tokens": 3114,
+        "completion_tokens": 2548,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 566
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2048,
+          "text_tokens": 2548
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "late-old-event",
+            "action": "unconfirmed",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 OCI PostgreSQL을 사용한다."
+              },
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 Supabase로 하자."
+              }
+            ],
+            "reason": "기존 결정은 2026-01-10 발생했으나 신착 데이터는 2026-01-01 발언에 기원하여 시간적 순서가 역전됨. 과거의 사건이 최신 결정을 대체할 수 없음."
+          },
+          {
+            "id": "unresolved-conflict",
+            "action": "conflict",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase를 사용한다."
+              },
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 확정했다고도 했던 것 같은데? 어느 결정이 맞는지 지금 확실하지 않아."
+              }
+            ],
+            "reason": "신입 데이터가 기존 결정과 모순되며 정정 사항을 명확히 명시하지 않고 있음."
+          },
+          {
+            "id": "agent-claim-not-verification",
+            "action": "propose",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "PostgreSQL을 설치하기로 결정했다."
+              },
+              {
+                "sourceId": "new",
+                "quote": "PostgreSQL 설치를 완료했습니다. 다만 실행 결과나 상태 확인 자료는 이 기록에 없습니다."
+              }
+            ],
+            "reason": "어시스턴트의 주장은 검증된 결과가 아닌 임무 완수 보고이며, 별도 검증 자료가 없어 사실로 확립되지 않음."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "late-old-event",
+          "action": false,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "unresolved-conflict",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "agent-claim-not-verification",
+          "action": false,
+          "target": false,
+          "noFalseVerification": true,
+          "evidence": false
+        }
+      ],
+      "ms": 25043
+    },
+    {
+      "batch": 1,
+      "variant": "1024",
+      "requestBytes": 2576,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 566,
+        "total_tokens": 2011,
+        "completion_tokens": 1445,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 566
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1024,
+          "text_tokens": 1445
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "late-old-event",
+            "action": "defer",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 Supabase로 하자."
+              },
+              {
+                "sourceId": "prior",
+                "quote": "Supabase는 취소하고 운영은 OCI PostgreSQL로 바꾼다."
+              }
+            ],
+            "reason": "후행 결정(prior)이 선행 제안(incoming)보다 늦은 시점에 생성되어 우선권을 가지며, 새로운 incoming 데이터는 과거의 시점을 가지므로 기존 결정을 대체할 수 없음."
+          },
+          {
+            "id": "unresolved-conflict",
+            "action": "conflict",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase로 확정했어."
+              },
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 확정했다고도 했던 것 같은데? 어느 결정이 맞는지 지금 확실하지 않아."
+              }
+            ],
+            "reason": "기존 결정에 대해 상충되는 주장이 제기되었으나, 명확한 해결 근거나 새로운 확정된 정보가 부족하여 모순 상태가 유지됨."
+          },
+          {
+            "id": "agent-claim-not-verification",
+            "action": "propose",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "new",
+                "quote": "PostgreSQL 설치를 완료했습니다. 다만 실행 결과나 상태 확인 자료는 이 기록에 없습니다."
+              }
+            ],
+            "reason": "도움말(completion)은 검증된 사실로서 처리되지 않으며, 추가 증거가 없어 기존 지식 수정을 위한 제시에 불과함."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "late-old-event",
+          "action": false,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        },
+        {
+          "id": "unresolved-conflict",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": true
+        },
+        {
+          "id": "agent-claim-not-verification",
+          "action": false,
+          "target": false,
+          "noFalseVerification": true,
+          "evidence": false
+        }
+      ],
+      "ms": 16205
+    },
+    {
+      "batch": 1,
+      "variant": "off",
+      "requestBytes": 2554,
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 568,
+        "total_tokens": 1085,
+        "completion_tokens": 517,
+        "prompt_tokens_details": {
+          "cached_tokens": 256,
+          "text_tokens": 568
+        }
+      },
+      "finishReason": "stop",
+      "output": {
+        "results": [
+          {
+            "id": "late-old-event",
+            "action": "defer",
+            "target": null,
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 OCI PostgreSQL을 사용한다."
+              },
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 Supabase로 하자."
+              }
+            ],
+            "reason": "신규 제안(spokenAt: 2026-01-01)이 기존 결정(effectiveAt: 2026-01-10)보다 과거에 발생했으므로, 시계열상 우선순위가 낮아 현재 결정을 대체할 수 없음. 새 시점(receivedAt: 2026-01-20)에서 검토 필요."
+          },
+          {
+            "id": "unresolved-conflict",
+            "action": "conflict",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "운영 DB는 Supabase를 사용한다."
+              },
+              {
+                "sourceId": "new",
+                "quote": "운영 DB는 PostgreSQL로 확정했다고도 했던 것 같은데? 어느 결정이 맞는지 지금 확실하지 않아."
+              }
+            ],
+            "reason": "기존 결정(Supabase)과 신규 주장(PostgreSQL) 간 모순이 명시적으로 제기되었으며, 어떤 것이 최종 결정인지 불명확하여 충돌 상태로 유지."
+          },
+          {
+            "id": "agent-claim-not-verification",
+            "action": "unconfirmed",
+            "target": "decision-a",
+            "verified": false,
+            "evidence": [
+              {
+                "sourceId": "prior",
+                "quote": "PostgreSQL 설치를 완료했습니다. 다만 실행 결과나 상태 확인 자료는 이 기록에 없습니다."
+              }
+            ],
+            "reason": "어시스턴트의 작업 완료 주장은 검증 가능한 증거(실행 결과 등)가 없으므로 미확인(unconfirmed) 처리하며, 기존 결정은 변경되지 않음."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "id": "late-old-event",
+          "action": false,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "unresolved-conflict",
+          "action": true,
+          "target": true,
+          "noFalseVerification": true,
+          "evidence": false
+        },
+        {
+          "id": "agent-claim-not-verification",
+          "action": true,
+          "target": false,
+          "noFalseVerification": true,
+          "evidence": false
+        }
+      ],
+      "ms": 6005
+    }
+  ],
+  "reportedTotalTokens": 12031
+}

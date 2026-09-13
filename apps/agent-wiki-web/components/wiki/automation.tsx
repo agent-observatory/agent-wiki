@@ -49,7 +49,13 @@ type Config = {
   baseUrl: string;
   model: string;
   dailyCalls: number | null;
+  requestsPerMinute: number;
+  concurrency: number;
+  retryDelaySeconds: number;
   maxTokens: number;
+  enable_thinking?: boolean;
+  thinking_budget?: number | null;
+  max_completion_tokens?: number | null;
   maxInputChars: number;
   maxInputTokens: number;
   reasoning: string;
@@ -118,7 +124,11 @@ function AutomationContent() {
   const [testing, setTesting] = useState(false),
     [testResult, setTestResult] = useState<{
       durationMs: number;
-      usage: { prompt_tokens?: number; completion_tokens?: number };
+      usage: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        completion_tokens_details?: { reasoning_tokens?: number };
+      };
     }>(),
     [testError, setTestError] = useState<unknown>(),
     [editKey, setEditKey] = useState(false);
@@ -165,7 +175,21 @@ function AutomationContent() {
     setSaved(false);
     setTestResult(undefined);
     setTestError(undefined);
-    setConfig((c) => (c ? { ...c, [name]: value } : c));
+    setConfig((c) =>
+      c
+        ? {
+            ...c,
+            [name]: value,
+            ...(["baseUrl", "model"].includes(name)
+              ? {
+                  enable_thinking: undefined,
+                  thinking_budget: undefined,
+                  max_completion_tokens: undefined,
+                }
+              : {}),
+          }
+        : c,
+    );
   };
   function switchMode(mode: Mode) {
     if (!config || mode === config.mode) return;
@@ -202,7 +226,17 @@ function AutomationContent() {
       const result = await api(base + "/ai-settings/test", {
         method: "POST",
         body: JSON.stringify({
-          config: { ...config, enabled: liveControl.enabled },
+          config: {
+            ...config,
+            enabled: liveControl.enabled,
+            ...(qwen
+              ? {
+                  enable_thinking: thinking,
+                  max_completion_tokens:
+                    config!.max_completion_tokens ?? config!.maxTokens,
+                }
+              : {}),
+          },
           version: draftVersion,
           ...(apiKey ? { apiKey } : {}),
         }),
@@ -222,7 +256,17 @@ function AutomationContent() {
       await api(base + "/ai-settings", {
         method: "PUT",
         body: JSON.stringify({
-          config: { ...config, enabled: liveControl.enabled },
+          config: {
+            ...config,
+            enabled: liveControl.enabled,
+            ...(qwen
+              ? {
+                  enable_thinking: thinking,
+                  max_completion_tokens:
+                    config!.max_completion_tokens ?? config!.maxTokens,
+                }
+              : {}),
+          },
           version: draftVersion,
           ...(apiKey ? { apiKey } : {}),
         }),
@@ -240,6 +284,11 @@ function AutomationContent() {
   if (settings.error || jobs.error)
     return <Failure error={settings.error ?? jobs.error} />;
   if (!config || !jobs.data || !settings.data) return <Loading />;
+  const qwen =
+    config.provider === "openai-compatible" &&
+    /\.aliyuncs\.com(?:\/|$)/.test(config.baseUrl) &&
+    /^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model);
+  const thinking = config.enable_thinking ?? config.reasoning !== "none";
   const storedProfile = settings.data.profiles[config.mode];
   let hasStoredKey = false;
   try {
@@ -311,7 +360,7 @@ function AutomationContent() {
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {jobs.data.progress.control.dailyCalls === null
-              ? "일일 제한 없음 · 최대 20 RPM · 동시 실행 1개"
+              ? `일일 제한 없음 · 최대 ${jobs.data.progress.control.requestsPerMinute} RPM · 동시 실행 ${jobs.data.progress.control.concurrency}개`
               : "설정한 한도 도달 시 UTC 자정까지 대기"}
           </p>
         </section>
@@ -367,7 +416,7 @@ function AutomationContent() {
                 <>
                   <div className="space-y-2">
                     <label htmlFor="endpoint" className="text-sm font-medium">
-                      API 주소
+                      base_url
                     </label>
                     <Input
                       id="endpoint"
@@ -392,7 +441,7 @@ function AutomationContent() {
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="model" className="text-sm font-medium">
-                      모델 ID
+                      model
                     </label>
                     <Input
                       id="model"
@@ -410,7 +459,7 @@ function AutomationContent() {
                     htmlFor="api-key"
                     className="flex items-center gap-2 text-sm font-medium"
                   >
-                    {config.mode === "free" ? "NVIDIA API 키" : "API 키"}
+                    {config.mode === "free" ? "NVIDIA API 키" : "api_key"}
                     {hasStoredKey && <Badge variant="secondary">저장됨</Badge>}
                   </label>
                   <Input
@@ -453,84 +502,176 @@ function AutomationContent() {
                     고급 설정
                   </summary>
                   <div className="mt-4 space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          일일 시도 제한
+                        <label
+                          htmlFor="dailyCalls"
+                          className="text-sm font-medium"
+                        >
+                          dailyCalls
                         </label>
-                        <Select
-                          value={
-                            config.dailyCalls === null ? "unlimited" : "limited"
-                          }
-                          onValueChange={(v) =>
+                        <Input
+                          id="dailyCalls"
+                          type="number"
+                          min={1}
+                          max={1000}
+                          placeholder="Unlimited"
+                          value={config.dailyCalls ?? ""}
+                          onChange={(e) =>
                             update(
                               "dailyCalls",
-                              v === "unlimited"
-                                ? null
-                                : (config.dailyCalls ?? 100),
+                              e.target.value ? Number(e.target.value) : null,
                             )
                           }
-                        >
-                          <SelectTrigger aria-label="일일 시도 제한">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unlimited">제한 없음</SelectItem>
-                            <SelectItem value="limited">직접 설정</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          최대 20 RPM · 동시 실행 1개. 제공자 제한과 오류 대기는
-                          유지합니다.
-                        </p>
+                        />
                       </div>
-                      {config.dailyCalls !== null && (
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="maxInputTokens"
+                          className="text-sm font-medium"
+                        >
+                          maxInputTokens
+                        </label>
+                        <Input
+                          id="maxInputTokens"
+                          type="number"
+                          required
+                          min={3000}
+                          max={32000}
+                          value={config.maxInputTokens}
+                          onChange={(e) =>
+                            update("maxInputTokens", Number(e.target.value))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="outputLimit"
+                          className="text-sm font-medium"
+                        >
+                          {qwen ? "max_completion_tokens" : "max_tokens"}
+                        </label>
+                        <Input
+                          id="outputLimit"
+                          type="number"
+                          required
+                          min={512}
+                          max={qwen ? 32768 : 16384}
+                          value={
+                            qwen
+                              ? (config.max_completion_tokens ??
+                                config.maxTokens)
+                              : config.maxTokens
+                          }
+                          onChange={(e) =>
+                            update(
+                              qwen ? "max_completion_tokens" : "maxTokens",
+                              Number(e.target.value),
+                            )
+                          }
+                        />
+                      </div>
+                      {qwen ? (
+                        <>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              enable_thinking
+                            </label>
+                            <Select
+                              value={String(thinking)}
+                              onValueChange={(v) =>
+                                update("enable_thinking", v === "true")
+                              }
+                            >
+                              <SelectTrigger aria-label="enable_thinking">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="false">false</SelectItem>
+                                <SelectItem value="true">true</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="thinking_budget"
+                              className="text-sm font-medium"
+                            >
+                              thinking_budget
+                            </label>
+                            <Input
+                              id="thinking_budget"
+                              type="number"
+                              min={1}
+                              max={32768}
+                              disabled={!thinking}
+                              placeholder="Model default"
+                              value={config.thinking_budget ?? ""}
+                              onChange={(e) =>
+                                update(
+                                  "thinking_budget",
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : null,
+                                )
+                              }
+                            />
+                          </div>
+                        </>
+                      ) : (
                         <div className="space-y-2">
-                          <label
-                            htmlFor="dailyCalls"
-                            className="text-sm font-medium"
-                          >
-                            일일 호출 한도
+                          <label className="text-sm font-medium">
+                            reasoning_effort
                           </label>
-                          <Input
-                            id="dailyCalls"
-                            type="number"
-                            min={1}
-                            max={1000}
-                            required
-                            value={config.dailyCalls}
-                            onChange={(e) =>
-                              update("dailyCalls", Number(e.target.value))
-                            }
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            실패·중단을 포함한 정제 시도 수입니다.
-                          </p>
+                          <Select
+                            value={config.reasoning}
+                            onValueChange={(v) => update("reasoning", v)}
+                          >
+                            <SelectTrigger aria-label="reasoning_effort">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["default", "none", "low", "high", "max"]
+                                .filter((v) => {
+                                  if (config.provider !== "nvidia") return true;
+                                  if (
+                                    config.model.startsWith(
+                                      "deepseek-ai/deepseek-v4-",
+                                    )
+                                  )
+                                    return v !== "low";
+                                  if (config.model === "moonshotai/kimi-k3")
+                                    return v !== "none";
+                                  return true;
+                                })
+                                .map((v) => (
+                                  <SelectItem key={v} value={v}>
+                                    {v}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       {(
                         [
-                          ["maxTokens", "최대 출력 토큰", 512, 16384],
-                          [
-                            "maxInputTokens",
-                            "입력 예산 · 보수 추정",
-                            3000,
-                            32000,
-                          ],
+                          ["requestsPerMinute", 1, 120],
+                          ["concurrency", 1, 5],
+                          ["retryDelaySeconds", 5, 600],
                         ] as const
-                      ).map(([key, label, min, max]) => (
+                      ).map(([key, min, max]) => (
                         <div key={key} className="space-y-2">
                           <label htmlFor={key} className="text-sm font-medium">
-                            {label}
+                            {key}
                           </label>
                           <Input
                             id={key}
                             type="number"
+                            required
                             min={min}
                             max={max}
-                            required
                             value={config[key]}
                             onChange={(e) =>
                               update(key, Number(e.target.value))
@@ -539,55 +680,11 @@ function AutomationContent() {
                         </div>
                       ))}
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">추론 수준</label>
-                      <Select
-                        value={config.reasoning}
-                        onValueChange={(v) => update("reasoning", v)}
-                      >
-                        <SelectTrigger aria-label="추론 수준">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["default", "none", "low", "high", "max"]
-                            .filter((v) => {
-                              if (
-                                config.provider === "openai-compatible" &&
-                                config.model.startsWith("qwen3.")
-                              )
-                                return ["default", "none"].includes(v);
-                              if (config.provider !== "nvidia") return true;
-                              if (
-                                config.model.startsWith(
-                                  "deepseek-ai/deepseek-v4-",
-                                )
-                              )
-                                return v !== "low";
-                              if (config.model === "moonshotai/kimi-k3")
-                                return v !== "none";
-                              return true;
-                            })
-                            .map((v) => (
-                              <SelectItem key={v} value={v}>
-                                {
-                                  (
-                                    {
-                                      default: "모델 기본값",
-                                      none: "사용 안 함",
-                                      low: "낮음",
-                                      high: "높음",
-                                      max: "최대",
-                                    } as any
-                                  )[v]
-                                }
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     <p className="text-xs text-muted-foreground">
-                      입력 예산은 UTF-8 바이트 기반 보수 추정입니다.
+                      dailyCalls · maxInputTokens는 Wiki 설정입니다. 입력은
+                      {qwen
+                        ? "토큰 추정치에 10% 여유를 더합니다."
+                        : "UTF-8 바이트로 보수 추정합니다."}
                     </p>
                   </div>
                 </details>
@@ -603,6 +700,9 @@ function AutomationContent() {
                   {(testResult.durationMs / 1000).toFixed(1)}초 · 입력{" "}
                   {testResult.usage.prompt_tokens ?? "미집계"} / 출력{" "}
                   {testResult.usage.completion_tokens ?? "미집계"} 토큰
+                  {testResult.usage.completion_tokens_details
+                    ?.reasoning_tokens != null &&
+                    ` · 추론 ${testResult.usage.completion_tokens_details.reasoning_tokens}`}
                 </span>
               </p>
             )}
@@ -754,7 +854,37 @@ function CallHistoryRow({ run: r }: { run: any }) {
             <span>{(diagnostics.durationMs / 1000).toFixed(1)}초</span>
           )}
           <span>
-            {r.usage?.total_tokens?.toLocaleString() ?? "미집계"} 토큰
+            입력 {r.usage?.prompt_tokens?.toLocaleString() ?? "—"} / 출력{" "}
+            {r.usage?.completion_tokens?.toLocaleString() ?? "—"}
+          </span>
+          {r.usage?.prompt_tokens_details?.cached_tokens != null && (
+            <span title="입력 토큰에 포함">
+              캐시{" "}
+              {r.usage.prompt_tokens_details.cached_tokens.toLocaleString()}
+            </span>
+          )}
+          {r.usage?.completion_tokens_details?.reasoning_tokens != null && (
+            <span title="출력 토큰에 포함">
+              추론{" "}
+              {r.usage.completion_tokens_details.reasoning_tokens.toLocaleString()}
+            </span>
+          )}
+          <span
+            title={JSON.stringify({
+              enable_thinking: r.settings.enable_thinking,
+              thinking_budget: r.settings.thinking_budget,
+              reasoning_effort: r.settings.reasoning,
+              max_completion_tokens: r.settings.max_completion_tokens,
+              max_tokens: r.settings.maxTokens,
+              maxInputTokens: r.settings.maxInputTokens,
+              finish_reason: diagnostics?.finishReason,
+            })}
+          >
+            {r.settings.enable_thinking === false ||
+            (r.settings.enable_thinking == null &&
+              r.settings.reasoning === "none")
+              ? "thinking off"
+              : `thinking ${r.settings.thinking_budget ?? r.settings.reasoning ?? "default"}`}
           </span>
           {diagnostics?.httpStatus != null && (
             <span title={`HTTP 요청 ${diagnostics.httpRequests ?? "미집계"}회`}>
