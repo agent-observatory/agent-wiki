@@ -1,0 +1,16 @@
+{
+  "version": "model-selection-json-1",
+  "models": ["qwen3.8-max", "qwen3.8-flash", "qwen3.7-flash", "deepseek-v4-flash", "qwen3.7-plus"],
+  "reason": "User requested a fair rerun with response_format after questioning invalid-JSON exclusions. Earlier prompt-only failures do not disqualify models. Compare all five under the same explicit JSON mode.",
+  "region": "ap-southeast-1",
+  "thinking": false,
+  "response_format": {"type": "json_object"},
+  "maxOutputTokens": 6144,
+  "timeoutMs": 330000,
+  "automaticRetries": 0,
+  "maxTotalCalls": 5,
+  "maxReportedTokens": 45000,
+  "input": "Unchanged input-small.json, prompt.txt and cases.json. One call per model. No new large calls in this round.",
+  "productionWrites": false,
+  "ranking": "Manual statement correctness, authority and verification, exact sufficient evidence, then structured contract. Parse failure is not proof of poor semantics. Do not repair responses into passing scores."
+}
