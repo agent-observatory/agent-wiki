@@ -22,14 +22,15 @@ const modelTransport = {
 export const aiConfig = z
   .object({
     enabled: z.boolean().default(false),
-    mode: z.enum(["free", "byok"]).optional(),
-    provider: z.enum(["nvidia", "openai-compatible"]).default("nvidia"),
-    baseUrl: z.string().url().default("https://integrate.api.nvidia.com/v1"),
-    model: z
+    mode: z.literal("byok").default("byok"),
+    provider: z
+      .enum(["nvidia", "openai-compatible"])
+      .default("openai-compatible"),
+    baseUrl: z
       .string()
-      .min(1)
-      .max(160)
-      .default("deepseek-ai/deepseek-v4-flash-0731"),
+      .url()
+      .default("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+    model: z.string().min(1).max(160).default("deepseek-v4-flash"),
     dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
     requestsPerMinute: z.number().int().min(1).max(120).default(20),
     concurrency: z.number().int().min(1).max(5).default(1),
@@ -92,7 +93,8 @@ export function validateEndpoint(config: AiConfig) {
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   const url = new URL(config.baseUrl);
   const hosts = (
-    process.env.AI_ALLOWED_HOSTS ?? "integrate.api.nvidia.com,api.deepseek.com"
+    process.env.AI_ALLOWED_HOSTS ??
+    "integrate.api.nvidia.com,api.deepseek.com,dashscope-intl.aliyuncs.com"
   ).split(",");
   if (
     url.protocol !== "https:" ||

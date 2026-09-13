@@ -694,3 +694,81 @@ test("excluded-only increments advance the raw cursor without creating sources o
   );
   assert.equal(rows.rows[0].n, 0);
 });
+
+test("Claude collection runs through upload verification with distinct client identity and preserved parent/tool links", async () => {
+  const dir = join(root, "claude-isolated");
+  await mkdir(dir);
+  const file = join(dir, "native.jsonl");
+  const native = (uuid: string, parentUuid: string, content: any[]) => ({
+    type: "user",
+    uuid,
+    parentUuid,
+    sessionId: "session-one",
+    cwd: "/allowed",
+    message: { role: "user", content },
+  });
+  await writeFile(
+    file,
+    JSON.stringify(
+      native("u1", "a0", [
+        { type: "text", text: "같은 프로젝트의 Claude 결정" },
+      ]),
+    ) + "\n",
+  );
+  const state = { files: {} },
+    t = transport(),
+    conf = { ...config(), roots: [{ client: "claude", path: dir }] };
+  const run = () => collect(conf, state, t.request, async () => {}, t.transfer);
+  assert.equal((await run()).failed, 0);
+  assert.equal(await processUpload(owner, new AbortController().signal), true);
+  assert.equal((await run()).accepted > 0, true);
+  const firstCount = t.manifests.length;
+  assert.equal((await run()).failed, 0);
+  assert.equal(
+    t.manifests.length,
+    firstCount,
+    "unchanged file does not upload again",
+  );
+  await appendFile(
+    file,
+    JSON.stringify(
+      native("u2", "u1", [
+        {
+          type: "tool_result",
+          tool_use_id: "call1",
+          content: "실제 도구 관찰",
+        },
+      ]),
+    ) + "\n",
+  );
+  await run();
+  assert.ok(t.manifests.at(-1).start > 0);
+  assert.equal(await processUpload(owner, new AbortController().signal), true);
+  await run();
+  const rows = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT * FROM sources WHERE workspace_id=$1 AND origin='claude:session-one' ORDER BY created_at",
+        [ws],
+      ),
+    )
+  ).rows;
+  assert.ok(rows.length >= 2);
+  const texts = await Promise.all(rows.map((r) => getSource(r.object_key)));
+  assert.ok(texts.some((text) => text.includes("같은 프로젝트")));
+  assert.ok(texts.some((text) => text.includes("실제 도구 관찰")));
+  assert.ok(!texts.at(-1)!.includes("같은 프로젝트"));
+  assert.ok(texts.some((text) => text.includes("parentId")));
+  assert.ok(texts.some((text) => text.includes("call1")));
+  assert.equal(
+    (
+      await tx(owner, ws, (c) =>
+        c.query(
+          "SELECT count(*) FROM sources WHERE workspace_id=$1 AND origin='codex:session-one'",
+          [ws],
+        ),
+      )
+    ).rows[0].count > "0",
+    true,
+  );
+});

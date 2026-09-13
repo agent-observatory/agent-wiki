@@ -113,3 +113,24 @@ test("Codex item wrappers identify messages and observed command output only", (
     ],
   );
 });
+
+test("derived compaction and handoff metadata never become user or tool authority", () => {
+  const text = [
+    line(1, ["payload", "role"], "user"),
+    line(1, ["payload", "content", 0, "type"], "tool_result"),
+    line(1, ["payload", "content", 0, "content"], "reported result"),
+    line(1, ["provenance", "authority"], "derived_context"),
+    line(2, ["payload", "role"], "user"),
+    line(2, ["payload", "content", 0, "text"], "actual decision"),
+    line(2, ["provenance", "parentId"], "parent"),
+  ].join("\n");
+  assert.deepEqual(sourceRoles(text), [
+    "unknown",
+    "unknown",
+    "unknown",
+    "unknown",
+    "user",
+    "user",
+    "unknown",
+  ]);
+});

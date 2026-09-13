@@ -3,21 +3,13 @@ import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState, useRef } from "react";
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  Plus,
-  Search,
-  ArrowLeft,
-  ExternalLink,
-  Check,
-  Trash2,
-  Pencil,
-} from "lucide-react";
+import { Search, ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -26,22 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { api, useApi } from "@/lib/api";
 import { Heading, Loading, Failure, Empty, When } from "./common";
@@ -69,19 +46,12 @@ export function KnowledgeList() {
   const { data, error } = useApi(
     `/api/workspaces/${workspaceId}/articles?${filter}`,
   );
-  const [create, setCreate] = useState(false);
   const root = `/workspaces/${workspaceId}/knowledge`;
   return (
     <>
       <Heading
         title={layerLabel("L3")}
         description="다음 작업에서 다시 꺼내 쓸 결정과 기억입니다."
-        action={
-          <Button onClick={() => setCreate(true)}>
-            <Plus />
-            직접 작성
-          </Button>
-        }
       />
       <form
         className="mb-6 flex flex-wrap gap-3"
@@ -149,7 +119,7 @@ export function KnowledgeList() {
                 </span>
                 <Badge variant="secondary">{kinds[a.kind]}</Badge>
                 <Badge variant="outline">
-                  {a.reviewed_at ? "검토됨" : "검토 전"}
+                  {a.reviewPending ? "검토 전" : "검토 완료"}
                 </Badge>
               </div>
               <p className="mt-2 line-clamp-2 text-muted-foreground">
@@ -168,173 +138,7 @@ export function KnowledgeList() {
         </div>
       )}
       <Pagination data={data?.pagination} label={LAYER_NAMES.L3} />
-      <Editor
-        open={create}
-        close={() => setCreate(false)}
-        workspaceId={workspaceId}
-      />
     </>
-  );
-}
-function Editor({
-  open,
-  close,
-  workspaceId,
-  article,
-}: {
-  open: boolean;
-  close: () => void;
-  workspaceId: string;
-  article?: any;
-}) {
-  const router = useRouter();
-  const [error, setError] = useState<unknown>();
-  const [busy, setBusy] = useState(false);
-  const [kind, setKind] = useState(article?.kind ?? "article");
-  const [key, setKey] = useState(() => crypto.randomUUID());
-  const last = useRef("");
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) close();
-      }}
-    >
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogTitle>{article ? "지식 정정" : "직접 작성"}</DialogTitle>
-        <DialogDescription>
-          직접 작성한 내용은 작성자 진술로 보관합니다. 기존 주장과 일치하는
-          근거는 유지하며 새 Version은 검토 전으로 저장합니다.
-        </DialogDescription>
-        <form
-          className="space-y-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            const content = String(f.get("content"));
-            const payload = {
-              title: String(f.get("title")),
-              content,
-              kind,
-              folder: String(f.get("folder")),
-              tags: String(f.get("tags"))
-                .split(",")
-                .map((x) => x.trim())
-                .filter(Boolean),
-              aliases: article?.aliases ?? [],
-              baseRevision: article?.revision ?? null,
-              claims: (article?.claims ?? [])
-                .filter(
-                  (c: any) =>
-                    content.includes(c.text) &&
-                    !c.evidence.some((e: any) => e.unavailable),
-                )
-                .map((c: any) => ({
-                  anchor: c.anchor,
-                  text: c.text,
-                  type: c.type,
-                  subject: c.subject,
-                  scope: c.scope,
-                  state: c.state,
-                  evidence: c.evidence.map((e: any) => ({
-                    sourceId: e.source_id,
-                    revision: e.source_revision,
-                    lines: [e.line_start, e.line_end],
-                    quote: e.quote,
-                  })),
-                })),
-              supersedes:
-                article?.links
-                  .filter((l: any) => l.relation === "supersedes")
-                  .map((l: any) => l.id) ?? [],
-              links:
-                article?.links
-                  .filter((l: any) => l.relation === "links_to")
-                  .map((l: any) => l.id) ?? [],
-            };
-            const body = JSON.stringify(payload);
-            let requestKey = key;
-            if (last.current && last.current !== body) {
-              requestKey = crypto.randomUUID();
-              setKey(requestKey);
-            }
-            last.current = body;
-            setBusy(true);
-            setError(undefined);
-            try {
-              const r = await api(
-                `/api/workspaces/${workspaceId}/articles${article ? "/" + article.id : ""}`,
-                {
-                  method: article ? "PUT" : "POST",
-                  headers: { "Idempotency-Key": requestKey },
-                  body,
-                },
-              );
-              close();
-              router.push(
-                `/workspaces/${workspaceId}/knowledge/${r.id}?revision=${r.revision}`,
-              );
-            } catch (e) {
-              setError(e);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label className="block space-y-2">
-            <span>제목</span>
-            <Input
-              name="title"
-              defaultValue={article?.title}
-              required
-              maxLength={200}
-            />
-          </label>
-          <div className="flex flex-wrap gap-4">
-            <label className="space-y-2">
-              <span>종류</span>
-              <Select value={kind} onValueChange={setKind}>
-                <SelectTrigger aria-label="문서 종류">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(kinds).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="flex-1 space-y-2">
-              <span>폴더</span>
-              <Input name="folder" defaultValue={article?.folder} />
-            </label>
-          </div>
-          <label className="block space-y-2">
-            <span>태그 · 쉼표로 구분</span>
-            <Input name="tags" defaultValue={article?.tags.join(", ")} />
-          </label>
-          <label className="block space-y-2">
-            <span>Markdown 본문</span>
-            <Textarea
-              name="content"
-              rows={12}
-              className="min-h-64"
-              defaultValue={article?.content}
-              required
-            />
-          </label>
-          {!!error && <Failure error={error} />}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={close}>
-              취소
-            </Button>
-            <Button disabled={busy}>{busy ? "저장 중…" : "저장"}</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 export function KnowledgeDetail() {
@@ -350,24 +154,9 @@ export function KnowledgeDetail() {
   } = useApi(
     `/api/workspaces/${workspaceId}/articles/${id}${revision ? "/revisions/" + revision : ""}`,
   );
-  const [edit, setEdit] = useState(false);
-  const [remove, setRemove] = useState(false);
-  const [failed, setFailed] = useState<unknown>();
-  const [busy, setBusy] = useState(false);
   if (error) return <Failure error={error} />;
   if (!a) return <Loading />;
   const old = a.revision !== a.currentRevision;
-  async function review() {
-    try {
-      await api(`/api/workspaces/${workspaceId}/articles/${id}/review`, {
-        method: "POST",
-        body: JSON.stringify({ revision: a.revision }),
-      });
-      reload();
-    } catch (e) {
-      setFailed(e);
-    }
-  }
   return (
     <>
       <Link
@@ -377,33 +166,15 @@ export function KnowledgeDetail() {
         <ArrowLeft className="size-4" />
         {layerLabel("L3")}
       </Link>
-      <Heading
-        title={a.title}
-        action={
-          !old && (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setEdit(true)}>
-                <Pencil />
-                정정
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="지식 삭제"
-                onClick={() => setRemove(true)}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-          )
-        }
-      />
+      <Heading title={a.title} />
       <div className="mb-6 flex flex-wrap gap-2 items-center">
         <Badge variant="secondary">{kinds[a.kind]}</Badge>
         <Badge variant="outline">
           {a.producer.type === "agent" ? "에이전트 작성" : "직접 작성"}
         </Badge>
-        <Badge variant="outline">{a.reviewed_at ? "검토됨" : "검토 전"}</Badge>
+        <Badge variant="outline">
+          {a.reviewPending ? "검토 전" : "검토 완료"}
+        </Badge>
         {a.tags.map((t: string) => (
           <Link href={root + "/knowledge?tag=" + encodeURIComponent(t)} key={t}>
             <Badge variant="secondary">#{t}</Badge>
@@ -449,7 +220,7 @@ export function KnowledgeDetail() {
           ))}
         </p>
       )}
-      {!!failed && <Failure error={failed} />}
+
       <Tabs
         value={query.get("tab") ?? "content"}
         onValueChange={(tab) => {
@@ -586,54 +357,8 @@ export function KnowledgeDetail() {
               )}
             </section>
           ))}
-          {!old && !a.reviewed_at && (
-            <Button variant="outline" onClick={review}>
-              <Check />이 Version을 검토했음
-            </Button>
-          )}
         </TabsContent>
       </Tabs>
-      <Editor
-        key={a.revision}
-        open={edit}
-        close={() => setEdit(false)}
-        workspaceId={workspaceId}
-        article={a}
-      />
-      <AlertDialog open={remove} onOpenChange={setRemove}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>이 지식을 삭제할까요?</AlertDialogTitle>
-            <AlertDialogDescription>
-              검색과 Context에서 제외됩니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={busy}
-              onClick={async (e) => {
-                e.preventDefault();
-                setBusy(true);
-                try {
-                  await api(`/api/workspaces/${workspaceId}/articles/${id}`, {
-                    method: "DELETE",
-                    body: JSON.stringify({ revision: a.revision }),
-                  });
-                  router.push(root + "/knowledge");
-                } catch (e) {
-                  setFailed(e);
-                  setRemove(false);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

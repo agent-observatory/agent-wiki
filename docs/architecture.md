@@ -1,6 +1,6 @@
 # Agent Wiki 아키텍처
 
-**사용자의 작업과 기록의 수집·정제를 분리한다.** Claude·Codex는 사용자와 작업하고 필요할 때 Wiki를 조회한다. 단일 설치하는 Agent Wiki Client의 백그라운드 Collector가 클라이언트 기록을 읽어 원격에 보관하고, 원격 Worker가 텍스트를 청킹해 정제한다.
+**사용자의 작업과 기록의 수집·정제를 분리한다. 수정·검토·설정은 CLI, 웹은 읽기 전용 뷰어다.** Claude·Codex는 사용자와 작업하고 필요할 때 Wiki를 조회한다. 단일 설치하는 Agent Wiki Client의 백그라운드 Collector가 클라이언트 기록을 읽어 원격에 보관하고, 원격 Worker가 텍스트를 청킹해 정제한다.
 
 읽기 전용 Collector → 불변 원문 → 원격 Worker → 근거가 있는 지식 개정으로 이어진다. 배포·실제 모델 검증 상태는 [운영 현황](OPERATIONS.md), 연결과 API는 [사용법·수집 계약](client-and-api.md), 정제·지식 모델은 [L2·L3 기억 설계](l2-l3-memory.md)를 따른다.
 
@@ -28,7 +28,7 @@ L1 목록은 세션·문서 단위의 한 줄 요약이다. 웹에서는 원문 
 
 새 수집은 실행 로그에서 메시지·도구 요청·결과를 선별한 뒤 **텍스트 JSON과 이미지 데이터를 분리해 zstd로 보관**한다. 사용량·상태 이벤트·내부 추론·시스템 지침은 제외하고 컴팩션의 기존 대화를 다시 수집하지 않는다. L1은 실행 로그 전체 사본이 아닌 선별 보관본이다. 이미지 해시 참조와 원래 필드 관계를 유지한다. L2·근거 열람에는 텍스트만 읽고, 영구 gzip 투영본 대신 고정 참조에서 필요한 텍스트 줄을 재구성한다. 구형 세션 수집 형식은 지원하지 않는다. 개발 데이터는 초기화 후 현재 형식으로 재수집한다. [전송·보관 계약](client-and-api.md)을 따른다.
 
-L1·L2·L3를 함께 다루는 초기화는 **공간 관리 → 데이터 관리**에 둔다. L2·L3 초기화는 L1과 수집 위치·호출 이력을 유지하며, 초기화 후 자동 정제는 중지 상태다.
+L1·L2·L3를 함께 다루는 초기화는 **관리 CLI**에 둔다. L2·L3 초기화는 L1과 수집 위치·호출 이력을 유지하며, 초기화 후 자동 정제는 중지 상태다.
 
 ## 전체 구성
 
@@ -45,7 +45,7 @@ Agent Wiki (제품)
 ├─ agent-wiki-client (로컬 설치 패키지)
 │  ├─ agent-wiki-cli (명령 실행)
 │  ├─ agent-wiki-collector (백그라운드 수집)
-│  └─ 조회 Skill 원본 (설치할 지침 파일)
+│  └─ Agent Wiki Skill 원본 (설치할 지침 파일)
 └─ 원격 운영 구성
    ├─ agent-wiki-gateway / web / api / worker
    └─ agent-wiki-db / sources / data
@@ -73,6 +73,8 @@ Agent Wiki (제품)
 Skill 설치 명령은 패키지의 원본을 Codex `.agents/skills/agent-wiki`, Claude Code `.claude/skills/agent-wiki`로 복사한다. 에이전트가 설치된 지침을 발견·참고한 뒤 필요할 때 `agent-wiki-cli`의 검색 명령을 실행한다. [설치 명령](client-and-api.md#연결과-지침).
 
 Skill 설치만으로 CLI가 매번 실행되지는 않는다. 작업 에이전트와 Collector는 별도 프로세스로 둔다. 세션 안에 수집 명령·정제 요청을 넣거나 턴 종료 훅에서 업로드를 기다리게 하지 않는다. Collector·정제 장애는 사용자 작업과 독립적으로 처리한다. 필요한 지식 조회에는 통신 시간이 들지만, 그 조회가 새 수집·정제 완료를 기다리지는 않는다.
+
+Codex·Claude는 공통 수집 형식을 사용하되 원문 세션을 서로 합치지 않는다. 원본 메시지·부모·도구·컴팩션 출처를 L1에 보존하고, L2는 Workspace 전체에서 기존 주장을 비교한다. L3는 대상·범위·주장 중심이며 같은 결정에 양쪽 원문의 근거가 연결된다. 조회 Skill 설치와 클라이언트별 수집 활성화는 독립적이다.
 
 ## 세션 식별과 직접 업로드
 
@@ -102,7 +104,7 @@ Collector 자체는 모델을 호출하지 않는다. 세션·프로젝트·시�
 
 L2는 같은 대상·범위에서 변경 의도를 판단하고, L3는 과거 주장과 대체·철회·충돌 근거를 보존한다. L4는 현재 결정을 묻는 조회와 변경 이유를 묻는 조회를 구분한다. 현재 채택한 결정과 검증된 사실은 별도 상태다.
 
-[L2·L3 기억 설계 · 그림 4장](l2-l3-memory.md)에서 입력 구성·결정 통합·재시도 기준을 본다. 모델·호출 한도도 그 문서에 모았다. 수집·CLI·API 계약은 [client-and-api.md](client-and-api.md), 구현 상태는 [운영 현황](OPERATIONS.md)에 둔다.
+[L2·L3 기억 설계 · 그림](l2-l3-memory.md)에서 입력 구성·결정 통합·재시도 기준을 본다. 모델·호출 한도도 그 문서에 모았다. 수집·CLI·API 계약은 [client-and-api.md](client-and-api.md), 구현 상태는 [운영 현황](OPERATIONS.md)에 둔다.
 
 ## L1–L5와 지식 모델
 
@@ -173,7 +175,7 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 ## 단일 Compute VM 배포
 
-기존 A1 VM 1대·2 OCPU·12GB에 Caddy·Next.js·Fastify API·Worker·PostgreSQL 5개를 Compose로 관리한다. Worker는 Free 동시성 1·BYOK 최대 5, CPU 최대 0.5·메모리 최대 2GB다. 추가 클라우드 자원을 만들지 않는다.
+기존 A1 VM 1대·2 OCPU·12GB에 Caddy·Next.js·Fastify API·Worker·PostgreSQL 5개를 Compose로 관리한다. Worker는 BYOK 최대 동시성 5, CPU 최대 0.5·메모리 최대 2GB다. 추가 클라우드 자원을 만들지 않는다.
 
 | 구성 | 역할 |
 | --- | --- |

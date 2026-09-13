@@ -12,15 +12,15 @@
 <path d="M46 180 H574 Q580 180 580 186 V234 H40 V186 Q40 180 46 180" fill="#344256"/>
 <text x="64" y="216" font-size="24" font-weight="700" fill="#FFFFFF">L1 · Raw Sources</text>
 <rect x="72" y="266" width="476" height="172" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="92" y="308" font-size="20" font-weight="700" fill="#172C4B">원문 A · 불변 보관본</text>
+<text x="92" y="308" font-size="20" font-weight="700" fill="#172C4B">Codex A · Claude B</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="92" y="326" color="#172C4B">
   <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
   <path d="M9 15l3 -3l3 3" />
   <path d="M12 12l0 9" />
 </svg>
-<text x="126" y="346" font-size="18" font-weight="400" fill="#172C4B">1행 · “운영을 단순하게 하자.”</text>
-<text x="92" y="377" font-size="18" font-weight="400" fill="#172C4B">2행 · “단일 VM으로 시작하자.”</text>
-<text x="92" y="408" font-size="18" font-weight="400" fill="#172C4B">보관본 ID · 내용 해시 · 원문 위치</text>
+<text x="126" y="346" font-size="18" font-weight="400" fill="#172C4B">A · “단일 VM으로 운영하자.”</text>
+<text x="92" y="377" font-size="18" font-weight="400" fill="#172C4B">B · “단일 VM 구성을 유지하자.”</text>
+<text x="92" y="408" font-size="18" font-weight="400" fill="#172C4B">세션별 불변 보관 · 메시지·도구 관계</text>
 <rect x="680" y="180" width="540" height="290" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
 <path d="M686 180 H1214 Q1220 180 1220 186 V234 H680 V186 Q680 180 686 180" fill="#344256"/>
 <text x="704" y="216" font-size="24" font-weight="700" fill="#FFFFFF">L2 · Curation</text>
@@ -38,7 +38,7 @@
   <path d="M14 21v-2" />
   <path d="M10 21v-2" />
 </svg>
-<text x="766" y="346" font-size="18" font-weight="400" fill="#172C4B">입력: 원문 A + 기존 지식 Version</text>
+<text x="766" y="346" font-size="18" font-weight="400" fill="#172C4B">원문 A·B + 기존 지식 Version</text>
 <text x="732" y="377" font-size="18" font-weight="400" fill="#172C4B">텍스트 청크 · 주장별 근거 검증</text>
 <text x="732" y="408" font-size="18" font-weight="400" fill="#172C4B">처리 범위 · 모델·지침 버전 보존</text>
 <rect x="1320" y="180" width="560" height="290" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>
@@ -51,9 +51,9 @@
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
   <path d="M9 8h6" />
 </svg>
-<text x="1406" y="346" font-size="18" font-weight="400" fill="#172C4B">단일 VM · 이유: 운영 단순화</text>
+<text x="1406" y="346" font-size="18" font-weight="400" fill="#172C4B">운영 구성 = 단일 VM</text>
 <text x="1372" y="377" font-size="18" font-weight="400" fill="#172C4B">사용자 결정 · 사실 검증과 구분</text>
-<text x="1372" y="408" font-size="18" font-weight="400" fill="#172C4B">주장별 근거: 원문 A · 1~2행</text>
+<text x="1372" y="408" font-size="18" font-weight="400" fill="#172C4B">동일 주장 · A·B의 근거 연결</text>
 <path d="M580 352 H680" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M1220 352 H1320" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
 <path d="M1540 470 V510 H310 V470" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
@@ -114,7 +114,7 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="126" y="1060" font-size="18" font-weight="400" fill="#172C4B">“왜 VM으로 시작했지?”</text>
+<text x="126" y="1060" font-size="18" font-weight="400" fill="#172C4B">“지금 운영 구성은?”</text>
 <text x="92" y="1091" font-size="18" font-weight="400" fill="#172C4B">조회 Skill 참고 → agent-wiki-cli로 검색</text>
 <path d="M281 980 V910" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <text x="300" y="955" font-size="16" font-weight="700" fill="#245CC5">조회 요청</text>
@@ -125,8 +125,8 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1026" y="1060" font-size="18" font-weight="400" fill="#172C4B">“운영을 단순하게 하려고 단일 VM을 선택했다.”</text>
-<text x="992" y="1091" font-size="18" font-weight="400" fill="#172C4B">지식 A · Version 2 / 원문 A · 1~2행 인용</text>
+<text x="1026" y="1060" font-size="18" font-weight="400" fill="#172C4B">“현재 운영 구성은 단일 VM이다.”</text>
+<text x="992" y="1091" font-size="18" font-weight="400" fill="#172C4B">지식 A · Version 2 / Codex A·Claude B · 각 1행</text>
 <path d="M1635 910 V980" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <text x="1654" y="955" font-size="16" font-weight="700" fill="#245CC5">근거 반환</text>
 </g></svg>

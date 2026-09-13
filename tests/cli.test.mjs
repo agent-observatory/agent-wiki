@@ -71,7 +71,16 @@ test("one setup shares query and collector settings, preserves scope and machine
     c = JSON.parse(await readFile(config, "utf8"));
     assert.equal(c.collector.machine, machine);
     assert.deepEqual(c.collector.projects, [dir]);
+    await run("collector", "disable", "--client", "claude");
     await run("setup");
+    let disabled = JSON.parse(await readFile(config, "utf8"));
+    assert.deepEqual(disabled.collector.disabledClients, ["claude"]);
+    assert.equal(disabled.collector.machine, machine);
+    await run("collector", "enable", "--client", "claude");
+    assert.deepEqual(
+      JSON.parse(await readFile(config, "utf8")).collector.disabledClients,
+      [],
+    );
     c = JSON.parse(await readFile(config, "utf8"));
     assert.deepEqual(c.collector.projects, [dir]);
     assert.equal(c.collector.intervalMinutes, 20);
@@ -104,6 +113,87 @@ test("one setup shares query and collector settings, preserves scope and machine
       run("setup", "--workspace", "00000000-0000-4000-8000-000000000002"),
       /destination differs/,
     );
+  } finally {
+    await new Promise((r) => server.close(r));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("management CLI keeps query privilege separate, preserves pause and does not retry writes", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wiki-manage-")),
+    requests = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    requests.push({
+      method: req.method,
+      url: req.url,
+      auth: req.headers.authorization,
+      body: body ? JSON.parse(body) : null,
+    });
+    res.setHeader("content-type", "application/json");
+    if (req.method === "GET")
+      res.end(
+        JSON.stringify({
+          enabled: false,
+          mode: "byok",
+          model: "synthetic",
+          version: 7,
+          hasKey: true,
+          profiles: {},
+          freePreset: {},
+        }),
+      );
+    else {
+      res.statusCode = 503;
+      res.end(JSON.stringify({ error: "synthetic unavailable" }));
+    }
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const config = join(dir, "config.json");
+  await writeFile(
+    config,
+    JSON.stringify({
+      version: 1,
+      defaultProject: "work",
+      projects: {
+        work: {
+          workspace: uuid,
+          server: `http://127.0.0.1:${server.address().port}`,
+          tag: "wiki",
+        },
+      },
+    }),
+  );
+  const run = (...args) =>
+    exec(process.execPath, [cli, ...args, "--config", config], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        WIKI_TOKEN: "query-secret",
+        WIKI_MANAGEMENT_TOKEN: "manage-secret",
+      },
+    });
+  try {
+    await run("ai", "show");
+    assert.equal(requests[0].auth, "Bearer manage-secret");
+    const file = join(dir, "config-update.json");
+    await writeFile(file, JSON.stringify({ model: "new-synthetic" }));
+    await assert.rejects(run("ai", "update", file), /synthetic unavailable/);
+    assert.equal(requests.filter((r) => r.method === "PUT").length, 1);
+    assert.equal(requests.at(-1).body.config.enabled, false);
+    assert.equal(requests.at(-1).body.config.model, "new-synthetic");
+    await assert.rejects(
+      run("api", "GET", "//evil.invalid"),
+      /Workspace-relative/,
+    );
+    await assert.rejects(run("api", "GET", "/../other"), /Workspace-relative/);
+    await assert.rejects(run("api", "POST", "/keys"), /secret-output/);
+    await writeFile(file, JSON.stringify({ enabled: true }));
+    await assert.rejects(run("ai", "update", file), /pause or ai resume/);
+    await run("review", "diff", uuid, "--revision", "2");
+    assert.ok(requests.at(-1).url.endsWith("/comparison?revision=2"));
+    assert.equal(requests.at(-1).auth, "Bearer query-secret");
   } finally {
     await new Promise((r) => server.close(r));
     await rm(dir, { recursive: true, force: true });

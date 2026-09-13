@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdir, cp } from "node:fs/promises";
+import { readFile, writeFile, mkdir, cp, open } from "node:fs/promises";
 import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
@@ -56,14 +56,19 @@ async function main() {
       commands: [
         "setup --workspace ID [--project NAME --tag TAG --path PATH --interval MINUTES --env FILE --client codex|claude|all --no-skill]",
         "collector start [--interval MINUTES] | stop | status | run",
+        "collector enable|disable --client codex|claude",
         "recall --project NAME",
         'search "question" [--tag TAG --view current|history --scope SCOPE]',
         "source add FILE [--kind conversation|document|code|note] [--origin LOCATION]",
         "source get ID [--start N --end N]",
         "publish FILE.json",
         "publication status KEY",
+        "ai show | update FILE.json [--key-env ENV_NAME] | test [FILE.json] [--key-env ENV_NAME] | pause | resume",
+        "api GET|POST|PUT|PATCH|DELETE /workspace-path [--file FILE.json] [--idempotency-key KEY] [--secret-output FILE]",
+        "workspace list | create NAME",
         "article ID [--revision N]",
         "skill install [--client codex|claude|all]",
+        "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT]",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -155,14 +160,24 @@ async function main() {
   if (!connection)
     throw new Error("Project connection missing. Run agent-wiki setup.");
   validateServer(connection.server);
-  const token = await loadToken(connection);
+  const token = await loadToken(
+    connection,
+    ["ai", "api", "workspace", "publish"].includes(command) ||
+      (command === "review" && args[0] === "confirm")
+      ? "management"
+      : "query",
+  );
   const base = connection.server + "/api/workspaces/" + connection.workspace;
-  async function request(path, { method = "GET", body, key } = {}) {
+  async function request(
+    path,
+    { method = "GET", body, key, root = base } = {},
+  ) {
     const serialized = body === undefined ? undefined : JSON.stringify(body);
     let failure;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const attempts = method === "GET" || key ? 3 : 1;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try {
-        const r = await fetch(base + path, {
+        const r = await fetch(root + path, {
           method,
           body: serialized,
           headers: {
@@ -177,16 +192,106 @@ async function main() {
         if (r.ok) return data;
         const e = new Error(data.error ?? "HTTP_" + r.status);
         e.status = r.status;
-        if (![429, 502, 503, 504].includes(r.status) || attempt === 2) throw e;
+        if (
+          ![429, 502, 503, 504].includes(r.status) ||
+          attempt === attempts - 1
+        )
+          throw e;
         failure = e;
       } catch (e) {
         if (e.status && ![429, 502, 503, 504].includes(e.status)) throw e;
         failure = e;
-        if (attempt === 2) throw e;
+        if (attempt === attempts - 1) throw e;
       }
       await delay(300 * 2 ** attempt + Math.random() * 150);
     }
     throw failure;
+  }
+  if (command === "workspace") {
+    const action = args.shift();
+    if (action !== "list" && action !== "create")
+      throw new Error("Use workspace list|create NAME");
+    if (action === "create" && !args[0])
+      throw new Error("Workspace name required");
+    return output(
+      await request("", {
+        root: connection.server + "/api/workspaces",
+        method: action === "list" ? "GET" : "POST",
+        body: action === "create" ? { name: args[0] } : undefined,
+      }),
+    );
+  }
+  if (command === "api") {
+    const method = args.shift()?.toUpperCase(),
+      path = args.shift();
+    if (
+      !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method) ||
+      !path ||
+      !/^\/[a-zA-Z0-9][a-zA-Z0-9/_?=&.,:-]*$/.test(path) ||
+      path.includes("..")
+    )
+      throw new Error(
+        "Use a Workspace-relative API path and an explicit HTTP method",
+      );
+    const file = option("file"),
+      secretFile = option("secret-output");
+    if (method === "POST" && path === "/keys" && !secretFile)
+      throw new Error(
+        "Key creation requires --secret-output FILE (0600); secrets are never printed",
+      );
+    const secretHandle = secretFile
+      ? await open(resolve(secretFile), "wx", 0o600)
+      : null;
+    try {
+      const result = await request(path, {
+        method,
+        key: option("idempotency-key"),
+        body: file ? await jsonFile(file) : method === "GET" ? undefined : {},
+      });
+      if (secretHandle) {
+        await secretHandle.writeFile(JSON.stringify(result, null, 2) + "\n");
+        return output({ saved: resolve(secretFile) });
+      }
+      return output(result);
+    } finally {
+      await secretHandle?.close();
+    }
+  }
+
+  if (command === "ai") {
+    const action = args.shift();
+    if (!["show", "update", "test", "pause", "resume"].includes(action))
+      throw new Error("Use ai show|update|test|pause|resume");
+    const settings = await request("/ai-settings");
+    if (action === "show") return output(settings);
+    if (action === "pause" || action === "resume")
+      return output(
+        await request("/ai-settings/enabled", {
+          method: "PATCH",
+          body: { enabled: action === "resume", version: settings.version },
+        }),
+      );
+    const keyEnv = option("key-env"),
+      file = args[0];
+    if (action === "update" && !file)
+      throw new Error("AI configuration JSON file required");
+    const patch = file ? await jsonFile(file) : {};
+    if ("enabled" in patch)
+      throw new Error("Use ai pause or ai resume separately");
+    const { hasKey, version, ...config } = settings;
+    const apiKey = keyEnv ? process.env[keyEnv] : undefined;
+    if (keyEnv && !apiKey)
+      throw new Error("Requested API key environment variable is empty");
+    return output(
+      await request("/ai-settings" + (action === "test" ? "/test" : ""), {
+        method: action === "test" ? "POST" : "PUT",
+        body: {
+          version,
+          config: { ...config, ...patch, enabled: config.enabled },
+          ...(apiKey ? { apiKey } : {}),
+        },
+      }),
+    );
   }
   const tag = option("tag", connection.tag);
   if (command === "recall")
@@ -208,6 +313,58 @@ async function main() {
           }),
       ),
     );
+  }
+  if (command === "review") {
+    const action = args.shift(),
+      id = args[0];
+    if (action === "queue")
+      return output(
+        await request(
+          "/reviews?" +
+            new URLSearchParams({
+              page: option("page", "1"),
+              pageSize: option("page-size", "25"),
+            }),
+        ),
+      );
+    if (!id) throw new Error("Knowledge ID required");
+    if (action === "diff") {
+      const revision = option("revision");
+      return output(
+        await request(
+          "/articles/" +
+            encodeURIComponent(id) +
+            "/comparison" +
+            (revision ? "?revision=" + encodeURIComponent(revision) : ""),
+        ),
+      );
+    }
+    if (action === "confirm") {
+      const revision = Number(option("revision")),
+        snapshotHash = option("snapshot"),
+        client = option("client");
+      if (
+        !Number.isInteger(revision) ||
+        revision < 1 ||
+        !snapshotHash ||
+        !client
+      )
+        throw new Error(
+          "--revision, --snapshot and --client are required; read review diff and get the user's confirmation first",
+        );
+      return output(
+        await request("/articles/" + encodeURIComponent(id) + "/review", {
+          method: "POST",
+          body: {
+            revision,
+            snapshotHash,
+            client,
+            reason: option("reason", ""),
+          },
+        }),
+      );
+    }
+    throw new Error("Use review queue|diff|confirm");
   }
   if (command === "article") {
     const revision = option("revision");

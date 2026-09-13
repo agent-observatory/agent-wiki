@@ -1,4 +1,10 @@
 import {
+  reviewComparison,
+  confirmReview,
+  pendingReviews,
+  reviewPendingSql,
+} from "./knowledge-review.js";
+import {
   evidenceInput,
   claimState,
   claimRelationInput,
@@ -85,6 +91,19 @@ const publicationInput = z
       .array(
         z
           .object({ articleId: uuid, revision: z.number().int().positive() })
+          .strict(),
+      )
+      .max(30)
+      .default([]),
+    claimInputs: z
+      .array(
+        z
+          .object({
+            articleId: uuid,
+            revision: z.number().int().positive(),
+            anchor: z.string(),
+            state: claimState,
+          })
           .strict(),
       )
       .max(30)
@@ -227,6 +246,8 @@ export function registerKnowledge(
       title: rev.title,
       content: rev.content,
       currentRevision: a.revision,
+      reviewPending: (await reviewComparison(c, ws, id, rev.revision))
+        .reviewPending,
       claims: claims.map((x) => ({
         ...x,
         evidence: evidence.filter((e) => e.anchor === x.anchor),
@@ -272,7 +293,7 @@ export function registerKnowledge(
           SELECT ARRAY(SELECT jsonb_array_elements_text(value)) AS patterns
           FROM jsonb_array_elements($2::jsonb)
         )
-        SELECT a.*,r.reviewed_at,p.producer,
+        SELECT a.*,r.reviewed_at,${reviewPendingSql()} AS "reviewPending",p.producer,
           (SELECT count(*) FROM evidence e WHERE e.workspace_id=a.workspace_id AND e.article_id=a.id AND e.revision=a.revision) AS evidence_count
         FROM articles a
         JOIN revisions r ON r.workspace_id=a.workspace_id AND r.article_id=a.id AND r.revision=a.revision
@@ -378,8 +399,11 @@ export function registerKnowledge(
             ws,
             {
               idempotencyKey: r.headers["idempotency-key"],
-              producer: { type: "human", client: "wiki-web" },
-              reason: reason ?? "웹 편집",
+              producer:
+                r.identity!.scope === "manage"
+                  ? { type: "agent", client: "agent-wiki-cli" }
+                  : { type: "human", client: "wiki-web" },
+              reason: reason ?? "명시적 지식 편집",
               changes: [
                 {
                   ...body,
@@ -410,23 +434,28 @@ export function registerKnowledge(
       return { ok: true };
     });
   });
-  app.post(base + "/articles/:id/review", (r) => {
-    sessionOnly(r);
-    return scoped(r, async (c, ws) => {
-      const rev = z
-        .number()
-        .int()
-        .positive()
-        .parse((r.body as any).revision);
-      const a = await detail(c, ws, uuid.parse(params(r).id));
-      if (a.currentRevision !== rev) conflict("REVISION_CONFLICT");
-      await c.query(
-        "UPDATE revisions SET reviewed_at=now(),reviewed_by=$4 WHERE workspace_id=$1 AND article_id=$2 AND revision=$3",
-        [ws, a.id, rev, r.identity!.userId],
-      );
-      return { ok: true };
-    });
-  });
+  app.get(base + "/reviews", (r) =>
+    scoped(r, (c, ws) => pendingReviews(c, ws, r.query)),
+  );
+  app.get(base + "/articles/:id/comparison", (r) =>
+    scoped(r, (c, ws) => {
+      const q = z
+        .object({ revision: z.coerce.number().int().positive().optional() })
+        .parse(r.query);
+      return reviewComparison(c, ws, uuid.parse(params(r).id), q.revision);
+    }),
+  );
+  app.post(base + "/articles/:id/review", (r) =>
+    scoped(r, (c, ws) =>
+      confirmReview(
+        c,
+        ws,
+        uuid.parse(params(r).id),
+        r.body,
+        r.identity!.userId,
+      ),
+    ),
+  );
   app.get(base + "/source-records", (r) =>
     scoped(r, async (c, ws) => {
       const page = pagination(r.query);
@@ -851,6 +880,147 @@ export function registerKnowledge(
   );
 }
 
+// Consolidation is deliberately exact: model-reused canonical wording, subject,
+// scope, kind and authority must agree. Similarity alone never merges decisions.
+async function consolidateClaim(
+  c: PoolClient,
+  ws: string,
+  change: z.infer<typeof changeInput>,
+) {
+  if (
+    change.articleId ||
+    change.claims.length !== 1 ||
+    change.claimRelations.length ||
+    change.links.length ||
+    change.supersedes.length
+  )
+    return change;
+  const incoming = change.claims[0];
+  if (
+    !incoming.subject ||
+    !incoming.scope ||
+    !["current", "proposed"].includes(incoming.state) ||
+    !incoming.evidence.length
+  )
+    return change;
+  const matches = (
+    await c.query(
+      `SELECT a.*,cl.anchor FROM articles a JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
+     WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND (SELECT count(*) FROM claims siblings WHERE siblings.workspace_id=a.workspace_id AND siblings.article_id=a.id AND siblings.revision=a.revision)=1 AND a.kind=$2 AND cl.text=$3 AND cl.subject=$4 AND cl.scope=$5 AND cl.type=$6 AND (${effectiveClaimState("cl")})=$7
+     ORDER BY a.created_at,a.id LIMIT 2`,
+      [
+        ws,
+        change.kind,
+        incoming.text,
+        incoming.subject,
+        incoming.scope,
+        incoming.type,
+        incoming.state,
+      ],
+    )
+  ).rows;
+  if (matches.length !== 1) return change; // Ambiguous existing duplicates need review.
+  const article = matches[0];
+  const claims = (
+    await c.query(
+      `SELECT cl.*,${effectiveClaimState("cl")} AS effective_state FROM claims cl WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 ORDER BY anchor`,
+      [ws, article.id, article.revision],
+    )
+  ).rows;
+  const evidence = (
+    await c.query(
+      "SELECT * FROM evidence WHERE workspace_id=$1 AND article_id=$2 AND revision=$3",
+      [ws, article.id, article.revision],
+    )
+  ).rows;
+  const links = (
+    await c.query(
+      "SELECT to_id FROM links WHERE workspace_id=$1 AND from_id=$2 AND relation='links_to'",
+      [ws, article.id],
+    )
+  ).rows.map((r) => r.to_id);
+  return {
+    ...change,
+    articleId: article.id,
+    baseRevision: article.revision,
+    title: article.title,
+    content: article.content,
+    kind: article.kind,
+    folder: article.folder,
+    tags: [...new Set([...article.tags, ...change.tags])],
+    aliases: article.aliases,
+    links,
+    claimRelations: [
+      {
+        anchor: article.anchor,
+        relation: "supports" as const,
+        target: {
+          articleId: article.id,
+          revision: article.revision,
+          anchor: article.anchor,
+        },
+        evidence: incoming.evidence.slice(0, 10),
+      },
+    ],
+    claims: claims.map((claim) => ({
+      anchor: claim.anchor,
+      text: claim.text,
+      type: claim.type,
+      subject: claim.subject,
+      scope: claim.scope,
+      state: claim.effective_state,
+      evidence: [
+        ...evidence
+          .filter((e) => e.anchor === claim.anchor)
+          .map((e) => ({
+            sourceId: e.source_id,
+            revision: e.source_revision,
+            lines: [e.line_start, e.line_end] as [number, number],
+            quote: e.quote,
+          })),
+        ...(claim.anchor === article.anchor ? incoming.evidence : []),
+      ],
+    })),
+  };
+}
+
+function coalesceClaims(changes: z.infer<typeof changeInput>[]) {
+  if (changes.some((x) => x.links.length || x.supersedes.length))
+    return changes;
+  const selected: typeof changes = [],
+    seen = new Map<string, (typeof changes)[number]>();
+  for (const change of changes) {
+    const claim = change.claims[0];
+    if (
+      change.articleId ||
+      change.claimRelations.length ||
+      change.claims.length !== 1 ||
+      !claim.subject ||
+      !claim.scope
+    ) {
+      selected.push(change);
+      continue;
+    }
+    const key = JSON.stringify([
+      change.kind,
+      claim.text,
+      claim.type,
+      claim.subject,
+      claim.scope,
+      claim.state,
+    ]);
+    const prior = seen.get(key);
+    if (prior) {
+      prior.claims[0].evidence.push(...claim.evidence);
+      prior.tags = [...new Set([...prior.tags, ...change.tags])];
+    } else {
+      seen.set(key, change);
+      selected.push(change);
+    }
+  }
+  return selected;
+}
+
 export async function publish(
   c: PoolClient,
   ws: string,
@@ -892,6 +1062,31 @@ export async function publish(
         )
       ).rows[0],
     );
+  const automatic =
+    input.producer.client === "remote-worker" && identity.scope === "publish";
+  if (automatic) {
+    for (const prior of input.inputs) {
+      const current = (
+        await c.query(
+          "SELECT revision FROM articles WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL",
+          [ws, prior.articleId],
+        )
+      ).rows[0];
+      if (!current || current.revision !== prior.revision)
+        conflict("CURATION_CONTEXT_CHANGED");
+    }
+    for (const prior of input.claimInputs) {
+      const current = (
+        await c.query(
+          `SELECT ${effectiveClaimState("cl")} AS state FROM claims cl WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4`,
+          [ws, prior.articleId, prior.revision, prior.anchor],
+        )
+      ).rows[0];
+      if (!current || current.state !== prior.state)
+        conflict("CURATION_CONTEXT_CHANGED");
+    }
+  }
+  if (automatic) input.changes = coalesceClaims(input.changes);
   const publicationId = randomUUID();
   await c.query(
     "INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason) VALUES($1,$2,$3,$4,$5,$6)",
@@ -913,7 +1108,12 @@ export async function publish(
   );
   const sources = new Map<string, { text: string; row: any }>();
   const results = [];
-  for (const change of input.changes) {
+  for (let i = 0; i < input.changes.length; i++) {
+    const change = automatic
+      ? await consolidateClaim(c, ws, input.changes[i])
+      : input.changes[i];
+    input.changes[i] = change;
+    if (change.articleId) mapped.set(change.clientRef, change.articleId);
     const id = mapped.get(change.clientRef)!;
     if (change.articleId === null && change.baseRevision !== null)
       throw new AppError(400, "INVALID_BASE_REVISION");

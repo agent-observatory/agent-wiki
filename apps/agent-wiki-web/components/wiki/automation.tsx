@@ -2,36 +2,25 @@
 import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { StatusBadge } from "./status-badge";
 import { Pagination } from "./pagination";
-import { useState, useEffect, useRef } from "react";
+
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
-  Save,
   RefreshCw,
   Play,
   Pause,
   Cpu,
   Activity,
-  PlugZap,
-  KeyRound,
-  Zap,
-  ChevronDown,
   CheckCircle2,
 } from "lucide-react";
-import { RefinementProgress, waitingReasons } from "./refinement-progress";
+import { RefinementProgress } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
 import { api, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import {
   Table,
   TableBody,
@@ -41,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Heading, Loading, Failure, Empty, When } from "./common";
-type Mode = "free" | "byok";
+type Mode = "byok";
 type Config = {
   mode: Mode;
   enabled: boolean;
@@ -107,197 +96,13 @@ function AutomationContent() {
     next.set("tab", value);
     router.push(`?${next}`, { scroll: false });
   }
-  const settings = useApi(base + "/ai-settings"),
+  const settings = useApi(base + "/ai-settings", 15000),
     jobs = useApi(base + "/refinements?" + query, 15000);
-  const [config, setConfig] = useState<Config>(),
-    [draftVersion, setDraftVersion] = useState(0),
-    [control, setControl] = useState<{ enabled: boolean; version: number }>(),
-    [controlBusy, setControlBusy] = useState(false),
-    [controlError, setControlError] = useState<unknown>(),
-    [apiKey, setKey] = useState(""),
-    [busy, setBusy] = useState(false),
-    [failure, setFailure] = useState<unknown>(),
-    [saved, setSaved] = useState(false);
-  const drafts = useRef<
-    Partial<Record<Mode, { config: Config; apiKey: string }>>
-  >({});
-  const [testing, setTesting] = useState(false),
-    [testResult, setTestResult] = useState<{
-      durationMs: number;
-      usage: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        completion_tokens_details?: { reasoning_tokens?: number };
-      };
-    }>(),
-    [testError, setTestError] = useState<unknown>(),
-    [editKey, setEditKey] = useState(false);
-  useEffect(() => {
-    if (settings.data) {
-      const { hasKey, version, profiles, freePreset, ...value } = settings.data;
-      drafts.current = {};
-      setConfig(value);
-      setDraftVersion(version);
-    }
-  }, [settings.data]);
-  const liveControl =
-    control && control.version > (jobs.data?.progress.control.version ?? -1)
-      ? control
-      : jobs.data?.progress.control;
-  async function toggleRefinement() {
-    if (!liveControl || controlBusy) return;
-    setControlBusy(true);
-    setControlError(undefined);
-    try {
-      const result = await api(base + "/ai-settings/enabled", {
-        method: "PATCH",
-        body: JSON.stringify({
-          enabled: !liveControl.enabled,
-          version: liveControl.version,
-        }),
-      });
-      setControl(result);
-      setDraftVersion((v) => (v === liveControl.version ? result.version : v));
-      setConfig((c) => (c ? { ...c, enabled: result.enabled } : c));
-      jobs.reload();
-    } catch (e) {
-      setControlError(e);
-      jobs.reload();
-    } finally {
-      setControlBusy(false);
-    }
-  }
-  const update = (
-    name: keyof Config,
-    value: string | number | boolean | null,
-  ) => {
-    if (name === "reasoning" && !value) return;
-    setSaved(false);
-    setTestResult(undefined);
-    setTestError(undefined);
-    setConfig((c) =>
-      c
-        ? {
-            ...c,
-            [name]: value,
-            ...(["baseUrl", "model"].includes(name)
-              ? {
-                  enable_thinking: undefined,
-                  thinking_budget: undefined,
-                  max_completion_tokens: undefined,
-                }
-              : {}),
-          }
-        : c,
-    );
-  };
-  function switchMode(mode: Mode) {
-    if (!config || mode === config.mode) return;
-    drafts.current[config.mode] = { config, apiKey };
-    const draft = drafts.current[mode];
-    const profile = settings.data.profiles[mode];
-    const next = draft?.config ??
-      profile?.config ?? {
-        ...config,
-        mode,
-        provider: "openai-compatible",
-        model: "",
-        baseUrl: "",
-        reasoning: "default",
-      };
-    setConfig(
-      mode === "free"
-        ? { ...next, ...settings.data.freePreset, mode }
-        : { ...next, mode },
-    );
-    setKey(draft?.apiKey ?? "");
-    setEditKey(false);
-    setSaved(false);
-    setFailure(undefined);
-    setTestResult(undefined);
-    setTestError(undefined);
-  }
-  async function testConnection(e: React.MouseEvent<HTMLButtonElement>) {
-    if (!e.currentTarget.form?.reportValidity()) return;
-    setTesting(true);
-    setTestResult(undefined);
-    setTestError(undefined);
-    try {
-      const result = await api(base + "/ai-settings/test", {
-        method: "POST",
-        body: JSON.stringify({
-          config: {
-            ...config,
-            enabled: liveControl.enabled,
-            ...(alibaba
-              ? {
-                  enable_thinking: thinking,
-                  max_completion_tokens:
-                    config!.max_completion_tokens ?? config!.maxTokens,
-                }
-              : {}),
-          },
-          version: draftVersion,
-          ...(apiKey ? { apiKey } : {}),
-        }),
-      });
-      setTestResult(result);
-    } catch (e) {
-      setTestError(e);
-    } finally {
-      setTesting(false);
-    }
-  }
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setFailure(undefined);
-    try {
-      await api(base + "/ai-settings", {
-        method: "PUT",
-        body: JSON.stringify({
-          config: {
-            ...config,
-            enabled: liveControl.enabled,
-            ...(alibaba
-              ? {
-                  enable_thinking: thinking,
-                  max_completion_tokens:
-                    config!.max_completion_tokens ?? config!.maxTokens,
-                }
-              : {}),
-          },
-          version: draftVersion,
-          ...(apiKey ? { apiKey } : {}),
-        }),
-      });
-      setKey("");
-      setSaved(true);
-      settings.reload();
-      jobs.reload();
-    } catch (e) {
-      setFailure(e);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const config = settings.data as Config | undefined;
+  const liveControl = jobs.data?.progress.control;
   if (settings.error || jobs.error)
     return <Failure error={settings.error ?? jobs.error} />;
   if (!config || !jobs.data || !settings.data) return <Loading />;
-  const alibaba =
-    config.provider === "openai-compatible" &&
-    /\.aliyuncs\.com(?:\/|$)/.test(config.baseUrl) &&
-    (/^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model) ||
-      /^deepseek-v4-(flash|pro)(?:-\d{4})?$/.test(config.model));
-  const thinking = config.enable_thinking ?? config.reasoning !== "none";
-  const storedProfile = settings.data.profiles[config.mode];
-  let hasStoredKey = false;
-  try {
-    hasStoredKey =
-      !!storedProfile?.hasKey &&
-      new URL(storedProfile.config.baseUrl).origin ===
-        new URL(config.baseUrl).origin;
-  } catch {}
   return (
     <>
       <Heading
@@ -333,20 +138,10 @@ function AutomationContent() {
                   ? "마무리 중"
                   : "일시 중지"}
             </span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={toggleRefinement}
-              disabled={controlBusy || busy}
-            >
-              {liveControl.enabled ? <Pause /> : <Play />}
-              {controlBusy ? "변경 중…" : liveControl.enabled ? "중지" : "재개"}
-            </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             중지해도 원문 수집은 계속됩니다.
           </p>
-          {!!controlError && <Failure error={controlError} />}
         </section>
         <section className="rounded-lg border p-5">
           <p className="text-sm text-muted-foreground">오늘 모델 호출</p>
@@ -388,346 +183,39 @@ function AutomationContent() {
           <TabsTrigger value="collectors">수집 상태</TabsTrigger>
         </TabsList>
         <TabsContent value="settings" className="pt-6">
-          <form onSubmit={save} className="max-w-2xl space-y-5">
-            <Tabs
-              value={config.mode}
-              onValueChange={(v) => switchMode(v as Mode)}
-            >
-              <TabsList
-                aria-label="AI 연결 방식"
-                className="grid w-full grid-cols-2"
-              >
-                <TabsTrigger value="free" disabled={busy || testing}>
-                  <Zap className="size-4 mr-2" />
-                  Free
-                </TabsTrigger>
-                <TabsTrigger value="byok" disabled={busy || testing}>
-                  <KeyRound className="size-4 mr-2" />
-                  BYOK
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <fieldset disabled={busy || testing} className="space-y-5">
-              {config.mode === "free" ? (
-                <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
-                  <span>NVIDIA · DeepSeek Flash</span>
-                  <Badge variant="secondary">자동 설정</Badge>
+          <div className="mb-4 flex items-center gap-3">
+            <Badge variant="outline">BYOK</Badge>
+            <span className="inline-flex items-center gap-2 text-sm">
+              <CheckCircle2
+                className={
+                  settings.data.hasKey
+                    ? "size-4 text-emerald-500"
+                    : "size-4 text-muted-foreground"
+                }
+              />
+              {settings.data.hasKey ? "키 연결됨" : "키 없음"}
+            </span>
+          </div>
+          <dl className="divide-y border-y">
+            {Object.entries(config)
+              .filter(([key]) => !["hasKey", "mode"].includes(key))
+              .map(([key, value]) => (
+                <div
+                  key={key}
+                  className="grid grid-cols-[220px_1fr] gap-6 py-3 text-sm"
+                >
+                  <dt className="text-muted-foreground">{key}</dt>
+                  <dd className="break-all">
+                    {value === null || value === undefined
+                      ? "—"
+                      : String(value)}
+                  </dd>
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <label htmlFor="endpoint" className="text-sm font-medium">
-                      base_url
-                    </label>
-                    <Input
-                      id="endpoint"
-                      type="url"
-                      required
-                      value={config.baseUrl}
-                      placeholder="https://…/v1"
-                      onChange={(e) => {
-                        update("baseUrl", e.target.value);
-                        let nvidia = false;
-                        try {
-                          nvidia =
-                            new URL(e.target.value).hostname ===
-                            "integrate.api.nvidia.com";
-                        } catch {}
-                        update(
-                          "provider",
-                          nvidia ? "nvidia" : "openai-compatible",
-                        );
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="model" className="text-sm font-medium">
-                      model
-                    </label>
-                    <Input
-                      id="model"
-                      required
-                      value={config.model}
-                      placeholder="qwen3.7-flash"
-                      onChange={(e) => update("model", e.target.value)}
-                    />
-                  </div>
-                </>
-              )}
-              {config.mode === "byok" || !hasStoredKey || editKey ? (
-                <div className="space-y-2">
-                  <label
-                    htmlFor="api-key"
-                    className="flex items-center gap-2 text-sm font-medium"
-                  >
-                    {config.mode === "free" ? "NVIDIA API 키" : "api_key"}
-                    {hasStoredKey && <Badge variant="secondary">저장됨</Badge>}
-                  </label>
-                  <Input
-                    id="api-key"
-                    type="password"
-                    autoComplete="new-password"
-                    required={!hasStoredKey}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setKey(e.target.value);
-                      setSaved(false);
-                      setTestResult(undefined);
-                      setTestError(undefined);
-                    }}
-                    placeholder={
-                      hasStoredKey ? "비워 두면 저장된 키 사용" : "API 키 입력"
-                    }
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
-                    NVIDIA 키 연결됨
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setEditKey(true)}
-                  >
-                    키 변경
-                  </Button>
-                </div>
-              )}
-              {config.mode === "byok" && (
-                <details className="group border-t pt-4">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground">
-                    <ChevronDown className="size-4 group-open:rotate-180" />
-                    고급 설정
-                  </summary>
-                  <div className="mt-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="dailyCalls"
-                          className="text-sm font-medium"
-                        >
-                          dailyCalls
-                        </label>
-                        <Input
-                          id="dailyCalls"
-                          type="number"
-                          min={1}
-                          max={1000}
-                          placeholder="Unlimited"
-                          value={config.dailyCalls ?? ""}
-                          onChange={(e) =>
-                            update(
-                              "dailyCalls",
-                              e.target.value ? Number(e.target.value) : null,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="maxInputTokens"
-                          className="text-sm font-medium"
-                        >
-                          maxInputTokens
-                        </label>
-                        <Input
-                          id="maxInputTokens"
-                          type="number"
-                          required
-                          min={3000}
-                          max={32000}
-                          value={config.maxInputTokens}
-                          onChange={(e) =>
-                            update("maxInputTokens", Number(e.target.value))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="outputLimit"
-                          className="text-sm font-medium"
-                        >
-                          {alibaba ? "max_completion_tokens" : "max_tokens"}
-                        </label>
-                        <Input
-                          id="outputLimit"
-                          type="number"
-                          required
-                          min={512}
-                          max={alibaba ? 32768 : 16384}
-                          value={
-                            alibaba
-                              ? (config.max_completion_tokens ??
-                                config.maxTokens)
-                              : config.maxTokens
-                          }
-                          onChange={(e) =>
-                            update(
-                              alibaba ? "max_completion_tokens" : "maxTokens",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
-                      </div>
-                      {alibaba ? (
-                        <>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                              enable_thinking
-                            </label>
-                            <Select
-                              value={String(thinking)}
-                              onValueChange={(v) =>
-                                update("enable_thinking", v === "true")
-                              }
-                            >
-                              <SelectTrigger aria-label="enable_thinking">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="false">false</SelectItem>
-                                <SelectItem value="true">true</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label
-                              htmlFor="thinking_budget"
-                              className="text-sm font-medium"
-                            >
-                              thinking_budget
-                            </label>
-                            <Input
-                              id="thinking_budget"
-                              type="number"
-                              min={1}
-                              max={32768}
-                              disabled={!thinking}
-                              placeholder="Model default"
-                              value={config.thinking_budget ?? ""}
-                              onChange={(e) =>
-                                update(
-                                  "thinking_budget",
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : null,
-                                )
-                              }
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">
-                            reasoning_effort
-                          </label>
-                          <Select
-                            value={config.reasoning}
-                            onValueChange={(v) => update("reasoning", v)}
-                          >
-                            <SelectTrigger aria-label="reasoning_effort">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["default", "none", "low", "high", "max"]
-                                .filter((v) => {
-                                  if (config.provider !== "nvidia") return true;
-                                  if (
-                                    config.model.startsWith(
-                                      "deepseek-ai/deepseek-v4-",
-                                    )
-                                  )
-                                    return v !== "low";
-                                  if (config.model === "moonshotai/kimi-k3")
-                                    return v !== "none";
-                                  return true;
-                                })
-                                .map((v) => (
-                                  <SelectItem key={v} value={v}>
-                                    {v}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      {(
-                        [
-                          ["requestsPerMinute", 1, 120],
-                          ["concurrency", 1, 5],
-                          ["retryDelaySeconds", 5, 600],
-                        ] as const
-                      ).map(([key, min, max]) => (
-                        <div key={key} className="space-y-2">
-                          <label htmlFor={key} className="text-sm font-medium">
-                            {key}
-                          </label>
-                          <Input
-                            id={key}
-                            type="number"
-                            required
-                            min={min}
-                            max={max}
-                            value={config[key]}
-                            onChange={(e) =>
-                              update(key, Number(e.target.value))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      dailyCalls · maxInputTokens는 Wiki 설정입니다. 입력은
-                      {alibaba && config.model.startsWith("qwen")
-                        ? "토큰 추정치에 10% 여유를 더합니다."
-                        : "UTF-8 바이트로 보수 추정합니다."}
-                    </p>
-                  </div>
-                </details>
-              )}
-            </fieldset>
-            {!!failure && <Failure error={failure} />}
-            {!!testError && <Failure error={testError} />}
-            {testResult && (
-              <p role="status" className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
-                Hello · 연결 성공
-                <span className="text-muted-foreground">
-                  {(testResult.durationMs / 1000).toFixed(1)}초 · 입력{" "}
-                  {testResult.usage.prompt_tokens ?? "미집계"} / 출력{" "}
-                  {testResult.usage.completion_tokens ?? "미집계"} 토큰
-                  {testResult.usage.completion_tokens_details
-                    ?.reasoning_tokens != null &&
-                    ` · 추론 ${testResult.usage.completion_tokens_details.reasoning_tokens}`}
-                </span>
-              </p>
-            )}
-            <div className="flex items-center gap-3 border-t pt-4">
-              <Button disabled={busy || testing}>
-                <Save />
-                {busy ? "저장 중" : "설정 저장"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy || testing}
-                onClick={testConnection}
-              >
-                <PlugZap />
-                {testing ? "테스트 중…" : "연결 테스트"}
-              </Button>
-              {saved && (
-                <span role="status" className="text-sm text-muted-foreground">
-                  저장했습니다.
-                </span>
-              )}
-            </div>
-          </form>
+              ))}
+          </dl>
+          <p className="mt-4 text-xs text-muted-foreground">
+            <code>agent-wiki ai show · update · test · pause · resume</code>
+          </p>
         </TabsContent>
         <TabsContent value="jobs" className="pt-6">
           <RefinementSessions workspaceId={workspaceId} />
@@ -800,8 +288,8 @@ function AutomationContent() {
           />
           {!jobs.data.streams.length ? (
             <Empty>
-              아직 수집한 세션이 없습니다. 에이전트 연결에서 원문 보관 권한의
-              키를 발급해 Collector에 연결하세요.
+              아직 수집한 세션이 없습니다. CLI에서 원문 보관 권한의 키를 발급해
+              Collector에 연결하세요.
             </Empty>
           ) : (
             <div className="divide-y border-y">

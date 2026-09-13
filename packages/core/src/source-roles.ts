@@ -4,6 +4,7 @@ type Field = {
   event: string | number;
   path: (string | number)[];
   text: unknown;
+  authority?: string;
 };
 function field(line: string): Field | null {
   try {
@@ -15,7 +16,7 @@ function field(line: string): Field | null {
       !path.every((p) => typeof p === "string" || typeof p === "number")
     )
       return null;
-    return { event: row.event, path, text: row.text };
+    return { event: row.event, path, text: row.text, authority: row.authority };
   } catch {
     return null;
   }
@@ -35,9 +36,16 @@ export function sourceRoles(text: string): SourceRole[] {
   const roles = new Map<string, SourceRole>(),
     tools = new Map<string, string[]>();
   const executions = new Set<string>();
+  const derived = new Set<string | number>();
   const key = (row: Field) => JSON.stringify([row.event, scope(row.path)]);
   for (const row of rows) {
     if (!row) continue;
+    if (
+      ["provenance", "timestamp", "id"].includes(String(row.path[0])) &&
+      row.path[1] === "authority" &&
+      row.text === "derived_context"
+    )
+      derived.add(row.event);
     const id = key(row),
       path = row.path.slice(scope(row.path).length),
       encoded = JSON.stringify(path);
@@ -85,7 +93,13 @@ export function sourceRoles(text: string): SourceRole[] {
     }
   }
   return rows.map((row) => {
-    if (!row) return "unknown";
+    if (
+      !row ||
+      row.authority === "derived_context" ||
+      derived.has(row.event) ||
+      ["provenance", "timestamp", "id"].includes(String(row.path[0]))
+    )
+      return "unknown";
     const id = key(row),
       path = row.path.slice(scope(row.path).length);
     if (

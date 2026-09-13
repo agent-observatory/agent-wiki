@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE TABLE IF NOT EXISTS users(id text PRIMARY KEY,login text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS sessions(token_hash text PRIMARY KEY,user_id text NOT NULL REFERENCES users(id),expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS workspaces(id uuid PRIMARY KEY,owner_id text NOT NULL REFERENCES users(id),name text NOT NULL CHECK(length(name) BETWEEN 1 AND 80),created_at timestamptz NOT NULL DEFAULT now());
-CREATE TABLE IF NOT EXISTS api_keys(id uuid PRIMARY KEY,user_id text NOT NULL REFERENCES users(id),workspace_id uuid NOT NULL REFERENCES workspaces(id),token_hash text NOT NULL UNIQUE,name text NOT NULL,scope text NOT NULL CHECK(scope IN ('read','source:write','publish')),created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS api_keys(id uuid PRIMARY KEY,user_id text NOT NULL REFERENCES users(id),workspace_id uuid NOT NULL REFERENCES workspaces(id),token_hash text NOT NULL UNIQUE,name text NOT NULL,scope text NOT NULL CHECK(scope IN ('read','source:write','publish','manage')),created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS sources(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),revision int NOT NULL DEFAULT 1 CHECK(revision=1),name text NOT NULL,kind text NOT NULL,origin text NOT NULL,content_hash text NOT NULL,payload_hash text NOT NULL,object_key text NOT NULL,line_count int NOT NULL,idempotency_key text NOT NULL,masked boolean NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),deleted_at timestamptz,UNIQUE(workspace_id,id),UNIQUE(workspace_id,idempotency_key));
 CREATE TABLE IF NOT EXISTS publications(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),idempotency_key text NOT NULL,payload_hash text NOT NULL,producer jsonb NOT NULL,reason text NOT NULL,result jsonb,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,id),UNIQUE(workspace_id,idempotency_key));
 CREATE TABLE IF NOT EXISTS articles(id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id),title text NOT NULL,content text NOT NULL,kind text NOT NULL CHECK(kind IN ('article','memory','glossary')),folder text NOT NULL DEFAULT '',tags text[] NOT NULL DEFAULT '{}',aliases text[] NOT NULL DEFAULT '{}',revision int NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),deleted_at timestamptz,UNIQUE(workspace_id,id));
@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS collection_origins(workspace_id uuid NOT NULL,stream_
 CREATE TABLE IF NOT EXISTS collection_uploads(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,stream_id text NOT NULL,origin_id text NOT NULL,fingerprint text NOT NULL,manifest jsonb NOT NULL,compressed_bytes bigint NOT NULL,status text NOT NULL DEFAULT 'uploading' CHECK(status IN ('uploading','queued','verifying','completed','failed','expired')),grants jsonb NOT NULL DEFAULT '{}',result jsonb,error_code text,lease_until timestamptz,expires_at timestamptz NOT NULL DEFAULT now()+interval '24 hours',created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,fingerprint),FOREIGN KEY(workspace_id,origin_id) REFERENCES collection_origins(workspace_id,id));
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}';
 CREATE TABLE IF NOT EXISTS ai_settings(workspace_id uuid PRIMARY KEY REFERENCES workspaces(id),config jsonb NOT NULL,encrypted_key text,version int NOT NULL DEFAULT 1,updated_at timestamptz NOT NULL DEFAULT now());
-ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS profiles jsonb NOT NULL DEFAULT '{}';
+-- Free mode is retired; preserve explicit BYOK settings and erase unused profiles.
+UPDATE ai_settings SET config='{"mode":"byok","enabled":false}'::jsonb, encrypted_key=NULL,version=version+1 WHERE config->>'mode'='free';
+ALTER TABLE ai_settings DROP COLUMN IF EXISTS profiles;
 CREATE TABLE IF NOT EXISTS refinement_jobs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,source_id uuid NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed')),attempts int NOT NULL DEFAULT 0,available_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,run_id uuid,output jsonb,result jsonb,error_code text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,source_id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
 CREATE TABLE IF NOT EXISTS refinement_runs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,job_id uuid NOT NULL REFERENCES refinement_jobs(id),settings jsonb NOT NULL,prompt_version text NOT NULL,input jsonb NOT NULL DEFAULT '{}',output jsonb,usage jsonb,status text NOT NULL DEFAULT 'running',error_code text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz);
 ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS output jsonb;
@@ -48,6 +50,8 @@ ALTER TABLE claims ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT '';
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
 CREATE TABLE IF NOT EXISTS claim_relations(workspace_id uuid NOT NULL,from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,publication_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,to_article_id,to_revision,to_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
 CREATE INDEX IF NOT EXISTS claim_relation_target ON claim_relations(workspace_id,to_article_id,to_revision,to_anchor);
+CREATE TABLE IF NOT EXISTS knowledge_reviews(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,article_id uuid NOT NULL,revision int NOT NULL,snapshot jsonb NOT NULL,snapshot_hash text NOT NULL,reviewer jsonb NOT NULL,reason text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),FOREIGN KEY(workspace_id,article_id,revision) REFERENCES revisions(workspace_id,article_id,revision) ON DELETE CASCADE,UNIQUE(workspace_id,article_id,revision,snapshot_hash));
+CREATE INDEX IF NOT EXISTS knowledge_review_baseline ON knowledge_reviews(workspace_id,article_id,revision DESC,created_at DESC);
 CREATE TABLE IF NOT EXISTS model_request_gates(owner_id text NOT NULL REFERENCES users(id),key_hash text NOT NULL,next_allowed_at timestamptz NOT NULL DEFAULT now(),failures int NOT NULL DEFAULT 0,PRIMARY KEY(owner_id,key_hash));
 ALTER TABLE model_request_gates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE model_request_gates FORCE ROW LEVEL SECURITY;
@@ -58,7 +62,7 @@ ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds'] LOOP
+ FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);
@@ -69,3 +73,6 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO wiki_app;
 GRANT USAGE ON SCHEMA public TO wiki_app;
 GRANT CONNECT ON DATABASE agent_wiki TO wiki_app;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO wiki_admin;
+
+ALTER TABLE api_keys DROP CONSTRAINT IF EXISTS api_keys_scope_check;
+ALTER TABLE api_keys ADD CONSTRAINT api_keys_scope_check CHECK(scope IN ('read','source:write','publish','manage'));

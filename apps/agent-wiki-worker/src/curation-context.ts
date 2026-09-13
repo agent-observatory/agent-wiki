@@ -6,19 +6,35 @@ import { estimateTokens } from "../../../packages/core/src/chunking.js";
 // chunk's budget. These are retrieval hints; only the incoming L1 is evidence
 // for a newly extracted assertion.
 export const CONTEXT_BUDGET = 1800;
-export const CONTEXT_POLICY_VERSION = "session-anchor-relevance-1";
+export const CONTEXT_POLICY_VERSION = "workspace-topic-relevance-2";
 export async function curationContext(
   c: PoolClient,
   ws: string,
   sourceId: string,
   text: string,
 ) {
-  // Keep one same-session anchor; remaining slots compete across the workspace.
-  // Session affinity must not consume the entire budget ahead of a relevant decision.
+  // Search decoded conversational text, including late-chunk topic changes.
+  const query = text
+    .split("\n")
+    .map((line) => {
+      try {
+        const row = JSON.parse(line),
+          path = JSON.parse(row.field);
+        return Array.isArray(path) &&
+          !["role", "type", "id", "call_id"].includes(path.at(-1)) &&
+          typeof row.text === "string"
+          ? row.text
+          : "";
+      } catch {
+        return line;
+      }
+    })
+    .join(" ")
+    .slice(0, 120000);
   const rows = (
     await c.query(
       `WITH candidates AS (SELECT a.id,a.title,a.revision,cl.anchor,cl.text,cl.type,cl.subject,cl.scope,a.updated_at,
- similarity(left($3,2000),a.title||' '||left(cl.text,2000)) AS relevance,
+ greatest(word_similarity(a.title||' '||cl.subject||' '||cl.scope,$3),word_similarity(left(cl.text,2000),$3),COALESCE((SELECT max(word_similarity(alias,$3)) FROM unnest(a.aliases) alias),0)) AS relevance,
  ${effectiveClaimState("cl")} AS state,
  EXISTS(SELECT 1 FROM evidence e JOIN sources prior ON prior.workspace_id=e.workspace_id AND prior.id=e.source_id
  JOIN sources incoming ON incoming.workspace_id=prior.workspace_id AND incoming.id=$2
@@ -30,9 +46,8 @@ export async function curationContext(
  SELECT candidates.*,row_number() OVER(PARTITION BY same_session ORDER BY relevance DESC,updated_at DESC,id,anchor) AS session_rank FROM candidates
  )
  SELECT id,title,revision,anchor,text,type,subject,scope,state,same_session FROM ranked
- ORDER BY CASE WHEN same_session AND session_rank=1 THEN 0 ELSE 1 END,
- relevance DESC,same_session DESC,updated_at DESC,id,anchor LIMIT 24`,
-      [ws, sourceId, text],
+ ORDER BY relevance DESC,same_session DESC,updated_at DESC,id,anchor LIMIT 24`,
+      [ws, sourceId, query],
     )
   ).rows;
   const related: any[] = [];

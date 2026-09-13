@@ -5,11 +5,17 @@ import { channel } from "node:diagnostics_channel";
 import { spawnSync } from "node:child_process";
 import {
   callModel,
-  defaults,
+  defaults as baseDefaults,
   aiConfig,
   ModelError,
   parseRetryAfter,
 } from "../packages/core/src/ai.js";
+const defaults = {
+  ...baseDefaults,
+  provider: "nvidia" as const,
+  baseUrl: "https://integrate.api.nvidia.com/v1",
+  model: "deepseek-ai/deepseek-v4-flash-0731",
+};
 test("loading model transport does not replace the OCI SDK's HTTP dispatcher", () => {
   const result = spawnSync(
     process.execPath,

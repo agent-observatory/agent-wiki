@@ -30,7 +30,8 @@ export async function* projectEvents(
     segment = 0,
     skip = false,
     inString = false,
-    nativeId: string | null = null;
+    nativeId: string | null = null,
+    authority: string | undefined;
   const currentPath = () =>
     frames
       .map((f) => (f.kind === "array" ? f.index : f.key))
@@ -49,6 +50,7 @@ export async function* projectEvents(
       outputBuffer +=
         JSON.stringify({
           event: pos,
+          ...(authority ? { authority } : {}),
           field: keyPath,
           segment: segment++,
           text: mask(value),
@@ -64,6 +66,7 @@ export async function* projectEvents(
         file = await open(filePath, "w", 0o600);
         h = createHash("sha256");
         nativeId = null;
+        authority = undefined;
       }
       // Provenance may move when another machine stores the same selected item.
       // Its content-addressed ID/payload remain the dedup identity; raw bytes and
@@ -123,6 +126,11 @@ export async function* projectEvents(
           ["image", "input_image", "image_url", "base64"].includes(text)
         )
           frames.at(-1).image = true;
+        if (
+          keyPath === '["provenance","authority"]' &&
+          text === "derived_context"
+        )
+          authority = text;
         await emit(text);
         text = "";
         inString = false;

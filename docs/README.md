@@ -5,7 +5,7 @@
 | 파일 | 무엇을 보나 |
 | --- | --- |
 | [architecture.md](architecture.md) | 전체 구성·계층·앱·인프라·조회 |
-| [l2-l3-memory.md](l2-l3-memory.md) | L2·L3 그림 4장: 증분 처리·결정 변경·비교 실험·재생성 |
+| [l2-l3-memory.md](l2-l3-memory.md) | L2·L3: 증분·결정 변경·에이전트 검토·실험·재생성 |
 | [OPERATIONS.md](OPERATIONS.md) | 현재 구현·실제 배포·검증 결과·남은 작업 |
 | [client-and-api.md](client-and-api.md) | Client 설치·연결, 접힌 수집·API 계약 |
 | [DESIGN.md](DESIGN.md) | UI·문서·SVG 디자인 규칙 |

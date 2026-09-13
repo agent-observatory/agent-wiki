@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-export const SELECTION_VERSION = "conversation-1";
+export const SELECTION_VERSION = "conversation-2";
 const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const fields = [
@@ -56,6 +56,8 @@ function itemOf(value) {
 // until the server acknowledges the raw byte cursor. Identical new utterances
 // without native IDs are retained; snapshot copies are not new utterances.
 export function createSelector(client) {
+  let session = {};
+  let boundary;
   const native = new Set(),
     occurrences = new Map();
   const stats = {
@@ -68,13 +70,34 @@ export function createSelector(client) {
   };
   function select(event, position, active = true) {
     const out = [];
+    if (client === "codex" && event.type === "session_meta") {
+      const meta = event.payload ?? {};
+      session = {
+        ...(meta.id ? { sessionId: meta.id } : {}),
+        ...(meta.forked_from_id
+          ? { parentSessionId: meta.forked_from_id }
+          : {}),
+      };
+    }
+    if (
+      client === "claude" &&
+      event.type === "system" &&
+      event.subtype === "compact_boundary"
+    )
+      boundary = event.uuid;
+    const derived = event.isCompactSummary === true || event.isMeta === true;
     const snapshotOccurrences = new Map();
     function add(value, snapshot = false) {
       const item = itemOf(value);
       if (!item) return;
       const hash = digest(item),
         nativeKey = value.id ?? value.uuid;
-      const key = nativeKey ? String(nativeKey) + ":" + hash : null;
+      const key = nativeKey
+        ? String(nativeKey) +
+          ":" +
+          hash +
+          (snapshot || derived ? ":derived" : "")
+        : null;
       if (snapshot) {
         const n = (snapshotOccurrences.get(hash) ?? 0) + 1;
         snapshotOccurrences.set(hash, n);
@@ -88,12 +111,28 @@ export function createSelector(client) {
       out.push({
         id: key ? digest(key) : digest([hash, occurrence]),
         type: "response_item",
-        payload: item,
         provenance: {
           client,
+          ...session,
+          ...(event.sessionId ? { sessionId: event.sessionId } : {}),
+          ...(nativeKey ? { nativeId: String(nativeKey) } : {}),
+          ...(event.message?.id ? { messageId: event.message.id } : {}),
+          ...(event.parentUuid ? { parentId: event.parentUuid } : {}),
+          ...(event.agentId ? { agentId: event.agentId } : {}),
+          ...(event.isSidechain ? { sidechain: true } : {}),
+          ...(event.sourceToolAssistantUUID
+            ? { sourceAssistantId: event.sourceToolAssistantUUID }
+            : {}),
+          ...(boundary ? { compactBoundaryId: boundary } : {}),
+          ...(snapshot || derived ? { authority: "derived_context" } : {}),
           event: position,
-          kind: snapshot ? "compaction_recovered" : (event.type ?? "message"),
+          kind: derived
+            ? "derived_context"
+            : snapshot
+              ? "compaction_recovered"
+              : (event.type ?? "message"),
         },
+        payload: item,
         ...(event.timestamp ? { timestamp: event.timestamp } : {}),
       });
       stats.selected++;
@@ -139,6 +178,26 @@ export function createSelector(client) {
               ]
             : event.text),
       });
+    if (
+      active &&
+      boundary &&
+      event.type === "system" &&
+      event.subtype === "compact_boundary"
+    ) {
+      out.push({
+        id: digest([client, event.uuid, "boundary"]),
+        type: "lineage",
+        provenance: {
+          client,
+          event: position,
+          kind: "compact_boundary",
+          nativeId: boundary,
+          ...(event.parentUuid ? { parentId: event.parentUuid } : {}),
+          ...(event.sessionId ? { sessionId: event.sessionId } : {}),
+        },
+      });
+      stats.selected++;
+    }
     if (active && !out.length) stats.excluded++;
     return out;
   }

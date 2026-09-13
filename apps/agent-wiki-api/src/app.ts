@@ -24,7 +24,7 @@ import type { FastifyRequest } from "fastify";
 const uuid = z.string().uuid();
 type Identity = {
   userId: string;
-  scope: "session" | "read" | "source:write" | "publish";
+  scope: "session" | "read" | "source:write" | "publish" | "manage";
   workspaceId?: string;
   tokenHash: string;
 };
@@ -165,7 +165,7 @@ export async function buildApp() {
         throw new AppError(415, "JSON_REQUIRED");
       if (req.identity.scope === "read")
         throw new AppError(403, "READ_ONLY_TOKEN");
-      if (req.identity.scope !== "session") {
+      if (!["session", "manage"].includes(req.identity.scope)) {
         const suffix = req.url.split("?")[0];
         const allowed =
           req.method === "POST" &&
@@ -173,7 +173,9 @@ export async function buildApp() {
             suffix,
           ) ||
             (req.identity.scope === "publish" &&
-              /^\/api\/workspaces\/[^/]+\/publications$/.test(suffix)));
+              /^\/api\/workspaces\/[^/]+\/(?:publications|articles\/[a-f0-9-]+\/review)$/.test(
+                suffix,
+              )));
         if (!allowed) throw new AppError(403, "SCOPE_REJECTED");
       }
     }
@@ -219,7 +221,7 @@ export async function buildApp() {
     });
   }
   const sessionOnly = (req: FastifyRequest) => {
-    if (req.identity!.scope !== "session")
+    if (!["session", "manage"].includes(req.identity!.scope))
       throw new AppError(403, "SESSION_REQUIRED");
   };
   app.get("/healthz", async () => ({ status: "ok" }));
@@ -294,7 +296,9 @@ export async function buildApp() {
     const input = z
       .object({
         name: z.string().min(1).max(80),
-        scope: z.enum(["read", "source:write", "publish"]).default("read"),
+        scope: z
+          .enum(["read", "source:write", "publish", "manage"])
+          .default("read"),
       })
       .parse(req.body);
     return scoped(req, async (c, ws) => {

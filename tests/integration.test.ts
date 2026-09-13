@@ -21,6 +21,7 @@ const headers = {
 };
 before(async () => {
   process.env.OWNER_GITHUB_ID = "test-owner";
+  process.env.AI_ENCRYPTION_KEY = "7".repeat(64);
   await admin.query(
     "INSERT INTO users(id,login) VALUES('test-owner','test-owner'),('other-owner','other-owner') ON CONFLICT DO NOTHING",
   );
@@ -154,6 +155,7 @@ test("missing owner configuration fails closed including OAuth entry", async () 
   delete process.env.OWNER_GITHUB_ID;
   const unconfigured = await buildApp();
   process.env.OWNER_GITHUB_ID = "test-owner";
+  process.env.AI_ENCRYPTION_KEY = "7".repeat(64);
   try {
     for (const url of [
       "/api/me",
@@ -333,13 +335,25 @@ test("new revisions, historical evidence, conflict and owner review are distinct
   assert.equal(history.currentRevision, 2);
   assert.equal(history.claims[0].evidence.length, 2);
   assert.equal(
-    (await call("POST", `/articles/${article}/review`, { revision: 1 }))
-      .statusCode,
+    (
+      await call("POST", `/articles/${article}/review`, {
+        revision: 1,
+        snapshotHash: "0".repeat(64),
+        client: "codex",
+      })
+    ).statusCode,
     409,
   );
   assert.equal(
-    (await call("POST", `/articles/${article}/review`, { revision: 2 }))
-      .statusCode,
+    (
+      await call("POST", `/articles/${article}/review`, {
+        revision: 2,
+        snapshotHash: (
+          await call("GET", `/articles/${article}/comparison`)
+        ).json().snapshotHash,
+        client: "codex",
+      })
+    ).statusCode,
     200,
   );
   assert.ok((await call("GET", `/articles/${article}`)).json().reviewed_at);
@@ -549,4 +563,96 @@ test("publication list uses the title at the recorded revision, not an internal 
     .find((a: any) => a.id === item.id);
   assert.equal(found.title, "그때의 제목");
   assert.equal(found.revision, 1);
+});
+
+test("management is Workspace-bound and settings writes stay paused", async () => {
+  const k = (
+    await call("POST", "/keys", { name: "synthetic manager", scope: "manage" })
+  ).json();
+  const manage = (method: any, path: string, payload?: any) =>
+    app.inject({
+      method,
+      url: `/api/workspaces/${ws}${path}`,
+      headers: {
+        authorization: "Bearer " + k.token,
+        "content-type": "application/json",
+      },
+      ...(payload ? { payload } : {}),
+    });
+  const settings = await manage("GET", "/ai-settings");
+  assert.equal(settings.statusCode, 200, settings.body);
+  assert.equal(
+    (
+      await app.inject({
+        url: `/api/workspaces/${other}/ai-settings`,
+        headers: { authorization: "Bearer " + k.token },
+      })
+    ).statusCode,
+    404,
+  );
+  const { hasKey, version, profiles, freePreset, ...config } = settings.json();
+  const save = await manage("PUT", "/ai-settings", {
+    version,
+    config: { ...config, enabled: false },
+    apiKey: "synthetic-key-for-test",
+  });
+  assert.equal(save.statusCode, 200, save.body);
+  assert.equal((await manage("GET", "/ai-settings")).json().enabled, false);
+  assert.equal(
+    (await manage("PATCH", "/ai-settings/enabled", { enabled: true, version }))
+      .statusCode,
+    409,
+  );
+});
+test("review baseline uses last approved snapshot across intervening Versions", async () => {
+  const s = await source();
+  const first = await call("POST", "/publications", publication(s));
+  const id = first.json().items[0].id;
+  let diff = (await call("GET", `/articles/${id}/comparison`)).json();
+  assert.equal(diff.baseline.kind, "empty");
+  const approval = {
+    revision: 1,
+    snapshotHash: diff.snapshotHash,
+    client: "claude",
+    reason: "User reviewed synthetic decision",
+  };
+  const confirmed = await call("POST", `/articles/${id}/review`, approval);
+  assert.equal(confirmed.statusCode, 200, confirmed.body);
+  assert.equal(
+    (await call("POST", `/articles/${id}/review`, approval)).json().reviewId,
+    confirmed.json().reviewId,
+  );
+  assert.equal(
+    (await call("GET", `/articles/${id}/comparison`)).json().reviewPending,
+    false,
+  );
+  assert.deepEqual(
+    (await call("GET", `/articles/${id}/comparison`)).json().changes.claims,
+    [],
+  );
+  for (let revision = 1; revision < 3; revision++) {
+    const p = publication(s);
+    Object.assign(p.changes[0], {
+      articleId: id,
+      baseRevision: revision,
+      title: "Changed concept " + revision,
+    });
+    const r = await call("POST", "/publications", p);
+    assert.equal(r.statusCode, 200, r.body);
+  }
+  diff = (await call("GET", `/articles/${id}/comparison`)).json();
+  assert.deepEqual(
+    [diff.baseline.kind, diff.baseline.revision, diff.revision],
+    ["reviewed", 1, 3],
+  );
+  assert.equal(diff.reviewPending, true);
+  assert.equal(diff.changes.metadataChanged, true);
+  assert.equal(
+    (
+      await call("POST", `/articles/${id}/review`, { ...approval, revision: 3 })
+    ).json().error,
+    "REVIEW_COMPARISON_CHANGED",
+  );
+  const queue = (await call("GET", "/reviews")).json();
+  assert.ok(queue.items.some((a: any) => a.id === id));
 });

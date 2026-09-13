@@ -4,7 +4,7 @@
 
 **데스크톱 웹 전용이며 모바일 대응·검증은 범위에 두지 않는다.**
 
-**웹 UI의 기본은 shadcn/ui다. 공식 컴포넌트·블록·테마를 먼저 사용하고 Wiki에 필요한 부분만 조합한다.** 에이전트의 근거 조회가 주 용례이며 웹은 지식 편집·정정·원문 확인을 돕는다.
+**웹 UI의 기본은 shadcn/ui다. 공식 컴포넌트·블록·테마를 먼저 사용하고 Wiki에 필요한 부분만 조합한다.** 에이전트의 근거 조회가 주 용례이며 웹은 지식·원문·검토 결과·진행 상태를 읽는 뷰어다. 변경은 CLI에서 수행한다.
 
 2026-09-12 공식 [저장소](https://github.com/shadcn-ui/ui)·[소개](https://ui.shadcn.com/docs)·[컴포넌트](https://ui.shadcn.com/docs/components)·[테마](https://ui.shadcn.com/docs/theming)를 확인해 기본 기준으로 선택했다. 공식 shadcn CLI 4.21.0으로 생성한 Neutral·Radix 계열 컴포넌트를 사용한다. Tailwind 4 의미 토큰과 아이콘 전용 다크/라이트 토글을 적용했다. 컴포넌트 소스는 `apps/agent-wiki-web/components/ui`에 있으며 원본은 MIT 라이선스다. 운영 배포 상태는 `OPERATIONS.md`를 따른다.
 
@@ -37,9 +37,9 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 | 키워드 검색 | Input + 검색 결과 목록, 빠른 찾기는 Command + Dialog |
 | 문서·원문 목록 | Item 또는 Table·Badge·DropdownMenu, 행을 눌러 상세 열기 |
 | 본문·리니지 | Typography·Separator·Tabs, 근거 구간은 Sheet 또는 본문 상세 |
-| 편집 | Field·Input·Textarea·Button, 미리보기와 저장 상태 |
-| 설정·개별 작업 | Dialog·Select·Button, 관련 설정만 묶는 Card |
-| 확인이 필요한 삭제 | AlertDialog. 모든 저장·편집에 확인창을 추가하지 않음 |
+| 검토 결과 | Badge·Version 선택·주장과 근거 비교 |
+| 설정 | 읽기 전용 필드 요약 |
+| 변경·삭제 | CLI에서 명시적 범위와 Version을 전달 |
 | 빈 상태·로딩·실패 | Empty·Skeleton·Alert, 짧은 완료 피드백은 Toast |
 | 테마·복사 등 보조 행동 | 아이콘 Button + Tooltip + 접근성 이름 |
 
@@ -47,7 +47,7 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 복사·편집·삭제 버튼을 모든 행에 나열하지 않는다. 문서는 클릭해 열고 부가 행동은 DropdownMenu에 둔다. 본문 전체를 Card로 감싸거나 카드 안에 카드를 반복하지 않는다. 관리자 대시보드 블록의 매출·가입·통계 UI를 개인 Wiki에 그대로 가져오지 않는다.
 
-AI 설정은 **Free / BYOK** 두 모드다. Free는 NVIDIA·DeepSeek Flash를 자동 선택하고 연결 요약만 보여준다. BYOK는 API 주소·모델·키를 표시하고 한도·추론 옵션은 접힌 고급 설정에 둔다. 키는 최초 입력이나 변경 때만 받으며 모드별 연결을 보관한다. 저장 옆 연결 테스트는 짧은 Hello와 응답 시간·입력/출력 토큰을 표시한다. 테스트는 설정 저장·자동 정제 재개와 독립적이다.
+AI 설정은 **BYOK 단일 연결의 읽기 전용 요약**이다. API 키 원문은 표시하지 않는다. 설정·Hello 테스트·자동 정제 재개는 별도 CLI 명령이다. Free 선택기·저장 폼·웹의 테스트·재개 버튼은 두지 않는다.
 
 BYOK 필드명은 API/SDK 명칭인 `base_url`, `model`, `api_key`, `max_tokens` 또는 `max_completion_tokens`, `enable_thinking`, `thinking_budget`, `reasoning_effort`를 사용한다. 제공자에서 지원하는 옵션만 보인다. Wiki 자체 제한인 `dailyCalls`, `maxInputTokens`, `requestsPerMinute`, `concurrency`, `retryDelaySeconds`는 코드 이름으로 표시하고 제공자 파라미터와 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.
 

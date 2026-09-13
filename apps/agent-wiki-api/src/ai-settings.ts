@@ -22,42 +22,11 @@ type Scoped = <T>(
   r: FastifyRequest,
   fn: (c: PoolClient, ws: string) => Promise<T>,
 ) => Promise<T>;
-type Mode = "free" | "byok";
-type Profile = { config: AiConfig; encryptedKey?: string | null };
 type Settings = {
   config: AiConfig;
   encrypted_key?: string | null;
-  profiles?: Partial<Record<Mode, Profile>>;
   version: number;
 };
-const modeOf = (config: AiConfig): Mode =>
-  config.mode ?? (config.provider === "nvidia" ? "free" : "byok");
-function profilesOf(row?: Settings) {
-  const profiles = { ...row?.profiles };
-  if (row)
-    profiles[modeOf(row.config)] = {
-      config: row.config,
-      encryptedKey: row.encrypted_key,
-    };
-  return profiles;
-}
-function normalize(config: AiConfig): AiConfig {
-  return config.mode === "free"
-    ? {
-        ...config,
-        provider: defaults.provider,
-        model: defaults.model,
-        baseUrl: defaults.baseUrl,
-        reasoning: defaults.reasoning,
-        requestsPerMinute: 20,
-        concurrency: 1,
-        retryDelaySeconds: 120,
-        enable_thinking: undefined,
-        thinking_budget: undefined,
-        max_completion_tokens: undefined,
-      }
-    : config;
-}
 const input = z
   .object({
     config: aiConfig,
@@ -71,13 +40,11 @@ function resolveKey(
   apiKey?: string,
 ) {
   if (apiKey?.trim()) return encryptSecret(apiKey.trim());
-  const profile = profilesOf(row)[modeOf(config)];
-  // Never reuse a credential at a different destination, including mode switches.
   if (
-    profile &&
-    new URL(profile.config.baseUrl).origin === new URL(config.baseUrl).origin
+    row &&
+    new URL(row.config.baseUrl).origin === new URL(config.baseUrl).origin
   )
-    return profile.encryptedKey;
+    return row.encrypted_key;
   if (row) throw new AppError(400, "AI_KEY_REQUIRED");
   return null;
 }
@@ -92,39 +59,22 @@ export function registerAiSettings(
     return scoped(r, async (c, ws) => {
       const row = (
         await c.query(
-          "SELECT config,encrypted_key,profiles,version FROM ai_settings WHERE workspace_id=$1",
+          "SELECT config,encrypted_key,version FROM ai_settings WHERE workspace_id=$1",
           [ws],
         )
       ).rows[0] as Settings | undefined;
       const config = aiConfig.parse(row?.config ?? defaults);
-      const profiles = Object.fromEntries(
-        Object.entries(profilesOf(row)).map(([mode, p]) => [
-          mode,
-          {
-            config: { ...aiConfig.parse(p.config), mode },
-            hasKey: !!p.encryptedKey,
-          },
-        ]),
-      );
       return {
         ...config,
-        mode: modeOf(config),
         hasKey: !!row?.encrypted_key,
         version: row?.version ?? 0,
-        profiles,
-        freePreset: {
-          provider: defaults.provider,
-          model: defaults.model,
-          baseUrl: defaults.baseUrl,
-          reasoning: defaults.reasoning,
-        },
       };
     });
   });
   app.put(base, (r) => {
     sessionOnly(r);
     const body = input.parse(r.body),
-      config = normalize(body.config);
+      config = body.config;
     validateEndpoint(config);
     return scoped(r, async (c, ws) => {
       await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
@@ -137,11 +87,9 @@ export function registerAiSettings(
         throw new AppError(409, "REVISION_CONFLICT");
       const secret = resolveKey(row, config, body.apiKey);
       if (config.enabled && !secret) throw new AppError(400, "AI_KEY_REQUIRED");
-      const profiles = profilesOf(row);
-      profiles[modeOf(config)] = { config, encryptedKey: secret };
       await c.query(
-        "INSERT INTO ai_settings(workspace_id,config,encrypted_key,profiles) VALUES($1,$2,$3,$4) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,profiles=$4,version=ai_settings.version+1,updated_at=now()",
-        [ws, JSON.stringify(config), secret ?? null, JSON.stringify(profiles)],
+        "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,version=ai_settings.version+1,updated_at=now()",
+        [ws, JSON.stringify(config), secret ?? null],
       );
       return { ok: true };
     });
@@ -152,7 +100,7 @@ export function registerAiSettings(
     async (r) => {
       sessionOnly(r);
       const body = input.parse(r.body),
-        config = normalize(body.config);
+        config = body.config;
       validateEndpoint(config);
       const encrypted = await scoped(r, async (c, ws) => {
         const row = (

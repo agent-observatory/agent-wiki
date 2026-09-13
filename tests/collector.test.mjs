@@ -192,3 +192,134 @@ test("collection interval defaults to ten minutes and validates scheduler overri
   for (const value of [0, -1, 1.5, 1441, "bad", "", null])
     assert.throws(() => collectionInterval(value), /interval must be/);
 });
+
+test("disabled client is not scanned, uploaded or checkpointed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wiki-disabled-"));
+  try {
+    await writeFile(
+      join(root, "claude.jsonl"),
+      JSON.stringify({
+        cwd: "/allowed",
+        type: "user",
+        sessionId: "s",
+        uuid: "u",
+        message: { role: "user", content: "keep local" },
+      }) + "\n",
+    );
+    const state = { files: {} };
+    const stats = await collect(
+      {
+        name: "test",
+        machine: "machine",
+        projects: ["/allowed"],
+        roots: [{ client: "claude", path: root }],
+        disabledClients: ["claude"],
+      },
+      state,
+      async () => {
+        throw new Error("must not request");
+      },
+    );
+    assert.equal(stats.failed, 0);
+    assert.equal(stats.files, 0);
+    assert.deepEqual(state.files, {});
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Claude compressed increments preserve native links and do not replay acknowledged messages", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wiki-claude-increment-")),
+    file = join(dir, "s.jsonl");
+  let first, second;
+  try {
+    const a = {
+      type: "assistant",
+      uuid: "assistant",
+      parentUuid: "user",
+      sessionId: "session",
+      cwd: "/allowed",
+      message: {
+        role: "assistant",
+        id: "api-message",
+        content: [
+          {
+            type: "tool_use",
+            id: "call",
+            name: "read",
+            input: { path: "synthetic" },
+          },
+          { type: "thinking", thinking: "omitted" },
+        ],
+      },
+    };
+    await writeFile(file, JSON.stringify(a) + "\n");
+    const cursor = (await stat(file)).size;
+    first = await prepareUpload(file, 0, cursor, (x) => x, {
+      client: "claude",
+      recordStart: 0,
+    });
+    const call = JSON.parse(
+      zstdDecompressSync(await readFile(join(first.dir, "0"))).toString(),
+    );
+    assert.equal(call.provenance.messageId, "api-message");
+    assert.equal(call.payload.content.length, 1);
+    const b = {
+      type: "user",
+      uuid: "result",
+      parentUuid: "assistant",
+      sessionId: "session",
+      message: {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "call", content: "observed" },
+        ],
+      },
+    };
+    await appendFile(file, JSON.stringify(a) + "\n" + JSON.stringify(b) + "\n");
+    second = await prepareUpload(
+      file,
+      cursor,
+      (await stat(file)).size,
+      (x) => x,
+      { client: "claude", recordStart: 1 },
+    );
+    const result = JSON.parse(
+      zstdDecompressSync(await readFile(join(second.dir, "0"))).toString(),
+    );
+    assert.equal(result.provenance.parentId, call.provenance.nativeId);
+    assert.equal(
+      result.payload.content[0].tool_use_id,
+      call.payload.content[0].id,
+    );
+    assert.equal(second.selection.selected, 1);
+  } finally {
+    await first?.cleanup();
+    await second?.cleanup();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("Claude first oversized record still yields project and native session identity", async () => {
+  const { readClientHeader } =
+    await import("../packages/agent-wiki-client/collector/collector.mjs");
+  const dir = await mkdtemp(join(tmpdir(), "wiki-header-"));
+  try {
+    const file = join(dir, "large.jsonl");
+    await writeFile(
+      file,
+      JSON.stringify({
+        type: "user",
+        message: { content: "x".repeat(350000) },
+        cwd: dir,
+        sessionId: "synthetic-large-session",
+      }) + "\n",
+    );
+    assert.deepEqual(await readClientHeader(file, "claude"), {
+      cwd: dir,
+      sessionId: "synthetic-large-session",
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

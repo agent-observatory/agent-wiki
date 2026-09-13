@@ -43,14 +43,18 @@ export async function loadToken(connection, role = "query") {
     }
   }
   const token =
-    role === "collector"
-      ? (process.env.WIKI_COLLECTOR_TOKEN ?? process.env.WIKI_TOKEN)
-      : process.env.WIKI_TOKEN;
+    role === "management"
+      ? process.env.WIKI_MANAGEMENT_TOKEN
+      : role === "collector"
+        ? (process.env.WIKI_COLLECTOR_TOKEN ?? process.env.WIKI_TOKEN)
+        : process.env.WIKI_TOKEN;
   if (!token)
     throw new Error(
-      role === "collector"
-        ? "Set WIKI_COLLECTOR_TOKEN or WIKI_TOKEN in the configured env file"
-        : "Set WIKI_TOKEN in the configured env file",
+      role === "management"
+        ? "Set WIKI_MANAGEMENT_TOKEN in the configured env file"
+        : role === "collector"
+          ? "Set WIKI_COLLECTOR_TOKEN or WIKI_TOKEN in the configured env file"
+          : "Set WIKI_TOKEN in the configured env file",
     );
   return token;
 }

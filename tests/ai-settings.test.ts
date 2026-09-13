@@ -29,7 +29,7 @@ const byok = {
   model: "qwen3.7-flash",
   maxInputTokens: 25000,
 };
-const free = { ...defaults, mode: "free" };
+
 const endpoint = () => "/api/workspaces/" + ws + "/ai-settings";
 const get = async () =>
   (await app.inject({ method: "GET", url: endpoint(), headers })).json();
@@ -66,48 +66,26 @@ after(async () => {
   await admin.end();
 });
 
-test("Free normalizes provider options; BYOK switching preserves separate encrypted credentials", async () => {
-  // A pre-mode NVIDIA profile must also survive the first switch.
-  assert.equal((await put(defaults, "synthetic-free-key")).statusCode, 200);
+test("BYOK keeps credentials at the configured host and rejects the removed Free mode", async () => {
   assert.equal((await put(byok, "synthetic-byok-key")).statusCode, 200);
-  let view = await get();
+  const view = await get();
   assert.equal(view.mode, "byok");
-  assert.equal(view.profiles.free.hasKey, true);
-  assert.equal(view.profiles.byok.hasKey, true);
-  assert.equal(JSON.stringify(view).includes("encrypted"), false);
+  assert.equal(view.profiles, undefined);
+  assert.equal(view.freePreset, undefined);
   assert.equal(JSON.stringify(view).includes("synthetic-"), false);
-  assert.equal(
-    (
-      await put({
-        ...byok,
-        mode: "free",
-        enable_thinking: true,
-        thinking_budget: 1024,
-        max_completion_tokens: 4096,
-      })
-    ).statusCode,
-    200,
-  );
-  view = await get();
-  assert.equal(view.model, defaults.model);
-  assert.equal(view.enable_thinking, undefined);
-  assert.equal(view.thinking_budget, undefined);
-  assert.equal(view.max_completion_tokens, undefined);
-  assert.equal(view.baseUrl, defaults.baseUrl);
-  let row = (
-    await admin.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
-  ).rows[0];
-  assert.equal(decryptSecret(row.encrypted_key), "synthetic-free-key");
-  assert.equal((await put(byok)).statusCode, 200);
-  row = (
+  assert.equal((await put({ ...byok, mode: "free" })).statusCode, 400);
+  assert.equal((await put({ ...byok, maxInputTokens: 25000 })).statusCode, 200);
+  const row = (
     await admin.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
   ).rows[0];
   assert.equal(decryptSecret(row.encrypted_key), "synthetic-byok-key");
   assert.equal(row.config.enabled, false);
-  assert.equal(row.config.maxInputTokens, 25000);
-  const changedHost = await put({ ...byok, baseUrl: defaults.baseUrl });
-  assert.equal(changedHost.statusCode, 400);
-  assert.match(changedHost.body, /AI_KEY_REQUIRED/);
+  const changed = await put({
+    ...byok,
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+  });
+  assert.equal(changed.statusCode, 400);
+  assert.match(changed.body, /AI_KEY_REQUIRED/);
 });
 
 test("Hello tests unsaved settings, uses target credential, and never saves or queues curation", async () => {
@@ -179,7 +157,7 @@ test("Hello tests unsaved settings, uses target credential, and never saves or q
     const unauthenticated = await app.inject({
       method: "POST",
       url: endpoint() + "/test",
-      payload: { config: free, version: before.version },
+      payload: { config: byok, version: before.version },
     });
     assert.ok([401, 403].includes(unauthenticated.statusCode));
     assert.equal(calls, 1);

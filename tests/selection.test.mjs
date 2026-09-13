@@ -129,3 +129,56 @@ test("missing repeated anonymous utterances in a snapshot retain their multiplic
     0,
   );
 });
+
+test("Claude lineage survives resume, subagent branches and compaction without promoting summaries", () => {
+  const s = createSelector("claude");
+  const event = {
+    type: "user",
+    uuid: "u1",
+    parentUuid: "previous",
+    sessionId: "session",
+    agentId: "child",
+    isSidechain: true,
+    message: {
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: "call1", content: "observed" },
+      ],
+    },
+  };
+  const first = s.select(event, 1)[0];
+  assert.equal(first.provenance.nativeId, "u1");
+  assert.equal(first.provenance.parentId, "previous");
+  assert.equal(first.provenance.sessionId, "session");
+  assert.equal(first.provenance.agentId, "child");
+  assert.equal(first.payload.content[0].tool_use_id, "call1");
+  const boundary = s.select(
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: "boundary",
+      parentUuid: "u1",
+      sessionId: "session",
+    },
+    2,
+  )[0];
+  assert.equal(boundary.type, "lineage");
+  const summary = s.select(
+    { ...event, uuid: "summary", isCompactSummary: true },
+    3,
+  )[0];
+  assert.equal(summary.provenance.authority, "derived_context");
+  assert.equal(summary.provenance.compactBoundaryId, "boundary");
+  assert.equal(s.select(event, 4).length, 0);
+  const replay = createSelector("claude");
+  replay.select(event, 1, false);
+  replay.select(
+    { type: "system", subtype: "compact_boundary", uuid: "boundary" },
+    2,
+    false,
+  );
+  assert.deepEqual(
+    replay.select({ ...event, uuid: "next" }, 4),
+    s.select({ ...event, uuid: "next" }, 4),
+  );
+});

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import Parser from "stream-json/Parser.js";
+import { createReadStream } from "node:fs";
 import {
   readFile,
   writeFile,
@@ -15,7 +17,7 @@ import { homedir } from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { createReadStream } from "node:fs";
+
 import { readConfig, writeConfig, loadToken } from "../config.mjs";
 import { prepareUpload, scanFile, MASK_VERSION } from "./transport.mjs";
 const digest = (x) => createHash("sha256").update(x).digest("hex");
@@ -84,6 +86,87 @@ async function* walk(root) {
     else if (e.isFile() && e.name.endsWith(".jsonl")) yield p;
   }
 }
+// A first Claude message can contain a large image. Discover only structural
+// header strings without buffering its content or guessing a project from paths.
+export async function readClientHeader(file, client) {
+  const input = createReadStream(file),
+    parser = new Parser({
+      jsonStreaming: true,
+      packStrings: false,
+      packNumbers: false,
+      streamKeys: false,
+    });
+  input.on("error", (error) => parser.destroy(error));
+  input.pipe(parser);
+  const frames = [];
+  let path,
+    value = "",
+    wanted = false,
+    records = 0,
+    type,
+    id;
+  const header = {};
+  const advance = () => {
+    const frame = frames.at(-1);
+    if (frame?.array) frame.index++;
+  };
+  try {
+    for await (const token of parser) {
+      if (token.name === "keyValue") frames.at(-1).key = token.value;
+      else if (["startObject", "startArray"].includes(token.name))
+        frames.push({ array: token.name === "startArray", index: 0 });
+      else if (token.name === "startString") {
+        path = JSON.stringify(
+          frames
+            .map((f) => (f.array ? f.index : f.key))
+            .filter((x) => x !== undefined),
+        );
+        value = "";
+        wanted = [
+          '["cwd"]',
+          '["sessionId"]',
+          '["payload","cwd"]',
+          '["payload","id"]',
+          '["type"]',
+        ].includes(path);
+      } else if (token.name === "stringChunk" && wanted)
+        value = (value + token.value).slice(0, 8192);
+      else if (token.name === "endString") {
+        if (wanted) {
+          if (path === '["type"]') type = value;
+          if (path === '["cwd"]' || path === '["payload","cwd"]')
+            header.cwd ??= value;
+          if (client === "claude" && path === '["sessionId"]')
+            header.sessionId ??= value;
+          if (client === "codex" && path === '["payload","id"]') id = value;
+          if (type === "session_meta" && id) header.sessionId ??= id;
+        }
+        wanted = false;
+        advance();
+        if (header.cwd && header.sessionId) break;
+      } else if (
+        ["nullValue", "trueValue", "falseValue", "endNumber"].includes(
+          token.name,
+        )
+      )
+        advance();
+      else if (["endObject", "endArray"].includes(token.name)) {
+        frames.pop();
+        advance();
+        if (!frames.length) {
+          if (++records >= 8 || header.cwd) break;
+          type = undefined;
+          id = undefined;
+        }
+      }
+    }
+    return header;
+  } finally {
+    input.destroy();
+    parser.destroy();
+  }
+}
+
 export async function collect(
   config,
   state,
@@ -106,7 +189,11 @@ export async function collect(
     pending: 0,
     errors: {},
   };
-  for (const root of config.roots)
+  for (const root of config.roots.filter(
+    (root) =>
+      root.enabled !== false &&
+      !(config.disabledClients ?? []).includes(root.client),
+  ))
     for await (const file of walk(root.path)) {
       if ((config.exclude ?? []).some((p) => file.includes(p))) continue;
       let prepared;
@@ -130,7 +217,15 @@ export async function collect(
               return [];
             }
           });
-        const cwd = metadata.map((x) => x.cwd ?? x.payload?.cwd).find(Boolean);
+        let cwd = metadata.map((x) => x.cwd ?? x.payload?.cwd).find(Boolean);
+        let sessionId =
+          metadata.find((x) => x.type === "session_meta")?.payload?.id ??
+          metadata.find((x) => x.sessionId)?.sessionId;
+        if (!cwd || !metadata.length) {
+          const header = await readClientHeader(file, root.client);
+          cwd ??= header.cwd;
+          sessionId ??= header.sessionId;
+        }
         if (
           projects.length > 0 &&
           (!cwd ||
@@ -166,11 +261,7 @@ export async function collect(
         }
         state.files[file] = local;
         await checkpoint();
-        const session = String(
-          metadata.find((x) => x.type === "session_meta")?.payload?.id ??
-            metadata.find((x) => x.sessionId)?.sessionId ??
-            local.fallbackSession,
-        );
+        const session = String(sessionId ?? local.fallbackSession);
         const identity = {
           machine: config.machine,
           fileId: digest(file),
@@ -389,7 +480,9 @@ export async function collectorMain(args, configPath, cliPath) {
       throw new Error("Missing --" + key);
     return args[i + 1];
   };
-  if (!["run", "start", "stop", "status"].includes(command))
+  if (
+    !["run", "start", "stop", "status", "enable", "disable"].includes(command)
+  )
     throw new Error(
       "Use agent-wiki collector run|start|stop|status [--interval MINUTES]",
     );
@@ -397,6 +490,35 @@ export async function collectorMain(args, configPath, cliPath) {
   const connection = settings.projects[settings.collector?.connection];
   if (!connection || !settings.collector)
     throw new Error("Run agent-wiki setup to configure collection");
+  if (["enable", "disable"].includes(command)) {
+    const client = opt("client");
+    if (!["codex", "claude"].includes(client))
+      throw new Error("--client must be codex or claude");
+    const disabled = new Set(settings.collector.disabledClients ?? []);
+    if (command === "disable") disabled.add(client);
+    else disabled.delete(client);
+    settings.collector.disabledClients = [...disabled];
+    if (
+      command === "enable" &&
+      !settings.collector.roots.some((r) => r.client === client)
+    )
+      settings.collector.roots.push({
+        client,
+        path: join(
+          homedir(),
+          client === "claude" ? ".claude" : ".codex",
+          client === "claude" ? "projects" : "sessions",
+        ),
+      });
+    if (command === "enable")
+      for (const root of settings.collector.roots.filter(
+        (r) => r.client === client,
+      ))
+        root.enabled = true;
+    await writeConfig(configPath, settings);
+    console.log(JSON.stringify({ client, enabled: command === "enable" }));
+    return;
+  }
   const config = { ...settings.collector, ...connection };
   const label = "org.agent-observatory.agent-wiki-collector";
   const domain = "gui/" + process.getuid?.();
@@ -409,6 +531,15 @@ export async function collectorMain(args, configPath, cliPath) {
         : null;
     console.log(
       JSON.stringify({
+        clients: Object.fromEntries(
+          ["codex", "claude"].map((client) => [
+            client,
+            !(config.disabledClients ?? []).includes(client) &&
+              config.roots.some(
+                (r) => r.client === client && r.enabled !== false,
+              ),
+          ]),
+        ),
         projects: config.projects?.length ? config.projects : "all",
         intervalMinutes: config.intervalMinutes ?? 10,
         scheduled: current?.status === 0,

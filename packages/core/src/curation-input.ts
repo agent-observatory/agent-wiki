@@ -1,4 +1,4 @@
-export const CURATION_INPUT_VERSION = "text-fields-3";
+export const CURATION_INPUT_VERSION = "text-fields-4";
 type Omission = {
   start: number;
   end: number;
@@ -45,7 +45,7 @@ export function curationInput(original: string) {
       if (
         ["string", "number"].includes(typeof row.event) &&
         JSON.stringify(JSON.parse(row.field)) === '["type"]' &&
-        row.text === "session_meta"
+        ["session_meta", "lineage"].includes(row.text)
       )
         metadataEvents.add(row.event);
     } catch {}
@@ -68,6 +68,7 @@ export function curationInput(original: string) {
       );
       if (roles?.size === 1 && (roles.has("developer") || roles.has("system")))
         reason = "agent_instructions";
+      if (["provenance", "id"].includes(path[0])) reason = "session_metadata";
       if (metadataEvents.has(row.event)) reason = "session_metadata";
       if (key === '["payload","encrypted_content"]') reason = "encrypted";
       if (

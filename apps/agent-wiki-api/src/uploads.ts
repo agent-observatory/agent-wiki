@@ -40,7 +40,7 @@ const schema = identity
     recordEnd: z.number().int().positive(),
     prefixHash: hex,
     maskVersion: z.literal("stream-mask-3"),
-    selectionVersion: z.literal("conversation-1"),
+    selectionVersion: z.enum(["conversation-1", "conversation-2"]),
     selection: z
       .object({
         selected: z.number().int().nonnegative(),

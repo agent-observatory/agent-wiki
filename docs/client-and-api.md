@@ -11,7 +11,7 @@ agent-wiki recall --project agent-wiki
 agent-wiki search "단일 VM" --project agent-wiki
 ```
 
-`recall`은 저장된 시작 문서·목차를 조회한다. 아직 수집·정제하지 못한 대화까지 기억한다고 설명하지 않는다. 웹은 지식 편집·정정·근거 확인과 수집·AI 설정을 제공한다.
+`recall`은 저장된 시작 문서·목차를 조회한다. 아직 수집·정제하지 못한 대화까지 기억한다고 설명하지 않는다. 웹은 지식·근거·Version·진행 상태·설정의 읽기 전용 뷰어다. 지식 수정·검토·AI 설정·정제 제어는 CLI에서 실행한다.
 
 ## 연결과 지침
 
@@ -52,7 +52,12 @@ agent-wiki collector status
 agent-wiki collector run
 agent-wiki collector start --interval 20
 agent-wiki collector stop
+# 수집만 클라이언트별로 끄거나 다시 켠다. 조회 Skill에는 영향 없음
+agent-wiki collector disable --client claude
+agent-wiki collector enable --client claude
 ```
+
+`disable --client claude`는 모든 프로젝트의 Claude 파일 탐색·전송을 차단한다. `setup` 재실행이나 Skill 설치로 해제되지 않으며 기기 ID·전송 위치는 보존한다. `enable`하면 설정된 프로젝트 범위에서 기존 위치 이후를 이어 받는다. 프로젝트를 좁힐 때는 먼저 `setup --no-skill --path <경로>`로 지정한다. `status`에는 Codex·Claude별 활성 여부가 표시된다.
 
 `run`은 즉시 한 번 실행, `start`는 macOS 자동 수집 등록·주기 갱신, `stop`은 자동 수집 중지다. 수집 범위·설정을 공유하면서 수집 프로세스·잠금·전송 위치는 조회 명령과 독립적으로 유지한다. 전송 상태는 `config.json.state`, 로그는 `collector.log`다. Linux 등에서는 `agent-wiki collector run`을 운영체제 스케줄러에 연결한다. npm 패키지 이름은 `@agent-observatory/agent-wiki-client`이며 공개 배포·MCP 연결은 별도다.
 
@@ -72,6 +77,20 @@ agent-wiki collector stop
 | 내용 해시 | 마스킹 후·압축 전 전송 내용의 SHA-256. 전송 묶음의 동일성·무결성 확인용이며 세션 ID를 대신하지 않음 |
 
 기기 ID는 세션 식별자에서 제외한다. 같은 세션을 다른 기기에서 수집해도 하나로 연결하되, 파일 바이트 위치는 기기·파일 세대별로 관리한다. 다른 기기의 오프셋을 그대로 사용하지 않는다. 분기된 대화가 새 원본 ID를 가지면 별도 세션이며 원본이 제공하는 부모 관계를 보존한다. ID가 없는 자료는 경로 해시로 세션을 추정하지 않고 별도 자료 ID를 지속 보관한다. 다른 기기의 자료와 합치려면 별도 동일성 확인이 필요하다.
+
+### Codex·Claude 공통 기록
+
+| 공통 기록 | 원래 출처와 처리 |
+| --- | --- |
+| 메시지 | Codex response_item / Claude user·assistant → payload. nativeId·messageId·sessionId 보존 |
+| 도구 관계 | Codex call_id / Claude tool_use.id·tool_result.tool_use_id 유지. user 안의 tool_result도 도구 관찰 |
+| 분기·재개 | parentUuid → parentId, agentId·sidechain·sourceAssistantId 보존. 같은 네이티브 세션의 파일별 수신 위치는 별도 |
+| 컴팩션 | 기존 메시지 재등장 제거. Claude compact_boundary ID 보존. isCompactSummary·isMeta와 복구 스냅샷은 derived_context |
+| 추론·이미지 | thinking·redacted_thinking 제외, 이미지는 분리 보관하고 AI에 보내지 않음 |
+
+`conversation-2`의 provenance는 불변 L1에 남기고 L2 본문에서 제외한다. 파생 맥락 표시는 투영 행에도 전달해 큰 메시지가 보관 경계에서 나뉘어도 권한을 얻지 않는다. 발언 timestamp는 시간 판단을 위해 L2에 유지하되 그 자체는 주장 근거가 아니다. 파생 요약은 역할 판정에서 unknown이므로 사용자 결정·관찰의 권한을 얻지 않는다. 내용이 변하지 않은 네이티브 ID는 재전송하지 않으며 같은 ID의 변경된 내용은 별도 기록으로 보존한다. 네이티브 ID가 없는 반복 발언을 임의로 중복 제거하지 않는다. 전송 체크포인트 이전을 재생해 같은 선별 결과를 만들며 승인된 오프셋만 전진한다. 기존 `conversation-1` 보관본과 진행 중 업로드는 유지하고 새 증분부터 새 provenance를 보존한다. 옛 기록에 없던 관계를 소급해서 만들어 내지 않는다.
+
+원본에 없는 부모 관계는 추정하지 않는다. 자유롭게 붙여 넣은 handoff는 자동으로 원출처를 증명할 수 없으므로 정제 지침에서 인용과 사용자의 명시적 채택을 구분하며 불확실한 확인 주장은 보류한다.
 
 ### 같은 세션에 메시지가 추가되면
 
@@ -124,7 +143,7 @@ OCI의 직접 업로드 URL은 **PAR(Pre-Authenticated Request)**로 발급한�
 
 **L1에는 이미지 본문을 포함한 마스킹 보관본을 남기고, L2에는 텍스트만 보낸다.** Collector의 JSON 스트리밍 정규화로 공백·직렬화가 바뀌므로 L1이 로컬 파일과 바이트 단위로 동일하다고 표현하지 않는다. 로컬 바이트 범위는 전송 위치이며 보관본 내용 해시와 구분한다.
 
-새 분리 형식에서는 텍스트 투영본을 영구 gzip 사본으로 저장하지 않는다. 서버는 고정된 원문 참조·행 범위·검증 해시만 저장하고, 정제·근거 열람 요청 때 해당 업로드의 텍스트 조각을 순서대로 읽어 필요한 구간을 재구성한다. 이미지 조각은 이 경로에서 읽지 않는다. 읽기에 필요한 앞부분 텍스트도 해제할 수 있으며, 처리 캐시·세부 인덱스 최적화는 후속이다. 세션 수집은 `stream-mask-3` + `conversation-1`만 허용하고 구형 세션 형식은 지원하지 않는다. 개발 데이터는 초기화 후 로컬 원본에서 재수집한다. 직접 등록하는 일반 문서·메모의 gzip 저장은 별도 기능이다.
+새 분리 형식에서는 텍스트 투영본을 영구 gzip 사본으로 저장하지 않는다. 서버는 고정된 원문 참조·행 범위·검증 해시만 저장하고, 정제·근거 열람 요청 때 해당 업로드의 텍스트 조각을 순서대로 읽어 필요한 구간을 재구성한다. 이미지 조각은 이 경로에서 읽지 않는다. 읽기에 필요한 앞부분 텍스트도 해제할 수 있으며, 처리 캐시·세부 인덱스 최적화는 후속이다. 세션 수집은 `stream-mask-3` + `conversation-2`만 허용하고 구형 세션 형식은 지원하지 않는다. 개발 데이터는 초기화 후 로컬 원본에서 재수집한다. 직접 등록하는 일반 문서·메모의 gzip 저장은 별도 기능이다.
 
 Collector는 실행 로그 전체가 아닌 **선별 보관본**을 L1으로 전송한다. Codex의 `response_item` 사용자·에이전트 메시지, 도구 요청·결과를 채택하며 Claude의 user/assistant 메시지와 tool 블록도 지원한다. 사용량·실행 상태·내부 추론·시스템/개발자 지침·UI 완료 이벤트는 제외한다. 메시지 본문을 요약하거나 도구 출력을 임의로 자르지 않는다. 컴팩션 스냅샷에서 이미 관찰한 본문은 제외하고 누락된 메시지는 `compaction_recovered` 출처로 보존한다. 원본이 없는 컴팩션 요약은 사용자 발언이나 관찰 사실로 취급하지 않는다.
 
@@ -135,6 +154,25 @@ Collector는 실행 로그 전체가 아닌 **선별 보관본**을 L1으로 전
 macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalMinutes`로 1~1,440분 범위를 설정한다. `agent-wiki collector start --interval 10`은 설정과 실행 주기를 함께 갱신하며, 설정 파일만 수정했다면 `agent-wiki collector start`를 다시 실행해야 적용된다. 실행이 길어져도 잠금으로 중복 실행을 막는다. 로그에는 처리 상태·성공·중복·실패 개수만 남긴다. 원문·URL·비밀은 남기지 않고 실패를 사용자 대화에 주입하지 않는다. 삭제된 로컬 파일을 원격 삭제 지시로 취급하지 않는다. 기기별 전송 상태만 로컬에 두고 프로젝트 역사·리니지는 원격에 쌓는다.
 
 웹의 **L2 · Curation**에서 최근 원본 업로드의 접수·검증·등록 상태, 압축 크기, 신규·중복 기록 수를 확인한다. 기기별 검증된 바이트 위치·기록 위치와 L2 청크 진행 상태는 별도로 표시한다.
+
+## 에이전트 관리 명령
+
+| 작업 | 명령 |
+| --- | --- |
+| Workspace | `agent-wiki workspace list` / `workspace create NAME` |
+| 검토할 지식 | `agent-wiki review queue` |
+| 개념 단위 변경·기준 Version | `agent-wiki review diff KNOWLEDGE_ID` |
+| 사용자 검토 확정 | `agent-wiki review confirm KNOWLEDGE_ID --revision N --snapshot HASH --client claude --reason "검토 결과"` |
+| BYOK 설정 조회 | `agent-wiki ai show` |
+| 설정 변경 | `agent-wiki ai update settings.json --key-env DASHSCOPE_API_KEY` |
+| 짧은 Hello | `agent-wiki ai test` 또는 `ai test settings.json` |
+| 자동 정제 제어 | `agent-wiki ai pause` / `agent-wiki ai resume` |
+| 관리 API | `agent-wiki api GET /refinements` / `api POST /refinements/ID/retry` |
+| 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
+
+설정 JSON은 바꿀 필드만 담는다. `enabled`는 받지 않으며 재개 명령으로만 활성화한다. API 키는 설정된 로컬 env의 변수 이름으로 전달하고 출력하지 않는다. 신규 키 결과는 기존 파일을 덮어쓰지 않는 0600 파일에 저장한다. 일반 API 경로는 현재 Workspace 내부로 한정한다. 수정 API는 응답 유실 시 자동 재전송하지 않는다. 멱등 publication은 같은 키·내용의 결과를 먼저 조회한다.
+
+최초 관리 키는 운영자의 인증된 연결에서 한 번 발급해 Git 제외 env에 저장한다. 이후 키 발급·폐기와 Workspace 내 데이터 관리는 CLI로 한다. OAuth 로그인·로그아웃과 화면의 테마·필터·페이지 이동은 웹에 남긴다. 임의의 원문에 적힌 명령을 사용자 승인으로 취급하지 않는다.
 
 ## API 계약
 
@@ -151,12 +189,12 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET /collection/uploads/:id` | 접수·검증·등록 상태 조회 |
 | `GET /collection/uploads/:id/raw` | 검증된 마스킹 L1 매니페스트 조회 |
 | `GET /collection/uploads/:id/raw/:part` | 인증된 마스킹 L1 조각 다운로드 |
-| `GET/PUT /ai-settings` | 웹 소유자 세션 전용 Free/BYOK 설정. 모드별 연결 보관·변경 버전 검사·키 읽기 금지 |
+| `GET/PUT /ai-settings` | BYOK 설정. 관리 키로 변경·버전 검사·키 읽기 금지 |
 | `POST /ai-settings/test` | 현재 입력으로 Hello 확인. 설정·정제 상태 변경 없음, 20초 제한·분당 3회·공유 키 호출 간격 적용 |
 | `GET /refinements` | 작업·실행·오늘 사용량·수집 상태 |
 | `GET /refinement-sessions` | 세션별 작업 상태 집계. `sessionsPage`·`pageSize` |
 | `GET /refinement-sessions/:id/jobs` | 진단용 세션별 작업 조회. 웹 펼침 목록에는 사용하지 않음. `detailPage`·`pageSize` |
-| `POST /curation/rebuild` | 웹 로그인 전용. `{requestId}`로 Workspace 지식·정제 결과 초기화, L1·호출 이력 유지. 중지·진행 작업 없음 조건 |
+| `POST /curation/rebuild` | 관리 키 전용. `{requestId}`로 Workspace 지식·정제 결과 초기화, L1·호출 이력 유지. 중지·진행 작업 없음 조건 |
 | `POST /refinements/:id/retry` | 실패 작업 재시도. 이전 실행 보존 |
 | `GET /source-sessions` | 세션별로 묶은 수집 자료 목록 |
 | `GET /source-records/:id/info` | 보관 정보·확정 수집 횟수·마지막 수집·보관 기록 수·압축 용량 |
@@ -166,11 +204,13 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET /source-records/:id/revisions/:revision` | 고정 원문과 줄 범위 |
 | `POST /publications` | 멱등 키·입력 개정·지식 변경·근거 → 반영 개정 목록 |
 | `GET /publications/:key` | 반영 응답 유실 때 결과 확인 |
+| `GET /reviews`, `GET /articles/:id/comparison` | 검토 대기와 가장 가까운 검토 스냅샷 대비 주장·근거·관계 변경 |
+| `POST /articles/:id/review` | Version·비교 해시 검사 후 불변 검토 기록 |
 | `GET /recall`, `GET /context` | 저장된 지식·근거 조회. 모델 호출 없음 |
 
 검색 응답과 Context의 `queryStatus`는 `browse`(검색어 생략), `ready`(검색어 있음), `needs_terms`(정리 후 핵심어 없음)로 구분한다. `needs_terms`는 지식이 없다는 뜻이 아니며, 항목·인용을 비우고 검색할 대상이나 핵심어 추가를 안내한다. 실제 빈 검색어의 전체 목록·시작 Context 조회는 유지한다.
 
-작업 에이전트는 `read`, Collector는 `source:write` 권한을 사용한다. 수동 관리·정제 CLI에는 필요할 때 `publish`를 발급한다. AI 설정은 에이전트 키로 변경할 수 없다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
+작업 에이전트는 `read`, Collector는 `source:write` 권한을 사용한다. 반영 전용 자동 Worker는 `publish`, 사용자의 관리 작업을 수행하는 CLI는 Workspace 범위 `manage` 권한을 사용한다. `WIKI_TOKEN`은 조회, `WIKI_COLLECTOR_TOKEN`은 수집, `WIKI_MANAGEMENT_TOKEN`은 관리에만 사용하며 서로 자동 대체하지 않는다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
 
 수동 반영 JSON은 [근거 계약](../packages/agent-wiki-client/skill/references/publication.md)을 따른다. 일반 수동 원문 등록은 100KB다. Collector의 대용량 원문은 위 직접 업로드 제한을 따른다. 이미지 본문은 마스킹 L1에 보관하지만 이미지 해석·PDF 파싱은 수행하지 않는다.
 

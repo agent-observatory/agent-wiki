@@ -88,18 +88,18 @@ a('<g role="img" aria-label="Docker Compose"><title>Docker Compose</title>');ico
 card(72,450,366,130,'agent-wiki-web',['브라우저 · 웹 UI','agent-wiki.duckdns.org'],'web','user')
 card(72,640,366,145,'Codex · Claude Code',['작업 에이전트'],'app','tabler-terminal-2')
 component(92,735,326,34,'ai');icon('tabler-clipboard-check',103,741,22)
-text(134,759,'agent-wiki · 설치된 조회 Skill',FONT["label"],True)
+text(134,759,'agent-wiki · 설치된 사용 Skill',FONT["label"],True)
 # Runtime placement: installed guidance belongs to the host agent.
 path('M355 785 V825',flow='query',both=True)
 group(72,825,366,425)
 text(92,863,'agent-wiki-client',FONT['group'],True,'#FFFFFF')
 text(92,908,'설치 패키지 · 하나로 배포',FONT['body'])
-card(92,930,326,110,'agent-wiki-cli',['agent-wiki search / recall'],'app','tabler-terminal-2')
-card(92,1070,326,120,'agent-wiki-collector',['수집 · agent-wiki collector','독립 프로세스 · 기본 10분'],'ingest','tabler-cloud-upload')
+card(92,930,326,110,'agent-wiki-cli',['조회 · 검토 · 설정 · 제어'],'app','tabler-terminal-2')
+card(92,1070,326,120,'agent-wiki-collector',['수집 · agent-wiki collector','Codex·Claude · 기본 10분'],'ingest','tabler-cloud-upload')
 path('M438 1120 H520 V885 H630',flow='ingest',both=True);text(535,1030,'수집 제어',FONT["label"],True,FLOW_COLORS['ingest'])
 path('M880 885 H940',flow='ingest',both=True)
 card(630,450,250,460,'agent-wiki-gateway',['Caddy · HTTPS','웹·API 경로 분기','인증서 자동 갱신'],'app','caddy')
-card(940,450,280,130,'agent-wiki-web',['웹 UI · Next.js','지식·근거 확인 · AI 설정'],'web','nextdotjs')
+card(940,450,280,130,'agent-wiki-web',['웹 UI · Next.js','지식·근거·설정 조회'],'web','nextdotjs')
 card(940,640,280,270,'agent-wiki-api',['Fastify · 검색·수집 API','업로드 허가·상태 조회','수신 검증·중복 판정','L1 등록·수신 위치 확정','지식 검색·정제 결과 반영','AI 설정 저장·조회'],'app','fastify')
 card(1280,640,280,200,'agent-wiki-db',['PostgreSQL · 지식·근거','세션·출처별 수신 위치','업로드·정제 작업 이력','AI 제공자·모델 설정'],'data','postgresql')
 # Raw storage is outside the VM; its API connection is a straight horizontal line.
@@ -107,7 +107,7 @@ path('M1220 870 H1640',True,both=True);text(1290,902,'허가·검증·원문 확
 card(1640,820,240,190,'agent-wiki-sources',['OCI Object Storage','검증 후 불변 L1 확정','텍스트·이미지 분리'],'data','oracle')
 # L2 is a server-side process using the internal API, never the user's agent session.
 path('M1080 910 V970',flow='ingest',both=True);text(1098,942,'작업·근거·반영',FONT["label"],True,FLOW_COLORS['ingest'])
-card(940,970,280,198,'agent-wiki-worker',['원격 정제 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','Free 1개 · BYOK 최대 5개'],'ingest')
+card(940,970,280,198,'agent-wiki-worker',['원격 정제 · 구조 청킹','청크별 주장·근거 추출','기존 지식 비교·검증','BYOK · 최대 동시성 5개'],'ingest')
 # This card describes configuration stored in Wiki, not another container.
 card(630,970,250,168,'Wiki · AI 설정',['제공자 · 모델 · API 연결','기본: 일일 제한 없음','일일 한도는 선택 설정'],'ops')
 path('M880 1070 H940',True)
@@ -152,11 +152,11 @@ canvas(1920,1170,'리니지 · 원문에서 검색 근거까지','L1 원문과 �
 legend(1110,87,'정제·반영','ingest');legend(1360,87,'조회·활용','query');legend(1610,87,'근거 참조','relation')
 # Immutable sources, execution, and derived knowledge are distinct records.
 group(40,180,540,290);text(64,216,layer_label(1),FONT['group'],True,'#FFFFFF')
-card(72,266,476,172,'원문 A · 불변 보관본',['1행 · “운영을 단순하게 하자.”','2행 · “단일 VM으로 시작하자.”','보관본 ID · 내용 해시 · 원문 위치'],'data','tabler-cloud-upload')
+card(72,266,476,172,'Codex A · Claude B',['A · “단일 VM으로 운영하자.”','B · “단일 VM 구성을 유지하자.”','세션별 불변 보관 · 메시지·도구 관계'],'data','tabler-cloud-upload')
 group(680,180,540,290);text(704,216,layer_label(2),FONT['group'],True,'#FFFFFF')
-card(712,266,476,172,'정제·반영 기록',['입력: 원문 A + 기존 지식 Version','텍스트 청크 · 주장별 근거 검증','처리 범위 · 모델·지침 버전 보존'],'ingest','tabler-cpu')
+card(712,266,476,172,'정제·반영 기록',['원문 A·B + 기존 지식 Version','텍스트 청크 · 주장별 근거 검증','처리 범위 · 모델·지침 버전 보존'],'ingest','tabler-cpu')
 group(1320,180,560,290);text(1344,216,layer_label(3),FONT['group'],True,'#FFFFFF')
-card(1352,266,496,172,'지식 A · Version 2',['단일 VM · 이유: 운영 단순화','사용자 결정 · 사실 검증과 구분','주장별 근거: 원문 A · 1~2행'],'data','tabler-book-2')
+card(1352,266,496,172,'지식 A · Version 2',['운영 구성 = 단일 VM','사용자 결정 · 사실 검증과 구분','동일 주장 · A·B의 근거 연결'],'data','tabler-book-2')
 path('M580 352 H680',flow='ingest');path('M1220 352 H1320',flow='ingest')
 path('M1540 470 V510 H310 V470',flow='relation')
 text(620,500,'주장 → 불변 원문 · 정확한 구간으로 역추적',FONT['label'],True,FLOW_COLORS['relation'])
@@ -171,9 +171,9 @@ card(972,688,418,190,'유효성 확인',['현재 / 과거 · 적용 범위','대
 card(1422,688,426,190,'Context 반환',['결정과 이유를 함께 담는 발췌','고정 Version · 원문 근거','최대 6개 · 반환 예산 적용'],'app','tabler-book-2')
 for x in [490,940,1390]:path(f'M{x} 784 H{x+32}',flow='query')
 # The agent requests retrieval independently of collection and curation.
-card(72,980,868,148,layer_label(5)+' · 작업 에이전트',['“왜 VM으로 시작했지?”','조회 Skill 참고 → agent-wiki-cli로 검색'],'app','tabler-terminal-2')
+card(72,980,868,148,layer_label(5)+' · 작업 에이전트',['“지금 운영 구성은?”','조회 Skill 참고 → agent-wiki-cli로 검색'],'app','tabler-terminal-2')
 path('M281 980 V910',flow='query');text(300,955,'조회 요청',FONT['label'],True,FLOW_COLORS['query'])
-card(972,980,876,148,'근거를 활용한 답변·작업',['“운영을 단순하게 하려고 단일 VM을 선택했다.”','지식 A · Version 2 / 원문 A · 1~2행 인용'],'app','tabler-terminal-2')
+card(972,980,876,148,'근거를 활용한 답변·작업',['“현재 운영 구성은 단일 VM이다.”','지식 A · Version 2 / Codex A·Claude B · 각 1행'],'app','tabler-terminal-2')
 path('M1635 910 V980',flow='query');text(1654,955,'근거 반환',FONT['label'],True,FLOW_COLORS['query'])
 end('docs/assets/wiki-lineage.svg')
 
@@ -187,7 +187,7 @@ rows=[(190,'01','인프라',[
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[
- ('tabler-cloud-upload','agent-wiki-collector','허가 후 zstd 증분 직접 업로드','기기별 위치 · 실패 시 재시도'),('tabler-clipboard-check','agent-wiki-api','세션 ID·내용으로 중복 판정','원문 확정 뒤 연속 수신 위치 갱신'),('tabler-terminal-2','agent-wiki-worker','Free 1개 · BYOK 최대 5개','설정별 호출·재시도 · 이력 보존')])]
+ ('tabler-cloud-upload','agent-wiki-collector','허가 후 zstd 증분 직접 업로드','기기별 위치 · 실패 시 재시도'),('tabler-clipboard-check','agent-wiki-api','세션 ID·내용으로 중복 판정','원문 확정 뒤 연속 수신 위치 갱신'),('tabler-terminal-2','agent-wiki-worker','BYOK · 최대 동시성 5개','설정별 호출·재시도 · 이력 보존')])]
 for y,n,label,items in rows:
  text(40,y+32,n,FONT["component"],True);text(40,y+73,label,FONT["component"],True)
  for i,(ico,title,b,c) in enumerate(items):
@@ -202,7 +202,7 @@ legend(1120,55,'정제·반영','ingest');legend(1400,55,'참고 조회','query'
 text(40,207,'작업 대화와 독립된 백그라운드 실행',FONT['component'],True)
 text(40,245,'전체를 다시 읽지 않고 필요한 맥락만 연결',FONT['body'])
 card(696,185,288,170,'이전 세션 맥락',['현재 결정 · 미해결 질문','직전 대화 · 근거 위치','요약은 사실 근거가 아님'],'ops','tabler-clipboard-check')
-card(1024,185,288,170,layer_label(3),['세션 참조 1개 우선','나머지 · 본문 관련도','Version · 관계 · 근거'],'data','postgresql')
+card(1024,185,288,170,layer_label(3),['Workspace · 대상·범위','본문·별칭 · 세션 중립','Version · 관계 · 근거'],'data','postgresql')
 path('M840 355 V398',flow='query');path('M1168 355 V398',flow='query')
 group(348,400,1292,295)
 text(372,436,'agent-wiki-worker · '+layer_label(2),FONT['group'],True,'#FFFFFF')
@@ -225,10 +225,10 @@ card(1330,890,290,96,'다음 처리 위치',['새 증분은 다음 처리로'],'
 text(716,1058,'다음 증분은 저장한 맥락·처리 위치에서 재개',FONT['component'],True)
 end('docs/assets/wiki-curation.svg')
 
-canvas(1680,1340,'결정은 바뀌어도 근거와 이력은 남는다','같은 세션의 A에서 B로의 변경. L1은 양쪽 원문을 보존한다. L2는 명시적인 변경·검토 의견·범위 차이·미해결 충돌·늦은 수집을 구분한다. L3는 주장 단위 과거·현재 상태와 근거를 저장하며 L4는 현재 결정·변경 이유·충돌을 구분해 조회한다. 현재 결정은 검증된 사실과 다르다.')
+canvas(1680,1340,'결정은 바뀌어도 근거와 이력은 남는다','Codex의 A에서 Claude의 B로의 변경. L1은 양쪽 원문을 보존한다. L2는 명시적인 변경·검토 의견·범위 차이·미해결 충돌·늦은 수집을 구분한다. L3는 주장 단위 과거·현재 상태와 근거를 저장하며 L4는 현재 결정·변경 이유·충돌을 구분해 조회한다. 현재 결정은 검증된 사실과 다르다.')
 legend(960,80,'정제·반영','ingest');legend(1210,80,'대체 관계','relation');legend(1450,80,'조회','query')
-card(40,185,680,142,'이전 증분 · '+layer_label(1),['“운영 DB는 Supabase로 하자.”','주장 A의 원문 · 불변 보존'],'data','tabler-book-2')
-card(960,185,680,142,'새 증분 · '+layer_label(1),['“A는 취소하고 OCI PostgreSQL로 가자.”','주장 B의 원문 · 변경 근거'],'data','tabler-book-2')
+card(40,185,680,142,'Codex · 이전 증분 · '+layer_label(1),['“운영 DB는 Supabase로 하자.”','주장 A의 원문 · 불변 보존'],'data','tabler-book-2')
+card(960,185,680,142,'Claude · 새 증분 · '+layer_label(1),['“A는 취소하고 OCI PostgreSQL로 가자.”','주장 B의 원문 · 변경 근거'],'data','tabler-book-2')
 path('M380 327 V375',flow='ingest');path('M1300 327 V375',flow='ingest')
 group(40,375,1600,222)
 text(64,411,layer_label(2)+' · 같은 대상·범위에서 변경 의도 판단',FONT['group'],True,'#FFFFFF')
@@ -281,3 +281,17 @@ card(537,568,450,82,'Collector 수신 위치',[],'ops','tabler-cloud-upload')
 card(1010,568,486,82,'Workspace · 로그인 · AI 설정',[],'ops','tabler-clipboard-check')
 text(40,722,'개인 위키 · Workspace 전체를 다시 만들고 원문·수집 위치·호출 이력은 유지',FONT['body'])
 end('docs/assets/wiki-curation-rebuild.svg')
+
+canvas(1560,760,'지식 검토 · 변경된 개념을 확인하고 확정','작업 에이전트가 CLI로 검토 대기와 기준 스냅샷을 조회한다. 사용자 확인 후 Version과 비교 해시를 검사해 불변 검토 기록을 남긴다. 웹은 조회만 한다.')
+legend(1240,78,'검토 흐름','query')
+items=[('에이전트 · Skill',['agent-wiki review queue','검토할 지식 선택'],'app'),('CLI · 개념 비교',['가까운 검토 Version 기준','주장·범위·근거·관계'],'app'),('사용자 확인',['변경 이유와 근거 확인','수정은 별도 publication'],'web'),('CLI · 검토 확정',['Version · 해시 일치 검사','불변 스냅샷 보존'],'data')]
+for i,(title,lines,role) in enumerate(items):
+ x=40+i*380;card(x,230,340,170,title,lines,role)
+ if i<3:path(f'M{x+340} 315 H{x+380}',flow='query')
+group(40,485,1480,190)
+text(64,523,'지식과 검토 이력',FONT['group'],True,'#FFFFFF')
+card(64,555,450,92,'Version 1 · 검토 완료',[],'data')
+card(537,555,450,92,'Version 2 · 검토 전',[],'ingest')
+card(1010,555,486,92,'Version 3 · 검토 전',[],'ingest')
+text(40,716,'Version 3은 검토 완료인 Version 1과 비교 · 검토 이력이 없으면 직전 Version',FONT['body'])
+end('docs/assets/wiki-review.svg')

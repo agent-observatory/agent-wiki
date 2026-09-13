@@ -121,6 +121,6 @@
   <path d="M13 15l3 0" />
   <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 </svg>
-<text x="1155" y="1050" font-size="18" font-weight="400" fill="#172C4B">Free 1개 · BYOK 최대 5개</text>
+<text x="1155" y="1050" font-size="18" font-weight="400" fill="#172C4B">BYOK · 최대 동시성 5개</text>
 <text x="1121" y="1081" font-size="18" font-weight="400" fill="#172C4B">설정별 호출·재시도 · 이력 보존</text>
 </g></svg>

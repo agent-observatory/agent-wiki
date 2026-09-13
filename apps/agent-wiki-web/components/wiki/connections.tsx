@@ -3,16 +3,9 @@ import { layerLabel } from "@/lib/layers";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Badge } from "@/components/ui/badge";
 import { api, useApi } from "@/lib/api";
 import { Heading, Loading, Failure, Empty, CopyButton, When } from "./common";
@@ -76,11 +69,8 @@ export function Activity() {
 export function Connections() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const { data, error, reload } = useApi(`/api/workspaces/${workspaceId}/keys`);
-  const [scope, setScope] = useState("read");
-  const [token, setToken] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<unknown>();
   const names: Record<string, string> = {
+    manage: "Workspace 관리",
     read: "조회 전용",
     "source:write": "조회 + 원문 보관",
     publish: "조회 + 원문 보관 + 지식 반영",
@@ -89,12 +79,12 @@ export function Connections() {
     <>
       <Heading
         title="에이전트 연결"
-        description="같은 공간을 읽고 기록할 수 있는 키를 발급합니다."
+        description="연결된 에이전트의 접근 권한을 확인합니다."
       />
       <div className="mb-8 rounded-lg border p-5 space-y-3">
         <p>
-          작업 에이전트에는 조회 전용, Collector에는 원문 보관 권한을
-          발급하세요.
+          작업 에이전트에는 조회 전용, Collector에는 원문 보관 권한을 CLI로
+          발급합니다.
         </p>
         <Link className="underline" href={`/workspaces/${workspaceId}/guide`}>
           CLI 설치와 사용 순서 보기 →
@@ -104,59 +94,6 @@ export function Connections() {
         </div>
         <CopyButton text={workspaceId} label="Workspace ID 복사" />
       </div>
-      <form
-        className="mb-6 flex flex-wrap gap-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const name = String(new FormData(e.currentTarget).get("name"));
-          setBusy(true);
-          try {
-            const k = await api(`/api/workspaces/${workspaceId}/keys`, {
-              method: "POST",
-              body: JSON.stringify({ name, scope }),
-            });
-            setToken(k.token);
-            reload();
-          } catch (e) {
-            setFailed(e);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <Input
-          name="name"
-          aria-label="키 이름"
-          placeholder="나의 에이전트"
-          required
-          maxLength={80}
-          className="w-56"
-        />
-        <Select value={scope} onValueChange={setScope}>
-          <SelectTrigger aria-label="키 권한" className="w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(names).map(([s, n]) => (
-              <SelectItem key={s} value={s}>
-                {n}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button disabled={busy}>키 발급</Button>
-      </form>
-      {token && (
-        <div className="my-6 rounded-lg border p-5 space-y-3">
-          <p>이 키는 지금 한 번만 표시됩니다. 로컬 비밀 설정에 보관하세요.</p>
-          <code className="block break-all rounded bg-muted p-3">{token}</code>
-          <CopyButton text={token} label="키 복사" />
-          <Button variant="ghost" onClick={() => setToken("")}>
-            닫기
-          </Button>
-        </div>
-      )}
-      {!!failed && <Failure error={failed} />}
       <div className="divide-y border-y">
         {error ? (
           <Failure error={error} />
@@ -174,22 +111,6 @@ export function Connections() {
                   {names[k.scope]} · <When value={k.created_at} />
                 </p>
               </div>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    await api(`/api/workspaces/${workspaceId}/keys/${k.id}`, {
-                      method: "DELETE",
-                      body: "{}",
-                    });
-                    reload();
-                  } catch (e) {
-                    setFailed(e);
-                  }
-                }}
-              >
-                폐기
-              </Button>
             </div>
           ))
         )}
