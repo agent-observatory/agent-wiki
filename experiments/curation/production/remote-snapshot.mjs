@@ -51,7 +51,7 @@ export async function snapshot(request) {
           .map((k) => [k, value[k]]),
       );
     const runs = await rows(
-      "SELECT id,job_id,settings,prompt_version,chunk_index,status,error_code,usage,diagnostics,output,(input - 'source' - 'reference') || jsonb_build_object('source',COALESCE(input->'source','{}'::jsonb)-'text','reference',COALESCE(input->'reference','{}'::jsonb)-'text') AS input_references,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at,id",
+      "SELECT id,job_id,settings,prompt_version,chunk_index,status,error_code,usage,diagnostics,output,(CASE WHEN jsonb_typeof(input)='object' THEN input ELSE '{}'::jsonb END - 'source' - 'reference') || jsonb_build_object('source',CASE WHEN jsonb_typeof(input->'source')='object' THEN (input->'source')-'text' ELSE '{}'::jsonb END,'reference',CASE WHEN jsonb_typeof(input->'reference')='object' THEN (input->'reference')-'text' ELSE '{}'::jsonb END) AS input_references,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at,id",
     );
     result = {
       schema: 1,

@@ -429,6 +429,17 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       assert.equal(body.reasoning_effort, undefined);
       assert.equal(body.chat_template_kwargs, undefined);
       assert.deepEqual(body.response_format, { type: "json_object" });
+      await callModel(
+        { ...config, model, max_completion_tokens: null },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      );
+      assert.equal(
+        Object.hasOwn(bodies.at(-1)!, "max_completion_tokens"),
+        false,
+      );
+      assert.equal(Object.hasOwn(bodies.at(-1)!, "max_tokens"), false);
     }
     await callModel(
       { ...config, enable_thinking: true },
@@ -482,7 +493,7 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       ),
       /AI_REASONING_NOT_SUPPORTED/,
     );
-    assert.equal(bodies.length, 8);
+    assert.equal(bodies.length, 12);
   } finally {
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;
@@ -550,6 +561,15 @@ test("Qwen forwards explicit thinking budget and total completion cap, preservin
     );
     assert.equal(bodies[1].thinking_budget, undefined);
     assert.equal(bodies[1].enable_thinking, false);
+    await callModel(
+      { ...config, max_completion_tokens: null, thinking_budget: null },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(Object.hasOwn(bodies[2], "max_completion_tokens"), false);
+    assert.equal(Object.hasOwn(bodies[2], "max_tokens"), false);
+    assert.equal(Object.hasOwn(bodies[2], "thinking_budget"), false);
     await assert.rejects(
       callModel(
         {
@@ -563,7 +583,7 @@ test("Qwen forwards explicit thinking budget and total completion cap, preservin
         AbortSignal.timeout(1000),
       ),
     );
-    assert.equal(bodies.length, 2);
+    assert.equal(bodies.length, 3);
   } finally {
     globalThis.fetch = original;
     if (allowed === undefined) delete process.env.AI_ALLOWED_HOSTS;

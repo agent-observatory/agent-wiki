@@ -37,6 +37,7 @@ export const aiConfig = z
     retryDelaySeconds: z.number().int().min(5).max(600).default(120),
     enable_thinking: z.boolean().optional(),
     thinking_budget: z.number().int().min(1).max(32768).nullable().optional(),
+    // Alibaba: null deliberately omits both output-cap fields; absent uses maxTokens.
     max_completion_tokens: z
       .number()
       .int()
@@ -184,9 +185,12 @@ export async function callModel(
           ? { response_format: { type: "json_object" } }
           : {}),
         ...(isAlibabaThinkingModel(config) &&
-        config.max_completion_tokens != null
-          ? { max_completion_tokens: config.max_completion_tokens }
-          : { max_tokens: config.maxTokens }),
+        config.max_completion_tokens === null
+          ? {}
+          : isAlibabaThinkingModel(config) &&
+              config.max_completion_tokens !== undefined
+            ? { max_completion_tokens: config.max_completion_tokens }
+            : { max_tokens: config.maxTokens }),
         ...(isAlibabaThinkingModel(config) &&
         config.enable_thinking !== undefined
           ? { enable_thinking: config.enable_thinking }

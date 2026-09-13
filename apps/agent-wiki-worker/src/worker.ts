@@ -1,3 +1,5 @@
+import { fitModelChunk } from "../../../packages/core/src/model-input-budget.js";
+import type { Chunk } from "../../../packages/core/src/chunking.js";
 import { inputTokenCounter } from "../../../packages/core/src/input-tokens.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import {
@@ -284,53 +286,73 @@ export async function runOne(
               anchor: claim.anchor,
             })),
           };
-          const referenceLines: string[] = [];
-          let referenceBytes = 0;
-          for (let i = chunk.contextStart - 1; i < chunk.contextEnd; i++) {
-            const n = estimateTokens(JSON.stringify(lines[i]));
-            if (referenceBytes + n > 500) break;
-            referenceBytes += n;
-            referenceLines.push(lines[i]);
-          }
-          const input = {
-            ...(task.validationRetry
-              ? { validationRetry: task.validationRetry }
-              : {}),
-            source: {
-              id: source.id,
-              revision: 1,
-              start: chunk.start,
-              end: chunk.end,
-              text: chunkText,
-              roles: roleRanges(batch.roles, chunk.start, chunk.end),
-              spans: batch.spans,
-              omittedLines: projection.omitted.filter(
-                (r) => r.start <= chunk.end && r.end >= chunk.start,
-              ),
-            },
-            reference: referenceLines.length
-              ? { start: chunk.contextStart, text: referenceLines.join("\n") }
-              : null,
-            related,
+          const buildInput = (candidate: Chunk) => {
+            const referenceLines: string[] = [];
+            let referenceBytes = 0;
+            for (
+              let i = candidate.contextStart - 1;
+              i < candidate.contextEnd;
+              i++
+            ) {
+              const n = estimateTokens(JSON.stringify(lines[i]));
+              if (referenceBytes + n > 500) break;
+              referenceBytes += n;
+              referenceLines.push(lines[i]);
+            }
+            return {
+              ...(task.validationRetry
+                ? { validationRetry: task.validationRetry }
+                : {}),
+              source: {
+                id: source.id,
+                revision: 1,
+                start: candidate.start,
+                end: candidate.end,
+                text: lines
+                  .slice(candidate.start - 1, candidate.end)
+                  .join("\n"),
+                roles: roleRanges(batch.roles, candidate.start, candidate.end),
+                spans: batch.spans,
+                omittedLines: projection.omitted.filter(
+                  (r) => r.start <= candidate.end && r.end >= candidate.start,
+                ),
+              },
+              reference: referenceLines.length
+                ? {
+                    start: candidate.contextStart,
+                    text: referenceLines.join("\n"),
+                  }
+                : null,
+              related,
+            };
           };
-          const estimatedInputTokens =
-            countInputTokens(instruction) +
-            countInputTokens(
-              JSON.stringify({
-                ...input,
-                source: { ...input.source, spans: undefined },
-              }),
-            ) +
-            128;
+          const fitted = fitModelChunk(
+            plan.chunks,
+            task.chunk_index,
+            buildInput,
+            (value) =>
+              countInputTokens(instruction) +
+              countInputTokens(
+                JSON.stringify({
+                  ...value,
+                  source: { ...value.source, spans: undefined },
+                }),
+              ) +
+              128,
+            task.config.maxInputTokens,
+          );
+          plan.chunks = fitted.chunks;
+          const input = fitted.input,
+            estimatedInputTokens = fitted.estimatedTokens;
+          diagnostics.inputSplit = fitted.split;
           diagnostics.inputBudget = {
+            policy: "serialized-prefix-fit-1",
             counter: tokenCounter.version,
             estimatedTokens: estimatedInputTokens,
             limit: task.config.maxInputTokens,
             sourceBudget: budget,
-            sourceRows: chunk.end - chunk.start + 1,
+            sourceRows: fitted.chunk.end - fitted.chunk.start + 1,
           };
-          if (estimatedInputTokens > task.config.maxInputTokens)
-            throw new ModelError("AI_INPUT_LIMIT");
           const planned = await c.query(
             "UPDATE refinement_jobs SET chunk_plan=$3,chunk_count=$4 WHERE workspace_id=$1 AND id=$2 AND run_id=$5 AND status='running'",
             [ws, task.id, JSON.stringify(plan), plan.chunks.length, task.runId],

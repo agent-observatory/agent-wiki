@@ -101,7 +101,8 @@ test("Hello tests unsaved settings, uses target credential, and never saves or q
     );
     const body = JSON.parse(String(init?.body));
     assert.equal(body.model, "qwen3.7-flash-2026-07-15");
-    assert.equal(body.max_tokens, 512);
+    assert.equal(body.max_tokens, undefined);
+    assert.equal(body.max_completion_tokens, 512);
     assert.equal(body.enable_thinking, false);
     assert.deepEqual(body.messages, [
       { role: "user", content: 'Reply with JSON only: {"message":"Hello"}' },
@@ -124,7 +125,11 @@ test("Hello tests unsaved settings, uses target credential, and never saves or q
       url: endpoint() + "/test",
       headers,
       payload: {
-        config: { ...byok, model: "qwen3.7-flash-2026-07-15" },
+        config: {
+          ...byok,
+          model: "qwen3.7-flash-2026-07-15",
+          max_completion_tokens: null,
+        },
         version: before.version,
       },
     });

@@ -9,6 +9,7 @@ import {
   decryptSecret,
   validateEndpoint,
   callModel,
+  isAlibabaThinkingModel,
   ModelError,
   type AiConfig,
 } from "../../../packages/core/src/ai.js";
@@ -127,12 +128,12 @@ export function registerAiSettings(
           {
             ...config,
             maxTokens: 512,
-            ...(config.max_completion_tokens != null
+            ...(isAlibabaThinkingModel(config)
               ? {
-                  max_completion_tokens: Math.max(
-                    512,
-                    (config.thinking_budget ?? 1024) + 512,
-                  ),
+                  max_completion_tokens:
+                    (config.enable_thinking ?? config.reasoning !== "none")
+                      ? (config.thinking_budget ?? 1024) + 512
+                      : 512,
                 }
               : {}),
           },

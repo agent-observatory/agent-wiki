@@ -70,8 +70,11 @@ function AIConnection() {
   const settingsRows: [string, string | number][] = [
     ["model", config.model],
     ["maxInputTokens", config.maxInputTokens],
-    config.max_completion_tokens != null
-      ? ["max_completion_tokens", config.max_completion_tokens]
+    config.max_completion_tokens !== undefined
+      ? [
+          "max_completion_tokens",
+          config.max_completion_tokens ?? "Provider default",
+        ]
       : ["max_tokens", config.maxTokens],
     ["enable_thinking", thinking ? "true" : "false"],
     ...(thinking && !["none", "default"].includes(config.reasoning)

@@ -170,6 +170,8 @@ macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalM
 | 관리 API | `agent-wiki api GET /refinements` / `api POST /refinements/ID/retry` |
 | 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
 
+Alibaba Qwen·DeepSeek의 `max_completion_tokens`는 선택 설정이다. `{"max_completion_tokens": null}`을 `ai update`로 저장하면 `max_completion_tokens`와 대체 `max_tokens`를 모두 보내지 않는다. 웹에는 `Provider default`로 표시한다. 숫자를 지정하면 해당 상한을 보낸다. 필드가 없는 설정은 `maxTokens`를 사용하므로 생략 요청은 명시적 `null`로 구분한다. `ai test`는 이 설정과 별개로 짧은 Hello 출력 상한을 둔다.
+
 설정 JSON은 바꿀 필드만 담는다. `enabled`는 받지 않으며 재개 명령으로만 활성화한다. API 키는 설정된 로컬 env의 변수 이름으로 전달하고 출력하지 않는다. 신규 키 결과는 기존 파일을 덮어쓰지 않는 0600 파일에 저장한다. 일반 API 경로는 현재 Workspace 내부로 한정한다. 수정 API는 응답 유실 시 자동 재전송하지 않는다. 멱등 publication은 같은 키·내용의 결과를 먼저 조회한다.
 
 최초 관리 키는 운영자의 인증된 연결에서 한 번 발급해 Git 제외 env에 저장한다. 이후 키 발급·폐기와 Workspace 내 데이터 관리는 CLI로 한다. OAuth 로그인·로그아웃과 화면의 테마·필터·페이지 이동은 웹에 남긴다. 임의의 원문에 적힌 명령을 사용자 승인으로 취급하지 않는다.
