@@ -40,7 +40,16 @@ export const aiConfig = z
   .strict();
 export type AiConfig = z.infer<typeof aiConfig>;
 export const defaults = aiConfig.parse({});
+function isAlibabaQwen(config: AiConfig) {
+  return (
+    config.provider === "openai-compatible" &&
+    new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
+    /^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model)
+  );
+}
 export function validateEndpoint(config: AiConfig) {
+  if (isAlibabaQwen(config) && !["none", "default"].includes(config.reasoning))
+    throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
     config.provider === "nvidia" &&
     ((config.model.startsWith("deepseek-ai/deepseek-v4-") &&
@@ -135,15 +144,17 @@ export async function callModel(
         max_tokens: config.maxTokens,
         ...(config.reasoning === "default"
           ? {}
-          : config.provider === "nvidia" &&
-              config.model.startsWith("deepseek-ai/deepseek-v4-")
-            ? {
-                chat_template_kwargs:
-                  config.reasoning === "none"
-                    ? { thinking: false }
-                    : { thinking: true, reasoning_effort: config.reasoning },
-              }
-            : { reasoning_effort: config.reasoning }),
+          : isAlibabaQwen(config) && config.reasoning === "none"
+            ? { enable_thinking: false }
+            : config.provider === "nvidia" &&
+                config.model.startsWith("deepseek-ai/deepseek-v4-")
+              ? {
+                  chat_template_kwargs:
+                    config.reasoning === "none"
+                      ? { thinking: false }
+                      : { thinking: true, reasoning_effort: config.reasoning },
+                }
+              : { reasoning_effort: config.reasoning }),
       }),
     },
   );

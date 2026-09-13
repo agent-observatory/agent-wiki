@@ -321,3 +321,56 @@ test("the caller can abort a pending inference without a new inference request",
     globalThis.fetch = original;
   }
 });
+
+test("Alibaba Qwen disables thinking using its native option and rejects unsupported effort", async () => {
+  const original = globalThis.fetch;
+  const oldHosts = process.env.AI_ALLOWED_HOSTS;
+  const bodies: any[] = [];
+  process.env.AI_ALLOWED_HOSTS = "dashscope-intl.aliyuncs.com";
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({ choices: [{ message: { content: '{"changes":[]}' } }] }),
+    );
+  };
+  const config = {
+    ...defaults,
+    provider: "openai-compatible" as const,
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    model: "qwen3.7-flash-2026-07-15",
+  };
+  try {
+    await callModel(config, "synthetic", [], AbortSignal.timeout(1000));
+    assert.equal(bodies[0].enable_thinking, false);
+    assert.equal(bodies[0].reasoning_effort, undefined);
+    await callModel(
+      { ...config, reasoning: "default" },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies[1].enable_thinking, undefined);
+    await assert.rejects(
+      callModel(
+        { ...config, reasoning: "high" },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      ),
+      /AI_REASONING_NOT_SUPPORTED/,
+    );
+    assert.equal(bodies.length, 2);
+    await callModel(
+      { ...config, model: "other-model" },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(bodies[2].reasoning_effort, "none");
+    assert.equal(bodies[2].enable_thinking, undefined);
+  } finally {
+    globalThis.fetch = original;
+    if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;
+    else process.env.AI_ALLOWED_HOSTS = oldHosts;
+  }
+});
