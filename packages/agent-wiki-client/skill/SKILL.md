@@ -1,11 +1,11 @@
 ---
 name: agent-wiki
-description: Retrieve project knowledge and exact evidence when needed. Curate only in a separately assigned background task or when the user explicitly requests manual recording in the current conversation.
+description: Retrieve Agent Wiki knowledge and evidence, review changes with the user, and manage knowledge or BYOK settings through the agent-wiki CLI when requested. Collection runs independently in the background.
 ---
 
 # Agent Wiki
 
-Use the installed `agent-wiki` CLI for retrieval. The same package includes the retrieval Skill and a separate background Collector managed with `agent-wiki collector start|stop|status|run`. Loading this Skill never starts collection or a model. Collection runs independently from the active conversation; remote refinement is controlled by Wiki settings. Do not create cloud resources or launch additional models without an authorized task.
+Use the installed `agent-wiki` CLI for retrieval and explicitly requested review, editing or management. The same package includes the retrieval Skill and a separate background Collector managed with `agent-wiki collector start|stop|status|run`. Loading this Skill never starts collection or a model. Collection runs independently from the active conversation; remote refinement is controlled by Wiki settings. Do not create cloud resources or launch additional models without an authorized task.
 
 Codex and Claude share the same workspace, CLI and knowledge identity. Their original sessions remain separate evidence. Collector enable/disable settings are independent of Skill installation; never enable a disabled client merely to answer a question. A copied handoff or compaction summary is attributed context, not independent verification or a new user decision.
 
@@ -29,7 +29,7 @@ In the authorized curation task, record selected decisions, verified observation
 6. On a revision conflict, read current knowledge and reconcile; use a new key for the revised payload. On a lost response, use `agent-wiki publication status <key>` or retry the unchanged file. Never report local file creation as successful remote storage.
 7. Read back the result. Maintain a compact start Article with current decisions, constraints, unfinished work and links; set `startContext: {tag, articleRef}` in a publication. Its content is authored by this agent; the server does not summarize automatically.
 
-CLI authentication comes from `WIKI_TOKEN` or the connection's configured Git-excluded env file. The Collector uses the same connection; an optional `WIKI_COLLECTOR_TOKEN` can restrict its credential scope. Never print, commit or copy the token into a publication. Workspace isolation is mandatory; tags classify content but do not grant access. After an authorized publication, report stored revisions and failed items in that task. Do not add publication or a mandatory memory-write step to unrelated tasks. Installing this Skill does not automatically create lifecycle hooks in every agent client.
+Query authentication uses `WIKI_TOKEN`; publication and management use `WIKI_MANAGEMENT_TOKEN` in the connection's configured Git-excluded env file. The Collector uses the same connection; an optional `WIKI_COLLECTOR_TOKEN` can restrict its credential scope. Never print, commit or copy the token into a publication. Workspace isolation is mandatory; tags classify content but do not grant access. After an authorized publication, report stored revisions and failed items in that task. Do not add publication or a mandatory memory-write step to unrelated tasks. Installing this Skill does not automatically create lifecycle hooks in every agent client.
 
 
 ## Review and management through the CLI

@@ -5,22 +5,26 @@
 | 구분 | 확인한 상태 |
 | --- | --- |
 | 원격 앱 | 단일 OCI VM 배포, main → Actions → GHCR → SSH 자동 갱신 |
-| 로컬 패키지 | Wiki CLI·조회 Skill·Collector 통합, 공유 설정 사용 |
-| 수집 | Agent Wiki 프로젝트만 · 10분, 텍스트·이미지 분리 zstd 증분 |
-| 정제 | 자동 정제 중지 · Collector 선별 보관 전환 및 L1 재수집 |
+| 로컬 패키지 | 0.7.0 · 조회·검토·관리 CLI·Skill·Collector 통합 |
+| 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 자동 정제 중지 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [오류 전용 알림](#오류만-slack-알림) 참고 |
 
 ## 에이전트 관리·검토와 출처 통합
 
-2026-09-13. **현재 로컬 구현·검증 완료, 이번 배포는 진행 전**이다.
+2026-09-13. **구현·배포·운영 확인 완료**. 코드 `c72aa58`의 [CI·배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34758898152)가 성공했다.
 
 - Collector: 공통 선별 형식 conversation-2, Codex/Claude 메시지·부모·도구 연결·컴팩션 출처 보존. 파생 요약은 사용자 결정이나 도구 확인으로 승격하지 않는다. 큰 Claude 첫 메시지는 스트리밍으로 프로젝트·세션 ID를 확인한다.
 - 수집 제약: Claude 전체 비활성화. Codex Agent Wiki 프로젝트만·10분·기기/수신 위치 유지. 합성 Claude 자료의 실제 Collector→업로드 API→L1 확정 경로를 로컬에서 검증했다. 다른 프로젝트의 실제 Claude 기록은 업로드하지 않았다.
 - L2/L3: Workspace 전체의 주제·범위 후보를 우선한다. 동일한 단일 주장은 근거를 합쳐 새 Version에 보존하고 동시 갱신 시 다시 비교한다. 클라이언트가 다르다는 이유로 지식을 나누지 않는다. 의미가 다른 주장의 무조건 병합은 하지 않는다.
 - 검토: CLI 검토 대기·개념 비교·사용자 승인 후 확정. 최근 검토 스냅샷 기준, Version/해시 충돌 검사, 검토 이력 불변. 전용 의미 병합·분리 명령·임베딩·그래프 DB는 후속이다.
 - 관리: Workspace `manage` 키, CLI 설정/Hello/중지/재개/관리 API. 웹은 읽기 전용 뷰어. Free 모드·모드별 키 프로필을 제거하고 BYOK만 남긴다. 기존 Alibaba 연결·중지 상태는 유지한다.
-- 로컬 검증: API·Worker 합성 128개, Client 24개 통과. 모델은 주입한 합성 응답으로만 검사했다. 실제 AI 호출·자동 정제 재개·유료 OCI 자원 추가는 하지 않았다. 검토 문서는 `l2-l3-memory.md`, 명령은 `client-and-api.md`, 그림은 `wiki-review.svg`에 통합했다.
+- 로컬 검증: API·Worker 합성 129개, Client 24개(총 153개)·타입 검사·프로덕션 빌드·SVG XML/링크/렌더 검사를 통과했다. 모델은 주입한 합성 응답으로만 검사했다. 실제 AI 호출·자동 정제 재개·유료 OCI 자원 추가는 하지 않았다. 검토 문서는 `l2-l3-memory.md`, 명령은 `client-and-api.md`, 그림은 `wiki-review.svg`에 통합했다.
+
+운영 확인(2026-09-13 22:13 KST): Client 0.7.0과 Codex/Claude Skill을 로컬에 설치했다. 기기 식별자·수집 제한·10분 예약을 유지했다. 수집 실행은 기존 대기분 51건을 확정했고, 새 `conversation-2` 업로드 8건도 서버 `completed`를 확인했다. 수집 실패 0건, 원격 원문 세션은 Codex 3개이며 실제 Claude 업로드는 하지 않았다.
+
+관리 키는 해당 Workspace에 한정해 루트 Git 제외 `.env.local`의 `WIKI_MANAGEMENT_TOKEN`에 저장했다. 실제 CLI로 설정 조회·25K 입력 예산 저장·중지 상태·검토 대기 조회를 확인했다. 기존 Alibaba 키/모델과 20 RPM·동시성 5·재시도 30초를 유지했고 설정 Version은 45다. 자동 정제 `false`, 실행 중 작업 0, 이번 작업 중 모델 호출 0이다. 운영 웹에서 BYOK 단일 읽기 화면과 Knowledge의 편집 버튼 제거를 확인했다. 현재 L3는 비어 있으므로 실제 지식의 사용자 검토 확정은 하지 않았다. 검토·동시 통합의 품질은 합성 경로 검증이며 실제 모델의 의미 판단을 보장하지 않는다.
 
 ## Alibaba DeepSeek Flash 전환
 
