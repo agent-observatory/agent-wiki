@@ -72,5 +72,33 @@
     "unmatched": 2,
     "published": 0,
     "originalModelOutputPreserved": true
+  },
+  "identifierNormalization": {
+    "failedResponses": 3,
+    "allIdentifiersUniqueAfterNormalization": true,
+    "originalOutputPreserved": true,
+    "publicationValidation": {
+      "rolledBack": true,
+      "acceptedResponses": 2,
+      "acceptedArticles": 3,
+      "rejectedResponses": 1,
+      "rejection": "EVIDENCE_MISMATCH",
+      "persistedArticles": 0
+    }
+  },
+  "livePublication": {
+    "deployedCommit": "4f8e99b",
+    "observedAt": "2026-09-13T02:15:00Z",
+    "completedChunks": 1,
+    "articles": 1,
+    "claims": 1,
+    "exactL1Matches": 1,
+    "sourceHashVerified": true,
+    "anchoredEvidence": 1,
+    "renamedReferences": 0,
+    "renamedAnchors": 0,
+    "durationMs": 30276,
+    "totalTokens": 1677,
+    "wholeSessionCompleted": false
   }
 }
