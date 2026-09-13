@@ -16,6 +16,7 @@ import {
 import { processUpload } from "./ingest.js";
 import { curationContext, CONTEXT_BUDGET } from "./curation-context.js";
 import { nextCurationJob } from "../../../packages/core/src/curation-queue.js";
+import { normalizeModelIdentifiers } from "../../../packages/core/src/model-identifiers.js";
 import {
   anchorModelEvidence,
   normalizeModelEvidence,
@@ -306,6 +307,10 @@ export async function runOne(
           .object({ changes: z.array(changeInput).max(3) })
           .strict()
           .parse(normalizeModelEvidence(response.output));
+        const identifiers = normalizeModelIdentifiers(result.changes);
+        result.changes = identifiers.changes;
+        diagnostics.renamedReferences = identifiers.renamedReferences;
+        diagnostics.renamedAnchors = identifiers.renamedAnchors;
         for (const change of result.changes) {
           for (const evidence of [
             ...change.claims.flatMap((claim) => claim.evidence),
