@@ -54,8 +54,12 @@ run "monitoring_without_function" {
     error_message = "Only structured application events should enter the 30-day log."
   }
   assert {
-    condition     = oci_sch_service_connector.errors[0].state == "INACTIVE"
-    error_message = "Disable raw Slack delivery; the Korean scheduled formatter owns error notifications."
+    condition     = oci_sch_service_connector.errors[0].state == "ACTIVE" && oci_sch_service_connector.errors[0].target[0].kind == "monitoring" && oci_sch_service_connector.errors[0].tasks[0].condition == "data.severityNumber >= 17"
+    error_message = "Only ERROR and FATAL logs may produce native Monitoring metrics; never forward raw logs to Slack."
+  }
+  assert {
+    condition     = oci_monitoring_alarm.errors[0].message_format == "ONS_OPTIMIZED" && !oci_monitoring_alarm.errors[0].is_enabled && oci_monitoring_alarm.errors[0].query == "ErrorLogCount[5m].grouping().count() > 0" && oci_monitoring_alarm.errors[0].evaluation_slack_duration == "PT5M" && !oci_monitoring_alarm.errors[0].is_notifications_per_metric_dimension_enabled
+    error_message = "Keep native Slack alarm delivery disabled so RESET/OK cannot bypass the error-only log reporter."
   }
   assert {
     condition     = !oci_identity_user_capabilities_management.cost_reader[0].can_use_console_password && !oci_identity_user_capabilities_management.cost_reader[0].can_use_auth_tokens

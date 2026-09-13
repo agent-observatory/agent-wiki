@@ -84,19 +84,18 @@ resource "oci_identity_policy" "error_connector" {
   count          = local.monitoring_enabled ? 1 : 0
   compartment_id = var.tenancy_id
   name           = "agent-wiki-error-delivery"
-  description    = "Connector may publish only to the Wiki errors topic"
+  description    = "Connector may publish only Wiki error metrics"
   statements = [
-    "Allow any-user to use ons-topics in tenancy where all {request.principal.type='serviceconnector', request.principal.compartment.id='${var.tenancy_id}', target.topic.id='${oci_ons_notification_topic.errors[0].id}'}"
+    "Allow any-user to use metrics in tenancy where all {request.principal.type='serviceconnector', request.principal.compartment.id='${var.tenancy_id}', target.metrics.namespace='agent_wiki_errors'}"
   ]
 }
 
 resource "oci_sch_service_connector" "errors" {
   count          = local.monitoring_enabled ? 1 : 0
   compartment_id = var.tenancy_id
-  display_name   = "Agent Wiki - API errors and terminal jobs"
-  description    = "Check service, eventName and error_code; open Logging for request/job ID. WARN retries are excluded."
-  # Slack direct delivery is raw JSON. The scheduled formatter owns delivery.
-  state = "INACTIVE"
+  display_name   = "Agent Wiki - error log metrics"
+  description    = "ERROR and FATAL logs to Monitoring; no raw log bodies sent to Slack."
+  state          = "ACTIVE"
   source {
     kind = "logging"
     log_sources {
@@ -110,11 +109,41 @@ resource "oci_sch_service_connector" "errors" {
     condition = "data.severityNumber >= 17"
   }
   target {
-    kind                       = "notifications"
-    topic_id                   = oci_ons_notification_topic.errors[0].id
-    enable_formatted_messaging = true
+    kind             = "monitoring"
+    compartment_id   = var.tenancy_id
+    metric_namespace = "agent_wiki_errors"
+    metric           = "ErrorLogCount"
   }
-  depends_on = [oci_identity_policy.error_connector]
+  depends_on = [oci_identity_policy.error_connector, oci_monitoring_alarm.errors]
+}
+
+resource "oci_monitoring_alarm" "errors" {
+  count                 = local.monitoring_enabled ? 1 : 0
+  compartment_id        = var.tenancy_id
+  metric_compartment_id = var.tenancy_id
+  display_name          = "Agent Wiki · 오류 로그"
+  namespace             = "agent_wiki_errors"
+  query                 = "ErrorLogCount[5m].grouping().count() > 0"
+  severity              = "ERROR"
+  # Error-only Slack delivery runs in error-monitor.yml; native alarms also send RESET/OK.
+  is_enabled       = false
+  resolution       = "1m"
+  pending_duration = "PT1M"
+  # Log-to-metric delivery is asynchronous. Allow late ingestion before evaluation.
+  evaluation_slack_duration = "PT5M"
+  destinations              = [oci_ons_notification_topic.errors[0].id]
+  message_format            = "ONS_OPTIMIZED"
+  notification_title        = "Agent Wiki · 오류 로그 상태 변경"
+  alarm_summary             = "5분 구간에 ERROR 이상 로그가 있으면 알림을 보냅니다."
+  body                      = <<-EOT
+    FIRING: 오류 감지 · OK: 경보 해제 (앱 복구 판정 아님)
+    발생 시각·서비스·오류 코드를 확인하세요.
+    <https://cloud.oracle.com/logging/search?region=ap-osaka-1&searchQuery=${urlencode("search \"${var.tenancy_id}/${oci_logging_log_group.wiki[0].id}/${oci_logging_log.app[0].id}\" | where data.severityNumber >= 17 | sort by datetime desc")}|오류 로그 보기>
+  EOT
+  # State transitions only; no periodic repeat and no per-request dimensions.
+  # OCI clears an existing repeat interval with an empty string, not JSON null.
+  repeat_notification_duration                  = ""
+  is_notifications_per_metric_dimension_enabled = false
 }
 
 # Dedicated CI identity: no VM creation, termination or app-data access.
@@ -186,6 +215,7 @@ output "monitoring" {
     topic_id        = oci_ons_notification_topic.errors[0].id
     subscription_id = oci_ons_subscription.slack[0].id
     connector_id    = oci_sch_service_connector.errors[0].id
+    alarm_id        = oci_monitoring_alarm.errors[0].id
   } : null
 }
 

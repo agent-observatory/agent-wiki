@@ -183,7 +183,7 @@ rows=[(190,'01','인프라',[
  (385,'02','앱 배포',[
  ('github','외부 ARM64 빌드','GHCR 게시 → VM 미리 pull','새 구조 검증 후 일괄 교체'),('tabler-terminal-2','외부 차단 → 정상 종료','진행 요청·정제 작업 마무리','미완료 정제는 재시도'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Caddy 유지 · 짧은 중단','쓰기 결과는 멱등 키로 확인')]),
  (580,'03','오류 로그',[
- ('ubuntu','stdout → OCI Logging','Docker syslog · rsyslog','OCI 기성 호스트 에이전트'),('oracle','OCI Monitoring 경보','Connector Hub · ERROR 이상 집계','5분 구간 감지 · 수집 대기 5분'),('tabler-bell','Notifications → Slack','한국어 제목·본문 · 로그 링크','상태 변경 시 알림 · 반복 없음')]),
+ ('ubuntu','stdout → OCI Logging','Docker syslog · rsyslog','OCI 기성 호스트 에이전트'),('github','Actions · 5분마다','OCI Logging · 새 ERROR 조회','같은 오류 최대 시간당 1회'),('tabler-bell','Slack Webhook','한국어 오류 요약 · 로그 링크','오류만 알림 · 복구 알림 없음')]),
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[

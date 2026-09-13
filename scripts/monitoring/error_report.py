@@ -93,13 +93,14 @@ def fetch_errors(client, tenancy, group, log, now):
 
 def run(items, state, save, now, log_url, deliver=send):
     errors = state.setdefault('errors', {})
+    started = stamp(errors['started_at']) if errors.get('started_at') else None
     cutoff = now-timedelta(hours=48)
     seen = {k:v for k,v in errors.get('seen',{}).items() if stamp(v)>cutoff}
     sent = {k:v for k,v in errors.get('sent',{}).items() if stamp(v)>cutoff}
     groups = defaultdict(list)
     for item in items:
         event = extract(item)
-        if event and event['id'] not in seen:
+        if event and (started is None or stamp(event['time']) >= started) and event['id'] not in seen:
             seen[event['id']] = event['time']
             groups[fingerprint(event)].append(event)
     if len(seen)>6000: raise RuntimeError('Notification checkpoint capacity exceeded')
@@ -125,6 +126,10 @@ def main():
     store=Checkpoint(oci.object_storage.ObjectStorageClient(config,retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY),
                      os.environ['OCI_COST_NAMESPACE'],os.environ['OCI_COST_BUCKET'])
     state=store.read();now=datetime.now(UTC)
+    # The switch must not resend the previous native alarm period's errors.
+    if not args.preview and not state.get('errors', {}).get('started_at'):
+        state.setdefault('errors', {})['started_at'] = now.isoformat()
+        store.write(state)
     try:
         rows=fetch_errors(oci.loggingsearch.LogSearchClient(config,retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY),
                           config['tenancy'],ids['log_group_id'],ids['log_id'],now)

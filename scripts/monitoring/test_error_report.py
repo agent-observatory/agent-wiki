@@ -55,6 +55,17 @@ class ErrorTests(unittest.TestCase):
         self.assertEqual(state['alerts'],{'2026-09':{'cost:SGD':1}})
         self.assertEqual(state['daily'],'2026-09:09/12')
 
+    def test_switch_ignores_old_errors_and_idle_or_recovery_never_sends(self):
+        sent=[];state={'errors':{'started_at':NOW.isoformat()}}
+        old=event('old');old['logContent']['time']=(NOW-timedelta(minutes=1)).isoformat()
+        reset={'type':'RESET','severity':'ERROR'}
+        run([old, reset, {'type':'FIRING_TO_OK'}, event(severity=9)],state,lambda _:None,NOW,'https://example.com',sent.append)
+        self.assertEqual(sent,[])
+        run([event('new')],state,lambda _:None,NOW+timedelta(minutes=5),'https://example.com',sent.append)
+        self.assertEqual(len(sent),1)
+        run([],state,lambda _:None,NOW+timedelta(minutes=10),'https://example.com',sent.append)
+        self.assertEqual(len(sent),1)
+
     def test_invalid_identity_prevents_silent_loss(self):
         e=event(identity='');e['logContent']['id']=''
         with self.assertRaises(ValueError):extract(e)

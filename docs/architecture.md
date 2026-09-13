@@ -197,7 +197,7 @@ GitHub main 변경 → Actions 검증 → 외부 ARM64 이미지 빌드·GHCR �
 
 앱은 OTel Logs Data Model에 맞춘 JSON을 stdout/stderr에 남긴다. Docker syslog → 호스트 rsyslog → OCI Unified Monitoring Agent → OCI Logging으로 전송한다. 호스트 수집기는 VM의 시스템 서비스이며 별도 사이드카 컨테이너가 아니다. 전체 배포도에서는 생략하고 운영도에만 표시한다.
 
-오류는 Connector Hub → OCI Monitoring 경보 → Notifications → Slack Webhook으로 전달한다. 5분 구간의 ERROR 이상을 평가하며 전송 대기 5분·평가 간격 1분, 상태 변경 시 알림이다. 종류별 중복 제거와 앱 정상 판정은 제공하지 않는다. GitHub Actions는 비용을 6시간마다 확인하고 09:13 한국 시각에 일 요약을 보낸다. 실제 연결·검증 상태는 운영 현황을 따른다.
+오류는 GitHub Actions가 OCI Logging에서 5분마다 ERROR 이상을 조회해 Slack Webhook으로 보낸다. 새 오류만 전송하며 동일 이벤트를 제외하고 같은 종류는 최대 시간당 한 번 알린다. 복구·OK·RESET 알림은 보내지 않는다. OCI 기본 경보는 해제 알림을 함께 보내므로 비활성화한다. 로그 반영과 예약 실행은 지연될 수 있다. GitHub Actions는 비용을 6시간마다 확인하고 09:13 한국 시각에 일 요약을 보낸다. 실제 연결·검증 상태는 운영 현황을 따른다.
 
 수집·정제 실패는 별도 처리 상태로 남겨 재시도하며 사용자의 대화로 주입하지 않는다. L2 · Curation 화면에서 최근 업로드 상태·압축 크기·신규/중복 수·기기별 검증 위치와 정제 실패·재시도·실행 이력을 확인한다. 토큰·원문·지식 본문·프롬프트는 운영 로그에 남기지 않는다. 전체 중단·CPU·디스크·HTTP 경보는 후속이다.
 

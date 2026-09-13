@@ -11,6 +11,12 @@
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
 
+## 오류만 Slack 알림
+
+2026-09-13. 복구 알림이 불필요하다는 요청에 따라 기존 오류 조회 Actions를 재사용한다. 5분마다 OCI Logging의 새 ERROR/FATAL만 전송하며 동일 이벤트를 제외하고 같은 오류는 최대 시간당 한 번 알린다. OK·RESET·오류 없는 조회는 메시지를 만들지 않는다. 전환 이전 오류는 재발송하지 않도록 시작 시각을 체크포인트에 기록하며 비용 상태를 유지한다. 로그 도착·GitHub 예약 실행은 지연될 수 있다. 점검 자체가 실패하면 오류 점검 실패만 알린다.
+
+OCI 기본 경보는 [해제와 RESET도 발송](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Concepts/monitoringoverview.htm)하므로 비활성화한다. 앱은 계속 JSON 로그만 출력하며 새 서버·Function·유료 자원은 추가하지 않는다. 오류/비용 검사 17개와 Terraform 모의 검사를 수행했다. 실제 전환 확인은 아래에 기록한다.
+
 ## 호출·수집·반영 이력의 표시 밀도
 
 2026-09-13. 호출 이력은 주요 지표 한 줄·오류와 당시 재시도 한 줄로 정리했다. 공통 상태 배지를 세션·업로드·일별 이력에 적용하고, 반영 이력의 카드와 세로 링크를 평면 목록으로 줄였다. L1 목록은 모바일에서 메타데이터를 다음 줄로 내려 가로 스크롤을 없앴다. 타입 검사와 1440px·390px 브라우저 검증, 호출 이력의 다크·라이트 테마, 반영 이력의 Version 링크를 확인했다. 데이터 처리·재시도·모델 설정은 변경하지 않았다. 앱 `8562ff6`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34744620779)가 성공했다. 운영 Edge 화면에서 한 줄 지표·색상 배지·간결한 오류 행을 확인했으며 API·Web·Worker는 healthy, PostgreSQL 컨테이너는 유지됐다. 이후 사용자 요청에 따라 앞으로는 데스크톱 웹만 설계·검증한다.
@@ -478,6 +484,8 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 
 ## 오류 알림 · OCI 기본 경보
 
+아래는 이전 구성의 기록이며 현재 발송 기준은 위 **오류만 Slack 알림**을 따른다.
+
 2026-09-12, 오류 알림만 다음 경로로 전환했다. 앱·VM·DB와 비용·사용량 알림은 변경하지 않았다.
 
 `stdout → Docker syslog → rsyslog → OCI Unified Monitoring Agent → OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack`
@@ -486,7 +494,9 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 - 경보는 `ErrorLogCount[5m].grouping().count() > 0`, 평가 간격 1분·발동 대기 1분·집계 대기 5분이다. 로그 전송 지연을 포함하므로 즉시 알림은 아니다.
 - 한국어 제목·요약·본문과 오류 로그 링크를 사용한다. 상태 변경 시 알리며 정기 반복은 없다. 오류 종류별 중복 제거는 하지 않는다. `OK`는 경보 해제이며 앱·로그 수집 정상의 증명이 아니다.
 - 원격 `Application error monitor` 워크플로는 중지했다. 로컬 오류 조회 워크플로·포매터·전용 테스트를 제거했다. 비용 Actions와 공유 운영 체크포인트는 유지한다.
-- Terraform 적용: 경보 1개 생성·기존 권한/커넥터 2개 수정, 삭제 없음. 실제 Docker stdout의 INFO·WARN·ERROR 합성 로그 3개가 OCI Logging에 수집됐고, 오류 지표는 1건이었다. 22:21 한국 시각에 경보 발동과 Slack 도착을 확인했다. 최초 시험의 JSON 표시를 발견해 `ONS_OPTIMIZED` 기본 서식으로 수정했으며 표시를 재검증 중이다.
+- Terraform 적용: 경보 1개 생성·기존 권한/커넥터 2개 수정, 삭제 없음. 실제 Docker stdout의 INFO·WARN·ERROR 합성 로그 3개가 OCI Logging에 수집됐고, 오류 지표는 1건이었다. 22:21 한국 시각에 경보 발동과 Slack 도착을 확인했다(로그 출력 후 약 9분). `ONS_OPTIMIZED` 기본 서식으로 수정한 알림도 22:24·22:25에 실제 수신·표시를 확인했다. 확인용 반복은 해제했고 API의 반복 설정 `null`을 확인했다. 기본 서식의 상태·시각 등 OCI 고정 항목은 영어다. 긴 URL은 `오류 로그 보기` 링크로 줄였다.
+
+Terraform 모의 검사 2개·기존 비용 알림 테스트 9개, SVG XML·상대 링크·실제 렌더링 검사를 통과했다. 전체 Terraform plan에서 다른 자원 변경이 없음을 확인했다.
 
 [OCI 로그 경보 구성](https://docs.oracle.com/en-us/iaas/Content/connector-hub/alarmlogs.htm)과 [제목·본문 설정](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Tasks/update-alarm-dynamic-variables.htm)을 따른다. 기존 커넥터 1개를 재사용하며 Monitoring 월 수집 5억·조회 10억, HTTPS 알림 100만 건의 [무료 범위](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) 안에서 운영한다. 별도 Function·서버는 없다.
 
