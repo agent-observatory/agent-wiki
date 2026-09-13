@@ -58,21 +58,14 @@ def fingerprint(event):
 def message(events, log_url):
     first = min(events, key=lambda x:x['time'])
     latest = max(events, key=lambda x:x['time'])
-    title, action = EVENTS.get(first['event'], ('애플리케이션 오류', '오류 코드와 발생 시각으로 로그를 확인하세요.'))
+    title, _ = EVENTS.get(first['event'], ('애플리케이션 오류', ''))
     service = SERVICES.get(first['service'], first['service'])
     kst = stamp(latest['time']).astimezone(timezone(timedelta(hours=9))).strftime('%m/%d %H:%M:%S')
-    blocks = [header(('🧪 ' if '시험' in title else '🔴 ') + title),
-              {'type':'section', 'fields':[
-                  {'type':'mrkdwn','text':f'*서비스*\n{escaped(service)}'},
-                  {'type':'mrkdwn','text':f'*새 오류*\n{len(events)}건'},
-                  {'type':'mrkdwn','text':f'*오류 코드*\n`{escaped(first["code"])}`'},
-                  {'type':'mrkdwn','text':f'*최근 발생*\n{kst} KST'}]},
-              section(action)]
-    ids = [('요청',latest['request']),('작업',latest['job'])]
-    reference = ' · '.join(f'{label} `{escaped(value)}`' for label,value in ids if value)
-    if reference: blocks.append({'type':'context','elements':[{'type':'mrkdwn','text':reference}]})
-    blocks += [link_row([('오류 로그 보기',log_url),('점검 기록',RUN_URL)]),
-        {'type':'context','elements':[{'type':'mrkdwn','text':'5분마다 점검 · 같은 오류는 최대 시간당 1회 알림'}]}]
+    icon = '🧪' if '시험' in title else '🔴'
+    blocks = [section(
+        f'{icon} *{escaped(service)} · {escaped(title)}*\n'
+        f'`{escaped(first["code"])}` · *{len(events)}건* · {kst}'),
+        link_row([('오류 로그',log_url),('점검 기록',RUN_URL)])]
     return {'text':f'{title} · {service} · {len(events)}건 · {first["code"]}', 'blocks':blocks}
 
 

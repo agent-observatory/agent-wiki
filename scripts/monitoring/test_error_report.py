@@ -14,6 +14,33 @@ def event(identity='e1',severity=17,code='SERVER_ERROR'):
                       'agent_wiki.request_id':'req-123'}}}}
 
 class ErrorTests(unittest.TestCase):
+    def test_real_api_and_worker_errors_use_compact_delivery_format(self):
+        for service,event_name,code,title in [
+            ('agent-wiki-api','api_server_error','SERVER_ERROR','API 요청 처리 오류'),
+            ('agent-wiki-worker','worker_unhandled_error','UNSPECIFIED','애플리케이션 오류'),
+        ]:
+            with self.subTest(service=service):
+                item=event(code=code)
+                data=item['logContent']['data']
+                data['eventName']=event_name
+                data['resource']['service.name']=service
+                data['attributes']['agent_wiki.job_id']='job-123'
+                sent=[]
+                run([item],{},lambda _:None,NOW,'https://example.com/logs',sent.append)
+                self.assertEqual(len(sent),1)
+                payload=sent[0]
+                self.assertEqual(len(payload['blocks']),2)
+                summary=payload['blocks'][0]['text']['text']
+                self.assertIn(title,summary)
+                self.assertIn(code,summary)
+                self.assertIn('1건',summary)
+                self.assertEqual(len(summary.splitlines()),2)
+                self.assertFalse(any('fields' in block for block in payload['blocks']))
+                for removed in ('req-123','job-123','5분마다','로그를 확인하세요','KST','시험 알림'):
+                    self.assertNotIn(removed,str(payload))
+                self.assertIn('오류 로그',str(payload['blocks'][1]))
+                self.assertIn('점검 기록',str(payload['blocks'][1]))
+
     def test_warn_and_info_do_not_notify(self):
         self.assertIsNone(extract(event(severity=9)))
         self.assertIsNone(extract(event(severity=13)))
