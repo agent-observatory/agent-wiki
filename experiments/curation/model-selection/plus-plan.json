@@ -1,0 +1,18 @@
+{
+  "version": "model-selection-plus-1",
+  "models": ["qwen3.7-plus"],
+  "region": "ap-southeast-1",
+  "thinking": false,
+  "maxOutputTokens": 6144,
+  "timeoutMs": 330000,
+  "automaticRetries": 0,
+  "maxTotalCalls": 2,
+  "maxReportedTokens": 42000,
+  "followup": "One small call with the unchanged frozen prompt and cases. If semantic results remain competitive, one large JSON-object call with exactly the existing input-large.json content. No additional model calls.",
+  "quotaChecked": "2026-09-13",
+  "quotaPerExactModel": 1000000,
+  "quotaExpiry": "2026-11-26",
+  "stopOnExhaust": true,
+  "productionWrites": false,
+  "ranking": "Same criteria as plan.json. Review statements manually; action labels alone do not establish correctness. Preserve previous results and do not repair malformed responses into passing scores."
+}

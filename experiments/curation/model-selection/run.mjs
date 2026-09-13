@@ -5,14 +5,16 @@ import ranks from 'js-tiktoken/ranks/o200k_base';
 const root='experiments/curation/model-selection/';
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const fixturesText=await readFile(root+'cases.json','utf8'), prompt=await readFile(root+'prompt.txt','utf8');
-const fixtures=JSON.parse(fixturesText), plan=JSON.parse(await readFile(root+'plan.json','utf8'));
+const supplement=process.argv[2]==='qwen3.7-plus';
+const reportPath=root+(supplement?'results-plus.json':'results.json');
+const fixtures=JSON.parse(fixturesText), plan=JSON.parse(await readFile(root+(supplement?'plus-plan.json':'plan.json'),'utf8'));
 const env=Object.fromEntries((await readFile('.env.local','utf8')).split('\n').filter(l=>/^DASHSCOPE_[A-Z_]+=/.test(l)).map(l=>{const i=l.indexOf('=');return [l.slice(0,i),l.slice(i+1).trim().replace(/^['"]|['"]$/g,'')]}));
 const endpoint=new URL(env.DASHSCOPE_BASE_URL);
 if(endpoint.protocol!=='https:'||!endpoint.hostname.endsWith('.ap-southeast-1.maas.aliyuncs.com')||!env.DASHSCOPE_API_KEY) throw Error('Singapore credentials required');
 const model=process.argv[2], variant=process.argv[3]??'small';
 if(!plan.models.includes(model)||!['small','large'].includes(variant)) throw Error('Unsupported selection');
 const lock=await open(root+`${model}-${variant}.attempt`,'wx'); await lock.close();
-let report;try {report=JSON.parse(await readFile(root+'results.json','utf8'));} catch {report={startedAt:new Date().toISOString(),promptHash:sha(prompt),casesHash:sha(fixturesText),runs:[]};}
+let report;try {report=JSON.parse(await readFile(reportPath,'utf8'));} catch {report={startedAt:new Date().toISOString(),promptHash:sha(prompt),casesHash:sha(fixturesText),runs:[]};}
 if(report.promptHash!==sha(prompt)||report.casesHash!==sha(fixturesText)) throw Error('Frozen inputs changed');
 if(report.runs.length>=plan.maxTotalCalls||report.runs.reduce((s,r)=>s+(r.usage?.total_tokens??0),0)>=plan.maxReportedTokens) throw Error('Evaluation budget reached');
 if(variant==='large'&&report.runs.filter(r=>r.variant==='large').length>=2) throw Error('Two long probes maximum');
@@ -35,7 +37,7 @@ const body={model,enable_thinking:false,max_tokens:plan.maxOutputTokens,...(vari
 const inputId=variant==='small'?'input-small.json':'input-large.json';
 await writeFile(root+inputId,JSON.stringify({messages:body.messages},null,2)+'\n');
 const run={model,variant,startedAt:new Date().toISOString(),inputHash:sha(user),estimatedInputTokens:tokenCount(prompt)+tokenCount(user)+128,requestBytes:Buffer.byteLength(JSON.stringify(body)),settings:{enable_thinking:false,max_tokens:plan.maxOutputTokens,...(variant==='large'?{response_format:{type:'json_object'}}:{})},status:'started'};
-report.runs.push(run);await writeFile(root+'results.json',JSON.stringify(report,null,2)+'\n');
+report.runs.push(run);await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({event:'started',...run}));
 const begin=performance.now();
 try {
@@ -63,5 +65,5 @@ try {
  run.status='completed';
 } catch(e) {run.status='failed';run.error??=e.name;}
 run.ms=Math.round(performance.now()-begin);run.finishedAt=new Date().toISOString();
-await writeFile(root+'results.json',JSON.stringify(report,null,2)+'\n');
+await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({...run,content:undefined,output:undefined}));
