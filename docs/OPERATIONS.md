@@ -15,7 +15,9 @@
 
 2026-09-13. 사용자 선택에 따라 벤치에서 확인한 범용 `deepseek-v4-flash`를 대상으로 한다. 루트 `.env.local`의 `DASHSCOPE_MODEL`을 변경했으며 API 키·Singapore 주소는 유지한다. Flash·Pro와 각 날짜 ID의 무료 쿼타는 별도이고 한 모델이 합산 4M을 쓰거나 다른 ID로 자동 전환하지 않는다. 자동 정제는 재개하지 않는다.
 
-Alibaba DeepSeek V4도 Qwen과 같이 `enable_thinking`·`thinking_budget`·`max_completion_tokens`를 저장·전달하도록 API와 고급 설정 UI를 확장했다. 추론 OFF일 때 thinking_budget은 보내지 않는다. Alibaba의 정제·Hello 요청에는 `response_format=json_object`를 적용하며 응답 구조·원문 검증은 유지한다. NVIDIA의 요청 형식과 Free 기본 모델은 유지한다. DeepSeek 입력은 현재 보수적 UTF-8 바이트 추정이고, Qwen 전용 토큰 추정기를 그대로 적용하지 않는다. 이 변경의 로컬 검증·배포·운영 설정 확인은 아래에 기록한다.
+Alibaba DeepSeek V4도 Qwen과 같이 `enable_thinking`·`thinking_budget`·`max_completion_tokens`를 저장·전달하도록 API와 고급 설정 UI를 확장했다. 추론 OFF일 때 thinking_budget은 보내지 않는다. Alibaba의 정제·Hello 요청에는 `response_format=json_object`를 적용하며 응답 구조·원문 검증은 유지한다. NVIDIA의 요청 형식과 Free 기본 모델은 유지한다. DeepSeek 입력은 현재 보수적 UTF-8 바이트 추정이고, Qwen 전용 토큰 추정기를 그대로 적용하지 않는다.
+
+로컬 검사 137개·타입 검사와 앱 `9f9cb07`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34756102294)가 성공했다. 운영 웹에서 Flash·enable_thinking=false·생성 16,384·입력 설정 25,000·20 RPM·동시 실행 5·재시도 30초를 유지해 저장했다. Hello는 1.1초·입력 14 / 출력 5토큰으로 성공했다. 이 테스트는 정제 실행이 아니며 사용자 지시에 따라 자동 정제는 계속 중지한다. 원문 수집·기존 무료 전용 설정은 유지한다.
 
 ## Alibaba 정제 모델 비교
 
