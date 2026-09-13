@@ -51,7 +51,7 @@ Wiki 아이콘은 [Tabler book-2 v3.34.1](https://github.com/tabler/tabler-icons
 
 ## Wiki DNS·HTTPS와 운영 아이콘
 
-2026-09-12 확인. Tech Stack Icons 3.7.1 → techicons.dev → Simple Icons 순서로 확인했다. Fastify·Ansible은 techicons.dev의 원본 SVG를, 앞선 두 목록에 없는 Caddy·Let’s Encrypt는 Simple Icons를 사용한다. Duck DNS는 세 목록에 전용 아이콘이 없어 Tabler의 일반 DNS/네트워크 기호를 사용했다. 이전 그림에서 사용한 AWS·Ubuntu·Ansible 아이콘은 출처와 함께 보존하며 현재 Container Instances 배포도에는 표시하지 않는다.
+2026-09-12 확인. Tech Stack Icons 3.7.1 → techicons.dev → Simple Icons 순서로 확인했다. Fastify·Ansible은 techicons.dev의 원본 SVG를, 앞선 두 목록에 없는 Caddy·Let’s Encrypt는 Simple Icons를 사용한다. Duck DNS는 세 목록에 전용 아이콘이 없어 Tabler의 일반 DNS/네트워크 기호를 사용했다. 이 문단은 당시 아이콘 선택 기록이다. 과거 배포도에서 사용한 아이콘도 출처·라이선스와 함께 보존하며 현재 K3s 그림의 사용 여부와 구분한다.
 
 | 파일 | 출처 | 라이선스 |
 | --- | --- | --- |

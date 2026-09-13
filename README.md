@@ -5,7 +5,7 @@ A personal knowledge space for you and your agents. Review decisions, preserve e
 - Workspace isolation, GitHub owner login, scoped agent API keys
 - Keyword and glossary-alias search; no embedding dependency
 - Background text refinement with source spans and revision lineage
-- Next.js, Fastify, PostgreSQL, Docker Compose, Terraform
+- Next.js, Fastify, PostgreSQL, K3s, Terraform
 
 **First release deployed:** [agent-wiki.duckdns.org](https://agent-wiki.duckdns.org). Owner-only GitHub login. Source collection, knowledge APIs, and URL-based pages are live. See [implementation and deployment status](docs/OPERATIONS.md).
 

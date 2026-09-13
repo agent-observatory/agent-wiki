@@ -6,10 +6,17 @@
 | --- | --- |
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
 | 로컬 패키지 | 0.7.1 · 조회·검토·관리 CLI·Skill·Collector 통합 |
+| 웹 | Knowledge → Sources → 설정. 읽기 전용이며 수정·검토 확정·AI 설정은 CLI |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 자동 정제 중지 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## 다음 작업의 경계
+
+- 자동 정제는 명시적인 재개 요청까지 중지한다. Codex는 Agent Wiki 프로젝트만 10분마다 수집하며 Claude는 전체 비활성이다.
+- Client 키 하나로 통합한 상태다. 브라우저 승인 기반 최초 연결·토큰 만료/갱신·계정 전체 Workspace 접근은 미구현이다.
+- 실제 세션의 정제·검색·검토 품질은 정제 재개 후 확인한다. 사용자 승인 없는 검토 확정은 하지 않는다. 임베딩·별도 그래프 DB·추가 AI 비교 단계는 후속 후보다.
 
 ## Knowledge·Sources 메뉴 통합
 
@@ -30,21 +37,41 @@
 
 ## OCI 기본 오류 알림
 
-2026-09-14. 사용자 선택으로 **OCI Logging → Connector Hub(ERROR 이상) → Monitoring 경보 → Notifications → Slack**을 사용한다. 기본 경보 형식을 수용하며 오류 감지·경보 해제·RESET 상태 변경을 알리고 정기 반복은 하지 않는다. 경보 해제는 앱 복구 판정이 아니다.
+2026-09-14. **OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack**을 유지한다. 알림용 Function·별도 서버·GitHub 예약 조회는 추가하지 않는다.
 
-- **구현:** 기존 OCI 로그·Connector·경보·Slack 구독을 재사용한다. 오류 알림용 GitHub workflow와 조회·메시지 포맷 코드를 제거한다. GitHub 비용 조회 계정의 로그 읽기 권한도 제거하며 비용 요약·앱 배포 Actions는 유지한다.
-- **설정:** ERROR/FATAL(`severityNumber >= 17`), 5분 구간 오류 수 > 0, 평가 간격 1분·대기 1분·집계 지연 허용 5분. 같은 오류 종류별 중복 제거 대신 경보 상태 변경으로 묶는다.
-- **자원:** Function·OCIR·별도 알림 서버를 생성하지 않는다. 원문·DB·정제 활성 상태·기존 비용 체크포인트는 유지한다.
-- **배포:** Terraform으로 기존 경보를 활성화하고 비용 조회 계정의 로그 권한을 제거했다. Connector·Slack 구독 ACTIVE를 확인했다. GitHub 오류 workflow를 비활성화하고 전용 `OCI_LOG_CONFIG` secret을 삭제했다.
-- **검증:** Terraform mock plan 3개·비용 알림 테스트 12개 통과, SVG XML·실제 렌더링 확인. 02:05:37 한국 시각 Worker stdout 합성 ERROR → OCI Logging 1건 → 02:09 오류 지표 1건 → 02:14:30 경보 FIRING → 02:14:32 Slack 수신을 확인했다. 전체 약 9분이며 경보 후 전달은 약 2초다. 아래 이전 GitHub 오류 점검 기록은 당시 방식이며 현재 설계로 읽지 않는다.
+| 항목 | 확정한 구성 |
+| --- | --- |
+| 감지 | ERROR/FATAL(`severityNumber >= 17`), 5분 구간 오류 지표 > 0 |
+| 평가 | 1분 간격·발동 대기 1분·로그 전달 지연 허용 5분 |
+| 발송 | 오류 감지·경보 해제·RESET 상태 변경. 정기 반복 없음 |
+| 서식 | `Agent Wiki` 제목, 굵은 상태·코드 서식의 평가 시각·오류 로그 링크 |
+| 제한 | 확인한 경보·구독 API에는 해제·RESET만 끄는 옵션이 없음. 현재는 별도 필터를 두지 않음 |
+| 확인 | 02:54 발동·03:08 RESET 모두 실제 Slack 카드 수신 |
 
-**추가 확인 — RESET 표시:** 같은 경보의 02:14:32 `OK_TO_FIRING`은 Slack 카드였으나 02:28의 `RESET`(평가 시각 02:23)은 경보 메타데이터 JSON으로 도착했다. 새 앱 오류나 원문 로그 유출이 아니라 지표가 끊긴 뒤의 경보 초기화 메시지다. 운영 API로 `ONS_OPTIMIZED`·활성 SLACK 구독 1개·Monitoring 연결을 확인했으므로 설정 누락이나 중복 구독으로 설명되지 않는다. OCI의 RESET 메시지 서식 처리 문제로 추정하며 서비스 내부 원인은 미확정이다. 발동 알림만 확인한 기존 검증은 모든 상태의 카드 표시를 보장하지 않는다. 이 현상을 처음 조사할 때는 알림 경로·자원을 변경하지 않았다.
+경보 해제·RESET은 앱 복구 확인이 아니다. 비용 요약·앱 배포 Actions는 유지한다. 서식 변경은 `f828c6f`에 기록했으며 Terraform으로 기존 경보 1개만 수정했다. 앱 재배포·자원 추가·정제 재개는 없었다.
 
-공식 문서는 Slack 경보 카드와 제목·본문의 동적 변수를 지원한다고 설명한다. Notifications의 Email 전용 friendly formatting 설명을 Slack 서식 미지원으로 해석하지 않는다. RESET이 원래 JSON이어야 한다는 공식 근거는 확인하지 못했다.
+<details>
+<summary>배포·종단 검증과 이전 JSON 현상</summary>
 
-**서식 적용·실제 검증 완료:** 기존 경보 제목은 `Agent Wiki`, 본문은 굵은 상태·코드 서식의 평가 시각·오류 로그 링크로 줄였다. Terraform은 기존 경보 1개만 수정했으며 모의 검사 3개를 통과했다. 새 자원·포매터·앱 배포는 없다. 02:39의 첫 합성 시험은 시각 형식 오류로 수집기가 제외했다. 실제 앱과 같은 밀리초 UTC 형식으로 보낸 02:45:17 시험은 02:48:33 OCI Logging 전송 HTTP 200을 확인했다. 02:54:27 경보 발동 → 02:54:29 Slack 카드 수신을 확인했고, Edge에서 굵은 상태·코드 시각·로그 링크가 렌더링됐다. 03:08:38에 후속 RESET도 JSON이 아닌 카드로 수신됐고, 굵은 `OK`·코드 시각·로그 링크·녹색 경계가 표시됐다. [발동 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322069229589)와 [RESET 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322918936799)를 실제 Slack 웹에서 확인했다. 이전 JSON 발생의 서비스 내부 원인은 확정하지 못했으며, 이번 결과는 같은 운영 경로의 한 번의 발동·RESET 주기에 대한 검증이다.
+- **배포:** 기존 Connector·경보·SLACK 구독을 재사용하고 ACTIVE를 확인했다. 오류 조회 workflow를 비활성화하고 전용 `OCI_LOG_CONFIG` secret·비용 조회 계정의 로그 권한·오류 포맷 코드를 제거했다. `ONS_OPTIMIZED`와 단일 SLACK 구독을 유지한다.
+- **로컬 검사:** Terraform 모의 검사 3개·비용 알림 검사 12개, 운영 그림 XML·렌더링을 통과했다. 서식만 수정한 이후에도 Terraform 모의 검사 3개를 통과했다.
+- **최종 실제 경로:** 02:45:17 Worker stdout 합성 ERROR → 02:48:33 OCI Logging 전송 HTTP 200 → 02:49 오류 지표 1건 → 02:54:27 경보 발동 → 02:54:29 [발동 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322069229589) → 03:08:38 [RESET 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322918936799). Slack 웹에서 굵은 상태·코드 시각·링크와 빨강/녹색 경계를 확인했다. 시각은 한국 시각이며 카드 본문의 ISO 시각은 경보 평가 시각이다.
+- **시험 실수:** 첫 02:39 합성 로그의 시각 형식이 수집기와 달라 제외됐다. 실제 앱과 같은 밀리초 UTC `YYYY-MM-DDTHH:mm:ss.SSSZ`로 수정한 위 시험만 OCI 경로를 통과했다. 합성 시험이며 실제 앱 장애가 아니다.
+- **이전 JSON 현상:** 앞선 02:14 발동은 카드였으나 02:28 RESET은 경보 메타데이터 JSON이었다. 당시에도 `ONS_OPTIMIZED`·활성 SLACK 구독 1개·Monitoring 연결이 확인됐다. 이후 같은 경로의 한 번의 발동·RESET 주기는 정상 카드였지만, 이전 서비스 내부 원인은 확정하지 못했다. 서식 갱신이 근본 원인을 해결했다고 단정하지 않는다.
+- **재발 시:** 해당 Slack 메시지 시각·경보 type·실제 경보 설정·구독 수를 함께 확인한다. 앱 원문 로그와 경보 메타데이터를 구분하며 발동 카드만으로 RESET 표시까지 검증됐다고 보지 않는다.
 
-공식 형식: [OCI 기본 Slack 경보](https://docs.oracle.com/en-us/iaas/Content/Monitoring/alarm-message-examples.htm).
+공식 문서는 [Slack 경보 카드](https://docs.oracle.com/en-us/iaas/Content/Monitoring/alarm-message-examples.htm)와 [제목·본문 동적 변수](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Tasks/update-alarm-dynamic-variables.htm)를 지원한다고 설명한다. Email 전용 friendly formatting을 Slack 서식 미지원으로 해석하지 않는다. RESET이 원래 JSON이어야 한다는 공식 근거는 확인하지 못했다. 복구 알림 옵션은 OCI MCP의 `UpdateAlarmDetails`·`UpdateSubscriptionDetails`와 [알림 설정 문서](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Tasks/create-edit-alarm-notification.htm)를 확인한 범위다.
+
+</details>
+
+## OCI MCP · 관리 도구
+
+2026-09-14. 이 개발 세션에 `oracle_oci`의 클라이언트 목록·작업 목록·API 검색·명세 조회·API 호출 도구 5개가 노출됐다. 경보·구독 업데이트 명세 조회를 실제 실행했다. 이는 SDK 명세 조회이며 계정 인증·운영 자원 조회 성공을 검증한 것은 아니다. Wiki 조회 MCP나 원격 앱 컴포넌트의 배포와 구분한다.
+
+<details>
+<summary>이전 구현·배포 검증 기록 (당시 수치·명령)</summary>
+
+이하의 수치·모델·UI·인프라·알림 방식은 각 작업 당시의 기록이다. 현재 기준은 위 요약과 설계 문서를 따른다.
 
 ## 연결 화면 안내 제거
 
@@ -174,7 +201,9 @@ Curation은 상태·처리한 원문 조각·이번 묶음 청크·다음 대기
 
 Slack 카드에서는 신호등 범례·조회 범위·집계 지연·과금 주의 문구를 제거했다. 비용·상태·사용률·증감·상세 링크만 간결하게 표시하며 판정 기준과 조회 범위는 이 문서에 유지한다.
 
-## 오류만 Slack 알림
+## 이전 오류 조회 Actions
+
+현재는 중지·제거한 방식이다. [현재 OCI 기본 오류 알림](#oci-기본-오류-알림)과 구분한다.
 
 2026-09-14 실제 알림 간소화 수정: 시험에 사용한 포맷 변경이 로컬 미커밋 상태여서, 예약 Actions는 GitHub의 기존 포맷으로 발송했다. 실행 `34769263743`의 커밋 `8a1b9fb`와 로컬 수정본을 같은 API·Worker 오류로 비교해 기존 6개 블록/수정본 2개 블록을 확인했다. 서비스·제목, 오류 코드·건수·시각, 로그·점검 링크만 표시한다. 실제 `run` 발송 경로의 API 오류와 Worker 미분류 오류 회귀 검사를 추가했으며 기존 코드에서 2건 실패·수정본에서 모니터링 검사 21건 통과했다. 전송·중복 억제·체크포인트 정책은 유지한다. 커밋 `332b7a8`을 push하고 [실제 오류 모니터 workflow](https://github.com/agent-observatory/agent-wiki/actions/runs/34769499370)를 실행해 해당 커밋 checkout·OCI 로그 25건 조회·성공을 확인했다. 새 발송 대상은 없어 Slack 발송은 0건이며, 다음 신규 오류부터 새 형식을 사용한다. 기존 메시지를 재전송하거나 합성 오류를 운영에 추가하지 않았다.
 
@@ -328,9 +357,6 @@ ARM 실행기 배정이 지연되면 Actions 수동 실행에서 `image_runner=u
 L1 객체·수집 위치·로그인·AI 설정·호출 이력·토큰 집계·제공자 대기는 유지한다. 같은 초기화 요청은 한 번만 적용하며, 트랜잭션 실패는 롤백한다. 이전 실행의 늦은 응답은 새 정제에 반영하지 않는다. 로컬 합성 검사에서 원문 보존·다른 Workspace 격리·수집 중복 판정 유지·호출 이력 보존·활성/진행 작업 거부·중복 요청·롤백·늦은 응답 차단을 확인했다. 기존 전체 검사와 추가 회귀 검사, 타입 검사·빌드가 통과했다. 재생성 그림의 XML과 실제 렌더링도 확인했다. 원격 재생성을 실행하거나 AI를 활성화하지 않았다. 앱 `bca3dc9`의 [CI·자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34721284566)가 성공했다. API·Web·Worker 이미지 SHA와 건강 상태, 기존 DB 컨테이너 유지, 원문 1,005개·정제 중지 상태를 확인했다. 운영 웹에서 재생성 버튼·삭제 범위 설명·Escape 취소·포커스 복귀를 확인했으며 원격 초기화는 실행하지 않았다.
 
 개선은 실제 개인 세션의 크기와 실패 사례를 기준으로 진행한다. 대규모 부하 실험·분산 처리·부분 재생성은 현재 범위에 추가하지 않는다.
-
-<details>
-<summary>이전 구현·배포 검증 기록 (당시 수치·명령)</summary>
 
 ## 증분 맥락·주장 관계 검증
 
@@ -649,7 +675,7 @@ GHCR 패키지는 조직 정책상 비공개다. Actions가 짧은 수명의 저
 
 ## 오류 알림 · OCI 기본 경보
 
-아래는 이전 구성의 기록이며 현재 발송 기준은 위 **오류만 Slack 알림**을 따른다.
+아래는 이전 구성의 기록이다. 현재 발송 기준은 [OCI 기본 오류 알림](#oci-기본-오류-알림)을 따른다.
 
 2026-09-12, 오류 알림만 다음 경로로 전환했다. 앱·VM·DB와 비용·사용량 알림은 변경하지 않았다.
 

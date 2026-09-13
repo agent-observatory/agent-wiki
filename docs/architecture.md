@@ -24,7 +24,7 @@ GitHub 로그인 후 별도 Workspace 선택 화면 없이 접근 가능한 첫 
 
 메뉴는 **L3 · Knowledge → L1–L2 · Sources → 설정** 순서다. Sources에 Raw Sources·Curation·수집 상태를 모으고, 공통 수집·반영 현황을 보여준다. Knowledge는 지식 목록과 반영 이력을 함께 제공한다. 독립 Audit 메뉴는 두지 않는다. 원문 보관(L1)·정제(L2)·지식과 이력(L3)의 데이터 책임은 유지한다. L4 검색은 지식 화면에서, L5 답변·작업은 연결한 개인 에이전트에서 사용한다. 웹 개정 표기는 `Version 1`로 쓰고 이력 링크는 해당 개정의 문서 제목과 배지로 표시한다.
 
-Raw Sources 목록은 같은 세션을 하나로 묶어 보여주며 각 증분 L1 기록은 불변으로 보존한다. 상세 화면의 수집 횟수·마지막 수집·보관 기록 수·압축 용량와 접힌 수집 이력은 확정된 업로드 메타데이터로 집계한다. 한 업로드에서 나뉜 보관 조각은 한 번으로 세고, 재시도·중복만 있는 업로드는 제외한다. 이력은 최신순·페이지네이션이며 원문을 풀지 않는다. ‘전체 기록 보기’를 요청하면 기존처럼 이어진 기록을 읽는다.
+Raw Sources 목록은 같은 세션을 하나로 묶어 보여주며 각 증분 L1 기록은 불변으로 보존한다. 상세 화면의 수집 횟수·마지막 수집·보관 기록 수·압축 용량과 접힌 수집 이력은 확정된 업로드 메타데이터로 집계한다. 한 업로드에서 나뉜 보관 조각은 한 번으로 세고, 재시도·중복만 있는 업로드는 제외한다. 이력은 최신순·페이지네이션이며 원문을 풀지 않는다. ‘전체 기록 보기’를 요청하면 기존처럼 이어진 기록을 읽는다.
 
 목록은 서버 페이지네이션으로 25·50·100개씩 조회한다. 페이지·검색 조건·선택 탭을 URL에 보존하고, 정제 전체 집계와 현재 페이지 항목을 구분한다. Curation은 같은 세션의 미처리 원문을 묶어 정제한다. 목록은 세션별 상태·이번 처리 진행률·새 기록 대기·마지막 반영 시각을 표시한다. 처리 시작 때 확정된 수집 범위를 고정하고 이후 증분은 다음 처리로 남겨 진행률 분모가 늘지 않게 한다. 조각·청크 개수는 기본 화면에 노출하지 않는다. 개별 작업을 펼치는 목록은 두지 않고 실행 이력은 진단용으로 보존한다. 정제 상태는 보이는 화면에서 15초마다 갱신하고, CLI에서 중지·재개하면 다음 조회에 상태를 반영한다. 실행 중인 청크는 마무리하며 다음 작업부터 중지한다.
 
@@ -69,7 +69,7 @@ K3s 제어·실행 상자는 별도 VM이나 새 Wiki 앱이 아니다. 같은 V
 | cert-manager | 내부 Webhook Service 443 → Pod 10250, ACME 발급 기관으로 외부 HTTPS 443 요청 |
 | Object Storage / AI Provider / 인증서 발급 기관 | 외부 서비스의 HTTPS 443으로 요청 |
 
-이 표는 전환 목표이며 열린 운영 포트를 스캔한 결과가 아니다. Web/API/DB는 현재 앱 설정에서 확인한 포트를 유지한다. 게이트웨이 80/443은 외부 Service 포트이며 Traefik Pod의 targetPort와 구분한다. 관리 포트·Webhook·메트릭의 실제 바인딩은 설치 버전의 설정으로 검증한다. **외부에서 앱을 조회하는 진입점은 Gateway지만, DB 직접 관리 접속은 별도 예외다.** Flannel VXLAN 8472/UDP는 다중 노드 통신용이며 인터넷에 공개하지 않는다. 단일 노드 SQLite 구성에는 etcd 2379/2380을 열지 않는다.
+이 표는 접속 범위의 설계 기준이다. 실제 개방·차단 검증 결과는 운영 현황에서 구분한다. Web/API/DB는 현재 앱 설정에서 확인한 포트를 유지한다. 게이트웨이 80/443은 외부 Service 포트이며 Traefik Pod의 targetPort와 구분한다. 관리 포트·Webhook·메트릭의 실제 바인딩은 설치 버전의 설정으로 검증한다. **외부에서 앱을 조회하는 진입점은 Gateway지만, DB 직접 관리 접속은 별도 예외다.** Flannel VXLAN 8472/UDP는 다중 노드 통신용이며 인터넷에 공개하지 않는다. 단일 노드 SQLite 구성에는 etcd 2379/2380을 열지 않는다.
 
 포트 기준: [K3s 요구사항](https://docs.k3s.io/installation/requirements) · [Kubernetes 관리 포트](https://kubernetes.io/docs/reference/networking/ports-and-protocols/) · [cert-manager Webhook](https://cert-manager.io/v1.18-docs/troubleshooting/webhook/).
 
@@ -186,7 +186,7 @@ Workspace는 자료·권한·검색의 격리 단위다. Folder는 기본 위치
 | Claude·Codex로 평소처럼 질답·작업 | Collector가 클라이언트가 남긴 기록을 읽음 |
 | 이전 결정이 필요하면 Wiki 조회 | 허용한 변경분을 원격 원문으로 보관 |
 | 근거를 읽고 현재 작업 계속 | 기존 지식과 비교해 정제·새 개정 반영 |
-| 필요하면 웹에서 지식 정정·출처 확인 | 정정·추가 원문을 이후 정제의 근거로 사용 |
+| 웹에서 근거 확인, 에이전트·CLI로 검토·정정 | 정정·추가 원문을 이후 정제의 근거로 사용 |
 
 왼쪽 흐름은 오른쪽 흐름의 완료를 기다리지 않는다. 매 턴·시작·종료·컴팩션에 수집·정제·조회 명령을 의무화하지 않는다. 아직 수집하지 못한 내용은 이미 기억한다고 설명하지 않는다. 원문 없는 수동 메모는 작성자 진술로 구분한다.
 
@@ -198,7 +198,7 @@ PostgreSQL 제목·본문·태그·용어 별칭·명시적 문서 연결과 `pg
 
 현재 Context는 지식 최대 6개·본문 발췌 8,000자·전체 JSON 16,000자로 제한한다. 문서당 주장 최대 8개·주장당 근거 최대 4개를 요약하며 잘림을 표시한다. 전체 내용은 개정·원문 상세 조회로 확인한다. 삭제·대체·미확인을 구분하며 한국어 별칭 품질은 실제 질문으로 다듬는다.
 
-Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cytoscape.js 시각화, Apache AGE, OpenMetadata 전체 도입, MCP, 로컬 전체 자료 복제는 미확정·후속 후보다.
+Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cytoscape.js 시각화, Apache AGE, OpenMetadata 전체 도입, Wiki 조회 MCP, 로컬 전체 자료 복제는 미확정·후속 후보다.
 
 ## L4 · Query
 
@@ -251,7 +251,7 @@ Web/API는 `maxSurge: 1`, `maxUnavailable: 0`으로 교체한다. readiness·5�
 
 앱은 OTel JSON을 stdout/stderr에 남긴다. **containerd CRI 로그 → 호스트 rsyslog → 기존 events.jsonl → OCI Unified Monitoring Agent → OCI Logging**으로 전달한다. `configure-k3s-logs.sh`는 CRI의 시간·스트림 접두사를 제거하고 API/Worker 구조화 이벤트만 전달한다. 앱에 Slack 전송 코드나 별도 로그 수집기 컨테이너를 추가하지 않는다.
 
-오류는 **OCI Logging → Connector Hub의 ERROR 이상 필터 → Monitoring 경보 → Notifications → Slack**으로 전달한다. OCI 기본 경보 형식과 상태 변경 알림을 사용하며 오류 감지와 경보 해제·RESET을 함께 알린다. 주기적인 반복 알림은 보내지 않는다. 경보 해제는 앱 복구 확인과 다르다. Function·별도 알림 서버·오류 조회 Actions는 두지 않으며 GitHub Actions는 비용 요약과 앱 배포에만 사용한다. 지표는 5분 구간으로 집계하고 로그 전달 지연을 5분 허용한다. Collector는 Codex의 Agent Wiki 프로젝트·10분, Claude 비활성, 자동 정제 중지를 유지한다. 배포와 정제 재개는 별개의 작업이다. 실행 결과는 [운영 현황](OPERATIONS.md)에 기록한다.
+오류는 **OCI Logging → Connector Hub의 ERROR 이상 필터 → Monitoring 경보 → Notifications → Slack**으로 전달한다. OCI 기본 경보 형식과 상태 변경 알림을 사용하며 오류 감지와 경보 해제·RESET을 함께 알린다. 주기적인 반복 알림은 보내지 않는다. 경보 해제는 앱 복구 확인과 다르다. 확인한 기본 경보·구독 설정에는 해제·RESET만 제외하는 옵션이 없으며, 현재는 별도 필터를 추가하지 않는다. Function·별도 알림 서버·오류 조회 Actions는 두지 않으며 GitHub Actions는 비용 요약과 앱 배포에만 사용한다. 지표는 5분 구간으로 집계하고 로그 전달 지연을 5분 허용한다. Collector는 Codex의 Agent Wiki 프로젝트·10분, Claude 비활성, 자동 정제 중지를 유지한다. 배포와 정제 재개는 별개의 작업이다. 실행 결과는 [운영 현황](OPERATIONS.md)에 기록한다.
 
 ## 다음 검증
 
