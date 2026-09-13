@@ -183,6 +183,17 @@ test("management CLI keeps query privilege separate, preserves pause and does no
     assert.equal(requests.filter((r) => r.method === "PUT").length, 1);
     assert.equal(requests.at(-1).body.config.enabled, false);
     assert.equal(requests.at(-1).body.config.model, "new-synthetic");
+    const beforeWrites = requests.length;
+    await assert.rejects(
+      run(
+        "api",
+        "POST",
+        "/refinements/synthetic/retry",
+        "--idempotency-key",
+        "unsupported-header",
+      ),
+    );
+    assert.equal(requests.length - beforeWrites, 1);
     await assert.rejects(
       run("api", "GET", "//evil.invalid"),
       /Workspace-relative/,

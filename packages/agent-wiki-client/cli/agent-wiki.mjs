@@ -174,7 +174,8 @@ async function main() {
   ) {
     const serialized = body === undefined ? undefined : JSON.stringify(body);
     let failure;
-    const attempts = method === "GET" || key ? 3 : 1;
+    const attempts =
+      method === "GET" || (path === "/publications" && key) ? 3 : 1;
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const r = await fetch(root + path, {
