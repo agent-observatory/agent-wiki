@@ -39,7 +39,7 @@
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
   <path d="M9 8h6" />
 </svg>
-<text x="1234" y="215" font-size="18" font-weight="400" fill="#172C4B">관련 본문 구간 발췌</text>
+<text x="1234" y="215" font-size="18" font-weight="400" fill="#172C4B">검색어를 함께 담는 구간</text>
 <text x="1200" y="246" font-size="18" font-weight="400" fill="#172C4B">고정 Version · 원문 근거</text>
 <text x="1200" y="277" font-size="18" font-weight="400" fill="#172C4B">최대 6개 · 반환 예산 적용</text>
 <path d="M375 230 H420" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>

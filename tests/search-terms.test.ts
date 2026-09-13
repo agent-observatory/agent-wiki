@@ -30,3 +30,26 @@ test("Context excerpts find a Korean inflected query inside a long document", ()
   assert.ok(result.start > 0);
   assert.equal(content.slice(result.start, result.end), result.text);
 });
+
+test("Context excerpts prefer the decision and reason together over an earlier isolated keyword", () => {
+  const decision = "임베딩은 외부 API 비용 때문에 보류한다.";
+  const content =
+    "임베딩 참고 자료.\n" + "다른 주제 설명. ".repeat(300) + decision;
+  const result = excerpt(content, "임베딩 비용");
+  assert.ok(result.text.includes(decision));
+  assert.equal(content.slice(result.start, result.end), result.text);
+  assert.ok(result.text.length <= 1600);
+  assert.equal(result.truncated, true);
+});
+
+test("Repeated keywords and spelling alternatives do not outweigh distinct query terms", () => {
+  const decision = "PostgreSQL 저장소 비용을 함께 비교한다.";
+  const content =
+    "PostgreSQL은 PostgreSQL ".repeat(180) + "구분. ".repeat(400) + decision;
+  const result = excerpt(content, "PostgreSQL은 비용", 300);
+  assert.ok(result.text.includes(decision));
+  assert.ok(result.text.length <= 300);
+  assert.equal(content.slice(result.start, result.end), result.text);
+  assert.equal(excerpt(content, "없는검색어", 300).start, 0);
+  assert.equal(excerpt(content, "", 300).start, 0);
+});

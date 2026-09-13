@@ -131,3 +131,31 @@ test("ranking retains tag and folder filters and does not treat wildcard input a
     );
   }
 });
+
+test("the agent Context includes the decision reason from a later passage", async () => {
+  const decision = "임베딩은 외부 API 비용 때문에 보류한다.";
+  const article = await app.inject({
+    method: "POST",
+    url: `/api/workspaces/${ws}/articles`,
+    headers: { ...headers, "idempotency-key": randomUUID() },
+    payload: {
+      title: "검색 검토 기록",
+      content:
+        "임베딩 참고 자료.\n" + "다른 주제 설명. ".repeat(300) + decision,
+      kind: "memory",
+      tags: ["excerpt-fixture"],
+    },
+  });
+  assert.equal(article.statusCode, 200, article.body);
+  const result = await app.inject({
+    method: "GET",
+    url: `/api/workspaces/${ws}/context?${new URLSearchParams({ q: "임베딩 비용", tag: "excerpt-fixture" })}`,
+    headers,
+  });
+  assert.equal(result.statusCode, 200, result.body);
+  const citation = result.json().citations[0];
+  assert.equal(citation.id, article.json().id);
+  assert.ok(citation.excerpt.includes(decision));
+  assert.ok(citation.excerpt.length <= 1600);
+  assert.ok(citation.url.includes("revision=1"));
+});
