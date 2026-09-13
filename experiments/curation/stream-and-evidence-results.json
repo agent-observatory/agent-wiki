@@ -61,5 +61,16 @@
     "anchored": 8,
     "exactL1Matches": 8,
     "published": 0
+  },
+  "singleRowNormalization": {
+    "readOnly": true,
+    "failedRuns": 2,
+    "schemaValidAfterNormalization": 2,
+    "evidenceCount": 8,
+    "anchored": 6,
+    "exactL1Matches": 6,
+    "unmatched": 2,
+    "published": 0,
+    "originalModelOutputPreserved": true
   }
 }
