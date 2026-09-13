@@ -9,13 +9,13 @@
 | 수집 | Agent Wiki 프로젝트만 · 10분, 텍스트·이미지 분리 zstd 증분 |
 | 정제 | 자동 정제 활성 · 동시 실행 1 · 최대 20 RPM · 일시 오류 자동 재시도. 실제 품질 점검 중 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
-| 비용·오류 알림 | [모니터링 검증 기록](#오류-알림--oci-기본-경보) 참고 |
+| 비용·오류 알림 | [오류 전용 알림](#오류만-slack-알림) 참고 |
 
 ## 오류만 Slack 알림
 
 2026-09-13. 복구 알림이 불필요하다는 요청에 따라 기존 오류 조회 Actions를 재사용한다. 5분마다 OCI Logging의 새 ERROR/FATAL만 전송하며 동일 이벤트를 제외하고 같은 오류는 최대 시간당 한 번 알린다. OK·RESET·오류 없는 조회는 메시지를 만들지 않는다. 전환 이전 오류는 재발송하지 않도록 시작 시각을 체크포인트에 기록하며 비용 상태를 유지한다. 로그 도착·GitHub 예약 실행은 지연될 수 있다. 점검 자체가 실패하면 오류 점검 실패만 알린다.
 
-OCI 기본 경보는 [해제와 RESET도 발송](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Concepts/monitoringoverview.htm)하므로 비활성화한다. 앱은 계속 JSON 로그만 출력하며 새 서버·Function·유료 자원은 추가하지 않는다. 오류/비용 검사 17개와 Terraform 모의 검사를 수행했다. 실제 전환 확인은 아래에 기록한다.
+OCI 기본 경보는 [해제와 RESET도 발송](https://docs.oracle.com/en-us/iaas/Content/Monitoring/Concepts/monitoringoverview.htm)하므로 비활성화한다. 앱은 계속 JSON 로그만 출력하며 새 서버·Function·유료 자원은 추가하지 않는다. 오류/비용 검사 17개·Terraform 모의 검사 2개·그림 XML과 실제 렌더링을 통과했다. [실제 오류 조회 실행](https://github.com/agent-observatory/agent-wiki/actions/runs/34745740760)은 성공했고 이전 로그 26건을 조회하되 전환 이전 기록이라 Slack 발송 0건이었다. 오류 조회 workflow 활성·기존 비용 workflow 유지, Terraform은 경보의 is_enabled만 false로 적용했다. 원격 재조회 plan에서 추가 변경 없음까지 확인했다. 새 오류의 실제 Slack 수신은 아직 추가로 발생시키지 않았으며 합성 전달 검증은 로컬 테스트로 수행했다.
 
 ## 호출·수집·반영 이력의 표시 밀도
 
