@@ -50,7 +50,7 @@ run "k3s_keeps_management_private" {
   }
 }
 
-run "monitoring_without_function" {
+run "native_error_monitoring" {
   command = plan
   variables {
     slack_webhook_url      = "https://hooks.slack.com/services/synthetic/synthetic/synthetic"
@@ -66,8 +66,8 @@ run "monitoring_without_function" {
     error_message = "Only ERROR and FATAL logs may produce native Monitoring metrics; never forward raw logs to Slack."
   }
   assert {
-    condition     = oci_monitoring_alarm.errors[0].message_format == "ONS_OPTIMIZED" && !oci_monitoring_alarm.errors[0].is_enabled && oci_monitoring_alarm.errors[0].query == "ErrorLogCount[5m].grouping().count() > 0" && oci_monitoring_alarm.errors[0].evaluation_slack_duration == "PT5M" && !oci_monitoring_alarm.errors[0].is_notifications_per_metric_dimension_enabled
-    error_message = "Keep native Slack alarm delivery disabled so RESET/OK cannot bypass the error-only log reporter."
+    condition     = oci_monitoring_alarm.errors[0].message_format == "ONS_OPTIMIZED" && oci_monitoring_alarm.errors[0].is_enabled && oci_monitoring_alarm.errors[0].query == "ErrorLogCount[5m].grouping().count() > 0" && oci_monitoring_alarm.errors[0].evaluation_slack_duration == "PT5M" && !oci_monitoring_alarm.errors[0].is_notifications_per_metric_dimension_enabled
+    error_message = "Use native OCI alarm delivery with state changes and no periodic repeats."
   }
   assert {
     condition     = !oci_identity_user_capabilities_management.cost_reader[0].can_use_console_password && !oci_identity_user_capabilities_management.cost_reader[0].can_use_auth_tokens

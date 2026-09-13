@@ -9,7 +9,19 @@
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 자동 정제 중지 |
 | 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
-| 비용·오류 알림 | [오류 전용 알림](#오류만-slack-알림) 참고 |
+| 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## OCI 기본 오류 알림
+
+2026-09-14. 사용자 선택으로 **OCI Logging → Connector Hub(ERROR 이상) → Monitoring 경보 → Notifications → Slack**을 사용한다. 기본 경보 형식을 수용하며 오류 감지·경보 해제·RESET 상태 변경을 알리고 정기 반복은 하지 않는다. 경보 해제는 앱 복구 판정이 아니다.
+
+- **구현:** 기존 OCI 로그·Connector·경보·Slack 구독을 재사용한다. 오류 알림용 GitHub workflow와 조회·메시지 포맷 코드를 제거한다. GitHub 비용 조회 계정의 로그 읽기 권한도 제거하며 비용 요약·앱 배포 Actions는 유지한다.
+- **설정:** ERROR/FATAL(`severityNumber >= 17`), 5분 구간 오류 수 > 0, 평가 간격 1분·대기 1분·집계 지연 허용 5분. 같은 오류 종류별 중복 제거 대신 경보 상태 변경으로 묶는다.
+- **자원:** Function·OCIR·별도 알림 서버를 생성하지 않는다. 원문·DB·정제 활성 상태·기존 비용 체크포인트는 유지한다.
+- **배포:** Terraform으로 기존 경보를 활성화하고 비용 조회 계정의 로그 권한을 제거했다. Connector·Slack 구독 ACTIVE를 확인했다. GitHub 오류 workflow를 비활성화하고 전용 `OCI_LOG_CONFIG` secret을 삭제했다.
+- **검증:** Terraform mock plan 3개·비용 알림 테스트 12개 통과, SVG XML·실제 렌더링 확인. 02:05:37 한국 시각에 Worker stdout으로 합성 ERROR를 넣어 실제 전달을 확인 중이다. 아래 이전 GitHub 오류 점검 기록은 당시 방식이며 현재 설계로 읽지 않는다.
+
+공식 형식: [OCI 기본 Slack 경보](https://docs.oracle.com/en-us/iaas/Content/Monitoring/alarm-message-examples.htm).
 
 ## 연결 화면 안내 제거
 

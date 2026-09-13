@@ -125,8 +125,8 @@ resource "oci_monitoring_alarm" "errors" {
   namespace             = "agent_wiki_errors"
   query                 = "ErrorLogCount[5m].grouping().count() > 0"
   severity              = "ERROR"
-  # Error-only Slack delivery runs in error-monitor.yml; native alarms also send RESET/OK.
-  is_enabled       = false
+  # Native OCI state changes go directly to Slack (including RESET/OK).
+  is_enabled       = true
   resolution       = "1m"
   pending_duration = "PT1M"
   # Log-to-metric delivery is asynchronous. Allow late ingestion before evaluation.
@@ -136,8 +136,6 @@ resource "oci_monitoring_alarm" "errors" {
   notification_title        = "Agent Wiki · 오류 로그 상태 변경"
   alarm_summary             = "5분 구간에 ERROR 이상 로그가 있으면 알림을 보냅니다."
   body                      = <<-EOT
-    FIRING: 오류 감지 · OK: 경보 해제 (앱 복구 판정 아님)
-    발생 시각·서비스·오류 코드를 확인하세요.
     <https://cloud.oracle.com/logging/search?region=ap-osaka-1&searchQuery=${urlencode("search \"${var.tenancy_id}/${oci_logging_log_group.wiki[0].id}/${oci_logging_log.app[0].id}\" | where data.severityNumber >= 17 | sort by datetime desc")}|오류 로그 보기>
   EOT
   # State transitions only; no periodic repeat and no per-request dimensions.
@@ -152,7 +150,7 @@ resource "oci_identity_user" "cost_reader" {
   compartment_id = var.tenancy_id
   name           = "agent-wiki-cost-reader"
   email          = var.cost_reader_email
-  description    = "Read billing and Wiki operational logs; persist notification checkpoint"
+  description    = "Read billing; persist cost notification checkpoint"
 }
 
 resource "oci_identity_user_capabilities_management" "cost_reader" {
@@ -188,14 +186,12 @@ resource "oci_identity_policy" "cost_reader" {
   count          = length(oci_identity_user.cost_reader)
   compartment_id = var.tenancy_id
   name           = "agent-wiki-cost-reader"
-  description    = "Read billing and Wiki log group; update only the notification checkpoint"
+  description    = "Read billing; update only the cost notification checkpoint"
   statements = [
     "Allow group ${oci_identity_group.cost_reader[0].name} to read usage-report in tenancy",
     "Allow group ${oci_identity_group.cost_reader[0].name} to inspect volumes in tenancy",
     "Allow group ${oci_identity_group.cost_reader[0].name} to inspect boot-volumes in tenancy",
     "Allow group ${oci_identity_group.cost_reader[0].name} to read buckets in tenancy where target.bucket.name='${oci_objectstorage_bucket.sources.name}'",
-    "Allow group ${oci_identity_group.cost_reader[0].name} to read log-content in tenancy where target.loggroup.id='${oci_logging_log_group.wiki[0].id}'",
-    "Allow group ${oci_identity_group.cost_reader[0].name} to read log-groups in tenancy where target.loggroup.id='${oci_logging_log_group.wiki[0].id}'",
     "Allow group ${oci_identity_group.cost_reader[0].name} to manage objects in tenancy where all {target.bucket.name='${oci_objectstorage_bucket.sources.name}', target.object.name='ops/cost-alert-state.json', any {request.permission='OBJECT_READ', request.permission='OBJECT_CREATE', request.permission='OBJECT_OVERWRITE'}}"
   ]
 }

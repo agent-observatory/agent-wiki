@@ -249,7 +249,7 @@ Web/API는 `maxSurge: 1`, `maxUnavailable: 0`으로 교체한다. readiness·5�
 
 앱은 OTel JSON을 stdout/stderr에 남긴다. **containerd CRI 로그 → 호스트 rsyslog → 기존 events.jsonl → OCI Unified Monitoring Agent → OCI Logging**으로 전달한다. `configure-k3s-logs.sh`는 CRI의 시간·스트림 접두사를 제거하고 API/Worker 구조화 이벤트만 전달한다. 앱에 Slack 전송 코드나 별도 로그 수집기 컨테이너를 추가하지 않는다.
 
-오류 알림·비용 요약은 기존 GitHub Actions를 유지한다. 새 오류만 전송하고 복구·OK·RESET 알림은 보내지 않는다. Collector는 Codex의 Agent Wiki 프로젝트·10분, Claude 비활성, 자동 정제 중지를 유지한다. 배포와 정제 재개는 별개의 작업이다. 실행 결과는 [운영 현황](OPERATIONS.md)에 기록한다.
+오류는 **OCI Logging → Connector Hub의 ERROR 이상 필터 → Monitoring 경보 → Notifications → Slack**으로 전달한다. OCI 기본 경보 형식과 상태 변경 알림을 사용하며 오류 감지와 경보 해제·RESET을 함께 알린다. 주기적인 반복 알림은 보내지 않는다. 경보 해제는 앱 복구 확인과 다르다. Function·별도 알림 서버·오류 조회 Actions는 두지 않으며 GitHub Actions는 비용 요약과 앱 배포에만 사용한다. 지표는 5분 구간으로 집계하고 로그 전달 지연을 5분 허용한다. Collector는 Codex의 Agent Wiki 프로젝트·10분, Claude 비활성, 자동 정제 중지를 유지한다. 배포와 정제 재개는 별개의 작업이다. 실행 결과는 [운영 현황](OPERATIONS.md)에 기록한다.
 
 ## 다음 검증
 

@@ -188,11 +188,11 @@ end('docs/assets/wiki-lineage.svg')
 
 canvas(1560,1210,'운영 · 사용자 작업과 백그라운드 처리 분리','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
 rows=[(190,'01','인프라',[
- ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','추가 자원·사양 변경 없음'),('ubuntu','cloud-init / systemd','디스크 마운트 · K3s 기동','OS·K3s 업데이트 직접 관리'),('kubernetes','K3s','Traefik · Web · API · PostgreSQL','원격 정제 Worker · 별도 실행')]),
+ ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','VM 사양·데이터 경로 유지'),('ubuntu','cloud-init / systemd','디스크 마운트 · K3s 기동','OS·K3s 업데이트 직접 관리'),('kubernetes','K3s','Traefik · Web · API · PostgreSQL','원격 정제 Worker · 별도 실행')]),
  (385,'02','앱 배포',[
  ('github','외부 ARM64 빌드','GHCR 게시 → Pod 이미지 확보','migration Job → 앱 교체'),('tabler-terminal-2','외부 차단 → 정상 종료','진행 요청·정제 작업 마무리','미완료 정제는 재시도'),('tabler-clipboard-check','기동·반영·조회 확인','DB·Traefik 유지 · 상태 확인','쓰기 결과는 멱등 키로 확인')]),
  (580,'03','오류 로그',[
- ('ubuntu','stdout → OCI Logging','Docker syslog · rsyslog','OCI 기성 호스트 에이전트'),('github','Actions · 5분마다','OCI Logging · 새 ERROR 조회','같은 오류 최대 시간당 1회'),('tabler-bell','Slack Webhook','한국어 오류 요약 · 로그 링크','오류만 알림 · 복구 알림 없음')]),
+ ('ubuntu','stdout → OCI Logging','containerd CRI · rsyslog','OCI 기성 호스트 에이전트'),('oracle','Connector → Monitoring','ERROR 이상 → 오류 수 지표','5분 집계 · 상태 변경 알림'),('tabler-bell','Notifications → Slack','OCI 기본 경보 · 로그 링크','오류 감지·경보 해제 알림')]),
  (775,'04','비용·사용량',[
  ('oracle','OCI Usage API','비용·CPU·메모리·저장소','미집계와 0을 구분'),('github','Actions · 6시간마다','비용 발생·한도 접근·사용 급증','09:13 한국 시각 정기 요약'),('tabler-bell','Slack Webhook','누적·일 사용량·전일 비교','기존 모니터링 경로 유지')]),
  (970,'05','별도 수집',[
