@@ -656,3 +656,66 @@ test("review baseline uses last approved snapshot across intervening Versions", 
   const queue = (await call("GET", "/reviews")).json();
   assert.ok(queue.items.some((a: any) => a.id === id));
 });
+
+test("new claim relations invalidate approval even when the target Version stays unchanged", async () => {
+  const s = await source();
+  const first = await call("POST", "/publications", publication(s));
+  const id = first.json().items[0].id;
+  const original = (await call("GET", `/articles/${id}/comparison`)).json();
+  const approved = await call("POST", `/articles/${id}/review`, {
+    revision: 1,
+    snapshotHash: original.snapshotHash,
+    client: "codex",
+  });
+  assert.equal(approved.statusCode, 200, approved.body);
+  const second = await call("POST", "/publications", publication(s));
+  const otherId = second.json().items[0].id;
+  await admin.query(
+    `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id)
+    SELECT a.workspace_id,a.article_id,a.revision,a.anchor,b.article_id,b.revision,b.anchor,'contradicts','[]'::jsonb,r.publication_id
+    FROM claims a JOIN claims b ON b.workspace_id=a.workspace_id JOIN revisions r ON r.workspace_id=a.workspace_id AND r.article_id=a.article_id AND r.revision=a.revision
+    WHERE a.workspace_id=$1 AND a.article_id=$2 AND b.article_id=$3 LIMIT 1`,
+    [ws, otherId, id],
+  );
+  const changed = (await call("GET", `/articles/${id}/comparison`)).json();
+  assert.equal(changed.revision, 1);
+  assert.equal(changed.reviewPending, true);
+  assert.equal(changed.changes.relations.added.length, 1);
+  assert.equal(
+    (
+      await call("POST", `/articles/${id}/review`, {
+        revision: 1,
+        snapshotHash: original.snapshotHash,
+        client: "codex",
+      })
+    ).json().error,
+    "REVIEW_COMPARISON_CHANGED",
+  );
+  assert.ok(
+    (await call("GET", "/reviews")).json().items.some((x: any) => x.id === id),
+  );
+  const key = (
+    await call("POST", "/keys", {
+      scope: "publish",
+      name: "Worker cannot approve",
+    })
+  ).json();
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: `/api/workspaces/${ws}/articles/${id}/review`,
+        headers: {
+          authorization: "Bearer " + key.token,
+          "content-type": "application/json",
+        },
+        payload: {
+          revision: 1,
+          snapshotHash: changed.snapshotHash,
+          client: "worker",
+        },
+      })
+    ).statusCode,
+    403,
+  );
+});

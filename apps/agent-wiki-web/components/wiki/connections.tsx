@@ -160,9 +160,9 @@ export function Guide() {
           </h2>
           <p className="leading-7 text-muted-foreground">
             “왜 단일 VM을 선택했지?”처럼 물으면 저장된 결정과 당시 근거를
-            찾아옵니다. 웹에서는 인용한 줄과 과거 Version을 확인하고 잘못된
-            내용을 정정할 수 있습니다. 저장하지 않은 대화까지 복구하지는
-            못합니다.
+            찾아옵니다. 웹에서는 인용한 줄과 과거 Version을 확인합니다. 정정과
+            검토는 에이전트가 CLI로 수행합니다. 저장하지 않은 대화까지
+            복구하지는 못합니다.
           </p>
         </section>
         <section className="rounded-lg border p-5 space-y-3">
@@ -170,7 +170,7 @@ export function Guide() {
           <p>한 패키지를 설치하면 세 역할을 함께 사용할 수 있습니다.</p>
           <ul className="space-y-1 text-sm">
             <li>조회 Skill · 조회 필요성과 근거 활용을 안내하는 지침</li>
-            <li>Wiki CLI · 에이전트가 실행하는 검색·조회 명령</li>
+            <li>Wiki CLI · 조회·검토·편집·설정 명령</li>
             <li>Collector · 작업 대화와 독립된 백그라운드 수집</li>
           </ul>
           <pre className="overflow-auto rounded bg-muted p-4 text-xs leading-6">{`# 저장소 루트에서 설치
@@ -178,10 +178,10 @@ npm install --global ./packages/agent-wiki-client
 # 사용할 프로젝트 디렉터리에서 실행
 agent-wiki skill install --client codex\nagent-wiki setup --no-skill --workspace ${workspaceId} --project agent-wiki --path /absolute/project --env /absolute/project/.env.local\nagent-wiki collector start`}</pre>
           <p className="text-muted-foreground">
-            인증 키는 에이전트 연결에서 발급해 Git 제외 .env.local에
-            WIKI_TOKEN으로 보관합니다. 조회와 수집을 함께 쓰려면 원문 보관
-            권한이 필요합니다. setup은 Skill과 연결 설정을 준비하고, collector
-            start가 자동 수집을 켭니다.
+            키는 관리 CLI로 발급해 Git 제외 .env.local에 보관합니다. 조회는
+            WIKI_TOKEN, 수집은 WIKI_COLLECTOR_TOKEN, 관리는
+            WIKI_MANAGEMENT_TOKEN을 사용합니다. setup은 Skill과 연결 설정을
+            준비하고, collector start가 자동 수집을 켭니다.
           </p>
           <p className="text-muted-foreground">
             Codex 지침은 현재 프로젝트의 .agents/skills/agent-wiki에 설치됩니다.
@@ -201,7 +201,7 @@ agent-wiki skill install --client codex\nagent-wiki setup --no-skill --workspace
           </p>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/connections`}>
-              연결 키 발급
+              연결 권한 확인
             </Link>
           </Button>
         </section>

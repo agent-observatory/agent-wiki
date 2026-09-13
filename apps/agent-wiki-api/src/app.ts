@@ -173,9 +173,7 @@ export async function buildApp() {
             suffix,
           ) ||
             (req.identity.scope === "publish" &&
-              /^\/api\/workspaces\/[^/]+\/(?:publications|articles\/[a-f0-9-]+\/review)$/.test(
-                suffix,
-              )));
+              /^\/api\/workspaces\/[^/]+\/publications$/.test(suffix)));
         if (!allowed) throw new AppError(403, "SCOPE_REJECTED");
       }
     }
