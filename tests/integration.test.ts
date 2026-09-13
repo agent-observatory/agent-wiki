@@ -590,7 +590,15 @@ test("management is Workspace-bound and settings writes stay paused", async () =
     ).statusCode,
     404,
   );
-  const { hasKey, version, profiles, freePreset, ...config } = settings.json();
+  const {
+    hasKey,
+    version,
+    profiles,
+    freePreset,
+    stoppedReason,
+    stoppedAt,
+    ...config
+  } = settings.json();
   const save = await manage("PUT", "/ai-settings", {
     version,
     config: { ...config, enabled: false },

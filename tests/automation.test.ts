@@ -48,6 +48,20 @@ async function request(
     payload: payload as any,
   });
 }
+// Explicitly exercise configuration saving and user control as separate calls.
+async function configureAndControl(payload: any) {
+  const before = (await request("GET", "/ai-settings")).json();
+  const saved = await request("PUT", "/ai-settings", {
+    ...payload,
+    config: { ...payload.config, enabled: before.enabled },
+  });
+  if (saved.statusCode !== 200 || payload.config.enabled === before.enabled)
+    return saved;
+  return request("PATCH", "/ai-settings/enabled", {
+    enabled: payload.config.enabled,
+    version: (await request("GET", "/ai-settings")).json().version,
+  });
+}
 before(async () => {
   process.env.OWNER_GITHUB_ID = owner;
   process.env.AI_ENCRYPTION_KEY = randomBytes(32).toString("hex");
@@ -228,7 +242,7 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
   assert.equal(calls, 0);
   assert.equal(
     (
-      await request("PUT", "/ai-settings", {
+      await configureAndControl({
         config: {
           ...defaults,
           maxInputTokens: 30000,
@@ -265,7 +279,7 @@ test("transient errors pause the key without exhausting jobs and expired leases 
     "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
     [owner],
   );
-  await request("PUT", "/ai-settings", {
+  await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: 24 },
     version: 2,
   });
@@ -443,7 +457,7 @@ test("progress totals cover all workspace jobs, not just the displayed 100, with
 test("live pause/resume changes only enabled, preserves drafts through versions, and keeps admitted work safe", async () => {
   const current = (await request("GET", "/ai-settings")).json();
   const config = { ...defaults, enabled: true, dailyCalls: 1000 };
-  await request("PUT", "/ai-settings", { config, version: current.version });
+  await configureAndControl({ config, version: current.version });
   await admin.query(
     "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
     [owner],
@@ -527,7 +541,7 @@ test("live pause/resume changes only enabled, preserves drafts through versions,
 
 test("unlimited setting persists and processes work beyond the former daily cap", async () => {
   const current = (await request("GET", "/ai-settings")).json();
-  const saved = await request("PUT", "/ai-settings", {
+  const saved = await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: null },
     version: current.version,
   });
@@ -672,7 +686,7 @@ test("Curation groups sessions before pagination and pages only selected session
 
 test("Worker anchors a quotation across consecutive transport fragments while preserving model output and L1", async () => {
   const current = (await request("GET", "/ai-settings")).json();
-  await request("PUT", "/ai-settings", {
+  await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: null },
     version: current.version,
   });
@@ -777,7 +791,7 @@ test("Worker anchors a quotation across consecutive transport fragments while pr
 
 test("Worker assigns distinct internal identifiers to unreferenced model duplicates", async () => {
   const current = (await request("GET", "/ai-settings")).json();
-  await request("PUT", "/ai-settings", {
+  await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: null },
     version: current.version,
   });
@@ -895,7 +909,7 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
 
 test("invalid JSON, quotations, scope and missing targets regenerate without replaying rejected output", async () => {
   const settings = (await request("GET", "/ai-settings")).json();
-  await request("PUT", "/ai-settings", {
+  await configureAndControl({
     config: { ...defaults, enabled: true, dailyCalls: null },
     version: settings.version,
   });

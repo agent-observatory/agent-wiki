@@ -1,0 +1,31 @@
+{
+  "scope": "Three saved failed production responses; aggregate only",
+  "metric": "UTF-8 bytes, not provider token savings",
+  "rows": [
+    {
+      "error": "AI_INVALID_OUTPUT",
+      "changes": 4,
+      "contentBytes": 279,
+      "outputJsonBytes": 8082,
+      "contentShare": 3.5,
+      "exactJoinedGroups": 0
+    },
+    {
+      "error": "CLAIM_RELATION_TARGET_INVALID",
+      "changes": 6,
+      "contentBytes": 2598,
+      "outputJsonBytes": 16393,
+      "contentShare": 15.8,
+      "exactJoinedGroups": 0
+    },
+    {
+      "error": "AI_INVALID_OUTPUT",
+      "changes": 4,
+      "contentBytes": 1249,
+      "outputJsonBytes": 7630,
+      "contentShare": 16.4,
+      "exactJoinedGroups": 0
+    }
+  ],
+  "weightedContentShare": 12.9
+}
