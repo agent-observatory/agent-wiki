@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from cost_report import (assess, category, daily_message, full_day_keys, group_usage,
-                         run, cost_totals, cap_values)
+                         run, cost_totals, cap_values, traffic_light, budget_values, safety_status)
 
 
 def row(q=1, currency='SGD', cost=0, service='Compute', sku='Compute - Ampere A1 - OCPU', unit='OCPU Hours', hour=0, day=8):
@@ -74,6 +74,27 @@ class CostTests(unittest.TestCase):
         run('check',s,state,lambda _:None,sent.append)
         self.assertEqual(len(sent),1)
         self.assertNotIn('2026-08',state['alerts'])
+
+    def test_traffic_light_boundaries_and_missing_values(self):
+        self.assertEqual(traffic_light(None,Decimal(100)), '⚪ 미확인')
+        self.assertEqual(traffic_light(Decimal(0),Decimal(100)), '🟢 여유')
+        self.assertEqual(traffic_light(Decimal('79.9'),Decimal(100)), '🟢 여유')
+        self.assertEqual(traffic_light(Decimal(80),Decimal(100)), '🟡 주의')
+        self.assertEqual(traffic_light(Decimal(100),Decimal(100)), '🔴 한도 도달')
+        self.assertEqual(traffic_light(Decimal(120),Decimal(100)), '🔴 한도 도달')
+
+    def test_storage_uses_capacity_not_gb_months_and_requests_convert_once(self):
+        s=snapshot();s['usage_month']=[row(q=3,service='Block Storage',sku='Block Volume - Free',unit='GB Months'),
+            row(q=4,service='Object Storage',sku='Object Storage - Requests',unit='10K Requests')]
+        s['capacity']={'block':'100','object':'2'}
+        self.assertEqual(budget_values(s), {'requests':Decimal(40000),'block':Decimal(100),'object':Decimal(2)})
+        self.assertEqual(len(assess(s)),1)
+        del s['capacity'];self.assertNotIn('block',budget_values(s))
+        self.assertIn('⚪ 미확인',str(daily_message(s)))
+
+    def test_actual_charge_overrides_green_capacity(self):
+        self.assertEqual(safety_status({'SGD':Decimal('.001')},{'cpu':Decimal(1)}), '🔴 비용 발생')
+        self.assertEqual(safety_status({},{}), '⚪ 일부 미확인')
 
     def test_message_has_fallback_and_bounded_blocks(self):
         msg=daily_message(snapshot(),test=True)

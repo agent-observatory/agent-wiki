@@ -191,6 +191,9 @@ resource "oci_identity_policy" "cost_reader" {
   description    = "Read billing and Wiki log group; update only the notification checkpoint"
   statements = [
     "Allow group ${oci_identity_group.cost_reader[0].name} to read usage-report in tenancy",
+    "Allow group ${oci_identity_group.cost_reader[0].name} to inspect volumes in tenancy",
+    "Allow group ${oci_identity_group.cost_reader[0].name} to inspect boot-volumes in tenancy",
+    "Allow group ${oci_identity_group.cost_reader[0].name} to read buckets in tenancy where target.bucket.name='${oci_objectstorage_bucket.sources.name}'",
     "Allow group ${oci_identity_group.cost_reader[0].name} to read log-content in tenancy where target.loggroup.id='${oci_logging_log_group.wiki[0].id}'",
     "Allow group ${oci_identity_group.cost_reader[0].name} to read log-groups in tenancy where target.loggroup.id='${oci_logging_log_group.wiki[0].id}'",
     "Allow group ${oci_identity_group.cost_reader[0].name} to manage objects in tenancy where all {target.bucket.name='${oci_objectstorage_bucket.sources.name}', target.object.name='ops/cost-alert-state.json', any {request.permission='OBJECT_READ', request.permission='OBJECT_CREATE', request.permission='OBJECT_OVERWRITE'}}"

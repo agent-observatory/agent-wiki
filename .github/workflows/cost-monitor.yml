@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'daily: 정기 요약 / check: 새 이상만 / preview: 전송 없이 확인'
+        description: 'daily: 정기 요약 / check: 새 이상만 / preview: 전송 없이 확인 / sample: 샘플 전송'
         type: choice
-        options: [daily, check, preview]
+        options: [daily, check, preview, sample]
         default: daily
 permissions:
   contents: read
