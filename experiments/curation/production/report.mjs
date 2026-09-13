@@ -39,7 +39,24 @@ export function compare(before, after) {
         rows.filter((r) => key(r) === k).length,
       ]),
     );
-  const retryCalls = calls.filter((r) => (r.diagnostics.attempt ?? 1) > 1);
+  // CLI retry resets the attempt counter. Preserve retry attribution across
+  // checkpoints using prior actual calls for the same job and chunk.
+  const seen = new Set(),
+    repeatedIds = new Set();
+  for (const r of [...after.runs].sort(
+    (a, b) =>
+      String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) ||
+      a.id.localeCompare(b.id),
+  )) {
+    if (!r.diagnostics?.requestedAt || !r.job_id || r.chunk_index == null)
+      continue;
+    const key = JSON.stringify([r.job_id, r.chunk_index]);
+    if (seen.has(key)) repeatedIds.add(r.id);
+    seen.add(key);
+  }
+  const retryCalls = calls.filter(
+    (r) => (r.diagnostics.attempt ?? 1) > 1 || repeatedIds.has(r.id),
+  );
   const usage = (rows) => ({
     input: total(rows, ["prompt_tokens"]),
     output: total(rows, ["completion_tokens"]),
@@ -82,6 +99,20 @@ export function compare(before, after) {
     ),
     retries: retryCalls.length,
     usage: usage(calls),
+    usageByStatus: Object.fromEntries(
+      [...new Set(calls.map((r) => r.status))].map((status) => [
+        status,
+        usage(calls.filter((r) => r.status === status)),
+      ]),
+    ),
+    usageByError: Object.fromEntries(
+      [
+        ...new Set(calls.filter((r) => r.error_code).map((r) => r.error_code)),
+      ].map((code) => [
+        code,
+        usage(calls.filter((r) => r.error_code === code)),
+      ]),
+    ),
     retryUsage: usage(retryCalls),
     durationMs: {
       reported: durations.length,

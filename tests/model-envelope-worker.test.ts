@@ -66,7 +66,29 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
       assert.equal(input.source.start, 1);
       assert.ok(input.source.end < 600);
       return {
-        output: { changes: [] },
+        output: {
+          changes: Array.from({ length: 12 }, (_, i) => ({
+            clientRef: `item-${i}`,
+            title: `Synthetic ${i}`,
+            content: `Claim ${i}`,
+            kind: "memory",
+            claims: [
+              {
+                anchor: "claim",
+                text: `Claim ${i}`,
+                type: "unconfirmed",
+                evidence: [
+                  {
+                    sourceId: input.source.id,
+                    revision: 1,
+                    lines: [1, 1],
+                    quote: input.source.text.split("\n")[0],
+                  },
+                ],
+              },
+            ],
+          })),
+        },
         usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 },
       };
     },
@@ -86,4 +108,13 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
   assert.equal(run.status, "completed");
   assert.equal(run.error_code, null);
   assert.equal(run.diagnostics.inputSplit, true);
+  assert.equal(
+    (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM articles WHERE workspace_id=$1",
+        [ws],
+      )
+    ).rows[0].n,
+    12,
+  );
 });

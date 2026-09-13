@@ -69,3 +69,5 @@ node experiments/curation/production/capture.mjs compare before-first-run after-
 현재 DeepSeek 입력 카운터는 UTF-8 바이트 기반 보수 추정이다. 설정의 30K가 실제 공급자 입력 30K를 채운다는 뜻은 아니다. 첫 호출의 `diagnostics.inputBudget.estimatedTokens`와 실제 `prompt_tokens` 비율도 확인한다. 전송량 축소나 추정기 변경 전에 근거 위치·긴 도구 결과·사용자 결정 누락에 미치는 영향을 확인한다.
 
 구현·실제 준비 결과는 [운영 현황](../../../docs/OPERATIONS.md)에 둔다. 실험 방향은 [L2·L3 기억 설계](../../../docs/l2-l3-memory.md)를 따른다.
+
+집계는 성공·실패 상태와 오류 코드별로도 입력·출력·캐시 입력·추론 출력을 나눈다. 수동 재시도로 attempt가 1로 초기화되어도 같은 작업·청크의 이전 실제 호출을 찾아 재시도 사용량에 포함한다. 재시도는 실패 사용량과 중첩되는 별도 관점이므로 두 합계를 더하지 않는다. 공급자 전체 무료 쿼타 차감에는 다른 시험 호출도 포함될 수 있어 이번 실행의 합계와 구분한다.

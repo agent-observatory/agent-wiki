@@ -238,3 +238,5 @@ agent-wiki search "운영 DB" --view history --scope production
 ### 같은 응답에서 발견한 결정 변경
 
 새 변경의 `claimRelations[].target`은 기존 지식의 `{articleId, revision, anchor}` 또는 **이번 요청에서 먼저 나온 변경**의 `{clientRef, anchor}`를 받는다. A와 B를 같은 응답에서 추출해도 B가 A를 대체한 관계를 원자적으로 저장한다. 자기/미래/없는 참조는 거부한다. 관계의 대상·범위·정정 근거 검증과 멱등성은 동일하다. 기본 `search --view current`와 `search --view history`로 현재와 변경 근거를 구분한다.
+
+저장 단계 실패를 수정한 뒤 검증된 출력 캐시만 재반영하려면 `agent-wiki api POST /refinements/<job-id>/retry --file retry.json`에 `{"reuseOutput":true}`를 전달한다. 모델 재호출 없이 발행을 다시 검증한다. 캐시가 없으면 거부하며, 기본 재시도는 새 모델 응답을 받는다.

@@ -58,6 +58,31 @@ test("counts actual requests, preserves unknown usage and never adds subset toke
   assert.equal(r.usage.output.reported, 40);
   assert.equal(r.usage.reasoningOutput.reported, 30);
   assert.equal(r.retryUsage.input.unreportedCalls, 1);
+  assert.equal(r.usageByStatus.completed.input.reported, 100);
+  assert.equal(r.usageByStatus.failed.input.unreportedCalls, 1);
+});
+test("manual retry remains attributable after its attempt count resets", () => {
+  const old = {
+    ...call("old", { prompt_tokens: 100 }, "failed"),
+    job_id: "job",
+    chunk_index: 0,
+    created_at: "2026-01-01",
+    error_code: "AI_OUTPUT_LIMIT",
+  };
+  const next = {
+    ...call("next", { prompt_tokens: 110 }),
+    job_id: "job",
+    chunk_index: 0,
+    created_at: "2026-01-02",
+  };
+  const r = compare(
+    { ...base(), runs: [old] },
+    { ...base(), runs: [next, old] },
+  );
+  assert.equal(r.modelCalls, 1);
+  assert.equal(r.retries, 1);
+  assert.equal(r.retryUsage.input.reported, 110);
+  assert.equal(r.usageByError.AI_OUTPUT_LIMIT, undefined);
 });
 test("excludes preserved old attempts after rebuild and rejects changed evaluation identity", () => {
   const before = { ...base(), runs: [call("old", { prompt_tokens: 100 })] };

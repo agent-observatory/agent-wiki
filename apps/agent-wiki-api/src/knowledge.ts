@@ -58,6 +58,7 @@ const claimInput = z
     state: claimState.default("current"),
   })
   .strict();
+export const MAX_PUBLICATION_CHANGES = 12;
 export const changeInput = z
   .object({
     clientRef: small,
@@ -108,7 +109,7 @@ const publicationInput = z
       )
       .max(30)
       .default([]),
-    changes: z.array(changeInput).min(1).max(10),
+    changes: z.array(changeInput).min(1).max(MAX_PUBLICATION_CHANGES),
     startContext: z
       .object({ tag: z.string().min(1).max(40), articleRef: small })
       .strict()

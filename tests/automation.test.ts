@@ -892,7 +892,7 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
   assert.equal(await getSource(state.source.object_key), raw);
 });
 
-test("invalid JSON, quotations and relation scope regenerate without replaying rejected output or blocking a session permanently", async () => {
+test("invalid JSON, quotations, scope and missing targets regenerate without replaying rejected output", async () => {
   const settings = (await request("GET", "/ai-settings")).json();
   await request("PUT", "/ai-settings", {
     config: { ...defaults, enabled: true, dailyCalls: null },
@@ -936,9 +936,14 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
     }
     assert.equal(
       input.validationRetry.reason,
-      ["", "", "AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"][
-        calls
-      ],
+      [
+        "",
+        "",
+        "AI_INVALID_JSON",
+        "EVIDENCE_MISMATCH",
+        "CLAIM_SCOPE_MISMATCH",
+        "AI_UNKNOWN_CLAIM_TARGET",
+      ][calls],
     );
     assert.ok(input.validationRetry.previousRunId);
     if (calls === 3)
@@ -952,16 +957,19 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
             content: quote,
             kind: "memory",
             claimRelations:
-              calls === 3
+              calls === 3 || calls === 4
                 ? [
                     {
                       anchor: "decision",
                       relation: "supports",
-                      target: {
-                        articleId: input.related[0].id,
-                        revision: input.related[0].revision,
-                        anchor: input.related[0].anchor,
-                      },
+                      target:
+                        calls === 4
+                          ? { clientRef: "missing", anchor: "decision" }
+                          : {
+                              articleId: input.related[0].id,
+                              revision: input.related[0].revision,
+                              anchor: input.related[0].anchor,
+                            },
                       evidence: [
                         { sourceId, revision: 1, lines: [1, 1], quote },
                       ],
@@ -992,7 +1000,7 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
       usage: { total_tokens: 10 },
     };
   };
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     assert.equal(
       await runOne(owner, new AbortController().signal, model),
       true,
@@ -1022,7 +1030,12 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
     assert.equal(state.job.status, "pending");
     assert.equal(
       state.job.error_code,
-      ["AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"][attempt],
+      [
+        "AI_INVALID_JSON",
+        "EVIDENCE_MISMATCH",
+        "CLAIM_SCOPE_MISMATCH",
+        "AI_UNKNOWN_CLAIM_TARGET",
+      ][attempt],
     );
     assert.equal(
       state.job.output,
@@ -1061,7 +1074,7 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
     );
   }
   assert.equal(await runOne(owner, new AbortController().signal, model), true);
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
   const final = await tx(owner, ws, async (c) => ({
     job: (
       await c.query(
@@ -1084,10 +1097,104 @@ test("invalid JSON, quotations and relation scope regenerate without replaying r
   assert.deepEqual(final.evidence, [{ quote: raw }]);
   assert.deepEqual(
     final.runs.map((r) => r.status),
-    ["failed", "failed", "failed", "completed"],
+    ["failed", "failed", "failed", "failed", "completed"],
   );
   assert.equal(
     final.runs[1].output.changes[0].claims[0].evidence[0].quote,
     "단일 서버로 운영하기로 결정했다.",
+  );
+});
+
+test("explicit publish-only retry reuses cached output without a model call", async () => {
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  const response = await request("POST", "/collection", {
+    ...source,
+    sessionId: randomUUID(),
+    records: [record("Synthetic retry evidence.")],
+  });
+  assert.equal(response.statusCode, 200);
+  const sourceId = response.json().sourceId;
+  const { id: jobId } = (
+    await admin.query("SELECT id FROM refinement_jobs WHERE source_id=$1", [
+      sourceId,
+    ])
+  ).rows[0];
+  await admin.query(
+    "UPDATE refinement_jobs SET status='failed',error_code='AI_INVALID_OUTPUT' WHERE id=$1",
+    [jobId],
+  );
+  assert.equal(
+    (
+      await request("POST", `/refinements/${jobId}/retry`, {
+        reuseOutput: true,
+      })
+    ).statusCode,
+    404,
+  );
+  const row = (
+    await admin.query("SELECT object_key FROM sources WHERE id=$1", [sourceId])
+  ).rows[0];
+  const quote = await getSource(row.object_key);
+  const payload = {
+    idempotencyKey: "reuse-" + randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes: [
+      {
+        clientRef: "reuse",
+        title: "Cached publication",
+        content: "Synthetic claim",
+        kind: "memory",
+        claims: [
+          {
+            anchor: "claim",
+            text: "Synthetic claim",
+            type: "unconfirmed",
+            evidence: [
+              {
+                sourceId,
+                revision: 1,
+                lines: [1, quote.split("\n").length],
+                quote,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  await admin.query("UPDATE refinement_jobs SET output=$2 WHERE id=$1", [
+    jobId,
+    JSON.stringify(payload),
+  ]);
+  assert.equal(
+    (
+      await request("POST", `/refinements/${jobId}/retry`, {
+        reuseOutput: true,
+      })
+    ).statusCode,
+    200,
+  );
+  await runOne(owner, new AbortController().signal, async () => {
+    throw new Error("must not call a model");
+  });
+  const run = (
+    await admin.query(
+      "SELECT status,diagnostics FROM refinement_runs WHERE job_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [jobId],
+    )
+  ).rows[0];
+  assert.equal(run.status, "completed");
+  assert.equal(run.diagnostics.requestedAt, undefined);
+  assert.equal(
+    (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM publications WHERE workspace_id=$1 AND idempotency_key=$2",
+        [ws, payload.idempotencyKey],
+      )
+    ).rows[0].n,
+    1,
   );
 });

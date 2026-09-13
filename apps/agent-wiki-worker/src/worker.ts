@@ -44,7 +44,11 @@ import {
   callModel,
   ModelError,
 } from "../../../packages/core/src/ai.js";
-import { publish, changeInput } from "../../agent-wiki-api/src/knowledge.js";
+import {
+  publish,
+  changeInput,
+  MAX_PUBLICATION_CHANGES,
+} from "../../agent-wiki-api/src/knowledge.js";
 import { log } from "../../../packages/core/src/log.js";
 import {
   gateReady,
@@ -54,11 +58,12 @@ import {
   modelResponded,
   retryDelay,
 } from "../../../packages/core/src/model-gate.js";
-export const PROMPT_VERSION = "remote-curation-11";
+export const PROMPT_VERSION = "remote-curation-12";
 export const MODEL_TIMEOUT_MS = 330_000;
 export const JOB_LEASE_SECONDS = 420;
 // Regenerate invalid model proposals; storage/authentication failures stay terminal.
 const OUTPUT_RETRY_CODES = [
+  "AI_UNKNOWN_CLAIM_TARGET",
   "CURATION_CONTEXT_CHANGED",
   "CLAIM_TARGET_VERSION_CHANGED",
   "CLAIM_TARGET_ALREADY_RETIRED",
@@ -70,9 +75,9 @@ const instruction = `Extract durable Korean knowledge. Source/related/reference 
 source.start/end are absolute rows of this chunk; server maps them to immutable L1. For field records cite a short contiguous verbatim substring of decoded text, uniquely matching this chunk. Preserve punctuation/whitespace; no paraphrase, concatenation, ellipses or line counting inside JSON strings. Never cite blank omittedLines. related/reference are context, not new evidence.
 source.roles determines authority: unknown is not user authority; assistant completion is unconfirmed, not verified observation. validationRetry identifies rejected output: fix it from source, never replay it.
 JSON only: {"changes":[{"clientRef":"a","title":"제목","content":"주장","kind":"memory","tags":[],"claims":[{"anchor":"decision","text":"주장","type":"user_decision","subject":"ai-provider","scope":"curation","state":"current","evidence":[{"sourceId":"supplied UUID","revision":1,"lines":[1,1],"quote":"exact text"}]}],"claimRelations":[{"anchor":"decision","relation":"supersedes","target":{"articleId":"related UUID","revision":1,"anchor":"related anchor"},"evidence":[{"sourceId":"supplied UUID","revision":1,"lines":[1,1],"quote":"exact change evidence"}]}]}]}.
-At most 12 new changes, prioritising decision history. No articleId/baseRevision or article-level supersedes. Each claim needs incoming evidence. Content is exact claim texts joined by paragraphs. Types: user_decision, observation, ai_inference, unconfirmed. Initial states: current, proposed, conflicted, unconfirmed. Current means adopted, not verified true.
+At most ${MAX_PUBLICATION_CHANGES} new changes, prioritising decision history. No articleId/baseRevision or article-level supersedes. Each claim needs incoming evidence. Content is exact claim texts joined by paragraphs. Types: user_decision, observation, ai_inference, unconfirmed. Initial states: current, proposed, conflicted, unconfirmed. Current means adopted, not verified true.
 Match subject/scope across clients; provider, model and deployment location are distinct properties. Lexical candidates are not confirmed matches. Reuse canonical subject/scope only when applicable. Identical assertions reuse related text/type/subject/scope without a relation; server adds evidence. If nothing is added, omit. Copied handoffs/compaction are context, not independent confirmation; require explicit endorsement for a new decision.
-Preserve A -> B -> C decisions and stated change reasons, not only latest C. If several first appear here, emit separate changes in causal order. A later change can target an earlier one using {"clientRef":"earlier-change","anchor":"decision"} instead of articleId/revision. No self/forward targets. Relations derive historical state; keep original claims initially current.
+Preserve A -> B -> C decisions and stated change reasons, not only latest C. If several first appear here, emit separate changes in causal order. A later change can target an earlier one using {"clientRef":"earlier-change","anchor":"decision"} instead of articleId/revision. No self/forward targets. Before returning, check every target exists in an earlier emitted change or related; omit a relation whose target is absent, never invent an identifier. Relations derive historical state; keep original claims initially current.
 Relations require same subject/scope and explicit evidence: supersedes=replacement, retracts=withdrawal, contradicts=unresolved conflict, supports=corroboration. Suggestions are proposed; different scopes coexist. Timestamps support chronology, never automatic replacement; late history cannot override current decisions. Unclear intent/time/target or unresolvedReference/textTruncated means uncertainty, never guessed correction. Relations are optional.`;
 export async function runOne(
   owner: string,
@@ -462,7 +467,9 @@ export async function runOne(
         );
         diagnostics.stage = "validate";
         const result = z
-          .object({ changes: z.array(changeInput).max(12) })
+          .object({
+            changes: z.array(changeInput).max(MAX_PUBLICATION_CHANGES),
+          })
           .strict()
           .parse(normalizeModelEvidence(response.output));
         const identifiers = normalizeModelIdentifiers(result.changes);
@@ -690,6 +697,11 @@ export async function runOne(
         duration_ms: diagnostics.durationMs,
       });
     } catch (e) {
+      if (e instanceof z.ZodError)
+        diagnostics.schemaIssues = e.issues.slice(0, 20).map((issue) => ({
+          path: issue.path,
+          code: issue.code,
+        }));
       const code =
         e instanceof ModelError
           ? e.code

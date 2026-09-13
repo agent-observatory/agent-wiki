@@ -266,6 +266,10 @@ export function registerAutomation(
   });
   app.post(base + "/refinements/:id/retry", (r) => {
     sessionOnly(r);
+    const { reuseOutput } = z
+      .object({ reuseOutput: z.boolean().default(false) })
+      .strict()
+      .parse(r.body ?? {});
     return scoped(r, async (c, ws) => {
       const id = z
         .string()
@@ -274,8 +278,8 @@ export function registerAutomation(
       requireRow(
         (
           await c.query(
-            "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now(),error_code=NULL,output=NULL,run_id=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='failed' RETURNING id",
-            [ws, id],
+            "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now(),error_code=NULL,output=CASE WHEN $3 THEN output ELSE NULL END,run_id=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='failed' AND (NOT $3 OR output IS NOT NULL) RETURNING id",
+            [ws, id, reuseOutput],
           )
         ).rows[0],
       );
