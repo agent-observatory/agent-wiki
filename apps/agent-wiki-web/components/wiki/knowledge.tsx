@@ -1,5 +1,6 @@
 "use client";
 import { layerLabel, LAYER_NAMES } from "@/lib/layers";
+import { KnowledgeHistory } from "./knowledge-history";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -35,6 +36,36 @@ const types: Record<string, string> = {
   author_statement: "작성자 진술",
 };
 export function KnowledgeList() {
+  const query = useSearchParams();
+  const router = useRouter();
+  const tab = query.get("tab") === "history" ? "history" : "knowledge";
+  return (
+    <>
+      <Heading
+        title={layerLabel("L3")}
+        description="현재 지식과 그 근거·변경 이력을 확인합니다."
+      />
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          router.push(`?tab=${value}`, { scroll: false })
+        }
+      >
+        <TabsList>
+          <TabsTrigger value="knowledge">지식 목록</TabsTrigger>
+          <TabsTrigger value="history">반영 이력</TabsTrigger>
+        </TabsList>
+        <TabsContent value="knowledge" className="pt-6">
+          <KnowledgeArticles />
+        </TabsContent>
+        <TabsContent value="history" className="pt-6">
+          <KnowledgeHistory />
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}
+function KnowledgeArticles() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const query = useSearchParams();
   const router = useRouter();
@@ -49,10 +80,6 @@ export function KnowledgeList() {
   const root = `/workspaces/${workspaceId}/knowledge`;
   return (
     <>
-      <Heading
-        title={layerLabel("L3")}
-        description="다음 작업에서 다시 꺼내 쓸 결정과 기억입니다."
-      />
       <form
         className="mb-6 flex flex-wrap gap-3"
         onSubmit={(e) => {

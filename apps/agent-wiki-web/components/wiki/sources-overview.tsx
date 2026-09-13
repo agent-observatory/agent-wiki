@@ -1,11 +1,13 @@
 "use client";
-import { layerLabel, LAYER_NAMES } from "@/lib/layers";
+import { SECTION_NAMES, LAYER_NAMES } from "@/lib/layers";
 import { StatusBadge } from "./status-badge";
 import { Pagination } from "./pagination";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { RefreshCw, Play, Pause, Activity } from "lucide-react";
+import { RefreshCw, Play, Pause, Activity, FileText } from "lucide-react";
+import { SourceList } from "./sources";
 import { RefinementProgress } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
 import { useApi } from "@/lib/api";
@@ -55,35 +57,36 @@ const reasons: Record<string, string> = {
   AI_TIMEOUT: "모델 응답 시간이 초과됐습니다.",
   REVISION_CONFLICT: "기존 지식의 Version이 변경됐습니다.",
 };
-export function Automation() {
+export function SourcesOverview() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  return <AutomationContent key={workspaceId} />;
+  return <SourcesContent key={workspaceId} />;
 }
-function AutomationContent() {
+function SourcesContent() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const base = "/api/workspaces/" + workspaceId;
   const query = useSearchParams(),
     router = useRouter();
-  const tab = query.get("tab") === "collectors" ? "collectors" : "jobs";
+  const tab = ["curation", "collectors"].includes(query.get("tab") ?? "")
+    ? query.get("tab")!
+    : "raw";
   function setTab(value: string) {
-    const next = new URLSearchParams(query);
-    next.set("tab", value);
+    const next = new URLSearchParams({ tab: value });
     router.push(`?${next}`, { scroll: false });
   }
   const jobs = useApi(base + "/refinements?" + query, 15000);
   const liveControl = jobs.data?.progress.control;
-  if (jobs.error) return <Failure error={jobs.error} />;
-  if (!jobs.data) return <Loading />;
+  const [refreshVersion, refreshSources] = useState(0);
   return (
     <>
       <Heading
-        title={layerLabel("L2")}
-        description="원문은 Collector가 보내고, 지식은 원격에서 정제합니다."
+        title={SECTION_NAMES.sources}
+        description="원문 보관과 수집·정제 현황을 함께 확인합니다."
         action={
           <Button
             variant="outline"
             onClick={() => {
               jobs.reload();
+              refreshSources((value) => value + 1);
             }}
           >
             <RefreshCw />
@@ -91,164 +94,196 @@ function AutomationContent() {
           </Button>
         }
       />
-      <RefinementProgress data={jobs.data.progress} />
-      <div className="grid gap-4 sm:grid-cols-3 mb-8">
-        <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">자동 정제</p>
-          <div className="flex gap-2 items-center justify-between mt-3 font-semibold">
-            <span className="inline-flex items-center gap-2">
-              {liveControl.enabled ? (
-                <Play className="size-4" />
-              ) : (
-                <Pause className="size-4" />
-              )}
-              {liveControl.enabled
-                ? "활성"
-                : jobs.data.progress.summary.running
-                  ? "마무리 중"
-                  : "일시 중지"}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            중지해도 원문 수집은 계속됩니다.
-          </p>
-        </section>
-        <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">오늘 모델 호출</p>
-          <p className="mt-3 text-xl font-semibold">
-            {jobs.data.today.calls}회
-            {jobs.data.progress.control.dailyCalls !== null && (
-              <span className="text-sm font-normal text-muted-foreground">
-                {" "}
-                / {jobs.data.progress.control.dailyCalls}회
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {jobs.data.progress.control.dailyCalls === null
-              ? `일일 제한 없음 · 최대 ${jobs.data.progress.control.requestsPerMinute} RPM · 동시 실행 ${jobs.data.progress.control.concurrency}개`
-              : "설정한 한도 도달 시 UTC 자정까지 대기"}
-          </p>
-        </section>
-        <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">오늘 보고된 토큰</p>
-          <p className="mt-3 text-xl font-semibold">
-            {Number(jobs.data.today.tokens).toLocaleString()}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            응답 없는 호출의 사용량은 포함되지 않습니다.
-          </p>
-        </section>
-      </div>
+      {jobs.error ? (
+        <Failure error={jobs.error} />
+      ) : jobs.data ? (
+        <RefinementProgress data={jobs.data.progress} />
+      ) : (
+        <Loading />
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="jobs">
+          <TabsTrigger value="raw">
+            <FileText className="size-4 mr-2" />
+            {LAYER_NAMES.L1}
+          </TabsTrigger>
+          <TabsTrigger value="curation">
             <Activity className="size-4 mr-2" />
             {LAYER_NAMES.L2}
           </TabsTrigger>
           <TabsTrigger value="collectors">수집 상태</TabsTrigger>
         </TabsList>
-        <TabsContent value="jobs" className="pt-6">
-          <RefinementSessions workspaceId={workspaceId} />
-          <RefinementHealth data={jobs.data.health} />
-          {!!jobs.data.runs.length && (
-            <section className="mt-8">
-              <h2 className="font-semibold mb-4">호출 이력</h2>
-              <div className="divide-y border-y">
-                {jobs.data.runs.map((r: any) => (
-                  <CallHistoryRow key={r.id} run={r} />
-                ))}
+        <TabsContent value="raw" className="pt-6">
+          <SourceList key={refreshVersion} />
+        </TabsContent>
+        <TabsContent value="curation" className="pt-6">
+          {jobs.data && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-3 mb-8">
+                <section className="rounded-lg border p-5">
+                  <p className="text-sm text-muted-foreground">자동 정제</p>
+                  <div className="flex gap-2 items-center justify-between mt-3 font-semibold">
+                    <span className="inline-flex items-center gap-2">
+                      {liveControl.enabled ? (
+                        <Play className="size-4" />
+                      ) : (
+                        <Pause className="size-4" />
+                      )}
+                      {liveControl.enabled
+                        ? "활성"
+                        : jobs.data.progress.summary.running
+                          ? "마무리 중"
+                          : "일시 중지"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    중지해도 원문 수집은 계속됩니다.
+                  </p>
+                </section>
+                <section className="rounded-lg border p-5">
+                  <p className="text-sm text-muted-foreground">
+                    오늘 모델 호출
+                  </p>
+                  <p className="mt-3 text-xl font-semibold">
+                    {jobs.data.today.calls}회
+                    {jobs.data.progress.control.dailyCalls !== null && (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {" "}
+                        / {jobs.data.progress.control.dailyCalls}회
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {jobs.data.progress.control.dailyCalls === null
+                      ? `일일 제한 없음 · 최대 ${jobs.data.progress.control.requestsPerMinute} RPM · 동시 실행 ${jobs.data.progress.control.concurrency}개`
+                      : "설정한 한도 도달 시 UTC 자정까지 대기"}
+                  </p>
+                </section>
+                <section className="rounded-lg border p-5">
+                  <p className="text-sm text-muted-foreground">
+                    오늘 보고된 토큰
+                  </p>
+                  <p className="mt-3 text-xl font-semibold">
+                    {Number(jobs.data.today.tokens).toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    응답 없는 호출의 사용량은 포함되지 않습니다.
+                  </p>
+                </section>
               </div>
-            </section>
+
+              <RefinementSessions workspaceId={workspaceId} />
+              <RefinementHealth data={jobs.data.health} />
+              {!!jobs.data.runs.length && (
+                <section className="mt-8">
+                  <h2 className="font-semibold mb-4">호출 이력</h2>
+                  <div className="divide-y border-y">
+                    {jobs.data.runs.map((r: any) => (
+                      <CallHistoryRow key={r.id} run={r} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              <Pagination
+                data={jobs.data.pagination.runs}
+                pageKey="runsPage"
+                label="호출 이력"
+              />
+            </>
           )}
-          <Pagination
-            data={jobs.data.pagination.runs}
-            pageKey="runsPage"
-            label="호출 이력"
-          />
         </TabsContent>
         <TabsContent value="collectors" className="pt-6">
-          {!!jobs.data.uploads?.length && (
-            <section className="mb-8">
-              <h2 className="font-semibold mb-4">최근 원본 업로드</h2>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>세션</TableHead>
-                      <TableHead>원본 보관</TableHead>
-                      <TableHead>압축 크기</TableHead>
-                      <TableHead>신규 / 중복 기록</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {jobs.data.uploads.map((u: any) => (
-                      <TableRow key={u.id}>
-                        <TableCell className="max-w-sm break-words">
-                          {u.name}
-                          {u.error_code && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {u.error_code}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={u.status}>
-                            {statuses[u.status] ?? u.status}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell>
-                          {(Number(u.compressed_bytes) / 1048576).toFixed(2)} MB
-                        </TableCell>
-                        <TableCell>
-                          {u.result
-                            ? `${u.result.accepted} / ${u.result.duplicate}`
-                            : "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-          )}
-          <Pagination
-            data={jobs.data.pagination.uploads}
-            pageKey="uploadsPage"
-            label="업로드"
-          />
-          {!jobs.data.streams.length ? (
-            <Empty>
-              아직 수집한 세션이 없습니다. CLI에서 원문 보관 권한의 키를 발급해
-              Collector에 연결하세요.
-            </Empty>
-          ) : (
-            <div className="divide-y border-y">
-              {jobs.data.streams.map((s: any) => (
-                <div key={s.id} className="py-3 space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-                    <p className="min-w-0 break-words">
-                      {s.name} <Badge variant="outline">{s.client}</Badge>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      최근 수신 <When value={s.updated_at} compact />
-                    </p>
+          {jobs.data && (
+            <>
+              {!!jobs.data.uploads?.length && (
+                <section className="mb-8">
+                  <h2 className="font-semibold mb-4">최근 원본 업로드</h2>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>세션</TableHead>
+                          <TableHead>원본 보관</TableHead>
+                          <TableHead>압축 크기</TableHead>
+                          <TableHead>신규 / 중복 기록</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {jobs.data.uploads.map((u: any) => (
+                          <TableRow key={u.id}>
+                            <TableCell className="max-w-sm break-words">
+                              {u.name}
+                              {u.error_code && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {u.error_code}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={u.status}>
+                                {statuses[u.status] ?? u.status}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell>
+                              {(Number(u.compressed_bytes) / 1048576).toFixed(
+                                2,
+                              )}{" "}
+                              MB
+                            </TableCell>
+                            <TableCell>
+                              {u.result
+                                ? `${u.result.accepted} / ${u.result.duplicate}`
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                  {s.origins?.map((o: any, i: number) => (
-                    <p key={i} className="mt-1 text-xs text-muted-foreground">
-                      {o.machine} · 검증 완료 {o.records}개 기록 ·{" "}
-                      {(Number(o.bytes) / 1048576).toFixed(2)} MB 위치
-                    </p>
+                </section>
+              )}
+              <Pagination
+                data={jobs.data.pagination.uploads}
+                pageKey="uploadsPage"
+                label="업로드"
+              />
+              {!jobs.data.streams.length ? (
+                <Empty>
+                  아직 수집한 세션이 없습니다. Agent Wiki Client를 연결해
+                  주세요.
+                </Empty>
+              ) : (
+                <div className="divide-y border-y">
+                  {jobs.data.streams.map((s: any) => (
+                    <div key={s.id} className="py-3 space-y-1">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                        <p className="min-w-0 break-words">
+                          {s.name} <Badge variant="outline">{s.client}</Badge>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          최근 수신 <When value={s.updated_at} compact />
+                        </p>
+                      </div>
+                      {s.origins?.map((o: any, i: number) => (
+                        <p
+                          key={i}
+                          className="mt-1 text-xs text-muted-foreground"
+                        >
+                          {o.machine} · 검증 완료 {o.records}개 기록 ·{" "}
+                          {(Number(o.bytes) / 1048576).toFixed(2)} MB 위치
+                        </p>
+                      ))}
+                    </div>
                   ))}
                 </div>
-              ))}
-            </div>
+              )}
+              <Pagination
+                data={jobs.data.pagination.streams}
+                pageKey="streamsPage"
+                label="수집 세션"
+              />
+            </>
           )}
-          <Pagination
-            data={jobs.data.pagination.streams}
-            pageKey="streamsPage"
-            label="수집 세션"
-          />
         </TabsContent>
       </Tabs>
     </>

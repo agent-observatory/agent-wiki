@@ -305,3 +305,11 @@ card(537,555,450,92,'Version 2 · 검토 전',[],'ingest')
 card(1010,555,486,92,'Version 3 · 검토 전',[],'ingest')
 text(40,716,'Version 3은 검토 완료인 Version 1과 비교 · 검토 이력이 없으면 직전 Version',FONT['body'])
 end('docs/assets/wiki-review.svg')
+
+# The web groups related results; processing and storage layers remain distinct.
+SECTION_NAMES=json.loads(Path('apps/agent-wiki-web/lib/section-names.json').read_text())
+canvas(1560,400,'웹 탐색 · 세 메뉴로 모으기','Knowledge는 현재 지식과 반영 이력, Sources는 원문과 정제 및 수집 상태, 설정은 AI와 Client 연결을 제공한다. L1과 L2의 내부 책임은 유지한다.')
+card(40,178,472,172,layer_label(3),['지식 목록 · 반영 이력','상세: Version · 변경 이유 · 근거'],'data')
+card(544,178,472,172,SECTION_NAMES['sources'],[f'{LAYER_NAMES["L1"]} · {LAYER_NAMES["L2"]}','수집 상태 · 호출 이력'],'ingest')
+card(1048,178,472,172,'설정',['AI 연결 · Client 연결','수정·검토·설정 변경은 CLI'],'ops')
+end('docs/assets/wiki-navigation.svg')

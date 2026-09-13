@@ -1,17 +1,15 @@
 "use client";
-import { layerLabel } from "@/lib/layers";
+import { layerLabel, SECTION_NAMES } from "@/lib/layers";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpen,
   FileText,
-  History,
   Settings,
   Library,
   Menu,
   LogOut,
-  Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,9 +65,7 @@ export function Shell({
   const root = "/workspaces/" + workspaceId;
   const items = [
     ["knowledge", layerLabel("L3"), BookOpen],
-    ["automation", layerLabel("L2"), Cpu],
-    ["sources", layerLabel("L1"), FileText],
-    ["activity", "반영 이력", History],
+    ["sources", SECTION_NAMES.sources, FileText],
     ["settings", "설정", Settings],
   ] as const;
   const nav = (

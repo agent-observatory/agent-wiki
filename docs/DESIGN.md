@@ -29,6 +29,8 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 ## 화면별 조합
 
+사이드바는 **L3 · Knowledge → L1–L2 · Sources → 설정** 세 항목이다. Knowledge의 탭은 지식 목록·반영 이력, Sources의 탭은 Raw Sources·Curation·수집 상태다. Sources의 수집·반영 요약은 공통이며 모델 호출·정제 진단은 Curation 탭에만 둔다. 별도 Audit·Curation 메뉴는 두지 않는다. 탭 변경은 해당 목록의 첫 페이지로 이동하며 탭·페이지·검색은 URL로 표현해 뒤로 가기로 복원한다.
+
 | 화면·기능 | 사용할 기본 구성 |
 | --- | --- |
 | 전체 탐색 | Sidebar·Breadcrumb·Separator, 좁은 화면은 Sheet |
@@ -98,7 +100,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 ## 용어 일관성
 
-계층 이름은 **L1 · Raw Sources → L2 · Curation → L3 · Knowledge → L4 · Query → L5 · Answers**로 통일한다. 웹 메뉴·화면 제목·돌아가기 링크·페이지네이션 접근성 라벨과 문서·그림에 같은 이름을 사용한다. 설명 문장의 수집·정제·지식 같은 일반 명사는 한국어로 쓸 수 있다. 제품명 Agent Wiki와 외부 레퍼런스의 LLM Wiki는 바꾸지 않는다.
+계층 이름은 **L1 · Raw Sources → L2 · Curation → L3 · Knowledge → L4 · Query → L5 · Answers**로 통일한다. 개별 계층 표기에는 같은 이름을 사용한다. 통합 Sources 메뉴 이름은 `section-names.json`을 웹과 그림 생성기에서 공유한다. 설명 문장의 수집·정제·지식 같은 일반 명사는 한국어로 쓸 수 있다. 제품명 Agent Wiki와 외부 레퍼런스의 LLM Wiki는 바꾸지 않는다.
 
 웹과 그림 생성기는 `apps/agent-wiki-web/lib/layer-names.json`을 공통 이름 정의로 사용한다. 이름을 바꿀 때는 이 파일과 아키텍처의 계층 표를 함께 갱신한다. 문서 안의 과거 검증 기록과 보존용 설계는 당시 이름을 유지한다.
 
