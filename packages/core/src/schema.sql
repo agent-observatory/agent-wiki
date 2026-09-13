@@ -34,6 +34,9 @@ ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_index int NOT NULL DE
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DEFAULT 0;
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_results jsonb NOT NULL DEFAULT '[]';
 ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS generation int NOT NULL DEFAULT 0;
+ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS batch_parent uuid REFERENCES refinement_jobs(id);
+ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS input_sources jsonb;
+CREATE INDEX IF NOT EXISTS refinement_batch_parent ON refinement_jobs(workspace_id,batch_parent);
 CREATE TABLE IF NOT EXISTS curation_rebuilds(id uuid NOT NULL,workspace_id uuid NOT NULL REFERENCES workspaces(id),result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
 CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);

@@ -69,7 +69,7 @@ export async function refinementProgress(
       count(*) FILTER(WHERE j.status='pending' AND j.id IN (SELECT id FROM heads WHERE queue_position=1))::int AS eligible,
       count(*) FILTER(WHERE j.status='running')::int AS running,
       count(*) FILTER(WHERE j.status='failed')::int AS failed,
-      count(*) FILTER(WHERE j.chunk_count=0 AND j.status<>'completed')::int AS unplanned,
+      count(*) FILTER(WHERE j.chunk_count=0 AND j.status<>'completed' AND j.batch_parent IS NULL AND j.input_sources IS NULL)::int AS unplanned,
       coalesce(sum(j.chunk_index),0)::int AS chunks_done,
       coalesce(sum(j.chunk_count),0)::int AS chunks_total,
       min(j.available_at) FILTER(WHERE j.status='pending' AND j.id IN (SELECT id FROM heads WHERE queue_position=1)) AS earliest

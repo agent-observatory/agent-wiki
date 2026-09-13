@@ -171,3 +171,25 @@ test("anchors verbatim quotations across contiguous transport segments without j
     null,
   );
 });
+
+test("batch source boundaries do not concatenate unrelated decoded field segments", () => {
+  const rows = [
+    JSON.stringify({ event: 1, field: '["text"]', segment: 0, text: "Alpha" }),
+    JSON.stringify({ event: 1, field: '["text"]', segment: 1, text: "Beta" }),
+  ];
+  const source = {
+    id: "source",
+    revision: 1,
+    start: 1,
+    end: 2,
+    text: rows.join("\n"),
+    spans: [{ start: 1 }, { start: 2 }],
+  };
+  assert.equal(
+    anchorModelEvidence(
+      { sourceId: "source", revision: 1, lines: [1, 2], quote: "AlphaBeta" },
+      source,
+    ),
+    null,
+  );
+});

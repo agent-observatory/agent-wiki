@@ -63,7 +63,7 @@ export async function rebuildCuration(
   await c.query(
     `UPDATE refinement_jobs SET generation=generation+1,status='pending',attempts=0,
     available_at=now(),lease_until=NULL,run_id=NULL,output=NULL,result=NULL,error_code=NULL,
-    chunk_plan=NULL,chunk_index=0,chunk_count=0,chunk_results='[]',updated_at=now()
+    batch_parent=NULL,input_sources=NULL,chunk_plan=NULL,chunk_index=0,chunk_count=0,chunk_results='[]',updated_at=now()
     WHERE workspace_id=$1 AND source_id=ANY($2::uuid[])`,
     [ws, sources],
   );

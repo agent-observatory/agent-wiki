@@ -29,6 +29,10 @@ type Session = {
   chunks_done: number;
   chunks_total: number;
   unplanned: number;
+  active_chunks_done: number;
+  active_chunks_total: number;
+  waiting_sources: number;
+  active_batches: number;
 };
 type Page = { page: number; pageSize: number; hasNext: boolean };
 export function RefinementSessions(props: Props) {
@@ -66,7 +70,7 @@ export function RefinementSessions(props: Props) {
   return (
     <>
       <p className="mb-4 text-xs text-muted-foreground">
-        전체 {data.total.toLocaleString()}개 세션 · 상태별 수는 정제 작업 기준
+        전체 {data.total.toLocaleString()}개 세션
       </p>
       {message && (
         <p role="status" className="mb-4 text-sm text-muted-foreground">
@@ -80,11 +84,12 @@ export function RefinementSessions(props: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>세션</TableHead>
-              <TableHead className="text-right">대기</TableHead>
-              <TableHead className="text-right">진행 중</TableHead>
-              <TableHead className="text-right">실패</TableHead>
-              <TableHead className="text-right">완료</TableHead>
-              <TableHead>청크 반영</TableHead>
+              <TableHead>상태</TableHead>
+              <TableHead className="text-right">처리한 원문 조각</TableHead>
+              <TableHead className="text-right">이번 묶음 · 청크</TableHead>
+              <TableHead className="text-right">
+                다음 처리 대기 · 조각
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,35 +103,32 @@ export function RefinementSessions(props: Props) {
                     {session.name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.pending.toLocaleString()}
-                  {session.retrying > 0 && (
-                    <span className="block text-xs text-muted-foreground">
-                      재시도 {session.retrying}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.running > 0 ? (
+                <TableCell>
+                  <div className="flex items-center gap-2">
                     <StatusBadge
-                      status="running"
-                      aria-label={`진행 중 ${session.running}개`}
+                      status={
+                        session.running
+                          ? "running"
+                          : session.failed
+                            ? "failed"
+                            : session.retrying
+                              ? "interrupted"
+                              : session.pending
+                                ? "pending"
+                                : "completed"
+                      }
                     >
-                      {session.running.toLocaleString()}
+                      {session.running
+                        ? "진행 중"
+                        : session.failed
+                          ? "확인 필요"
+                          : session.retrying
+                            ? "재시도 대기"
+                            : session.pending
+                              ? "대기"
+                              : "완료"}
                     </StatusBadge>
-                  ) : (
-                    "0"
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.failed > 0 ? (
-                    <div className="flex items-center justify-end gap-2">
-                      <StatusBadge
-                        status="failed"
-                        aria-label={`실패 ${session.failed}개`}
-                      >
-                        {session.failed}
-                      </StatusBadge>
+                    {session.failed > 0 && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -136,32 +138,20 @@ export function RefinementSessions(props: Props) {
                       >
                         {busy === session.id ? "처리 중" : "재시도"}
                       </Button>
-                    </div>
-                  ) : (
-                    "0"
-                  )}
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {session.completed > 0 ? (
-                    <StatusBadge
-                      status="completed"
-                      aria-label={`완료 ${session.completed}개`}
-                    >
-                      {session.completed.toLocaleString()}
-                    </StatusBadge>
-                  ) : (
-                    "0"
-                  )}
+                  {session.completed.toLocaleString()} /{" "}
+                  {session.total.toLocaleString()}
                 </TableCell>
-                <TableCell className="text-xs tabular-nums">
-                  {session.chunks_total > 0
-                    ? `${session.chunks_done.toLocaleString()} / ${session.chunks_total.toLocaleString()}`
-                    : "분할 대기"}
-                  {session.chunks_total > 0 && session.unplanned > 0 && (
-                    <span className="block text-muted-foreground">
-                      분할 대기 {session.unplanned}건
-                    </span>
-                  )}
+                <TableCell className="text-right tabular-nums">
+                  {session.active_chunks_total > 0
+                    ? `${session.active_chunks_done.toLocaleString()} / ${session.active_chunks_total.toLocaleString()}`
+                    : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {session.waiting_sources.toLocaleString()}
                 </TableCell>
               </TableRow>
             ))}

@@ -20,6 +20,7 @@ import {
   hash,
   putBlob,
   getSource,
+  getSources,
   deleteBlob,
 } from "../packages/core/src/storage.js";
 import { processUpload } from "../apps/agent-wiki-worker/src/ingest.js";
@@ -549,6 +550,10 @@ test("every source reference keeps its cumulative projection offset across batch
     )
   ).rows;
   assert.ok(sources.length >= 3);
+  const batchTexts = await getSources(sources.map((s) => s.object_key));
+  assert.equal(batchTexts.length, sources.length);
+  for (let i = 0; i < sources.length; i++)
+    assert.equal(hash(batchTexts[i]), sources[i].content_hash);
   for (const source of sources) {
     const text = await getSource(source.object_key);
     assert.equal(hash(text), source.content_hash);

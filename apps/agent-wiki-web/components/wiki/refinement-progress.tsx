@@ -44,9 +44,7 @@ export type RefinementProgressData = {
 
 export function RefinementProgress({ data }: { data: RefinementProgressData }) {
   const { summary: s, storage, schedule } = data;
-  const percent = s.chunks_total
-    ? Math.floor((s.chunks_done / s.chunks_total) * 100)
-    : 0;
+  const percent = s.total ? Math.floor((s.completed / s.total) * 100) : 0;
   return (
     <section
       aria-label="원문에서 지식까지의 처리 현황"
@@ -79,21 +77,21 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               {layerLabel("L2")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
-              {s.chunks_done.toLocaleString()}
+              {s.completed.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                / {s.chunks_total.toLocaleString()} 청크
+                / {s.total.toLocaleString()}개 원문 조각
               </span>
             </p>
-            {s.chunks_total > 0 && (
+            {s.total > 0 && (
               <Progress
                 value={percent}
-                aria-label="분할된 청크 반영률"
-                aria-valuetext={`${s.chunks_done} / ${s.chunks_total} 청크 반영`}
+                aria-label="원문 조각 처리율"
+                aria-valuetext={`${s.completed} / ${s.total} 원문 조각 처리`}
               />
             )}
             <p className="text-xs text-muted-foreground">
-              {s.chunks_total > 0 ? `분할된 청크 기준 ${percent}% · ` : ""}분할
-              대기 {s.unplanned.toLocaleString()}개 조각
+              처리 완료 {percent}% · 누적 청크 반영{" "}
+              {s.chunks_done.toLocaleString()}개
             </p>
           </CardContent>
         </Card>
@@ -125,7 +123,8 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           {waitingReasons[schedule.reason]}
         </span>
         <span className="text-muted-foreground">
-          대기 {s.pending.toLocaleString()} · 진행 {s.running.toLocaleString()}
+          미처리 원문 {(s.pending + s.running + s.failed).toLocaleString()}개
+          조각
         </span>
         {s.failed > 0 && (
           <StatusBadge status="failed">

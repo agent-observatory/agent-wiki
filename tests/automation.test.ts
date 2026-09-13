@@ -257,6 +257,11 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
   assert.equal(article.producer.client, "remote-worker");
 });
 test("transient errors pause the key without exhausting jobs and expired leases remain recoverable", async () => {
+  // Earlier increments now finish together; this test owns its new pending input.
+  await request("POST", "/collection", {
+    ...source,
+    sessionId: "retry-fixture",
+  });
   await admin.query(
     "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
     [owner],
@@ -421,7 +426,15 @@ test("progress totals cover all workspace jobs, not just the displayed 100, with
   assert.equal(data.progress.summary.total, actual.total);
   assert.equal(data.progress.summary.chunks_done, actual.done);
   assert.equal(data.progress.summary.chunks_total, actual.chunks);
-  assert.ok(data.progress.summary.unplanned > 0);
+  const waiting = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT count(*)::int AS n FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed' AND chunk_count=0 AND batch_parent IS NULL AND input_sources IS NULL",
+        [ws],
+      ),
+    )
+  ).rows[0].n;
+  assert.equal(data.progress.summary.unplanned, waiting);
   assert.equal(data.progress.schedule.reason, "provider_cooldown");
   assert.ok(data.progress.schedule.nextAttemptAt);
   assert.ok(!response.body.includes("encrypted_key"));
@@ -541,7 +554,7 @@ test("unlimited setting persists and processes work beyond the former daily cap"
     )
   ).rows[0].id;
   await admin.query(
-    "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status) SELECT gen_random_uuid(),$1,$2,'{}','synthetic','failed' FROM generate_series(1,25)",
+    "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status,diagnostics) SELECT gen_random_uuid(),$1,$2,'{}','synthetic','failed','{\"httpRequests\":1}' FROM generate_series(1,25)",
     [ws, job],
   );
   let calls = 0;

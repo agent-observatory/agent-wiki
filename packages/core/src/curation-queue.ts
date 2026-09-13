@@ -12,7 +12,7 @@ export const curationHeads = `SELECT j.id,j.status,j.available_at,
  row_number() OVER(PARTITION BY CASE WHEN s.kind='conversation' AND s.origin<>'' THEN 'conversation:'||s.origin ELSE 'source:'||s.id::text END
  ORDER BY s.created_at,COALESCE(s.metadata->>'rawUploadId',s.id::text),${part},s.id) AS queue_position
  FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id
- WHERE j.workspace_id=$1 AND j.status<>'completed' AND s.deleted_at IS NULL`;
+ WHERE j.workspace_id=$1 AND j.status<>'completed' AND j.batch_parent IS NULL AND s.deleted_at IS NULL`;
 export async function nextCurationJob(c: PoolClient, ws: string) {
   const result = await c.query(
     `WITH heads AS (${curationHeads})

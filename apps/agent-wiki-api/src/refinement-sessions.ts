@@ -22,7 +22,12 @@ export async function refinementSessions(
       count(*) FILTER(WHERE j.status='completed')::int AS completed,
       count(*) FILTER(WHERE j.status='pending' AND j.error_code IS NOT NULL)::int AS retrying,
       sum(j.chunk_index)::int AS chunks_done,sum(j.chunk_count)::int AS chunks_total,
-      count(*) FILTER(WHERE j.chunk_count=0 AND j.status<>'completed')::int AS unplanned,
+      COALESCE(sum(j.chunk_index) FILTER(WHERE j.status<>'completed' AND j.batch_parent IS NULL),0)::int AS active_chunks_done,
+      COALESCE(sum(j.chunk_count) FILTER(WHERE j.status<>'completed' AND j.batch_parent IS NULL),0)::int AS active_chunks_total,
+      count(*) FILTER(WHERE j.status<>'completed' AND j.batch_parent IS NULL AND j.chunk_count=0 AND j.input_sources IS NULL)::int AS waiting_sources,
+      count(*) FILTER(WHERE j.status='pending' AND j.batch_parent IS NULL AND j.chunk_count>0)::int AS active_batches,
+
+      count(*) FILTER(WHERE j.chunk_count=0 AND j.status<>'completed' AND j.batch_parent IS NULL AND j.input_sources IS NULL)::int AS unplanned,
       max(j.updated_at) AS updated_at
     ${visibleJobs}
     GROUP BY CASE WHEN s.kind='conversation' AND s.origin<>'' THEN s.origin ELSE s.id::text END

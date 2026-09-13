@@ -10,6 +10,7 @@ type Source = {
   start: number;
   end: number;
   text: string;
+  spans?: { start: number }[];
 };
 
 // Counts exact positions and quotations, not whether a claim is true.
@@ -140,7 +141,8 @@ export function anchorModelEvidence(
         previous.segment + 1 === segment &&
         previous.event === row.event &&
         previous.field === JSON.stringify(field) &&
-        previous.parts.at(-1)!.row === index - 1
+        previous.parts.at(-1)!.row === index - 1 &&
+        !source.spans?.some((span) => span.start === source.start + index)
       ) {
         previous.parts.push({
           row: index,

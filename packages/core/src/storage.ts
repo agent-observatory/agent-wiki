@@ -65,7 +65,7 @@ export async function putSource(key: string, text: string) {
       : "application/gzip",
   });
 }
-export async function getSource(key: string) {
+async function sourceBuffer(key: string) {
   let buffer: Buffer;
   if (process.env.SOURCE_STORAGE === "local")
     buffer = await readFile(localPath(key));
@@ -85,17 +85,38 @@ export async function getSource(key: string) {
     }
     buffer = Buffer.concat(chunks);
   }
-  if (key.endsWith(".ref.zst")) {
-    const { readSourceReference } = await import("./source-reference.js");
-    return readSourceReference(
-      JSON.parse(
+  return buffer;
+}
+export async function getSource(key: string) {
+  return (await getSources([key]))[0];
+}
+export async function getSources(keys: string[]) {
+  const { readSourceReferences } = await import("./source-reference.js");
+  const result: string[] = new Array(keys.length);
+  const groups = new Map<
+    string,
+    { index: number; ref: import("./source-reference.js").SourceReference }[]
+  >();
+  for (const [index, key] of keys.entries()) {
+    const buffer = await sourceBuffer(key);
+    if (key.endsWith(".ref.zst")) {
+      const ref = JSON.parse(
         zstdDecompressSync(buffer, { maxOutputLength: 4096 }).toString(),
-      ),
-    );
+      );
+      const group = JSON.stringify([ref.workspace, ref.upload]);
+      groups.set(group, [...(groups.get(group) ?? []), { index, ref }]);
+    } else
+      result[index] = gunzipSync(buffer, {
+        maxOutputLength: 2 * 1024 * 1024,
+      }).toString("utf8");
   }
-  return gunzipSync(buffer, { maxOutputLength: 2 * 1024 * 1024 }).toString(
-    "utf8",
-  );
+  for (const group of groups.values()) {
+    const texts = await readSourceReferences(group.map((x) => x.ref));
+    group.forEach((x, i) => {
+      result[x.index] = texts[i];
+    });
+  }
+  return result;
 }
 
 export function maskRecord(value: unknown): unknown {

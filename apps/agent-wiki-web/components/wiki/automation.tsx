@@ -218,7 +218,7 @@ function AutomationContent() {
           {!!controlError && <Failure error={controlError} />}
         </section>
         <section className="rounded-lg border p-5">
-          <p className="text-sm text-muted-foreground">오늘 정제 시도</p>
+          <p className="text-sm text-muted-foreground">오늘 모델 호출</p>
           <p className="mt-3 text-xl font-semibold">
             {jobs.data.today.calls}회
             {jobs.data.progress.control.dailyCalls !== null && (

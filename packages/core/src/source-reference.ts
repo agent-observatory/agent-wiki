@@ -16,6 +16,24 @@ export type SourceReference = {
 // The immutable reference selects evidence lines from the canonical text archive.
 // No permanent gzip projection is created. Only a requested source is returned.
 export async function readSourceReference(ref: SourceReference) {
+  return (await readSourceReferences([ref]))[0];
+}
+// Reconstruct several ranges of the same upload in one streaming pass.
+export async function readSourceReferences(refs: SourceReference[]) {
+  const ref = refs[0];
+  if (!ref) return [];
+  if (
+    refs.some(
+      (r) =>
+        r.workspace !== ref.workspace ||
+        r.upload !== ref.upload ||
+        !Number.isSafeInteger(r.start) ||
+        r.start < 0 ||
+        !Number.isSafeInteger(r.count) ||
+        r.count < 1,
+    )
+  )
+    throw new Error("SOURCE_RANGE_MISMATCH");
   const manifest = JSON.parse(
     zstdDecompressSync(
       await getBlob(`raw-meta/${ref.workspace}/${ref.upload}/0.zst`),
@@ -38,7 +56,21 @@ export async function readSourceReference(ref: SourceReference) {
     }
   }
   const dir = await mkdtemp(join(tmpdir(), "wiki-source-view-"));
-  const lines: string[] = [];
+  const outputs: string[][] = refs.map(() => []);
+  const last = Math.max(...refs.map((r) => r.start + r.count));
+  function accept(line: string) {
+    for (let i = 0; i < refs.length; i++)
+      if (position >= refs[i].start && position < refs[i].start + refs[i].count)
+        outputs[i].push(line);
+    position++;
+    return position >= last;
+  }
+  const result = () =>
+    outputs.map((lines, i) => {
+      if (lines.length !== refs[i].count)
+        throw new Error("SOURCE_RANGE_MISMATCH");
+      return lines.join("\n");
+    });
   let position = 0;
   try {
     for await (const event of projectEvents(
@@ -53,20 +85,19 @@ export async function readSourceReference(ref: SourceReference) {
         crlfDelay: Infinity,
       })) {
         count++;
-        if (position++ >= ref.start) lines.push(line);
-        if (lines.length === ref.count) return lines.join("\n");
+        if (accept(line)) return result();
       }
-      if (!count) {
-        if (position++ >= ref.start)
-          lines.push(
-            JSON.stringify({
-              event: event.position,
-              text: "[NO_TEXT_FIELDS]",
-              imageAnalysis: "skipped",
-            }),
-          );
-        if (lines.length === ref.count) return lines.join("\n");
-      }
+      if (
+        !count &&
+        accept(
+          JSON.stringify({
+            event: event.position,
+            text: "[NO_TEXT_FIELDS]",
+            imageAnalysis: "skipped",
+          }),
+        )
+      )
+        return result();
     }
     throw new Error("SOURCE_RANGE_MISMATCH");
   } finally {

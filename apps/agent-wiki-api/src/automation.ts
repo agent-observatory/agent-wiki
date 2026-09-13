@@ -1,3 +1,4 @@
+import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import { rebuildCuration } from "./curation-rebuild.js";
 import {
   refinementSessions,
@@ -266,7 +267,7 @@ export function registerAutomation(
     return scoped(r, async (c, ws) => {
       const today = (
         await c.query(
-          "SELECT count(*)::int AS calls,COALESCE(sum((usage->>'total_tokens')::bigint),0)::text AS tokens FROM refinement_runs WHERE workspace_id=$1 AND created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'",
+          `SELECT count(*)::int AS calls,COALESCE(sum((usage->>'total_tokens')::bigint),0)::text AS tokens FROM refinement_runs WHERE workspace_id=$1 AND ${modelCallPredicate} AND created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
           [ws],
         )
       ).rows[0];
@@ -284,10 +285,12 @@ export function registerAutomation(
             "SELECT j.*,s.name FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id WHERE j.workspace_id=$1 AND s.deleted_at IS NULL ORDER BY CASE WHEN j.status='running' THEN 0 WHEN j.status='pending' AND j.error_code IS NOT NULL THEN 1 WHEN j.status='failed' THEN 2 WHEN j.status='pending' THEN 3 ELSE 4 END,j.created_at,j.id LIMIT $2 OFFSET $3",
             [ws, pages.jobs.size + 1, pages.jobs.offset],
           )
-        ).rows.map(({ output, chunk_plan, chunk_results, ...job }) => job),
+        ).rows.map(
+          ({ output, chunk_plan, chunk_results, input_sources, ...job }) => job,
+        ),
         runs: (
           await c.query(
-            "SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,diagnostics,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3",
+            `SELECT id,job_id,settings,prompt_version,chunk_index,usage,status,error_code,diagnostics,created_at,finished_at FROM refinement_runs WHERE workspace_id=$1 AND ${modelCallPredicate} ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`,
             [ws, pages.runs.size + 1, pages.runs.offset],
           )
         ).rows,
