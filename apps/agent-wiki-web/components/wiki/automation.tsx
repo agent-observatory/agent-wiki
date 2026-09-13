@@ -433,7 +433,7 @@ function AutomationContent() {
               ) : (
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="size-4" />
+                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                     NVIDIA 키 연결됨
                   </span>
                   <Button
