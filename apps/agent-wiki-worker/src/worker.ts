@@ -16,7 +16,10 @@ import {
 import { processUpload } from "./ingest.js";
 import { curationContext, CONTEXT_BUDGET } from "./curation-context.js";
 import { nextCurationJob } from "../../../packages/core/src/curation-queue.js";
-import { anchorModelEvidence } from "../../../packages/core/src/model-evidence.js";
+import {
+  anchorModelEvidence,
+  normalizeModelEvidence,
+} from "../../../packages/core/src/model-evidence.js";
 import { writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -302,7 +305,7 @@ export async function runOne(
         const result = z
           .object({ changes: z.array(changeInput).max(3) })
           .strict()
-          .parse(response.output);
+          .parse(normalizeModelEvidence(response.output));
         for (const change of result.changes) {
           for (const evidence of [
             ...change.claims.flatMap((claim) => claim.evidence),

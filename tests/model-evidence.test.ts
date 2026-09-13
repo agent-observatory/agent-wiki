@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anchorModelEvidence } from "../packages/core/src/model-evidence.js";
+import {
+  anchorModelEvidence,
+  normalizeModelEvidence,
+} from "../packages/core/src/model-evidence.js";
 
 const record = (text: string) =>
   JSON.stringify({ event: 1, field: '["payload","content",0,"text"]', text });
@@ -52,4 +55,46 @@ test("ambiguous, missing, foreign and fuzzy quotes cannot be relocated", () => {
   );
   assert.equal(anchorModelEvidence({ ...evidence, quote: " " }, source), null);
   assert.equal(anchorModelEvidence(evidence, { ...source, text: "\n" }), null);
+});
+
+test("only positive single-row evidence is normalized and the original response remains intact", () => {
+  const input = {
+    changes: [
+      {
+        claims: [
+          {
+            evidence: [
+              { lines: [163] },
+              { lines: [] },
+              { lines: [0] },
+              { lines: [1, 2, 3] },
+              { lines: ["163"] },
+            ],
+          },
+        ],
+        claimRelations: [{ evidence: [{ lines: [159] }] }],
+      },
+    ],
+  };
+  assert.deepEqual(normalizeModelEvidence(input), {
+    changes: [
+      {
+        claims: [
+          {
+            evidence: [
+              { lines: [163, 163] },
+              { lines: [] },
+              { lines: [0] },
+              { lines: [1, 2, 3] },
+              { lines: ["163"] },
+            ],
+          },
+        ],
+        claimRelations: [{ evidence: [{ lines: [159, 159] }] }],
+      },
+    ],
+  });
+  assert.deepEqual(input.changes[0].claims[0].evidence[0].lines, [163]);
+  for (const value of [null, [], { changes: [null] }])
+    assert.deepEqual(normalizeModelEvidence(value), value);
 });

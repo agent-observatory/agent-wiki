@@ -12,6 +12,43 @@ type Source = {
   text: string;
 };
 
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+// Normalize the model's single-row shorthand without changing its stored output
+// or loosening the public publication contract.
+export function normalizeModelEvidence(output: unknown): unknown {
+  const normalized = structuredClone(output);
+  const changes = record(normalized)?.changes;
+  if (!Array.isArray(changes)) return normalized;
+  for (const change of changes) {
+    for (const name of ["claims", "claimRelations"]) {
+      const entries = record(change)?.[name];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        const evidence = record(entry)?.evidence;
+        if (!Array.isArray(evidence)) continue;
+        for (const value of evidence) {
+          const item = record(value);
+          const lines = item?.lines;
+          if (
+            item &&
+            Array.isArray(lines) &&
+            lines.length === 1 &&
+            Number.isSafeInteger(lines[0]) &&
+            lines[0] > 0
+          )
+            item.lines = [lines[0], lines[0]];
+        }
+      }
+    }
+  }
+  return normalized;
+}
+
 // A model may count lines inside a JSON string instead of immutable L1 rows.
 // Resolve only an exact, unique quote in the supplied chunk; never search
 // reference context, guess an offset, or use fuzzy matching.

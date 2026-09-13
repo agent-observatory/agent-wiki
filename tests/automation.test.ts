@@ -711,9 +711,7 @@ test("Worker anchors a unique decoded quotation while preserving raw model outpu
                     anchor: "decision",
                     text: quote,
                     type: "unconfirmed",
-                    evidence: [
-                      { sourceId, revision: 1, lines: [10, 13], quote },
-                    ],
+                    evidence: [{ sourceId, revision: 1, lines: [10], quote }],
                   },
                 ],
               },
@@ -746,7 +744,7 @@ test("Worker anchors a unique decoded quotation while preserving raw model outpu
   assert.equal(state.run.diagnostics.anchoredEvidence, 1);
   assert.deepEqual(
     state.run.output.changes[0].claims[0].evidence[0].lines,
-    [10, 13],
+    [10],
   );
   assert.deepEqual(state.evidence, [
     { line_start: 1, line_end: 1, quote: raw },
