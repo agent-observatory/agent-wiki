@@ -346,3 +346,59 @@ test("three identical output failures stop only that chunk without a fourth requ
   );
   assert.equal(calls, 3);
 });
+
+test("queued reanalysis does not block recovery of an expired normal job lease", async () => {
+  const original = (
+    await read("SELECT run_id FROM refinement_jobs WHERE id=$1", [job])
+  ).rows[0];
+  const plan = (
+    await api("/curation/reprocess/plan/" + original.run_id)
+  ).json();
+  const requestId = randomUUID();
+  const queued = await api("/curation/reprocess", {
+    requestId,
+    runId: original.run_id,
+    fingerprint: plan.fingerprint,
+    mode: "analyze",
+    reason: "임대 복구 합성 검사",
+  });
+  assert.equal(queued.statusCode, 200, queued.body);
+  await read(
+    "UPDATE refinement_jobs SET status='running',lease_until=now()-interval '1 minute' WHERE workspace_id=$1 AND id<>$2",
+    [ws, job],
+  );
+  let calls = 0;
+  const fake = async () => {
+    calls++;
+    return { output: { changes: [] }, usage: {} };
+  };
+  assert.equal(await runOne(owner, new AbortController().signal, fake), false);
+  assert.equal(
+    (
+      await read(
+        "SELECT count(*)::int n FROM refinement_jobs WHERE workspace_id=$1 AND status='running'",
+        [ws],
+      )
+    ).rows[0].n,
+    0,
+  );
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  assert.equal(
+    await runReprocess(
+      owner,
+      new AbortController().signal,
+      instruction,
+      PROMPT_VERSION,
+      fake,
+    ),
+    true,
+  );
+  assert.equal(calls, 1);
+  assert.equal(
+    (await api("/curation/reprocess/" + requestId)).json().status,
+    "ready",
+  );
+});

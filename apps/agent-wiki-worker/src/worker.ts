@@ -118,15 +118,6 @@ export async function runOne(
         await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
       ).rows[0];
       if (!settings?.config.enabled || !settings.encrypted_key) return null;
-      if (
-        (
-          await c.query(
-            "SELECT 1 FROM curation_reprocesses WHERE workspace_id=$1 AND status IN ('pending','running') LIMIT 1",
-            [ws],
-          )
-        ).rowCount
-      )
-        return null;
       const config = aiConfig.parse(settings.config);
       // Expired attempts remain in history; unfinished work becomes retryable.
       await c.query(
@@ -137,6 +128,15 @@ export async function runOne(
         "UPDATE refinement_jobs SET status='pending',error_code='LEASE_EXPIRED',lease_until=NULL,available_at=now()+interval '60 seconds',updated_at=now() WHERE workspace_id=$1 AND status='running' AND lease_until<now()",
         [ws],
       );
+      if (
+        (
+          await c.query(
+            "SELECT 1 FROM curation_reprocesses WHERE workspace_id=$1 AND status IN ('pending','running') LIMIT 1",
+            [ws],
+          )
+        ).rowCount
+      )
+        return null;
       const active = (
         await c.query(
           "SELECT count(*)::int AS n FROM refinement_jobs WHERE workspace_id=$1 AND status='running'",

@@ -1,4 +1,4 @@
-import {cacheSourceTimes} from "./evidence-time.js";
+import { cacheSourceTimes } from "./evidence-time.js";
 import {
   refreshWikiPages,
   listWikiPages,
@@ -1236,7 +1236,7 @@ export async function publish(
             ).rows[0],
           );
           const text = await getSource(row.object_key);
-          await cacheSourceTimes(c,ws,ev.sourceId,text);
+          await cacheSourceTimes(c, ws, ev.sourceId, text);
           if (hash(text) !== row.content_hash)
             throw new AppError(500, "SOURCE_HASH_MISMATCH");
           sources.set(ev.sourceId, { text, row });
