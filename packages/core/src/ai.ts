@@ -92,17 +92,17 @@ export class ModelError extends Error {
   constructor(
     public code: string,
     public retryable = false,
-    public retryAfter = 60,
+    public retryAfter: number | null = null,
   ) {
     super(code);
   }
 }
 export function parseRetryAfter(value: string | null, now = Date.now()) {
-  if (!value) return 60;
+  if (!value) return null;
   const seconds = /^\d+(?:\.\d+)?$/.test(value.trim())
     ? Number(value)
     : (Date.parse(value) - now) / 1000;
-  return Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : 60;
+  return Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : null;
 }
 export type ModelObservation =
   | { type: "poll" }

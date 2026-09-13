@@ -134,12 +134,31 @@ test("provider rate limiting respects the provider retry delay and does not expo
   }
 });
 
+test("HTTP failure without Retry-After does not invent a provider deadline", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response("unavailable", { status: 504 });
+  try {
+    await assert.rejects(
+      callModel(defaults, "synthetic", [], AbortSignal.timeout(1000)),
+      (error: unknown) =>
+        error instanceof ModelError &&
+        error.code === "AI_HTTP_504" &&
+        error.retryable &&
+        error.retryAfter === null,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("Retry-After accepts seconds and HTTP dates without shortening provider cooldowns", () => {
   const now = Date.UTC(2026, 8, 13);
   assert.equal(parseRetryAfter("120", now), 120);
   assert.equal(parseRetryAfter(new Date(now + 90000).toUTCString(), now), 90);
   assert.equal(parseRetryAfter(new Date(now - 90000).toUTCString(), now), 0);
-  assert.equal(parseRetryAfter("invalid", now), 60);
+  assert.equal(parseRetryAfter("invalid", now), null);
+  assert.equal(parseRetryAfter(null, now), null);
+  assert.equal(parseRetryAfter("0", now), 0);
 });
 
 test("invalid model JSON still reports HTTP success and consumed tokens without leaking output", async () => {

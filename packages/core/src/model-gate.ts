@@ -56,17 +56,20 @@ export async function waitForModelSlot(
   }
 }
 
-export function retryDelay(retryAfter = 0, random = Math.random()) {
+export function retryDelay(
+  retryAfter: number | null = null,
+  random = Math.random(),
+) {
   // Retain failure counts for diagnosis without making this personal wiki wait
   // exponentially longer. Keep a five-second margin beyond the provider Retry-After.
-  return Math.max(retryAfter + 5, Math.ceil(120 * (1 + 0.2 * random)));
+  return Math.max((retryAfter ?? 0) + 5, Math.ceil(120 * (1 + 0.2 * random)));
 }
 
 export async function coolDownModel(
   c: PoolClient,
   owner: string,
   key: string,
-  retryAfter: number,
+  retryAfter: number | null,
 ) {
   await c.query(
     "INSERT INTO model_request_gates(owner_id,key_hash,failures) VALUES($1,$2,1) ON CONFLICT(owner_id,key_hash) DO UPDATE SET failures=least(model_request_gates.failures+1,32)",
