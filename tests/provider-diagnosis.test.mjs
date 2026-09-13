@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import {
   probe,
   probeNeedsCooldown,
+  readableModelInput,
 } from "../experiments/curation/provider-diagnosis.mjs";
 
 async function serverFor(handler, run) {
@@ -151,4 +152,77 @@ test("a stalled HTTP 200 stream still requires the shared retry cooldown", async
       assert.equal(probeNeedsCooldown({ status: 401, complete: false }), false);
     },
   );
+});
+
+test("probe assesses JSON in memory without including original output in returned metrics", async () => {
+  await serverFor(
+    (_req, res) =>
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  changes: [{ quote: "synthetic-private-quotation" }],
+                }),
+              },
+              finish_reason: "stop",
+            },
+          ],
+        }),
+      ),
+    async (url) => {
+      let checked = 0;
+      const result = await probe(
+        url,
+        "synthetic",
+        {},
+        {
+          onOutput: (output) => {
+            checked = output.changes.length;
+          },
+        },
+      );
+      assert.equal(checked, 1);
+      assert.equal(result.jsonValid, true);
+      assert.ok(
+        !JSON.stringify(result).includes("synthetic-private-quotation"),
+      );
+      assert.equal(Object.hasOwn(result, "output"), false);
+    },
+  );
+});
+
+test("readable source records preserve absolute rows, original characters and the canonical input", () => {
+  const row = {
+    event: 3,
+    field: '["payload","content",0,"text"]',
+    text: '첫 줄\n  두 번째 줄 "인용"',
+  };
+  const input = {
+    source: {
+      id: "synthetic",
+      revision: 1,
+      start: 159,
+      end: 161,
+      text: JSON.stringify(row) + "\n\nplain line",
+      roles: [{ start: 159, end: 159, role: "user" }],
+    },
+    related: [],
+  };
+  const before = structuredClone(input);
+  const result = readableModelInput(input);
+  assert.deepEqual(input, before);
+  assert.deepEqual(result.source.records, [
+    {
+      line: 159,
+      event: 3,
+      field: ["payload", "content", 0, "text"],
+      text: row.text,
+    },
+    { line: 160, text: "" },
+    { line: 161, text: "plain line" },
+  ]);
+  assert.deepEqual(result.source.roles, input.source.roles);
+  assert.equal("text" in result.source, false);
 });

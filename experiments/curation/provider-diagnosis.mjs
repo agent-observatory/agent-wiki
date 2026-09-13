@@ -6,6 +6,32 @@ import { pathToFileURL } from "node:url";
 // Do not import Undici's root: it installs a dispatcher used by OCI signed requests.
 const Agent = createRequire(import.meta.url)("undici/lib/dispatcher/agent.js");
 
+export const SHORT_QUOTE_GUIDANCE =
+  "For each evidence quote, copy one SHORT contiguous verbatim substring from a single incoming source text field. Preserve every character, space and newline exactly. Prefer the shortest distinctive sentence or clause that supports the claim. Never summarize, translate, join separate passages, or add explanatory words inside a quote. Put your explanation in claim.text only. If you cannot copy exact supporting text, omit that claim.";
+
+export function readableModelInput(input) {
+  const copy = structuredClone(input);
+  const { text, ...source } = copy.source;
+  copy.source = {
+    ...source,
+    records: text.split("\n").map((raw, index) => {
+      const line = source.start + index;
+      try {
+        const row = JSON.parse(raw);
+        const field = JSON.parse(row.field);
+        if (
+          ["string", "number"].includes(typeof row.event) &&
+          typeof row.text === "string" &&
+          Array.isArray(field)
+        )
+          return { line, event: row.event, field, text: row.text };
+      } catch {}
+      return { line, text: raw };
+    }),
+  };
+  return copy;
+}
+
 export function probeNeedsCooldown(result) {
   return (
     !result.complete &&
@@ -23,6 +49,7 @@ export async function probe(
     beforeRequest = async () => {},
     timeoutMs = 330000,
     signal: outerSignal,
+    onOutput = () => {},
   } = {},
 ) {
   // Queue waiting is separate from the actual request deadline.
@@ -155,13 +182,14 @@ export async function probe(
     result.complete = done;
     result.hasVisibleContent = content.trim().length > 0;
     try {
-      JSON.parse(
+      const output = JSON.parse(
         content
           .trim()
           .replace(/^```(?:json)?\s*/, "")
           .replace(/\s*```$/, ""),
       );
       result.jsonValid = true;
+      onOutput(output);
     } catch {}
     if (!done) result.error = "INCOMPLETE_STREAM";
   } catch (error) {
@@ -189,6 +217,15 @@ async function main() {
   const { modelGateKey, waitForModelSlot, coolDownModel, modelResponded } =
     await core("model-gate");
   const { getSource, hash } = await core("storage");
+  const {
+    anchorModelEvidence,
+    normalizeModelEvidence,
+    summarizeModelEvidence,
+  } = await core("model-evidence");
+  const { normalizeModelIdentifiers } = await core("model-identifiers");
+  const { changeInput } = await import(
+    pathToFileURL(resolve("dist/apps/agent-wiki-api/src/knowledge.js")).href
+  );
   const owner = process.env.OWNER_GITHUB_ID,
     ws = process.env.PROVIDER_DIAGNOSTIC_WORKSPACE;
   const controller = new AbortController();
@@ -297,6 +334,49 @@ async function main() {
       ],
     };
     const cases = [
+      ["evidence-current", full],
+      [
+        "evidence-readable-short",
+        {
+          ...full,
+          messages: [
+            {
+              role: "system",
+              content: instruction + "\n" + SHORT_QUOTE_GUIDANCE,
+            },
+            {
+              role: "user",
+              content: JSON.stringify(readableModelInput(input.input)),
+            },
+          ],
+        },
+      ],
+      [
+        "evidence-readable",
+        {
+          ...full,
+          messages: [
+            full.messages[0],
+            {
+              role: "user",
+              content: JSON.stringify(readableModelInput(input.input)),
+            },
+          ],
+        },
+      ],
+      [
+        "evidence-short-quotes",
+        {
+          ...full,
+          messages: [
+            {
+              role: "system",
+              content: instruction + "\n" + SHORT_QUOTE_GUIDANCE,
+            },
+            full.messages[1],
+          ],
+        },
+      ],
       ["hello-original-wire", { ...base, reasoning_effort: "none" }],
       [
         "hello-current-wire",
@@ -386,12 +466,16 @@ async function main() {
           ).rows[0]?.next_allowed_at,
       );
       emit({ type: "waiting", case: name, nextAllowedAt: next });
+      let output;
       const result = await probe(
         config.baseUrl + "/chat/completions",
         secret,
         body,
         {
           signal,
+          onOutput: (value) => {
+            output = value;
+          },
           beforeRequest: async (requestSignal = signal) => {
             await waitForModelSlot(owner, gate, requestSignal);
             const current = await tx(
@@ -410,6 +494,51 @@ async function main() {
           },
         },
       );
+      if (name.startsWith("evidence-")) {
+        result.inputHash = hash(JSON.stringify(input.input));
+        result.instructionBytes = Buffer.byteLength(body.messages[0].content);
+        result.evidenceAssessment = { evaluated: false };
+        try {
+          if (!result.jsonValid) throw Error("NO_JSON_RESPONSE");
+          result.evidenceAssessment = { evaluated: true, schemaValid: false };
+          const normalized = normalizeModelEvidence(output);
+          if (
+            !normalized ||
+            !Array.isArray(normalized.changes) ||
+            normalized.changes.length > 3 ||
+            Object.keys(normalized).some((k) => k !== "changes")
+          )
+            throw Error("INVALID_SHAPE");
+          const identifiers = normalizeModelIdentifiers(
+            normalized.changes.map((c) => changeInput.parse(c)),
+          );
+          const evidence = identifiers.changes.flatMap((c) => [
+            ...c.claims.flatMap((cl) => cl.evidence),
+            ...c.claimRelations.flatMap((r) => r.evidence),
+          ]);
+          let anchored = 0;
+          for (const e of evidence) {
+            const match = anchorModelEvidence(e, input.input.source);
+            if (match) {
+              Object.assign(e, match);
+              anchored++;
+            }
+          }
+          result.evidenceAssessment = {
+            evaluated: true,
+            schemaValid: true,
+            changes: identifiers.changes.length,
+            claims: identifiers.changes.reduce(
+              (n, c) => n + c.claims.length,
+              0,
+            ),
+            ...summarizeModelEvidence(evidence, input.input.source),
+            anchored,
+            renamedReferences: identifiers.renamedReferences,
+            renamedAnchors: identifiers.renamedAnchors,
+          };
+        } catch {}
+      }
       signal.throwIfAborted();
       if (result.status === 200 && result.complete)
         await modelResponded(owner, gate);
