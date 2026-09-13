@@ -98,7 +98,7 @@ function WorkspaceRow({
 }
 function WorkspaceDataManagement({ id }: { id: string }) {
   const base = "/api/workspaces/" + id;
-  const status = useApi(base + "/refinements?pageSize=1", 15000);
+  const status = useApi(base + "/refinements?pageSize=25", 15000);
   if (status.error) return <Failure error={status.error} />;
   if (!status.data) return <Loading />;
   return (
