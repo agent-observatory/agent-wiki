@@ -132,6 +132,25 @@ test("curation keeps a same-session reference without excluding a relevant decis
     const bytes = estimateTokens(JSON.stringify(selected));
     assert.ok(bytes <= CONTEXT_BUDGET);
     assert.ok(selected.length <= 6);
+    if (item.expected === "database") {
+      const structured = [
+        { event: 1, field: JSON.stringify(["payload", "role"]), text: "user" },
+        {
+          event: 1,
+          field: JSON.stringify(["payload", "message"]),
+          text: item.text,
+        },
+      ]
+        .map((record) => JSON.stringify(record))
+        .join("\n");
+      const fromRecords = await tx(owner, ws, (c) =>
+        curationContext(c, ws, item.source(), structured),
+      );
+      assert.ok(
+        fromRecords.some((claim) => claim.id === database),
+        "projected session records retain the relevant decision",
+      );
+    }
     results.push({
       name: item.name,
       selected: selected.length,
