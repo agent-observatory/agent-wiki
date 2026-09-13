@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { useApi } from "@/lib/api";
-import { Heading, Loading, Failure, Empty, CopyButton, When } from "./common";
+import { Heading, Loading, Failure, Empty, When } from "./common";
 export function Activity() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const query = useSearchParams();
@@ -78,16 +78,6 @@ export function Connections() {
         title="에이전트 연결"
         description="연결된 에이전트의 접근 권한을 확인합니다."
       />
-      <div className="mb-8 rounded-lg border p-5 space-y-3">
-        <p>
-          작업 에이전트에는 조회 전용, Collector에는 원문 보관 권한을 CLI로
-          발급합니다.
-        </p>
-        <div className="text-xs text-muted-foreground break-all">
-          Workspace: {workspaceId}
-        </div>
-        <CopyButton text={workspaceId} label="Workspace ID 복사" />
-      </div>
       <div className="divide-y border-y">
         {error ? (
           <Failure error={error} />
