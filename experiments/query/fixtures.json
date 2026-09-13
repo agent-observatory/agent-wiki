@@ -1,0 +1,28 @@
+{
+ "version":"query-eval-1",
+ "kind":"synthetic; expected seed documents fixed before execution; not model answer grading",
+ "documents":[
+  {"id":"provider-old","title":"AI 제공자 NVIDIA","content":"초기 정제는 NVIDIA 무료 API를 사용한다. 이후 제공자 변경 이력의 출발점이다.","aliases":["엔비디아"]},
+  {"id":"provider-new","title":"AI 제공자 Alibaba","content":"NVIDIA 호출 장애와 대기 때문에 Alibaba DeepSeek로 변경한다. 무료 할당량을 활용한다.","aliases":["알리바바","정제 모델"]},
+  {"id":"embedding","title":"임베딩 도입 보류","content":"개인 위키는 키워드와 별칭으로 시작한다. 표현 차이로 검색을 놓치는 사례가 쌓이면 벡터 검색을 평가한다.","aliases":["embedding","벡터"]},
+  {"id":"client","title":"Client 설치 통합","content":"CLI와 Collector를 하나의 Client 패키지로 설치한다. 조회 명령과 백그라운드 수집은 별도 프로세스다.","aliases":["클라이언트","콜렉터"]},
+  {"id":"database-prod","title":"DB 선택","content":"운영 데이터베이스는 PostgreSQL이다. 기존 운영 경험과 관계 조회 기능 때문에 채택한다.","tags":["production"]},
+  {"id":"database-local","title":"DB 선택","content":"로컬 실험 기록은 파일로 저장한다. 데이터베이스를 새로 기동하지 않는다.","tags":["local"]},
+  {"id":"conflict","title":"백업 보존기간 미해결","content":"백업을 7일 보관하자는 의견과 30일 보관하자는 의견이 충돌하며 결론이 없다."},
+  {"id":"quota","title":"무료 할당량 보호","content":"무료 쿼타가 소진되면 신규 AI 호출을 차단한다. 모델을 자동으로 바꾸거나 재개하지 않는다.","aliases":["quota","쿼타"]},
+  {"id":"tls","title":"TLS 인증서","content":"cert-manager가 TLS 인증서를 발급하고 갱신한다. Kubernetes Secret에 저장한다."},
+  {"id":"noise","title":"화면 간격과 글꼴","content":"사이드바는 간결하게 표시한다. 버튼 높이와 행 간격을 맞춘다."}
+ ],
+ "cases":[
+  {"id":"q01","question":"현재 정제 모델은?","query":"정제 모델 Alibaba","expected":["provider-new"]},
+  {"id":"q02","question":"왜 NVIDIA에서 Alibaba로 바꿨지?","query":"NVIDIA Alibaba 장애","expected":["provider-old","provider-new"]},
+  {"id":"q03","question":"임베딩을 왜 미뤘지?","query":"임베딩 보류","expected":["embedding"]},
+  {"id":"q04","question":"CLI와 Collector를 합친 이유는?","query":"CLI Collector 설치","expected":["client"]},
+  {"id":"q05","question":"운영 DB의 선택 근거는?","query":"운영 PostgreSQL","expected":["database-prod"]},
+  {"id":"q06","question":"로컬 실험 기록은 어디에 저장해?","query":"로컬 실험 파일","expected":["database-local"]},
+  {"id":"q07","question":"백업 보존기간은 확정됐어?","query":"백업 보존기간","expected":["conflict"]},
+  {"id":"q08","question":"쿼타 소진 후 자동으로 모델을 바꾸나?","query":"쿼타 소진","expected":["quota"]},
+  {"id":"q09","question":"인증서 갱신은 누가 해?","query":"인증서 갱신","expected":["tls"]},
+  {"id":"q10","question":"정하지 않은 휴가 규정은?","query":"휴가 규정","expected":[],"expectedStatus":"not_found"}
+ ]
+}

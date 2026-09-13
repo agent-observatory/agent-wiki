@@ -1,3 +1,5 @@
+import { registerQuery } from "./query.js";
+import { queryCandidates } from "./query-search.js";
 import { cacheSourceTimes } from "./evidence-time.js";
 import {
   refreshWikiPages,
@@ -294,6 +296,7 @@ export function registerKnowledge(
       ).rows,
     };
   }
+  registerQuery(app, scoped, detail, appUrl);
   async function search(c: PoolClient, ws: string, raw: unknown) {
     const page = pagination(raw);
     const q = z
@@ -725,12 +728,16 @@ export function registerKnowledge(
     view: "current" | "history" = "current",
     scope?: string,
   ) {
-    const found = await search(c, ws, {
-      q,
-      tag,
-      pageSize: 50,
-      includeSuperseded: view === "history" ? "true" : "false",
-    });
+    const ranked = await queryCandidates(c, ws, q, tag);
+    const found = {
+      items: ranked.items.slice(0, 50),
+      corpusTruncated: ranked.truncated,
+      queryStatus: !q.trim()
+        ? "browse"
+        : searchPatterns(q).length
+          ? "ready"
+          : "needs_terms",
+    };
     const expanded = await expandClaimArticles(
       c,
       ws,
@@ -884,6 +891,7 @@ export function registerKnowledge(
       })),
       citations,
       truncated:
+        found.corpusTruncated ||
         expanded.truncated ||
         candidates.length > citations.length ||
         citations.some(

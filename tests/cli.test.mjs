@@ -102,6 +102,36 @@ test("one setup shares query and collector settings, preserves scope and machine
     assert.equal(result.failed, 0);
     assert.equal(result.files, 0);
     assert.equal(requests.length, 2);
+    await run("query", "search", "NVIDIA", "--view", "history");
+    const discovery = new URL(requests.at(-1).url, "http://localhost");
+    assert.ok(discovery.pathname.endsWith("/query"));
+    const trace = discovery.searchParams.get("traceId");
+    assert.match(trace, /^[0-9a-f-]{36}$/);
+    await run(
+      "query",
+      "claim",
+      uuid,
+      "--revision",
+      "2",
+      "--anchor",
+      "provider",
+      "--trace",
+      trace,
+    );
+    const selection = new URL(requests.at(-1).url, "http://localhost");
+    assert.equal(selection.searchParams.get("traceId"), trace);
+    assert.equal(selection.searchParams.get("revision"), "2");
+    await assert.rejects(
+      run("query", "claim", uuid),
+      /--revision and --anchor required/,
+    );
+    await run("query", "trace", trace);
+    assert.ok(
+      new URL(requests.at(-1).url, "http://localhost").pathname.endsWith(
+        "/query/traces/" + trace,
+      ),
+    );
+
     assert.deepEqual((await run("collector", "status")).projects, [dir]);
     await run("setup", "--all-projects");
     assert.deepEqual(

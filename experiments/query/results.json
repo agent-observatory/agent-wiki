@@ -1,0 +1,206 @@
+{
+  "fixture": "query-eval-1",
+  "modelCalls": 0,
+  "l5Usage": null,
+  "scope": "Seed retrieval only; graph/state/API contracts are separate CI tests. Not end-to-end L5 quality.",
+  "results": [
+    {
+      "policy": "legacy-fields",
+      "passed": 10,
+      "total": 10,
+      "meanRecallAt3": 1,
+      "cases": [
+        {
+          "id": "q01",
+          "ids": [
+            "provider-new",
+            "provider-old",
+            "quota"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q02",
+          "ids": [
+            "provider-new",
+            "provider-old"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q03",
+          "ids": [
+            "embedding"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q04",
+          "ids": [
+            "client"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q05",
+          "ids": [
+            "database-prod"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q06",
+          "ids": [
+            "database-local"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q07",
+          "ids": [
+            "conflict"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q08",
+          "ids": [
+            "quota"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q09",
+          "ids": [
+            "tls"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q10",
+          "ids": [],
+          "recallAt3": null,
+          "reciprocalRank": 0,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "policy": "bm25-fields-1",
+      "passed": 10,
+      "total": 10,
+      "meanRecallAt3": 1,
+      "cases": [
+        {
+          "id": "q01",
+          "ids": [
+            "provider-new",
+            "provider-old",
+            "quota"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q02",
+          "ids": [
+            "provider-new",
+            "provider-old"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q03",
+          "ids": [
+            "embedding"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q04",
+          "ids": [
+            "client"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q05",
+          "ids": [
+            "database-prod"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q06",
+          "ids": [
+            "database-local"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q07",
+          "ids": [
+            "conflict"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q08",
+          "ids": [
+            "quota"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q09",
+          "ids": [
+            "tls"
+          ],
+          "recallAt3": 1,
+          "reciprocalRank": 1,
+          "pass": true
+        },
+        {
+          "id": "q10",
+          "ids": [],
+          "recallAt3": null,
+          "reciprocalRank": 0,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

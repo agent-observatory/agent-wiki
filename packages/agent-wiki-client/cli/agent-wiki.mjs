@@ -59,6 +59,9 @@ async function main() {
         "collector enable|disable --client codex|claude",
         "recall --project NAME",
         'search "question" [--tag TAG --view current|history --scope SCOPE]',
+        'query search "keywords" [--view current|history|overview --scope SCOPE --limit N --trace ID]',
+        "query claim ID --revision N --anchor ANCHOR [--depth 1 --trace ID]",
+        "query source ID --start N --end N [--trace ID] | query trace ID",
         "source add FILE [--kind conversation|document|code|note] [--origin LOCATION]",
         "source get ID [--start N --end N]",
         "publish FILE.json",
@@ -341,6 +344,51 @@ async function main() {
   const tag = option("tag", connection.tag);
   if (command === "recall")
     return output(await request("/recall?" + new URLSearchParams({ tag })));
+  if (command === "query") {
+    const action = args.shift(),
+      id = args[0];
+    const fields = {};
+    for (const [flag, name] of [
+      ["trace", "traceId"],
+      ["view", "view"],
+      ["scope", "scope"],
+      ["tag", "tag"],
+      ["limit", "limit"],
+      ["revision", "revision"],
+      ["anchor", "anchor"],
+      ["depth", "depth"],
+      ["start", "start"],
+      ["end", "end"],
+    ]) {
+      const value = option(flag);
+      if (value) fields[name] = value;
+    }
+    if (!id) throw new Error("Query text or ID required");
+    let path;
+    if (action === "search") {
+      fields.q = id;
+      path = "/query";
+    } else if (["claim", "source", "trace"].includes(action)) {
+      if (action === "claim" && (!fields.revision || !fields.anchor))
+        throw new Error("--revision and --anchor required");
+      if (action === "source" && (!fields.start || !fields.end))
+        throw new Error("--start and --end required");
+      path =
+        "/query/" +
+        { claim: "claims", source: "sources", trace: "traces" }[action] +
+        "/" +
+        encodeURIComponent(id);
+    } else throw new Error("query search|claim|source|trace");
+    if (action !== "trace") fields.traceId ??= randomUUID();
+    try {
+      return output(await request(path + "?" + new URLSearchParams(fields)));
+    } catch (error) {
+      throw new Error(
+        String(error.message) +
+          (fields.traceId ? " · traceId=" + fields.traceId : ""),
+      );
+    }
+  }
   if (command === "search") {
     const view = option("view", "current"),
       scope = option("scope");
