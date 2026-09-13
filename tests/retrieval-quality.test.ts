@@ -159,3 +159,41 @@ test("the agent Context includes the decision reason from a later passage", asyn
   assert.ok(citation.excerpt.length <= 1600);
   assert.ok(citation.url.includes("revision=1"));
 });
+
+test("a query with no searchable terms cannot turn into a workspace-wide recall", async () => {
+  for (const q of ["왜?", "어디에", "???"]) {
+    const search = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/articles?${new URLSearchParams({ q })}`,
+      headers,
+    });
+    assert.equal(search.statusCode, 200, search.body);
+    assert.deepEqual(search.json().items, []);
+    assert.equal(search.json().pagination.hasNext, false);
+    assert.equal(search.json().queryStatus, "needs_terms");
+    const context = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/context?${new URLSearchParams({ q })}`,
+      headers,
+    });
+    assert.equal(context.statusCode, 200, context.body);
+    assert.deepEqual(context.json().citations, []);
+    assert.deepEqual(context.json().topics, []);
+    assert.equal(context.json().queryStatus, "needs_terms");
+    assert.ok(context.json().notice.includes("핵심어"));
+  }
+  const browse = await app.inject({
+    method: "GET",
+    url: `/api/workspaces/${ws}/articles`,
+    headers,
+  });
+  assert.ok(browse.json().items.length > 0);
+  assert.equal(browse.json().queryStatus, "browse");
+  const query = await app.inject({
+    method: "GET",
+    url: `/api/workspaces/${ws}/context?q=PostgreSQL`,
+    headers,
+  });
+  assert.ok(query.json().citations.length > 0);
+  assert.equal(query.json().queryStatus, "ready");
+});

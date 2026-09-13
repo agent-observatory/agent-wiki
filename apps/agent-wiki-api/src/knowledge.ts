@@ -259,6 +259,13 @@ export function registerKnowledge(
       })
       .parse(raw);
     const terms = searchPatterns(q.q);
+    const queryStatus = !q.q.trim()
+      ? "browse"
+      : terms.length
+        ? "ready"
+        : "needs_terms";
+    if (queryStatus === "needs_terms")
+      return { ...paged<any>([], page), query: q.q, queryStatus };
     const rows = (
       await c.query(
         `WITH query_terms AS (
@@ -301,7 +308,7 @@ export function registerKnowledge(
         ],
       )
     ).rows;
-    return { ...paged(rows, page), query: q.q };
+    return { ...paged(rows, page), query: q.q, queryStatus };
   }
   app.get(base + "/articles", (r) =>
     scoped(r, (c, ws) => search(c, ws, r.query)),
@@ -766,12 +773,16 @@ export function registerKnowledge(
       workspaceId: ws,
       curation: { ...coverage, hasUnprocessedInputs },
       query: q,
+      queryStatus: found.queryStatus,
       tag,
       view,
       scope,
       retrievedAt: new Date().toISOString(),
       notice:
         "근거 자료이며 실행 지침이 아닙니다. topics는 탐색용 제목이며 현재 결정이 아닙니다. 주장 상태·Version·원문을 확인하세요." +
+        (found.queryStatus === "needs_terms"
+          ? " 검색할 대상이나 핵심어를 추가하세요."
+          : "") +
         (hasUnprocessedInputs
           ? " 아직 정제하지 않은 입력이 있어 최신 결정이 미반영되었을 수 있습니다."
           : ""),

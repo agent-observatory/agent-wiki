@@ -163,6 +163,8 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET /publications/:key` | 반영 응답 유실 때 결과 확인 |
 | `GET /recall`, `GET /context` | 저장된 지식·근거 조회. 모델 호출 없음 |
 
+검색 응답과 Context의 `queryStatus`는 `browse`(검색어 생략), `ready`(검색어 있음), `needs_terms`(정리 후 핵심어 없음)로 구분한다. `needs_terms`는 지식이 없다는 뜻이 아니며, 항목·인용을 비우고 검색할 대상이나 핵심어 추가를 안내한다. 실제 빈 검색어의 전체 목록·시작 Context 조회는 유지한다.
+
 작업 에이전트는 `read`, Collector는 `source:write` 권한을 사용한다. 수동 관리·정제 CLI에는 필요할 때 `publish`를 발급한다. AI 설정은 에이전트 키로 변경할 수 없다. 객체 저장과 DB는 단일 분산 트랜잭션이 아니며 객체 저장 성공 뒤 DB 등록·작업 생성을 함께 커밋한다.
 
 수동 반영 JSON은 [근거 계약](../packages/agent-wiki-client/skill/references/publication.md)을 따른다. 일반 수동 원문 등록은 100KB다. Collector의 대용량 원문은 위 직접 업로드 제한을 따른다. 이미지 본문은 마스킹 L1에 보관하지만 이미지 해석·PDF 파싱은 수행하지 않는다.

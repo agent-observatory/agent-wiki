@@ -121,15 +121,19 @@ export function KnowledgeList() {
         <Loading />
       ) : !data.items.length ? (
         <Empty>
-          아직 찾은 지식이 없습니다.
-          <p className="mt-3">
-            <Link
-              className="underline"
-              href={`/workspaces/${workspaceId}/guide`}
-            >
-              에이전트로 기록을 쌓는 방법
-            </Link>
-          </p>
+          {data.queryStatus === "needs_terms"
+            ? "검색할 대상이나 핵심어를 추가하세요."
+            : "아직 찾은 지식이 없습니다."}
+          {data.queryStatus !== "needs_terms" && (
+            <p className="mt-3">
+              <Link
+                className="underline"
+                href={`/workspaces/${workspaceId}/guide`}
+              >
+                에이전트로 기록을 쌓는 방법
+              </Link>
+            </p>
+          )}
         </Empty>
       ) : (
         <div className="divide-y border-y">
