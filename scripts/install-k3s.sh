@@ -11,7 +11,7 @@ install -d -m 755 /etc/systemd/system/k3s.service.d
 cat > /etc/systemd/system/k3s.service.d/mount.conf <<'UNIT'
 [Unit]
 RequiresMountsFor=/srv/agent-wiki/data
-After=network-online.target
+After=network-online.target netfilter-persistent.service
 [Service]
 ExecStartPre=/usr/local/sbin/agent-wiki-k3s-network
 UNIT
@@ -28,8 +28,18 @@ chmod 755 /usr/local/sbin/agent-wiki-k3s-network
 /usr/local/sbin/agent-wiki-k3s-network
 # Preserve IMDS access for OCI instance-principal authentication in API/Worker Pods.
 # No new OCI ingress rules: Kubernetes control ports remain blocked at the VCN.
-install -d /etc/iptables
-iptables-save > /etc/iptables/rules.v4
+# Never persist container runtime DNAT/policy chains; K3s reconstructs them at boot.
+# Remove old Docker/Kubernetes snapshots while preserving OCI host/IMDS rules.
+python3 - <<'PYNETWORK'
+from pathlib import Path
+import re,subprocess
+p=Path('/etc/iptables/rules.v4')
+if p.exists():
+ lines=[s for s in p.read_text().splitlines() if not re.search(r'DOCKER|docker0|br-[a-f0-9]+|KUBE-|CNI-|K3S-|FLANNEL|flannel',s)]
+ clean='\n'.join(lines)+'\n'
+ subprocess.run(['iptables-restore','--test'],input=clean,text=True,check=True)
+ p.write_text(clean)
+PYNETWORK
 curl -fsSL https://get.k3s.io -o /tmp/agent-wiki-install-k3s.sh
 INSTALL_K3S_VERSION="$K3S_VERSION" INSTALL_K3S_EXEC=server sh /tmp/agent-wiki-install-k3s.sh
 systemctl daemon-reload
