@@ -14,6 +14,8 @@
 
 ## 방법을 고르는 실험
 
+실제 원문으로 실행하는 기준선·평가 질문·초기화 전 결과 보존은 [실제 원문 정제 평가](../experiments/curation/production/README.md)를 따른다. 읽기 전용 준비 도구는 정제를 재개하지 않는다.
+
 ![같은 평가 자료로 청킹·세션 맥락·규칙 재정렬·모델 리랭커를 하나씩 비교](assets/wiki-curation-evaluation.svg)
 
 ## 원문을 유지하고 다시 만들기
@@ -214,21 +216,15 @@ BYOK 입력은 전체 입력 목표 상한 30,000·출력 포함 생성 상한 1
 
 ### 작은 가설과 사후 개선
 
-초기에는 작은 합성 비교로 임시 설정을 정하고 실제 실패 사례가 생길 때만 재현·추가 비교한다. [Qwen 추론 6회 비교](../experiments/curation/thinking/README.md)에서는 활성화 이점이 확인되지 않아 우선 끈다. 운영 입력과 다른 판단용 표본이며 우열을 일반화하지 않는다.
+작은 합성 비교로 임시 설정을 정하고 실제 실패 사례가 생길 때만 재현·추가 비교한다. 이전 [Qwen 추론 6회 비교](../experiments/curation/thinking/README.md)의 OFF 선택을 다른 모델에 일반화하지 않는다. 현재 DeepSeek Flash의 ON high 선택은 [별도 리니지 실험](../experiments/curation/lineage/README.md)에 근거하며 실제 원문의 품질은 아직 평가 전이다.
 
 각 실행의 입력·설정 Version·프롬프트 Version·응답·검증 오류·재시도 연결을 유지한다. `prompt_tokens_details.cached_tokens`와 `completion_tokens_details.reasoning_tokens`를 버리지 않고 보존하며 캐시는 입력, 추론은 출력에 포함되므로 합산하지 않는다. 제공하지 않은 세부 사용량은 0으로 추정하지 않는다. `finish_reason`·출력 문자 수는 JSON/출력 한도 실패 때도 남기며 reasoning_content는 저장하거나 운영 로그로 내보내지 않는다. 같은 오류가 반복되면 원문/참고 요약 혼동·출력 제한·관계 해석 중 무엇인지 확인하고 그 사례만 다시 실험한다.
 
 ## 모델 선택
 
-| 모델 | 역할 | NVIDIA 모델 ID · 추론 설정 |
-| --- | --- | --- |
-| **DeepSeek Flash** | 청크별 결정·사실·태그·근거 추출의 기본 | `deepseek-ai/deepseek-v4-flash-0731` · 처음에는 `none` |
-| DeepSeek Pro | 더 신중한 정제가 필요할 때 수동 모델 교체 | `deepseek-ai/deepseek-v4-pro-0813` · `none` / `high` / `max` |
-| Kimi K3 | 비교 평가·모델 교체 선택지 | `moonshotai/kimi-k3` · `low` / `high` / `max` |
+현재 평가 기준선은 **Alibaba Singapore `deepseek-v4-flash` · 추론 ON · high · thinking_budget 미지정**이다. 입력 한도 30,000·출력 한도 16,384를 사용하되, 설정 한도와 실제 공급자 토큰 사용량은 구분한다. 실제 저장 설정·활성 여부는 운영 현황과 CLI에서 확인한다.
 
-Pro·Kimi는 설정에서 수동 교체하는 모델이다. Pro 전용 자동 재검토 경로를 두거나 모든 청크를 Flash 다음 Pro로 자동 이중 호출하지 않는다. 초기에는 Flash 하나로 처리하고, 미해결 충돌은 검토 대상으로 보존한다. 대표 자료의 결정 누락·정정·인용 정확성을 비교한 뒤 재검토 범위를 정한다. 모델의 자신감이나 도착 시각만으로 결정의 유효성을 판단하지 않는다.
-
-2026-09-13 NVIDIA [Flash API](https://docs.api.nvidia.com/nim/re/reference/deepseek-ai-deepseek-v4-flash-0731-infer)·[Pro API](https://docs.api.nvidia.com/nim/re/reference/deepseek-ai-deepseek-v4-pro-0813-infer)·[Kimi API](https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-infer)를 확인했다. DeepSeek의 호출 옵션은 `none`·`high`·`max`이며 `low`를 보내지 않는다. Flash 모델 소개와 호출 명세의 표현이 달라 호출 명세와 실제 응답을 기준으로 검증한다. NVIDIA `202`는 처리 대기이므로 요청 ID로 결과를 조회한다. 모델 교체는 다음 작업부터 적용한다.
+기본은 청크당 한 번의 추론 호출이며 Pro 자동 재검토·모델 자동 승격·모든 청크 이중 호출은 하지 않는다. 대표 실제 자료에서 결정 누락·정정·인용 오류가 확인될 때 해당 사례로 수동 설정 비교를 한다. 이전 NVIDIA·Qwen 실험의 모델 ID와 권장값은 당시 결과이며 현재 기본값으로 적용하지 않는다. 모델 변경은 다음 작업부터 적용하고 당시 실행 설정을 보존한다.
 
 ## 검증 사례
 

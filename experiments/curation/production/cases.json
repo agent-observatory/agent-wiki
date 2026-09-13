@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "purpose": "기존 원문의 실제 결정·변경 관계와 검색을 평가한다. 모델 결과를 정답으로 삼지 않는다.",
+  "cases": [
+    {
+      "id": "provider-change",
+      "split": "development",
+      "expected": "초기의 NVIDIA 선택과 이후 Alibaba BYOK 선택을 별도 결정으로 보존하고 명시적 변경 근거로 연결한다. 제공자와 모델을 같은 속성으로 섞지 않는다.",
+      "question": "왜 NVIDIA에서 Alibaba로 바꿨지?",
+      "query": "NVIDIA Alibaba 알리바바",
+      "view": "history"
+    },
+    {
+      "id": "byok-only",
+      "split": "development",
+      "expected": "제품의 Free 모드는 제거하고 BYOK만 제공한다. 공급자의 무료 쿼타를 쓰는 것과 제품 Free 모드를 구분한다.",
+      "question": "현재 AI 연결 방식은?",
+      "query": "BYOK 무료",
+      "view": "current"
+    },
+    {
+      "id": "client-package",
+      "split": "development",
+      "expected": "Client 하나에 CLI와 독립 백그라운드 Collector가 포함된다. Skill은 에이전트가 발견할 위치의 사용 지침이며 CLI를 무조건 자동 실행하지 않는다.",
+      "question": "Client와 CLI, Collector는 어떤 관계지?",
+      "query": "Client CLI Collector",
+      "view": "current"
+    },
+    {
+      "id": "cli-control",
+      "split": "development",
+      "expected": "설정·변경·검토는 CLI, 웹은 뷰어라는 사용자 결정을 보존한다. 결정만으로 배포가 검증됐다고 표현하지 않는다.",
+      "question": "설정 변경은 어디서 하지?",
+      "query": "CLI 웹 설정",
+      "view": "current"
+    },
+    {
+      "id": "collector-interval",
+      "split": "development",
+      "expected": "수집 기본 주기가 30분에서 10분으로 변경됐다. 원래 기본값과 변경 근거를 연결한다.",
+      "question": "수집 주기는 왜 10분이 됐지?",
+      "query": "수집 주기 10분 30분",
+      "view": "history"
+    },
+    {
+      "id": "collector-scope",
+      "split": "development",
+      "expected": "제품 기본 수집 범위는 전체 프로젝트지만 현재 검증 범위는 Agent Wiki로 제한한다. 기본과 현재 설정을 모순으로 병합하지 않는다.",
+      "question": "지금 어떤 프로젝트를 수집하지?",
+      "query": "수집 프로젝트 전체 제한",
+      "view": "current"
+    },
+    {
+      "id": "claude-disabled",
+      "split": "development",
+      "expected": "Claude 지원 개발과 현재 Claude 수집 전체 비활성을 구분한다. 지원 구현이 수집 활성화를 뜻하지 않는다.",
+      "question": "Claude도 지금 수집 중이야?",
+      "query": "Claude 클로드 수집 비활성",
+      "view": "current"
+    },
+    {
+      "id": "k3s-transition",
+      "split": "development",
+      "expected": "같은 VM 내 K3s 전환 결정과 이전 Compose 구성을 연결한다. 관리형 OKE나 다중 VM 도입으로 오인하지 않는다. 실제 배포 완료는 별도의 도구 근거가 필요하다.",
+      "question": "K3s로 바꾼 이유와 이전 구조는?",
+      "query": "K3s Compose VM",
+      "view": "history"
+    },
+    {
+      "id": "derived-rebuild",
+      "split": "development",
+      "expected": "L1을 유지하며 L2·L3를 재생성할 수 있다. 이전에 사용자가 승인한 일회성 전체 초기화와 상시 재생성 정책을 구분한다.",
+      "question": "지식을 초기화하면 원문도 사라지나?",
+      "query": "원문 지식 초기화 재생성",
+      "view": "current"
+    },
+    {
+      "id": "review-authority",
+      "split": "development",
+      "expected": "에이전트의 Skill·CLI를 통해 검토하며 가장 가까운 검토 완료 지식과 개념 단위로 비교한다. 정제 성공을 사용자 검토 완료로 올리지 않는다.",
+      "question": "지식 검토는 무엇과 비교하지?",
+      "query": "검토 완료 비교 CLI",
+      "view": "current"
+    },
+    {
+      "id": "desktop-only",
+      "split": "holdout",
+      "expected": "개인 Wiki 웹은 데스크톱 전용이며 모바일 대응을 요구하지 않는다.",
+      "question": "모바일 UI도 지원해야 하나?",
+      "query": "모바일 데스크톱",
+      "view": "current"
+    },
+    {
+      "id": "single-client",
+      "split": "holdout",
+      "expected": "사용자는 Client 하나의 연결을 원한다. Codex·Collector·관리용 3개 연결을 현재 권장 구조로 반환하지 않는다. 브라우저 연동 토큰의 구현 완료를 사용자 제안만으로 단정하지 않는다.",
+      "question": "Client 연결은 몇 개로 묶기로 했지?",
+      "query": "Client 연결 권한",
+      "view": "current"
+    }
+  ]
+}
