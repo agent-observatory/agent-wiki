@@ -771,6 +771,7 @@ export function registerKnowledge(
     const citations = [];
     for (const a of candidates) {
       const d = await detail(c, ws, a.id, a.revision);
+      if (view === "current" && d.supersededBy.length) continue;
       const selectedClaims = d.claims.filter(
         (claim: any) =>
           (view === "history" ||

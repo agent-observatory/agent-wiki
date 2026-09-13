@@ -109,7 +109,7 @@ export function registerQuery(
             traceId,
             stage,
             q ? hash(q) : null,
-            (r.query as any).view ?? null,
+            result.view ?? (r.query as any).view ?? null,
             size(),
             Date.now() - started,
             {
@@ -154,6 +154,14 @@ export function registerQuery(
       );
       const items: any[] = [];
       for (const a of expanded.items) {
+        const retired = (
+          await c.query(
+            "SELECT EXISTS(SELECT 1 FROM links l JOIN articles n ON n.workspace_id=l.workspace_id AND n.id=l.from_id WHERE l.workspace_id=$1 AND l.to_id=$2 AND l.relation='supersedes' AND n.deleted_at IS NULL) retired",
+            [ws, a.id],
+          )
+        ).rows[0].retired;
+        if (q.view !== "history" && retired) continue;
+
         const claims = (
           await c.query(
             `SELECT cl.*,${effectiveClaimState("cl")} AS state FROM claims cl WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 ORDER BY anchor`,
@@ -183,7 +191,7 @@ export function registerQuery(
             topic: a.topic_key ?? null,
             excerpt: cl.text.slice(0, 240),
             type: cl.type,
-            state: cl.state,
+            state: retired && cl.state === "current" ? "superseded" : cl.state,
             scope: cl.scope,
             subject: cl.subject,
             textTruncated: cl.text.length > 240,
