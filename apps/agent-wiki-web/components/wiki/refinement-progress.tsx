@@ -3,7 +3,6 @@ import { layerLabel } from "@/lib/layers";
 import { Database, ListChecks, FileCheck2, Clock3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "./status-badge";
-import { Progress } from "@/components/ui/progress";
 import { When } from "./common";
 
 export const waitingReasons: Record<string, string> = {
@@ -20,6 +19,15 @@ export const waitingReasons: Record<string, string> = {
 };
 
 export type RefinementProgressData = {
+  sessions: {
+    total: number;
+    current: number;
+    waiting: number;
+    attention: number;
+    records: number;
+    lastCollectedAt: string | null;
+    lastReflectedAt: string | null;
+  };
   summary: {
     total: number;
     completed: number;
@@ -43,8 +51,7 @@ export type RefinementProgressData = {
 };
 
 export function RefinementProgress({ data }: { data: RefinementProgressData }) {
-  const { summary: s, storage, schedule } = data;
-  const percent = s.total ? Math.floor((s.completed / s.total) * 100) : 0;
+  const { sessions, storage, schedule } = data;
   return (
     <section
       aria-label="원문에서 지식까지의 처리 현황"
@@ -64,9 +71,13 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              보관 조각 {storage.sources.toLocaleString()}개 · 검증 완료 업로드{" "}
-              {storage.uploads_completed.toLocaleString()}건 · 전송·검증 중{" "}
-              {storage.uploads_pending.toLocaleString()}건
+              {sessions.records.toLocaleString()}개 기록
+              {sessions.lastCollectedAt && (
+                <>
+                  {" "}
+                  · 마지막 수집 <When value={sessions.lastCollectedAt} />
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -77,21 +88,14 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               {layerLabel("L2")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
-              {s.completed.toLocaleString()}
+              {sessions.current.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                / {s.total.toLocaleString()}개 원문 조각
+                / {sessions.total.toLocaleString()}개 세션·문서
               </span>
             </p>
-            {s.total > 0 && (
-              <Progress
-                value={percent}
-                aria-label="원문 조각 처리율"
-                aria-valuetext={`${s.completed} / ${s.total} 원문 조각 처리`}
-              />
-            )}
             <p className="text-xs text-muted-foreground">
-              처리 완료 {percent}% · 누적 청크 반영{" "}
-              {s.chunks_done.toLocaleString()}개
+              최신 수집분 반영 완료 · 처리 대기{" "}
+              {sessions.waiting.toLocaleString()}개
             </p>
           </CardContent>
         </Card>
@@ -108,8 +112,13 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              정제 완료 {s.completed.toLocaleString()} /{" "}
-              {s.total.toLocaleString()}개 조각
+              {sessions.lastReflectedAt ? (
+                <>
+                  마지막 반영 <When value={sessions.lastReflectedAt} />
+                </>
+              ) : (
+                "아직 반영한 수집분이 없습니다."
+              )}
             </p>
           </CardContent>
         </Card>
@@ -123,12 +132,11 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           {waitingReasons[schedule.reason]}
         </span>
         <span className="text-muted-foreground">
-          미처리 원문 {(s.pending + s.running + s.failed).toLocaleString()}개
-          조각
+          미반영 세션·문서 {sessions.waiting.toLocaleString()}개
         </span>
-        {s.failed > 0 && (
+        {sessions.attention > 0 && (
           <StatusBadge status="failed">
-            확인 필요 {s.failed.toLocaleString()}
+            확인 필요 {sessions.attention.toLocaleString()}개 세션·문서
           </StatusBadge>
         )}
         {schedule.nextAttemptAt && (
@@ -138,15 +146,6 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
         )}
       </div>
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          {data.lastProgressAt ? (
-            <>
-              마지막 청크 반영 <When value={data.lastProgressAt} />
-            </>
-          ) : (
-            "아직 반영한 청크가 없습니다."
-          )}
-        </span>
         <span>
           15초마다 갱신 · <When value={data.checkedAt} />
         </span>

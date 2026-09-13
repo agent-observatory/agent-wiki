@@ -14,6 +14,7 @@ export function SourceList() {
   const query = useSearchParams();
   const { data, error } = useApi(
     `/api/workspaces/${workspaceId}/source-sessions?${query}`,
+    15000,
   );
   return (
     <>
@@ -42,8 +43,12 @@ export function SourceList() {
                 {s.name}
               </h2>
               <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground">
-                <span>{Number(s.event_count).toLocaleString()}개 기록</span>
-                <When value={s.created_at} compact />
+                <span title="사용자 발언·에이전트 응답·도구 호출·결과의 개수">
+                  {Number(s.event_count).toLocaleString()}개 기록
+                </span>
+                <span>
+                  마지막 수집 <When value={s.created_at} compact />
+                </span>
                 {s.masked && <Badge variant="outline">마스킹 보관본</Badge>}
               </div>
             </Link>
@@ -58,7 +63,7 @@ export function SourceDetail() {
   const { workspaceId, id } = useParams<{ workspaceId: string; id: string }>();
   const q = useSearchParams();
   const base = `/api/workspaces/${workspaceId}/source-records/${id}`;
-  const { data: s, error } = useApi(base + "/info");
+  const { data: s, error } = useApi(base + "/info", 15000);
   if (error) return <Failure error={error} />;
   if (!s) return <Loading />;
   return (

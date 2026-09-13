@@ -624,8 +624,8 @@ test("Curation groups sessions before pagination and pages only selected session
     ],
     [30, 12, 6, 6, 6, 6],
   );
-  assert.equal(session.chunks_done, 30);
-  assert.equal(session.chunks_total, 60);
+  assert.equal(session.state, "attention");
+  assert.equal(session.percent, null);
   const second = await get("/refinement-sessions?sessionsPage=2");
   assert.equal(second.items.length, 2);
   assert.equal(second.pagination.hasNext, false);

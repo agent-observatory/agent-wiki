@@ -1,4 +1,5 @@
 import { curationHeads } from "../../../packages/core/src/curation-queue.js";
+import { sessionProgress } from "./session-progress.js";
 import type { PoolClient } from "pg";
 import { decryptSecret, defaults } from "../../../packages/core/src/ai.js";
 import { modelGateKey } from "../../../packages/core/src/model-gate.js";
@@ -120,8 +121,27 @@ export async function refinementProgress(
       [ws],
     )
   ).rows[0].at;
+  const sessions = await sessionProgress(c, ws);
+  const sessionSummary = {
+    total: sessions.length,
+    current: sessions.filter((s) => s.state === "current").length,
+    waiting: sessions.filter((s) => s.state !== "current").length,
+    attention: sessions.filter((s) => s.state === "attention").length,
+    records: sessions.reduce((n, s) => n + s.records, 0),
+    lastCollectedAt:
+      sessions
+        .map((s) => s.collected_at)
+        .sort()
+        .at(-1) ?? null,
+    lastReflectedAt:
+      sessions
+        .flatMap((s) => (s.reflected_at ? [s.reflected_at] : []))
+        .sort()
+        .at(-1) ?? null,
+  };
   const now = new Date();
   return {
+    sessions: sessionSummary,
     summary,
     storage,
     lastProgressAt,

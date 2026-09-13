@@ -4,10 +4,30 @@ import { curationInput } from "./curation-input.js";
 import { sourceRoles, type SourceRole } from "./source-roles.js";
 import { ModelError } from "./ai.js";
 import { curationHeads } from "./curation-queue.js";
+import { randomUUID } from "node:crypto";
+
+// A user-visible pass fixes all currently received inputs for this session.
+// Small model batches stay bounded, but cannot absorb later collection increments.
+export async function captureCycle(c: PoolClient, ws: string, job: any) {
+  if (job.cycle_id) return job;
+  const cycle = randomUUID();
+  const result = await c.query(
+    `UPDATE refinement_jobs j SET cycle_id=$3,cycle_started_at=now()
+     FROM sources s, sources head
+     WHERE j.workspace_id=$1 AND s.workspace_id=$1 AND head.workspace_id=$1
+       AND s.id=j.source_id AND head.id=$2 AND s.deleted_at IS NULL
+       AND j.status<>'completed' AND j.cycle_id IS NULL
+       AND (s.id=head.id OR (s.kind='conversation' AND head.kind='conversation'
+         AND s.origin<>'' AND s.origin=head.origin)) RETURNING j.*`,
+    [ws, job.source_id, cycle],
+  );
+  return result.rows.find((row) => row.id === job.id) ?? job;
+}
 
 // Capture a bounded, immutable prefix. New arrivals belong to the next batch.
 // Per-source rows remain a coverage ledger; children are not runnable jobs.
 export async function captureBatch(c: PoolClient, ws: string, job: any) {
+  job = await captureCycle(c, ws, job);
   if (
     job.input_sources?.length ||
     job.chunk_plan ||
@@ -21,10 +41,10 @@ export async function captureBatch(c: PoolClient, ws: string, job: any) {
       `WITH ordered AS (${curationHeads})
     SELECT j.*,s.content_hash,s.line_count FROM ordered h
     JOIN refinement_jobs j ON j.id=h.id JOIN sources s ON s.id=j.source_id
-    WHERE s.workspace_id=$1 AND
+    WHERE s.workspace_id=$1 AND j.cycle_id=$3 AND
       (s.id=$2 OR (s.kind='conversation' AND (SELECT kind FROM sources WHERE id=$2 AND workspace_id=$1)='conversation' AND s.origin<>'' AND s.origin=(SELECT origin FROM sources WHERE id=$2 AND workspace_id=$1)))
     ORDER BY h.queue_position LIMIT 32 FOR UPDATE OF j`,
-      [ws, job.source_id],
+      [ws, job.source_id, job.cycle_id],
     )
   ).rows;
   const selected: any[] = [];
