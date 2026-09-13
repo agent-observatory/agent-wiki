@@ -1,7 +1,7 @@
 {
-  "observedAt": "2026-09-13T00:12:22.062216+00:00",
-  "status": "partial",
-  "scope": "Remote NVIDIA Flash transport controls; no knowledge publication",
+  "observedAt": "2026-09-13T00:17:14.365505+00:00",
+  "status": "completed_subset",
+  "scope": "Four completed remote transport controls; remaining cases stopped after output budget setting changed. No knowledge publication.",
   "results": [
     {
       "at": "2026-09-12T23:57:00.027Z",
@@ -85,6 +85,33 @@
       "error": "HTTP_504",
       "durationMs": 302087,
       "cooldownSeconds": 133,
+      "writesKnowledge": false
+    },
+    {
+      "at": "2026-09-13T00:16:37.044Z",
+      "type": "result",
+      "case": "full-original-wire-16384",
+      "model": "deepseek-ai/deepseek-v4-flash-0731",
+      "maxTokens": 16384,
+      "stream": false,
+      "messagesBytes": 5127,
+      "requests": 1,
+      "headersMs": 302084,
+      "firstByteMs": null,
+      "firstContentMs": null,
+      "firstReasoningMs": null,
+      "responseBytes": 0,
+      "contentChars": 0,
+      "reasoningChars": 0,
+      "finishReason": null,
+      "usage": null,
+      "complete": false,
+      "jsonValid": false,
+      "status": 504,
+      "retryAfter": null,
+      "error": "HTTP_504",
+      "durationMs": 302084,
+      "cooldownSeconds": 123,
       "writesKnowledge": false
     }
   ]
