@@ -115,7 +115,7 @@ test("successful chunks survive a later failure and resume at the failed chunk w
       c.query("SELECT * FROM refinement_jobs WHERE id=$1", [job]),
     )
   ).rows[0];
-  assert.equal(row.status, "failed");
+  assert.equal(row.status, "pending");
   assert.equal(row.chunk_index, 2);
   assert.equal(row.chunk_results.length, 2);
   const failedRun = (
@@ -124,16 +124,14 @@ test("successful chunks survive a later failure and resume at the failed chunk w
     )
   ).rows[0];
   assert.equal(failedRun.diagnostics.stage, "validate");
-  assert.equal(failedRun.diagnostics.retryable, false);
-  assert.equal(failedRun.diagnostics.retryAt, null);
+  assert.equal(failedRun.diagnostics.retryable, true);
+  assert.ok(new Date(failedRun.diagnostics.retryAt).getTime() > Date.now());
+  assert.equal(await runOne(owner, new AbortController().signal, model), false);
   assert.ok(failedRun.diagnostics.durationMs >= 0);
   assert.ok(failedRun.diagnostics.requestedAt);
 
   await tx(owner, ws, (c) =>
-    c.query(
-      "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now() WHERE id=$1",
-      [job],
-    ),
+    c.query("UPDATE refinement_jobs SET available_at=now() WHERE id=$1", [job]),
   );
   await releaseGate();
   while (await runOne(owner, new AbortController().signal, model)) {

@@ -879,7 +879,7 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
   assert.equal(await getSource(state.source.object_key), raw);
 });
 
-test("invalid model quotations are regenerated after delay without blocking a session permanently or replaying rejected output", async () => {
+test("invalid JSON, quotations and relation scope regenerate without replaying rejected output or blocking a session permanently", async () => {
   const settings = (await request("GET", "/ai-settings")).json();
   await request("PUT", "/ai-settings", {
     config: { ...defaults, enabled: true, dailyCalls: null },
@@ -917,16 +917,19 @@ test("invalid model quotations are regenerated after delay without blocking a se
   const model = async (_config: unknown, _secret: string, messages: any) => {
     calls++;
     const input = JSON.parse(messages[1].content);
-    if (calls === 1) assert.equal(input.evidenceRetry, undefined);
-    else {
-      assert.equal(input.evidenceRetry.reason, "EVIDENCE_MISMATCH");
-      assert.ok(input.evidenceRetry.previousRunId);
-      assert.deepEqual(input.evidenceRetry.rejectedEvidence, [0]);
-      assert.equal(
-        input.evidenceRetry.rejectedQuotes[0].quote,
-        "단일 서버로 운영하기로 결정했다.",
-      );
+    if (calls === 1) {
+      assert.equal(input.validationRetry, undefined);
+      throw new ModelError("AI_INVALID_JSON");
     }
+    assert.equal(
+      input.validationRetry.reason,
+      ["", "", "AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"][
+        calls
+      ],
+    );
+    assert.ok(input.validationRetry.previousRunId);
+    if (calls === 3)
+      assert.deepEqual(input.validationRetry.rejectedEvidence, [0]);
     return {
       output: {
         changes: [
@@ -935,18 +938,37 @@ test("invalid model quotations are regenerated after delay without blocking a se
             title: "합성 인용 재생성",
             content: quote,
             kind: "memory",
+            claimRelations:
+              calls === 3
+                ? [
+                    {
+                      anchor: "decision",
+                      relation: "supports",
+                      target: {
+                        articleId: input.related[0].id,
+                        revision: input.related[0].revision,
+                        anchor: input.related[0].anchor,
+                      },
+                      evidence: [
+                        { sourceId, revision: 1, lines: [1, 1], quote },
+                      ],
+                    },
+                  ]
+                : [],
             claims: [
               {
                 anchor: "decision",
                 text: quote,
                 type: "unconfirmed",
+                subject: "different-subject",
+                scope: "different-scope",
                 evidence: [
                   {
                     sourceId,
                     revision: 1,
                     lines: [1, 1],
                     quote:
-                      calls < 3 ? "단일 서버로 운영하기로 결정했다." : quote,
+                      calls === 2 ? "단일 서버로 운영하기로 결정했다." : quote,
                   },
                 ],
               },
@@ -957,7 +979,7 @@ test("invalid model quotations are regenerated after delay without blocking a se
       usage: { total_tokens: 10 },
     };
   };
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     assert.equal(
       await runOne(owner, new AbortController().signal, model),
       true,
@@ -985,7 +1007,10 @@ test("invalid model quotations are regenerated after delay without blocking a se
       ).rows[0],
     }));
     assert.equal(state.job.status, "pending");
-    assert.equal(state.job.error_code, "EVIDENCE_MISMATCH");
+    assert.equal(
+      state.job.error_code,
+      ["AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"][attempt],
+    );
     assert.equal(
       state.job.output,
       null,
@@ -997,7 +1022,7 @@ test("invalid model quotations are regenerated after delay without blocking a se
     assert.equal(state.runs.at(-1).diagnostics.retryable, true);
     assert.equal(
       state.runs.at(-1).diagnostics.retryKind,
-      "evidence_regeneration",
+      attempt === 1 ? "evidence_regeneration" : "output_regeneration",
     );
     assert.ok(
       state.runs.at(-1).diagnostics.retryDelaySeconds >= 120 &&
@@ -1023,7 +1048,7 @@ test("invalid model quotations are regenerated after delay without blocking a se
     );
   }
   assert.equal(await runOne(owner, new AbortController().signal, model), true);
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
   const final = await tx(owner, ws, async (c) => ({
     job: (
       await c.query(
@@ -1046,10 +1071,10 @@ test("invalid model quotations are regenerated after delay without blocking a se
   assert.deepEqual(final.evidence, [{ quote: raw }]);
   assert.deepEqual(
     final.runs.map((r) => r.status),
-    ["failed", "failed", "completed"],
+    ["failed", "failed", "failed", "completed"],
   );
   assert.equal(
-    final.runs[0].output.changes[0].claims[0].evidence[0].quote,
+    final.runs[1].output.changes[0].claims[0].evidence[0].quote,
     "단일 서버로 운영하기로 결정했다.",
   );
 });
