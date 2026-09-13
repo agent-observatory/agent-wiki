@@ -215,7 +215,7 @@ def daily_message(s, test=False):
     blocks = [header(('🧪 [시험 전송] ' if test else '📊 ') + 'Agent Wiki · 비용과 사용량'),
               {'type': 'section', 'fields': [
                   {'type': 'mrkdwn', 'text': f"*이번 달 비용*\n{money(costs)}"},
-                  {'type': 'mrkdwn', 'text': f"*판정 · 확인된 항목 기준*\n{status}"}]},
+                  {'type': 'mrkdwn', 'text': f"*상태*\n{status}"}]},
               {'type': 'divider'}, section('*사용량 / 기준 한도*')]
     fields = []
     for c in ('cpu', 'memory', 'block', 'object', 'requests'):
@@ -224,9 +224,6 @@ def daily_message(s, test=False):
                     if used is not None else f'미집계 / 기준 {amount(LIMITS[c])} {BUDGET_UNITS[c]}')
         fields.append({'type':'mrkdwn', 'text':f'*{BUDGET_NAMES[c]}*\n{traffic_light(used, LIMITS[c])} · {quantity}'})
     for i in range(0, len(fields), 2): blocks.append({'type':'section', 'fields':fields[i:i+2]})
-    blocks.append({'type':'context', 'elements':[{'type':'mrkdwn','text':
-        '🟢 80% 미만 · 🟡 80% 이상 · 🔴 100% 이상/비용 발생 · ⚪ 미확인\n'
-        'A1은 보수적 월 예산. 볼륨은 Osaka 루트 구획, 원문은 Wiki Standard 버킷의 근사 용량.'}]})
     blocks.append({'type':'divider'})
     current, before = group_usage(s['comparison']), group_usage(s['baseline'])
     complete = full_day_keys(s['comparison']) & full_day_keys(s['baseline'])
@@ -237,24 +234,22 @@ def daily_message(s, test=False):
         trend = ('\n증감 ' + delta(current[k], before[k])) if k in complete else ''
         fields.append({'type':'mrkdwn', 'text': f'*{escaped(metric_name(k))}*\n월 {escaped(display_quantity(usage[k],k[2]))}{escaped(trend)}'})
     if fields:
-        blocks.append(section('*월 누적 참고 · GB·월은 현재 용량이 아님*'))
+        blocks.append(section('*월 누적 사용량*'))
         for i in range(0, len(fields), 2): blocks.append({'type':'section', 'fields':fields[i:i+2]})
 
     if len(ordered)>6: blocks.append(section(f'그 외 {len(ordered)-6}개 항목은 OCI에서 확인'))
     if complete:
-        comparison = f"증감: {s['comparison_date']} ↔ {s['baseline_date']} (UTC), 24시간 자료가 있는 항목만 비교"
-    else: comparison = '증감 비교 대기 · 비교할 이틀의 시간별 자료가 아직 부족해요.'
+        comparison = f"증감: {s['comparison_date']} ↔ {s['baseline_date']} (UTC)"
+    else: comparison = '증감 비교 대기'
     blocks += [{'type':'divider'}, section(f"*어제 {s['yesterday_date']} · 잠정*  {money(cost_totals(s['yesterday_cost']))}\n{comparison}"),
-               {'type':'context', 'elements':[{'type':'mrkdwn','text':
-                f"조회 {s['checked_at']} · 집계 날짜 UTC · 최대 48시간 지연\n미집계는 0이 아니며, 녹색은 표시한 기준의 여유이며 전체 과금 0을 보장하지 않습니다."}]}, links()]
+               links()]
     return {'text': f"{'[시험 전송] ' if test else ''}Agent Wiki 비용·사용량: {money(costs)} · {status}", 'blocks':blocks}
 
 
 def alert_message(alerts, checked_at, test=False):
     blocks = [header(('🧪 [테스트] ' if test else '⚠️ ') + 'Agent Wiki · 비용·사용량 확인 필요')]
     for _, _, title, detail in alerts[:8]: blocks.append(section(f'*{escaped(title)}*\n{escaped(detail)}'))
-    blocks += [section('같은 값은 반복 알리지 않습니다. 비용·사용량 집계에 지연이 있으므로 실시간 차단 기능은 아닙니다.'),
-               {'type': 'context', 'elements': [{'type': 'mrkdwn', 'text': '조회 '+checked_at}]}, links()]
+    blocks.append(links())
     return {'text': ('[테스트] ' if test else '') + 'Agent Wiki 비용·사용량 이상 '+str(len(alerts))+'건', 'blocks': blocks}
 
 
