@@ -1,3 +1,4 @@
+import { refinementProgress } from "../apps/agent-wiki-api/src/refinement-progress.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -5,7 +6,7 @@ import pg from "pg";
 import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 import { setTimeout as sleep } from "node:timers/promises";
 import { buildApp } from "../apps/agent-wiki-api/src/app.js";
-import { pool } from "../packages/core/src/db.js";
+import { pool, tx } from "../packages/core/src/db.js";
 import { hash } from "../packages/core/src/storage.js";
 import { defaults, decryptSecret } from "../packages/core/src/ai.js";
 
@@ -266,4 +267,15 @@ test("five pending sessions can run concurrently while a sixth stays queued", as
   assert.equal(sixth, true);
   assert.equal(entered, 6);
   await put({ ...byok, enabled: false });
+});
+
+test("progress applies defaults when saved settings predate BYOK limits", async () => {
+  await admin.query(
+    "UPDATE ai_settings SET config=config-'requestsPerMinute'-'concurrency'-'retryDelaySeconds' WHERE workspace_id=$1",
+    [ws],
+  );
+  const progress = await tx(owner, ws, (c) => refinementProgress(c, ws, 0));
+  assert.equal(progress.control.requestsPerMinute, 20);
+  assert.equal(progress.control.concurrency, 1);
+  assert.equal(progress.control.enabled, false);
 });

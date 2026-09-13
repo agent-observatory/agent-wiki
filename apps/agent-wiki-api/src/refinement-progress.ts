@@ -1,7 +1,11 @@
 import { curationHeads } from "../../../packages/core/src/curation-queue.js";
 import { sessionProgress } from "./session-progress.js";
 import type { PoolClient } from "pg";
-import { decryptSecret, defaults } from "../../../packages/core/src/ai.js";
+import {
+  aiConfig,
+  decryptSecret,
+  defaults,
+} from "../../../packages/core/src/ai.js";
 import { modelGateKey } from "../../../packages/core/src/model-gate.js";
 
 export function refinementSchedule(input: {
@@ -96,7 +100,7 @@ export async function refinementProgress(
       [ws],
     )
   ).rows[0];
-  const config = settings?.config ?? defaults;
+  const config = aiConfig.parse(settings?.config ?? defaults);
   let cooldown = null;
   let hasKey = !!settings?.encrypted_key;
   if (hasKey) {
