@@ -63,3 +63,57 @@ test("session metadata and split base instructions are not knowledge input", () 
     { start: 5, end: 5, reason: "agent_instructions" },
   ]);
 });
+
+test("explicit developer/system messages are omitted, including nested snapshots, but user quotations and unknown roles remain", () => {
+  const field = (event: number, path: unknown[], text: string) =>
+    JSON.stringify({ event, field: JSON.stringify(path), text });
+  const lines = [
+    field(
+      2,
+      ["payload", "content", 0, "text"],
+      "runtime instruction fragment one",
+    ),
+    field(2, ["payload", "role"], "developer"),
+    field(
+      2,
+      ["payload", "content", 0, "text"],
+      "runtime instruction fragment two",
+    ),
+    field(3, ["payload", "role"], "user"),
+    field(
+      3,
+      ["payload", "content", 0, "text"],
+      "developer 지침에 관해 질문할게",
+    ),
+    field(4, ["payload", "replacement_history", 0, "role"], "system"),
+    field(
+      4,
+      ["payload", "replacement_history", 0, "content", 0, "text"],
+      "nested instruction",
+    ),
+    field(4, ["payload", "replacement_history", 1, "role"], "user"),
+    field(
+      4,
+      ["payload", "replacement_history", 1, "content", 0, "text"],
+      "지침 필터를 고치자",
+    ),
+    field(5, ["payload", "content", 0, "text"], "unknown author retained"),
+  ];
+  const result = curationInput(lines.join("\n"));
+  assert.deepEqual(result.text.split("\n"), [
+    "",
+    "",
+    "",
+    lines[3],
+    lines[4],
+    "",
+    "",
+    lines[7],
+    lines[8],
+    lines[9],
+  ]);
+  assert.deepEqual(result.omitted, [
+    { start: 1, end: 3, reason: "agent_instructions" },
+    { start: 6, end: 7, reason: "agent_instructions" },
+  ]);
+});

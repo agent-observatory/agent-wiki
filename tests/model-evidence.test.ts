@@ -125,3 +125,49 @@ test("evidence diagnostics count exact source positions without treating paraphr
   });
   assert.equal(input[1].quote, "paraphrased");
 });
+
+test("anchors verbatim quotations across contiguous transport segments without joining different fields or gaps", () => {
+  const segment = (
+    n: number,
+    text: string,
+    event = 2,
+    field = '["payload","content",0,"text"]',
+  ) => JSON.stringify({ event, field, segment: n, text });
+  const rows = [
+    segment(5, "Before: preserve the user's notifi"),
+    segment(6, "cation intent. After."),
+  ];
+  const input = { ...source, start: 95, end: 96, text: rows.join("\n") };
+  const quote = "preserve the user's notification intent.";
+  const ev = { ...evidence, quote, lines: [95, 95] as [number, number] };
+  assert.deepEqual(anchorModelEvidence(ev, input), {
+    ...ev,
+    lines: [95, 96],
+    quote: rows.join("\n"),
+  });
+  for (const second of [
+    segment(7, "cation intent. After."),
+    segment(6, "cation intent. After.", 3),
+    segment(6, "cation intent. After.", 2, '["other"]'),
+  ]) {
+    assert.equal(
+      anchorModelEvidence(ev, { ...input, text: rows[0] + "\n" + second }),
+      null,
+    );
+  }
+  assert.equal(
+    anchorModelEvidence(
+      { ...ev, quote: "preserve the user's notification intention." },
+      input,
+    ),
+    null,
+  );
+  assert.equal(
+    anchorModelEvidence(ev, {
+      ...input,
+      end: 97,
+      text: rows[0] + "\n\n" + rows[1],
+    }),
+    null,
+  );
+});

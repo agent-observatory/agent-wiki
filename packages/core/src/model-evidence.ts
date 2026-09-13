@@ -96,33 +96,90 @@ export function anchorModelEvidence(
       .join("\n") === evidence.quote
   )
     return null;
-  let match: Evidence | null = null;
+  type Part = { row: number; start: number; end: number };
+  type Unit = {
+    text: string;
+    parts: Part[];
+    event?: string | number;
+    field?: string;
+    segment?: number;
+  };
+  const units: Unit[] = [];
   for (
     let index = 0;
     index < rows.length && source.start + index <= source.end;
     index++
   ) {
     const raw = rows[index];
-    let text = raw;
-    if (raw !== evidence.quote) {
-      try {
-        const row = JSON.parse(raw);
-        if (
-          !["string", "number"].includes(typeof row.event) ||
-          typeof row.text !== "string" ||
-          !Array.isArray(JSON.parse(row.field))
-        )
-          continue;
-        text = row.text;
-      } catch {
+    // Keep support for a full raw row even if its supplied position was wrong.
+    if (raw === evidence.quote)
+      units.push({
+        text: raw,
+        parts: [{ row: index, start: 0, end: raw.length }],
+      });
+    try {
+      const row = JSON.parse(raw),
+        field = JSON.parse(row.field);
+      if (
+        !["string", "number"].includes(typeof row.event) ||
+        typeof row.text !== "string" ||
+        !Array.isArray(field)
+      )
         continue;
+      const segment =
+        Number.isSafeInteger(row.segment) && row.segment >= 0
+          ? (row.segment as number)
+          : undefined;
+      const previous = units.at(-1);
+      // Transport splits one JSON field without inserting separators. Only
+      // adjacent rows of that exact event/field with consecutive segment IDs
+      // are a continuation. Blank, missing or other-field rows break the run.
+      if (
+        segment !== undefined &&
+        previous?.segment !== undefined &&
+        previous.segment + 1 === segment &&
+        previous.event === row.event &&
+        previous.field === JSON.stringify(field) &&
+        previous.parts.at(-1)!.row === index - 1
+      ) {
+        previous.parts.push({
+          row: index,
+          start: previous.text.length,
+          end: previous.text.length + row.text.length,
+        });
+        previous.text += row.text;
+        previous.segment = segment;
+      } else {
+        units.push({
+          text: row.text,
+          parts: [{ row: index, start: 0, end: row.text.length }],
+          event: row.event,
+          field: JSON.stringify(field),
+          segment,
+        });
       }
+    } catch {
+      /* Non-field rows remain eligible only for an exact raw-row quote. */
     }
-    const position = text.indexOf(evidence.quote);
+  }
+  let match: Evidence | null = null;
+  for (const unit of units) {
+    const position = unit.text.indexOf(evidence.quote);
     if (position < 0) continue;
-    if (match || text.indexOf(evidence.quote, position + 1) >= 0) return null;
-    const line = source.start + index;
-    match = { ...evidence, lines: [line, line], quote: raw };
+    if (match || unit.text.indexOf(evidence.quote, position + 1) >= 0)
+      return null;
+    const first = unit.parts.find(
+      (p) => p.start <= position && position < p.end,
+    )!;
+    const lastPosition = position + evidence.quote.length - 1;
+    const last = unit.parts.find(
+      (p) => p.start <= lastPosition && lastPosition < p.end,
+    )!;
+    match = {
+      ...evidence,
+      lines: [source.start + first.row, source.start + last.row],
+      quote: rows.slice(first.row, last.row + 1).join("\n"),
+    };
   }
   return match;
 }

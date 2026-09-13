@@ -658,7 +658,7 @@ test("Curation groups sessions before pagination and pages only selected session
   assert.equal(changed.total, 29);
 });
 
-test("Worker anchors a unique decoded quotation while preserving raw model output and L1", async () => {
+test("Worker anchors a quotation across consecutive transport fragments while preserving model output and L1", async () => {
   const current = (await request("GET", "/ai-settings")).json();
   await request("PUT", "/ai-settings", {
     config: { ...defaults, enabled: true, dailyCalls: null },
@@ -673,17 +673,22 @@ test("Worker anchors a unique decoded quotation while preserving raw model outpu
     [owner],
   );
   const quote = "단일 VM을 사용한다.";
-  const raw = JSON.stringify({
-    event: 1,
-    field: '["payload","content",0,"text"]',
-    text: quote,
-  });
+  const raw = [quote.slice(0, 7), quote.slice(7)]
+    .map((text, segment) =>
+      JSON.stringify({
+        event: 1,
+        field: '["payload","content",0,"text"]',
+        segment,
+        text,
+      }),
+    )
+    .join("\n");
   let sourceId = randomUUID();
   const objectKey = ws + "/" + hash(raw) + ".txt.gz";
   await putSource(objectKey, raw);
   await tx(owner, ws, async (c) => {
     await c.query(
-      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'Exact anchor','conversation','codex:exact-quote-anchor',$3,$3,$4,1,$5,true)",
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'Exact anchor','conversation','codex:exact-quote-anchor',$3,$3,$4,2,$5,true)",
       [sourceId, ws, hash(raw), objectKey, randomUUID()],
     );
     await c.query(
@@ -752,7 +757,7 @@ test("Worker anchors a unique decoded quotation while preserving raw model outpu
     [10],
   );
   assert.deepEqual(state.evidence, [
-    { line_start: 1, line_end: 1, quote: raw },
+    { line_start: 1, line_end: 2, quote: raw },
   ]);
   assert.equal(await getSource(state.source.object_key), raw);
 });

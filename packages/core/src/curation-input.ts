@@ -1,17 +1,47 @@
-export const CURATION_INPUT_VERSION = "text-fields-2";
+export const CURATION_INPUT_VERSION = "text-fields-3";
 type Omission = {
   start: number;
   end: number;
   reason: "encrypted" | "agent_instructions" | "session_metadata";
 };
+function messageScope(path: unknown[]) {
+  if (
+    path[0] === "payload" &&
+    path[1] === "replacement_history" &&
+    typeof path[2] === "number"
+  )
+    return path.slice(0, 3);
+  if (path[0] === "payload" && path[1] === "item") return path.slice(0, 2);
+  return [];
+}
 // Keep absolute source line numbers. Only known transport fields are omitted;
 // the same words inside a conversation remain ordinary source text.
 export function curationInput(original: string) {
   const originalLines = original.split("\n");
   const metadataEvents = new Set<string | number>();
+  const messageRoles = new Map<string, Set<string>>();
   for (const line of originalLines) {
     try {
-      const row = JSON.parse(line);
+      const row = JSON.parse(line),
+        path = JSON.parse(row.field);
+      if (
+        ["string", "number"].includes(typeof row.event) &&
+        Array.isArray(path)
+      ) {
+        const scope = messageScope(path),
+          rolePath = JSON.stringify(path.slice(scope.length));
+        if (
+          ['["role"]', '["payload","role"]', '["message","role"]'].includes(
+            rolePath,
+          ) &&
+          typeof row.text === "string"
+        ) {
+          const id = JSON.stringify([row.event, scope]);
+          const roles = messageRoles.get(id) ?? new Set<string>();
+          roles.add(row.text);
+          messageRoles.set(id, roles);
+        }
+      }
       if (
         ["string", "number"].includes(typeof row.event) &&
         JSON.stringify(JSON.parse(row.field)) === '["type"]' &&
@@ -33,6 +63,11 @@ export function curationInput(original: string) {
       )
         return line;
       const key = JSON.stringify(path);
+      const roles = messageRoles.get(
+        JSON.stringify([row.event, messageScope(path)]),
+      );
+      if (roles?.size === 1 && (roles.has("developer") || roles.has("system")))
+        reason = "agent_instructions";
       if (metadataEvents.has(row.event)) reason = "session_metadata";
       if (key === '["payload","encrypted_content"]') reason = "encrypted";
       if (
