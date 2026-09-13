@@ -526,6 +526,14 @@ function AutomationContent() {
                             ` · HTTP 요청 ${r.diagnostics.httpRequests}회`}
                         </p>
                       )}
+                      {r.diagnostics?.evidenceValidation?.checked > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          원문 인용 {r.diagnostics.evidenceValidation.checked}개
+                          중 {r.diagnostics.evidenceValidation.matched}개 일치
+                          {r.diagnostics.evidenceValidation.mismatched > 0 &&
+                            ` · 불일치 ${r.diagnostics.evidenceValidation.mismatched}개`}
+                        </p>
+                      )}
                       {r.error_code && (
                         <p className="text-xs mt-1 break-all">
                           {stages[r.diagnostics?.stage] ?? "단계 미집계"} ·{" "}

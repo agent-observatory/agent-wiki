@@ -742,6 +742,11 @@ test("Worker anchors a unique decoded quotation while preserving raw model outpu
   }));
   assert.equal(state.run.status, "completed", state.run.error_code);
   assert.equal(state.run.diagnostics.anchoredEvidence, 1);
+  assert.deepEqual(state.run.diagnostics.evidenceValidation, {
+    checked: 1,
+    matched: 1,
+    mismatched: 0,
+  });
   assert.deepEqual(
     state.run.output.changes[0].claims[0].evidence[0].lines,
     [10],

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   anchorModelEvidence,
   normalizeModelEvidence,
+  summarizeModelEvidence,
 } from "../packages/core/src/model-evidence.js";
 
 const record = (text: string) =>
@@ -97,4 +98,30 @@ test("only positive single-row evidence is normalized and the original response 
   assert.deepEqual(input.changes[0].claims[0].evidence[0].lines, [163]);
   for (const value of [null, [], { changes: [null] }])
     assert.deepEqual(normalizeModelEvidence(value), value);
+});
+
+test("evidence diagnostics count exact source positions without treating paraphrases or foreign sources as matches", () => {
+  const valid = {
+    ...evidence,
+    lines: [160, 160] as [number, number],
+    quote: raw,
+  };
+  const input = [
+    valid,
+    { ...valid, quote: "paraphrased" },
+    { ...valid, sourceId: "other" },
+    { ...valid, revision: 2 },
+    { ...valid, lines: [159, 159] as [number, number] },
+  ];
+  assert.deepEqual(summarizeModelEvidence(input, source), {
+    checked: 5,
+    matched: 1,
+    mismatched: 4,
+  });
+  assert.deepEqual(summarizeModelEvidence([], source), {
+    checked: 0,
+    matched: 0,
+    mismatched: 0,
+  });
+  assert.equal(input[1].quote, "paraphrased");
 });

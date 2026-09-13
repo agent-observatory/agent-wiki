@@ -20,6 +20,7 @@ import { normalizeModelIdentifiers } from "../../../packages/core/src/model-iden
 import {
   anchorModelEvidence,
   normalizeModelEvidence,
+  summarizeModelEvidence,
 } from "../../../packages/core/src/model-evidence.js";
 import { writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -323,6 +324,15 @@ export async function runOne(
                 Number(diagnostics.anchoredEvidence ?? 0) + 1;
             }
           }
+        }
+        diagnostics.evidenceValidation = summarizeModelEvidence(
+          result.changes.flatMap((change) => [
+            ...change.claims.flatMap((claim) => claim.evidence),
+            ...change.claimRelations.flatMap((relation) => relation.evidence),
+          ]),
+          input.source,
+        );
+        for (const change of result.changes) {
           for (const claim of change.claims)
             if (claim.type === "unconfirmed") claim.state = "unconfirmed";
           if (

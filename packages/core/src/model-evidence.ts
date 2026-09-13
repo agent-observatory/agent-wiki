@@ -12,6 +12,28 @@ type Source = {
   text: string;
 };
 
+// Counts exact positions and quotations, not whether a claim is true.
+export function summarizeModelEvidence(evidence: Evidence[], source: Source) {
+  const rows = source.text.split("\n");
+  const matched = evidence.filter(
+    (e) =>
+      e.sourceId === source.id &&
+      e.revision === source.revision &&
+      e.lines[0] >= source.start &&
+      e.lines[1] <= source.end &&
+      e.lines[1] >= e.lines[0] &&
+      e.quote.trim().length > 0 &&
+      rows
+        .slice(e.lines[0] - source.start, e.lines[1] - source.start + 1)
+        .join("\n") === e.quote,
+  ).length;
+  return {
+    checked: evidence.length,
+    matched,
+    mismatched: evidence.length - matched,
+  };
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
