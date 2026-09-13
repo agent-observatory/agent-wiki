@@ -54,4 +54,4 @@ k3s kubectl -n cert-manager set resources deployment --all --requests=cpu=20m,me
 for deployment in cert-manager cert-manager-cainjector cert-manager-webhook; do
  k3s kubectl -n cert-manager rollout status deployment/"$deployment" --timeout=180s
 done
-printf 'K3s control plane ready; application cutover has not started.\n'
+printf 'K3s control plane ready.\n'

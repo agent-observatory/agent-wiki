@@ -43,9 +43,10 @@ k apply -f "$root/rendered/gateway.json"
 for attempt in $(seq 1 90); do k -n kube-system get deployment agent-wiki-gateway >/dev/null 2>&1 && break; sleep 2; done
 k -n kube-system rollout status deployment/agent-wiki-gateway --timeout=180s
 k apply -f "$root/rendered/routing.json"
+k apply -f "$root/rendered/certificate.json"
+k -n agent-wiki wait --for=condition=Ready certificate/agent-wiki-tls --timeout=300s
 for attempt in $(seq 1 30); do curl -fsS --max-time 5 "https://$domain/readyz" >/dev/null 2>&1 && break; sleep 2; done
 curl -fsS --max-time 15 "https://$domain/readyz" >/dev/null
-k apply -f "$root/rendered/certificate.json"
 systemctl disable agent-wiki.service
 # Disable legacy restart policies until the stopped containers are removed.
 for name in agent-wiki-web agent-wiki-worker agent-wiki-api agent-wiki-db agent-wiki-gateway; do docker update --restart=no "$name" >/dev/null; done

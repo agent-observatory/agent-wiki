@@ -15,11 +15,4 @@ if len(sys.argv)>1:
  token=sys.stdin.readline().strip()
  if not token:raise SystemExit('Missing registry credential')
  secret('ghcr',{'.dockerconfigjson':json.dumps({'auths':{'ghcr.io':{'auth':base64.b64encode((sys.argv[1]+':'+token).encode()).decode()}}})},'kubernetes.io/dockerconfigjson')
-# Reuse the valid Caddy certificate for an uninterrupted TLS handoff, only once.
-if subprocess.run(['k3s','kubectl','-n','agent-wiki','get','secret','agent-wiki-tls'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
- domain=runtime['DOMAIN']
- certs=list(Path('/srv/agent-wiki/data/caddy').glob('**/certificates/*/'+domain+'/'+domain+'.crt'))
- if len(certs)!=1:raise SystemExit('Expected one existing domain certificate')
- cert=certs[0];key=cert.with_suffix('.key')
- secret('agent-wiki-tls',{'tls.crt':cert.read_bytes(),'tls.key':key.read_bytes()},'kubernetes.io/tls')
 print('Existing runtime secrets installed; values withheld.')
