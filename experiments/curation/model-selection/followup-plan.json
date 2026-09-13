@@ -1,0 +1,17 @@
+{
+  "frozenBeforeFollowup": true,
+  "candidates": [
+    "qwen3.8-max",
+    "qwen3.8-flash"
+  ],
+  "reason": "Max had best verification semantics on manual inspection but invalid JSON; Flash had 10/10 action labels and valid JSON but false verification. DeepSeek had invalid JSON and false verification, 3.7 had weaker labels. No repaired response is counted as valid.",
+  "calls": 2,
+  "inputTarget": 30000,
+  "inputConstruction": "Unrelated synthetic reference records before the unchanged 10 cases. This tests distraction under long input, not exhaustive extraction or distant-source integration.",
+  "response_format": {
+    "type": "json_object"
+  },
+  "thinking": false,
+  "goldChanges": false,
+  "comparisonLimit": "Both context size and response format change from the small pass. Between the two finalists they are identical; cannot isolate length or JSON-mode effects."
+}

@@ -26,15 +26,15 @@ if(variant==='large') {
  for(let n=0;;n++) {
   const next={session:`unrelated-${n}`,role:n%3?'user':'assistant',text:`독립 프로젝트 ${n}: 로컬에서는 SQLite, 배포에서는 PostgreSQL을 검토했다. 아직 도입 확정은 아니며 취소된 실험도 있다. 연결 점검은 SELECT ${n} AS sample; 결과를 읽을 뿐이다. 이 프로젝트 결정은 Agent Wiki에 적용하지 않는다. 임시 기록 ${n%17}.`};
   reference.push(next);
-  const candidate=JSON.stringify({cases:cases.slice(0,4),reference,remainingCases:cases.slice(4)});
+  const candidate=JSON.stringify({reference,cases});
   if(tokenCount(prompt)+tokenCount(candidate)+128>30000){reference.pop();break;}
  }
- user=JSON.stringify({cases:cases.slice(0,4),reference,remainingCases:cases.slice(4)});
+ user=JSON.stringify({reference,cases});
 }
-const body={model,enable_thinking:false,max_tokens:plan.maxOutputTokens,messages:[{role:'system',content:prompt},{role:'user',content:user}]};
+const body={model,enable_thinking:false,max_tokens:plan.maxOutputTokens,...(variant==='large'?{response_format:{type:'json_object'}}:{}),messages:[{role:'system',content:prompt},{role:'user',content:user}]};
 const inputId=variant==='small'?'input-small.json':'input-large.json';
 await writeFile(root+inputId,JSON.stringify({messages:body.messages},null,2)+'\n');
-const run={model,variant,startedAt:new Date().toISOString(),inputHash:sha(user),estimatedInputTokens:tokenCount(prompt)+tokenCount(user)+128,requestBytes:Buffer.byteLength(JSON.stringify(body)),settings:{enable_thinking:false,max_tokens:plan.maxOutputTokens},status:'started'};
+const run={model,variant,startedAt:new Date().toISOString(),inputHash:sha(user),estimatedInputTokens:tokenCount(prompt)+tokenCount(user)+128,requestBytes:Buffer.byteLength(JSON.stringify(body)),settings:{enable_thinking:false,max_tokens:plan.maxOutputTokens,...(variant==='large'?{response_format:{type:'json_object'}}:{})},status:'started'};
 report.runs.push(run);await writeFile(root+'results.json',JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({event:'started',...run}));
 const begin=performance.now();
