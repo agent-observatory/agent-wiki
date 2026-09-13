@@ -8,13 +8,13 @@
 | 로컬 패키지 | 0.7.1 · 조회·검토·관리 CLI·Skill·Collector 통합 |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정·AI 연결 설정은 CLI |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
-| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 54 · 오류·페이지 품질 개선 대기 · 출력 상한 제공자 기본값 |
-| 지식 | 개발 데이터 초기화 후 재수집. L1 보관을 L3 반영 완료로 보지 않음 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 중지 Version 54 유지 · 새 계약 배포 완료·재개 대기 · 출력 상한 제공자 기본값 |
+| 지식 | 기존 Claim 40개·L2 처리 상태 초기화 완료. L1 387개·11,935개 기록·호출 이력 18개 보존, Wiki Page 0개 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
-## Claim·Wiki Page 분리 · 배포 준비
+## Claim·Wiki Page 분리 · 배포 완료
 
-2026-09-14. 사용자 최종 요청으로 아래 변경의 구현·배포와 L2·L3 초기화를 진행한다. 앞선 배포 보류 요청을 대체하며, 자동 정제 재개는 포함하지 않는다.
+2026-09-14. 사용자 최종 요청으로 아래 변경의 구현·배포와 L2·L3 초기화를 완료했다. 앞선 배포 보류 요청을 대체하며, 자동 정제 재개는 포함하지 않는다.
 
 - L3 내부의 **Claim**은 근거·상태·적용 범위의 단위, **Decision**은 사용자 결정 Claim이다. 주제별 **Wiki Page**가 여러 Claim의 설명과 **Decision History**를 모은다. 세션 수와 페이지 수는 독립적이다. 페이지는 현재·검토 의견·과거 주장을 나누며, 명시적 대체·철회·충돌 관계를 연결한다. 시간만으로 새 결정을 채택하지 않는다.
 - Worker `remote-curation-13`은 기존 주제 키를 참고하고 근거가 있는 설명·이유·제약을 추출한다. 주제가 누락된 응답은 검증 실패로 재시도한다. 같은 주제의 페이지를 트랜잭션 안에서 조립하고 내용이 바뀔 때만 불변 Version을 저장한다. 추가 페이지 작성 모델 호출은 없다. 주제 선택과 의미 연결의 정확성은 재개 후 실제 자료로 평가해야 한다.
@@ -25,7 +25,11 @@
 
 검증: 로컬 임시 PostgreSQL은 새 테이블·RLS·발행 트랜잭션 테스트에만 사용하고 종료한다. 실험 결과는 파일에 저장한다. Alibaba Flash 실제 호출 **1회**의 합성 사례에서 기록 참조·JSON 검증과 명시적인 A→B 대체 관계를 확인했다. 입력 **1,067**, 출력 **4,505**(추론 **3,835** 포함), 캐시 입력 **0**, **40.3초**였다. 해당 합성 응답은 추가 호출 없이 Worker → 발행 → Wiki Page까지 재생 검증했다. 실제 세션 전체의 품질 평가나 운영 Worker 실행은 아니다. 전체 검사 **180개**(API·Worker 154, Client 26), 타입 검사·빌드, 데스크톱의 페이지 목록·Version 전환·탭 순서·정제 버튼 저장 유지 검사를 통과했다. SVG XML·문서 링크·통합 그림 실제 렌더도 확인했다.
 
-초기화 방침: 기존 짧은 Claim 40개는 새 주제·기록 참조 계약으로 다시 처리한다. 배포 후 L2·L3만 초기화하며 L1·Collector 수신 위치·모델 호출 이력은 보존한다. 실행 전후 파일 스냅샷으로 확인하고 정제는 `enabled=false`로 유지한다. 실제 배포·초기화 결과는 완료 후 덧붙인다.
+초기화 방침: 기존 짧은 Claim 40개는 새 주제·기록 참조 계약으로 다시 처리한다. 배포 후 L2·L3만 초기화하며 L1·Collector 수신 위치·모델 호출 이력은 보존한다. 실행 전후 파일 스냅샷으로 확인하고 정제는 `enabled=false`로 유지한다.
+
+배포·운영 확인(2026-09-14 05:10 KST): `7f002c8`의 [CI·K3s 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34779616893)가 성공했다. Migration Job 완료, API·Web·Worker의 같은 이미지와 Ready, PostgreSQL Ready를 확인했다. 실제 Object Storage 원문 읽기와 저장 해시 일치도 확인했다. 운영 Edge에서 새 탭 순서·`3 세션` 표시·재개 버튼·정제 OFF를 확인했다. 운영 버튼으로 재개하지 않았다.
+
+CLI 초기화 결과: 기존 Claim 문서 **40개 제거**, 원문 **387개·11,935개 기록**, 호출 이력 **18개** 유지, 작업 **387개 대기**·새 generation, Wiki Page **0개**다. 초기화 직전 원문 387개의 해시·행 수와 초기화 이후 값이 모두 같고, 기기 수신 위치 3개의 byte/record cursor가 후퇴하지 않았으며 실행 ID·상태·토큰이 모두 유지됐다. 정제 설정 **Version 54·enabled=false**도 유지한다. 초기 스냅샷 382개에서 387개가 된 것은 작업 중 Collector의 새 수집분이다. 비공개 파일은 `before-claims-pages-reset`, `before-reset-final`, `after-claims-pages-reset`, `after-reset-integrity`, `reset-verification`으로 보존한다. Client와 Codex·Claude Skill 설치도 갱신했으며 Claude 수집을 활성화하지 않았다. 테스트용 로컬 PostgreSQL·API·웹 서버는 종료했다.
 
 ## 다음 작업의 경계
 
