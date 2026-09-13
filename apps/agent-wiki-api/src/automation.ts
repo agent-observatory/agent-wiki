@@ -278,7 +278,7 @@ export function registerAutomation(
       requireRow(
         (
           await c.query(
-            "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now(),error_code=NULL,output=CASE WHEN $3 THEN output ELSE NULL END,run_id=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='failed' AND (NOT $3 OR output IS NOT NULL) RETURNING id",
+            "UPDATE refinement_jobs SET status='pending',attempts=0,available_at=now(),error_code=NULL,output=CASE WHEN $3 THEN output ELSE NULL END,run_id=CASE WHEN $3 THEN run_id ELSE NULL END,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='failed' AND (NOT $3 OR output IS NOT NULL) RETURNING id",
             [ws, id, reuseOutput],
           )
         ).rows[0],

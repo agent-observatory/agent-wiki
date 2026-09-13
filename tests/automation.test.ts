@@ -1165,10 +1165,15 @@ test("explicit publish-only retry reuses cached output without a model call", as
       },
     ],
   };
-  await admin.query("UPDATE refinement_jobs SET output=$2 WHERE id=$1", [
-    jobId,
-    JSON.stringify(payload),
-  ]);
+  const priorRun = randomUUID();
+  await admin.query(
+    "INSERT INTO refinement_runs(id,workspace_id,job_id,settings,prompt_version,status) VALUES($1,$2,$3,$4,'fixture','failed')",
+    [priorRun, ws, jobId, JSON.stringify(defaults)],
+  );
+  await admin.query(
+    "UPDATE refinement_jobs SET output=$2,run_id=$3 WHERE id=$1",
+    [jobId, JSON.stringify(payload), priorRun],
+  );
   assert.equal(
     (
       await request("POST", `/refinements/${jobId}/retry`, {
@@ -1188,6 +1193,7 @@ test("explicit publish-only retry reuses cached output without a model call", as
   ).rows[0];
   assert.equal(run.status, "completed");
   assert.equal(run.diagnostics.requestedAt, undefined);
+  assert.equal(run.diagnostics.recoveryOf, priorRun);
   assert.equal(
     (
       await admin.query(
