@@ -10,7 +10,6 @@ import {
   KeyRound,
   Library,
   Menu,
-  HelpCircle,
   LogOut,
   Cpu,
 } from "lucide-react";
@@ -37,19 +36,15 @@ export function Login() {
       <div className="absolute top-6 right-6">
         <ThemeToggle />
       </div>
-      <section className="max-w-md space-y-6">
+      <section className="max-w-2xl space-y-6">
         <Library className="size-10" />
         <h1 className="text-3xl font-bold">Agent Wiki</h1>
-        <p className="text-muted-foreground leading-7">
-          에이전트가 남긴 결정과 근거를 보관하고, 다음 작업에서 다시 꺼내 쓰는
-          개인 위키입니다.
+        <p className="text-muted-foreground leading-7 whitespace-nowrap">
+          에이전트의 결정과 근거를 보관하고 다시 활용하는 개인 위키.
         </p>
         <Button asChild>
           <a href="/api/auth/github">GitHub로 로그인</a>
         </Button>
-        <p className="text-xs text-muted-foreground">
-          등록된 소유자만 접속할 수 있습니다.
-        </p>
       </section>
     </main>
   );
@@ -94,7 +89,6 @@ export function Shell({
     ["sources", layerLabel("L1"), FileText],
     ["activity", "반영 이력", History],
     ["connections", "에이전트 연결", KeyRound],
-    ["guide", "사용법", HelpCircle],
   ] as const;
   const nav = (
     <div className="flex h-full flex-col gap-6">

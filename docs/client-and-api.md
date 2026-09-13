@@ -43,7 +43,7 @@ agent-wiki search "임베딩" --project agent-wiki
 agent-wiki recall --project agent-wiki
 ```
 
-`collector start`는 별도로 자동 수집을 켠다. `setup`·Skill 설치·조회는 수집을 시작하지 않는다. 키는 웹의 **에이전트 연결**에서 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 조회와 수집을 같은 키로 사용할 경우 원문 보관 권한이 필요하다. 수집 권한을 따로 제한하려면 같은 env 파일에 `WIKI_COLLECTOR_TOKEN`을 추가한다. 비밀 값은 설정 JSON에 넣지 않는다.
+`collector start`는 별도로 자동 수집을 켠다. `setup`·Skill 설치·조회는 수집을 시작하지 않는다. 현재 웹의 **에이전트 연결**은 키 메타데이터를 보여주는 읽기 전용 화면이다. 기존 관리 키가 있는 경우 CLI 관리 API로 키를 발급해 Git 제외 env 파일에 `WIKI_TOKEN`으로 둔다. 최초 클라이언트의 브라우저 로그인·승인·자격 증명 자동 저장 절차는 별도로 구현해야 한다. 조회와 수집을 같은 키로 사용할 경우 원문 보관 권한이 필요하다. 수집 권한을 따로 제한하려면 같은 env 파일에 `WIKI_COLLECTOR_TOKEN`을 추가한다. 비밀 값은 설정 JSON에 넣지 않는다.
 
 새 설정은 전체 프로젝트·10분 주기가 기본이다. `setup --path <경로>`는 해당 프로젝트·하위 경로로 제한하고, `setup --all-projects`는 전체로 되돌린다. 기존 설정으로 `setup`을 다시 실행하면 수집 범위·기기 식별자를 유지한다. 현재 검증 환경은 Agent Wiki만 수집한다. 설정 JSON의 `collector.projects`에는 여러 경로를 넣을 수 있다.
 
