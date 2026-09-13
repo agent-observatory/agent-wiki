@@ -106,7 +106,7 @@ L2는 같은 대상·범위에서 변경 의도를 판단하고, L3는 과거 �
 
 ![수집·정제와 사용자 조회를 분리한 계층](assets/wiki-layers.svg)
 
-![원문·정제 실행·지식 Version의 리니지](assets/wiki-lineage.svg)
+![L1 원문부터 L4 검색·근거 반환과 L5 활용까지 이어지는 리니지](assets/wiki-lineage.svg)
 
 L1–L5는 우리 제품의 논리 모델이며 공식 표준이나 실행 순서가 아니다. L2는 작업 세션과 분리된 정제 실행이다. L4는 Wiki 서버의 검색·근거 제공, L5는 작업 에이전트의 답변·작업을 맡는다. 실제 조회는 **L5 에이전트 → Wiki CLI → L4 검색 → 근거 반환 → L5 답변·작업**의 왕복이다. 조회 Skill은 판단 지침, Wiki CLI는 L5 에이전트가 사용하는 조회 도구다.
 
@@ -150,8 +150,6 @@ PostgreSQL 제목·본문·태그·용어 별칭·명시적 문서 연결과 `pg
 Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cytoscape.js 시각화, Apache AGE, OpenMetadata 전체 도입, MCP, 로컬 전체 자료 복제는 미확정·후속 후보다.
 
 ## L4 · Query
-
-![검색어 준비·후보 정렬·유효성 확인·근거 반환](assets/wiki-query-ranking.svg)
 
 **사용자 질문 → 개인 에이전트가 Skill 참고 → Wiki CLI 실행 → L4 검색·근거 반환 → 에이전트 답변**으로 이어진다. 조회 판단은 개인 에이전트가 맡고, CLI는 실제 요청을 실행한다. 수집·정제는 이 경로에 끼어들지 않는다.
 
