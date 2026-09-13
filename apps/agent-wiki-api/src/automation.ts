@@ -1,3 +1,4 @@
+import { registerAiSettings } from "./ai-settings.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import { rebuildCuration } from "./curation-rebuild.js";
 import {
@@ -19,12 +20,7 @@ import {
   maskRecord,
   putSource,
 } from "../../../packages/core/src/storage.js";
-import {
-  aiConfig,
-  defaults,
-  encryptSecret,
-  validateEndpoint,
-} from "../../../packages/core/src/ai.js";
+import { aiConfig, defaults } from "../../../packages/core/src/ai.js";
 type Scoped = <T>(
   r: FastifyRequest,
   fn: (c: PoolClient, ws: string) => Promise<T>,
@@ -139,61 +135,7 @@ export function registerAutomation(
       });
     },
   );
-  app.get(base + "/ai-settings", (r) => {
-    sessionOnly(r);
-    return scoped(r, async (c, ws) => {
-      const row = (
-        await c.query(
-          "SELECT config,encrypted_key IS NOT NULL AS has_key,version FROM ai_settings WHERE workspace_id=$1",
-          [ws],
-        )
-      ).rows[0];
-      return {
-        ...aiConfig.parse(row?.config ?? defaults),
-        hasKey: row?.has_key ?? false,
-        version: row?.version ?? 0,
-      };
-    });
-  });
-  app.put(base + "/ai-settings", (r) => {
-    sessionOnly(r);
-    const body = z
-      .object({
-        config: aiConfig,
-        apiKey: z.string().max(2000).optional(),
-        version: z.number().int().nonnegative(),
-      })
-      .strict()
-      .parse(r.body);
-    validateEndpoint(body.config);
-    return scoped(r, async (c, ws) => {
-      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-        ws + "settings",
-      ]);
-      const old = (
-        await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
-      ).rows[0];
-      if ((old?.version ?? 0) !== body.version)
-        throw new AppError(409, "REVISION_CONFLICT");
-      if (
-        old &&
-        new URL(old.config.baseUrl).origin !==
-          new URL(body.config.baseUrl).origin &&
-        !body.apiKey?.trim()
-      )
-        throw new AppError(400, "AI_KEY_REQUIRED");
-      const secret = body.apiKey?.trim()
-        ? encryptSecret(body.apiKey.trim())
-        : old?.encrypted_key;
-      if (body.config.enabled && !secret)
-        throw new AppError(400, "AI_KEY_REQUIRED");
-      await c.query(
-        "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,version=ai_settings.version+1,updated_at=now()",
-        [ws, JSON.stringify(body.config), secret ?? null],
-      );
-      return { ok: true };
-    });
-  });
+  registerAiSettings(app, scoped, sessionOnly);
   app.patch(base + "/ai-settings/enabled", (r) => {
     sessionOnly(r);
     const body = z

@@ -151,7 +151,8 @@ Collector의 직접 업로드는 위치 확인·접수·조각 URL·완료·상�
 | `GET /collection/uploads/:id` | 접수·검증·등록 상태 조회 |
 | `GET /collection/uploads/:id/raw` | 검증된 마스킹 L1 매니페스트 조회 |
 | `GET /collection/uploads/:id/raw/:part` | 인증된 마스킹 L1 조각 다운로드 |
-| `GET/PUT /ai-settings` | 웹 소유자 세션 전용 설정. 변경 버전 검사, 키 읽기 금지 |
+| `GET/PUT /ai-settings` | 웹 소유자 세션 전용 Free/BYOK 설정. 모드별 연결 보관·변경 버전 검사·키 읽기 금지 |
+| `POST /ai-settings/test` | 현재 입력으로 Hello 확인. 설정·정제 상태 변경 없음, 20초 제한·분당 3회·공유 키 호출 간격 적용 |
 | `GET /refinements` | 작업·실행·오늘 사용량·수집 상태 |
 | `GET /refinement-sessions` | 세션별 작업 상태 집계. `sessionsPage`·`pageSize` |
 | `GET /refinement-sessions/:id/jobs` | 진단용 세션별 작업 조회. 웹 펼침 목록에는 사용하지 않음. `detailPage`·`pageSize` |

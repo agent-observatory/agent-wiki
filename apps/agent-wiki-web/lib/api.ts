@@ -62,7 +62,11 @@ const messages: Record<string, string> = {
     "허용된 API 호스트를 입력하세요. 추가 호스트는 서버에서 허용해야 합니다.",
   CURATION_PAUSE_REQUIRED: "자동 정제를 먼저 중지해 주세요.",
   CURATION_STILL_RUNNING: "진행 중인 정제가 마무리된 뒤 다시 시도해 주세요.",
-  AI_KEY_REQUIRED: "자동 정제를 활성화하려면 API 키가 필요합니다.",
+  AI_KEY_REQUIRED: "이 연결에 사용할 API 키를 입력해 주세요.",
+  AI_TEST_TIMEOUT: "응답 대기 시간이 지났습니다. 잠시 후 다시 테스트해 주세요.",
+  AI_TEST_INVALID_RESPONSE: "모델이 예상한 Hello 응답을 반환하지 않았습니다.",
+  AI_CONNECTION_FAILED: "AI 연결에 실패했습니다. 주소와 키를 확인해 주세요.",
+  AI_REASONING_NOT_SUPPORTED: "이 모델에서 지원하는 추론 설정을 선택해 주세요.",
   AI_ENCRYPTION_NOT_CONFIGURED: "서버의 API 키 암호화 설정이 필요합니다.",
   REVISION_CONFLICT:
     "다른 변경이 먼저 저장됐습니다. 최신 Version을 다시 열어 비교하세요.",

@@ -2,10 +2,22 @@
 import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { StatusBadge } from "./status-badge";
 import { Pagination } from "./pagination";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { Save, RefreshCw, Play, Pause, Cpu, Activity } from "lucide-react";
+import {
+  Save,
+  RefreshCw,
+  Play,
+  Pause,
+  Cpu,
+  Activity,
+  PlugZap,
+  KeyRound,
+  Zap,
+  ChevronDown,
+  CheckCircle2,
+} from "lucide-react";
 import { RefinementProgress, waitingReasons } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
 import { api, useApi } from "@/lib/api";
@@ -29,7 +41,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Heading, Loading, Failure, Empty, When } from "./common";
+type Mode = "free" | "byok";
 type Config = {
+  mode: Mode;
   enabled: boolean;
   provider: string;
   baseUrl: string;
@@ -98,9 +112,20 @@ function AutomationContent() {
     [busy, setBusy] = useState(false),
     [failure, setFailure] = useState<unknown>(),
     [saved, setSaved] = useState(false);
+  const drafts = useRef<
+    Partial<Record<Mode, { config: Config; apiKey: string }>>
+  >({});
+  const [testing, setTesting] = useState(false),
+    [testResult, setTestResult] = useState<{
+      durationMs: number;
+      usage: { prompt_tokens?: number; completion_tokens?: number };
+    }>(),
+    [testError, setTestError] = useState<unknown>(),
+    [editKey, setEditKey] = useState(false);
   useEffect(() => {
     if (settings.data) {
-      const { hasKey, version, ...value } = settings.data;
+      const { hasKey, version, profiles, freePreset, ...value } = settings.data;
+      drafts.current = {};
       setConfig(value);
       setDraftVersion(version);
     }
@@ -138,8 +163,57 @@ function AutomationContent() {
   ) => {
     if (name === "reasoning" && !value) return;
     setSaved(false);
+    setTestResult(undefined);
+    setTestError(undefined);
     setConfig((c) => (c ? { ...c, [name]: value } : c));
   };
+  function switchMode(mode: Mode) {
+    if (!config || mode === config.mode) return;
+    drafts.current[config.mode] = { config, apiKey };
+    const draft = drafts.current[mode];
+    const profile = settings.data.profiles[mode];
+    const next = draft?.config ??
+      profile?.config ?? {
+        ...config,
+        mode,
+        provider: "openai-compatible",
+        model: "",
+        baseUrl: "",
+        reasoning: "default",
+      };
+    setConfig(
+      mode === "free"
+        ? { ...next, ...settings.data.freePreset, mode }
+        : { ...next, mode },
+    );
+    setKey(draft?.apiKey ?? "");
+    setEditKey(false);
+    setSaved(false);
+    setFailure(undefined);
+    setTestResult(undefined);
+    setTestError(undefined);
+  }
+  async function testConnection(e: React.MouseEvent<HTMLButtonElement>) {
+    if (!e.currentTarget.form?.reportValidity()) return;
+    setTesting(true);
+    setTestResult(undefined);
+    setTestError(undefined);
+    try {
+      const result = await api(base + "/ai-settings/test", {
+        method: "POST",
+        body: JSON.stringify({
+          config: { ...config, enabled: liveControl.enabled },
+          version: draftVersion,
+          ...(apiKey ? { apiKey } : {}),
+        }),
+      });
+      setTestResult(result);
+    } catch (e) {
+      setTestError(e);
+    } finally {
+      setTesting(false);
+    }
+  }
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -166,6 +240,14 @@ function AutomationContent() {
   if (settings.error || jobs.error)
     return <Failure error={settings.error ?? jobs.error} />;
   if (!config || !jobs.data || !settings.data) return <Loading />;
+  const storedProfile = settings.data.profiles[config.mode];
+  let hasStoredKey = false;
+  try {
+    hasStoredKey =
+      !!storedProfile?.hasKey &&
+      new URL(storedProfile.config.baseUrl).origin ===
+        new URL(config.baseUrl).origin;
+  } catch {}
   return (
     <>
       <Heading
@@ -257,231 +339,289 @@ function AutomationContent() {
         </TabsList>
         <TabsContent value="settings" className="pt-6">
           <form onSubmit={save} className="max-w-2xl space-y-5">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">제공자</label>
-                <Select
-                  value={config.provider}
-                  onValueChange={(v) => {
-                    update("provider", v);
-                    if (v === "nvidia")
-                      update("baseUrl", "https://integrate.api.nvidia.com/v1");
-                  }}
-                >
-                  <SelectTrigger aria-label="제공자">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nvidia">NVIDIA</SelectItem>
-                    <SelectItem value="openai-compatible">
-                      OpenAI 호환
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="model">
-                  모델 ID
-                </label>
-                <Input
-                  id="model"
-                  required
-                  value={config.model}
-                  onChange={(e) => update("model", e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  update("model", "deepseek-ai/deepseek-v4-flash-0731");
-                  update("reasoning", "none");
-                }}
+            <Tabs
+              value={config.mode}
+              onValueChange={(v) => switchMode(v as Mode)}
+            >
+              <TabsList
+                aria-label="AI 연결 방식"
+                className="grid w-full grid-cols-2"
               >
-                DeepSeek Flash · 기본
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  update("model", "moonshotai/kimi-k3");
-                  update("reasoning", "low");
-                }}
-              >
-                Kimi K3
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  update("model", "deepseek-ai/deepseek-v4-pro-0813");
-                  update("reasoning", "none");
-                }}
-              >
-                DeepSeek Pro
-              </Button>
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="endpoint" className="text-sm font-medium">
-                API 주소
-              </label>
-              <Input
-                id="endpoint"
-                type="url"
-                required
-                value={config.baseUrl}
-                onChange={(e) => update("baseUrl", e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="api-key" className="text-sm font-medium">
-                API 키{" "}
-                {settings.data.hasKey && (
-                  <Badge variant="secondary">저장됨</Badge>
-                )}
-              </label>
-              <Input
-                id="api-key"
-                type="password"
-                autoComplete="new-password"
-                value={apiKey}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder={
-                  settings.data.hasKey
-                    ? "비워 두면 기존 키 유지"
-                    : "API 키 입력"
-                }
-              />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">일일 시도 제한</label>
-                <Select
-                  value={config.dailyCalls === null ? "unlimited" : "limited"}
-                  onValueChange={(v) =>
-                    update(
-                      "dailyCalls",
-                      v === "unlimited" ? null : (config.dailyCalls ?? 100),
-                    )
-                  }
-                >
-                  <SelectTrigger aria-label="일일 시도 제한">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unlimited">제한 없음</SelectItem>
-                    <SelectItem value="limited">직접 설정</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  최대 20 RPM · 동시 실행 1개. 제공자 제한과 오류 대기는
-                  유지합니다.
-                </p>
-              </div>
-              {config.dailyCalls !== null && (
+                <TabsTrigger value="free" disabled={busy || testing}>
+                  <Zap className="size-4 mr-2" />
+                  Free
+                </TabsTrigger>
+                <TabsTrigger value="byok" disabled={busy || testing}>
+                  <KeyRound className="size-4 mr-2" />
+                  BYOK
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <fieldset disabled={busy || testing} className="space-y-5">
+              {config.mode === "free" ? (
+                <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  <span>NVIDIA · DeepSeek Flash</span>
+                  <Badge variant="secondary">자동 설정</Badge>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label htmlFor="endpoint" className="text-sm font-medium">
+                      API 주소
+                    </label>
+                    <Input
+                      id="endpoint"
+                      type="url"
+                      required
+                      value={config.baseUrl}
+                      placeholder="https://…/v1"
+                      onChange={(e) => {
+                        update("baseUrl", e.target.value);
+                        let nvidia = false;
+                        try {
+                          nvidia =
+                            new URL(e.target.value).hostname ===
+                            "integrate.api.nvidia.com";
+                        } catch {}
+                        update(
+                          "provider",
+                          nvidia ? "nvidia" : "openai-compatible",
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="model" className="text-sm font-medium">
+                      모델 ID
+                    </label>
+                    <Input
+                      id="model"
+                      required
+                      value={config.model}
+                      placeholder="qwen3.7-flash"
+                      onChange={(e) => update("model", e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+              {config.mode === "byok" || !hasStoredKey || editKey ? (
                 <div className="space-y-2">
-                  <label htmlFor="dailyCalls" className="text-sm font-medium">
-                    일일 호출 한도
+                  <label
+                    htmlFor="api-key"
+                    className="flex items-center gap-2 text-sm font-medium"
+                  >
+                    {config.mode === "free" ? "NVIDIA API 키" : "API 키"}
+                    {hasStoredKey && <Badge variant="secondary">저장됨</Badge>}
                   </label>
                   <Input
-                    id="dailyCalls"
-                    type="number"
-                    min={1}
-                    max={1000}
-                    required
-                    value={config.dailyCalls}
-                    onChange={(e) =>
-                      update("dailyCalls", Number(e.target.value))
+                    id="api-key"
+                    type="password"
+                    autoComplete="new-password"
+                    required={!hasStoredKey}
+                    value={apiKey}
+                    onChange={(e) => {
+                      setKey(e.target.value);
+                      setSaved(false);
+                      setTestResult(undefined);
+                      setTestError(undefined);
+                    }}
+                    placeholder={
+                      hasStoredKey ? "비워 두면 저장된 키 사용" : "API 키 입력"
                     }
                   />
-                  <p className="text-xs text-muted-foreground">
-                    실패·중단을 포함한 정제 시도 수입니다.
-                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <CheckCircle2 className="size-4" />
+                    NVIDIA 키 연결됨
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditKey(true)}
+                  >
+                    키 변경
+                  </Button>
                 </div>
               )}
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {(
-                [
-                  ["maxTokens", "최대 출력 토큰", 512, 16384],
-                  ["maxInputTokens", "입력 예산 · 보수 추정", 3000, 32000],
-                ] as const
-              ).map(([key, label, min, max]) => (
-                <div key={key} className="space-y-2">
-                  <label htmlFor={key} className="text-sm font-medium">
-                    {label}
-                  </label>
-                  <Input
-                    id={key}
-                    type="number"
-                    min={min}
-                    max={max}
-                    required
-                    value={config[key]}
-                    onChange={(e) => update(key, Number(e.target.value))}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">추론 수준</label>
-              <Select
-                value={config.reasoning}
-                onValueChange={(v) => update("reasoning", v)}
-              >
-                <SelectTrigger aria-label="추론 수준">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["default", "none", "low", "high", "max"]
-                    .filter(
-                      (v) =>
-                        config.provider !== "nvidia" ||
-                        (config.model.startsWith("deepseek-ai/deepseek-v4-")
-                          ? v !== "low"
-                          : config.model === "moonshotai/kimi-k3"
-                            ? v !== "none"
-                            : true),
-                    )
-                    .map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {
-                          (
-                            {
-                              default: "모델 기본값",
-                              none: "사용 안 함",
-                              low: "낮음",
-                              high: "높음",
-                              max: "최대",
-                            } as any
-                          )[v]
-                        }
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              입력은 텍스트만 사용하며 UTF-8 바이트로 토큰 사용량을 보수적으로
-              추정합니다. 실제 토큰은 호출 이력에서 확인합니다. Pro는 모델을
-              직접 선택한 작업에 사용하며 자동으로 이중 호출하지 않습니다.
-              저장한 설정은 다음 정제부터 적용됩니다. 진행 중인 작업은 시작 당시
-              설정을 사용합니다. 호출 한도는 제공자의 무료 제공량이나 금액
-              상한을 보장하지 않습니다.
-            </p>
+              {config.mode === "byok" && (
+                <details className="group border-t pt-4">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground">
+                    <ChevronDown className="size-4 group-open:rotate-180" />
+                    고급 설정
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          일일 시도 제한
+                        </label>
+                        <Select
+                          value={
+                            config.dailyCalls === null ? "unlimited" : "limited"
+                          }
+                          onValueChange={(v) =>
+                            update(
+                              "dailyCalls",
+                              v === "unlimited"
+                                ? null
+                                : (config.dailyCalls ?? 100),
+                            )
+                          }
+                        >
+                          <SelectTrigger aria-label="일일 시도 제한">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unlimited">제한 없음</SelectItem>
+                            <SelectItem value="limited">직접 설정</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          최대 20 RPM · 동시 실행 1개. 제공자 제한과 오류 대기는
+                          유지합니다.
+                        </p>
+                      </div>
+                      {config.dailyCalls !== null && (
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="dailyCalls"
+                            className="text-sm font-medium"
+                          >
+                            일일 호출 한도
+                          </label>
+                          <Input
+                            id="dailyCalls"
+                            type="number"
+                            min={1}
+                            max={1000}
+                            required
+                            value={config.dailyCalls}
+                            onChange={(e) =>
+                              update("dailyCalls", Number(e.target.value))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            실패·중단을 포함한 정제 시도 수입니다.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {(
+                        [
+                          ["maxTokens", "최대 출력 토큰", 512, 16384],
+                          [
+                            "maxInputTokens",
+                            "입력 예산 · 보수 추정",
+                            3000,
+                            32000,
+                          ],
+                        ] as const
+                      ).map(([key, label, min, max]) => (
+                        <div key={key} className="space-y-2">
+                          <label htmlFor={key} className="text-sm font-medium">
+                            {label}
+                          </label>
+                          <Input
+                            id={key}
+                            type="number"
+                            min={min}
+                            max={max}
+                            required
+                            value={config[key]}
+                            onChange={(e) =>
+                              update(key, Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">추론 수준</label>
+                      <Select
+                        value={config.reasoning}
+                        onValueChange={(v) => update("reasoning", v)}
+                      >
+                        <SelectTrigger aria-label="추론 수준">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["default", "none", "low", "high", "max"]
+                            .filter((v) => {
+                              if (
+                                config.provider === "openai-compatible" &&
+                                config.model.startsWith("qwen3.")
+                              )
+                                return ["default", "none"].includes(v);
+                              if (config.provider !== "nvidia") return true;
+                              if (
+                                config.model.startsWith(
+                                  "deepseek-ai/deepseek-v4-",
+                                )
+                              )
+                                return v !== "low";
+                              if (config.model === "moonshotai/kimi-k3")
+                                return v !== "none";
+                              return true;
+                            })
+                            .map((v) => (
+                              <SelectItem key={v} value={v}>
+                                {
+                                  (
+                                    {
+                                      default: "모델 기본값",
+                                      none: "사용 안 함",
+                                      low: "낮음",
+                                      high: "높음",
+                                      max: "최대",
+                                    } as any
+                                  )[v]
+                                }
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      입력 예산은 UTF-8 바이트 기반 보수 추정입니다.
+                    </p>
+                  </div>
+                </details>
+              )}
+            </fieldset>
             {!!failure && <Failure error={failure} />}
-            <div className="flex items-center gap-3">
-              <Button disabled={busy}>
+            {!!testError && <Failure error={testError} />}
+            {testResult && (
+              <p role="status" className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                Hello · 연결 성공
+                <span className="text-muted-foreground">
+                  {(testResult.durationMs / 1000).toFixed(1)}초 · 입력{" "}
+                  {testResult.usage.prompt_tokens ?? "미집계"} / 출력{" "}
+                  {testResult.usage.completion_tokens ?? "미집계"} 토큰
+                </span>
+              </p>
+            )}
+            <div className="flex items-center gap-3 border-t pt-4">
+              <Button disabled={busy || testing}>
                 <Save />
                 {busy ? "저장 중" : "설정 저장"}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || testing}
+                onClick={testConnection}
+              >
+                <PlugZap />
+                {testing ? "테스트 중…" : "연결 테스트"}
+              </Button>
               {saved && (
-                <span role="status" className="text-sm">
+                <span role="status" className="text-sm text-muted-foreground">
                   저장했습니다.
                 </span>
               )}

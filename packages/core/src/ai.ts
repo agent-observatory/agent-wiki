@@ -22,6 +22,7 @@ const modelTransport = {
 export const aiConfig = z
   .object({
     enabled: z.boolean().default(false),
+    mode: z.enum(["free", "byok"]).optional(),
     provider: z.enum(["nvidia", "openai-compatible"]).default("nvidia"),
     baseUrl: z.string().url().default("https://integrate.api.nvidia.com/v1"),
     model: z
