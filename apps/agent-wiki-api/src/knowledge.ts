@@ -13,6 +13,10 @@ import {
   collectionHistory,
 } from "./source-history.js";
 import { pagination, paged } from "./pagination.js";
+import {
+  searchTermGroups,
+  searchPatterns,
+} from "../../../packages/core/src/search-terms.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
@@ -112,7 +116,7 @@ function conflict(code: string): never {
   throw new AppError(409, code);
 }
 export function excerpt(content: string, q: string, limit = 1600) {
-  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = searchTermGroups(q).flat();
   const hits = terms
     .map((t) => content.toLowerCase().indexOf(t))
     .filter((n) => n >= 0);
@@ -219,20 +223,40 @@ export function registerKnowledge(
         includeSuperseded: z.enum(["true", "false"]).default("false"),
       })
       .parse(raw);
-    const terms = q.q
-      .normalize("NFKC")
-      .toLowerCase()
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 8)
-      .map((t) => "%" + t.replace(/[\\%_]/g, "\\$&") + "%");
+    const terms = searchPatterns(q.q);
     const rows = (
       await c.query(
-        `SELECT a.*,r.reviewed_at,p.producer,(SELECT count(*) FROM evidence e WHERE e.workspace_id=a.workspace_id AND e.article_id=a.id AND e.revision=a.revision) AS evidence_count FROM articles a JOIN revisions r ON r.workspace_id=a.workspace_id AND r.article_id=a.id AND r.revision=a.revision JOIN publications p ON p.workspace_id=r.workspace_id AND p.id=r.publication_id WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND ($3::text IS NULL OR $3=ANY(a.tags)) AND ($4::text IS NULL OR a.folder=$4) AND ($5::text IS NULL OR a.kind=$5) AND ($6 OR NOT EXISTS(SELECT 1 FROM links l JOIN articles newer ON newer.id=l.from_id AND newer.workspace_id=l.workspace_id WHERE l.workspace_id=a.workspace_id AND l.to_id=a.id AND l.relation='supersedes' AND newer.deleted_at IS NULL)) AND (cardinality($2::text[])=0 OR a.title ILIKE ANY($2) OR a.content ILIKE ANY($2) OR array_to_string(a.tags||a.aliases,' ') ILIKE ANY($2) OR EXISTS(SELECT 1 FROM articles g WHERE g.workspace_id=$1 AND g.deleted_at IS NULL AND g.kind='glossary' AND array_to_string(g.aliases,' ') ILIKE ANY($2) AND position(lower(g.title) in lower(a.title||' '||a.content))>0)) ORDER BY CASE WHEN a.title ILIKE ANY($2) THEN 3 WHEN array_to_string(a.tags||a.aliases,' ') ILIKE ANY($2) THEN 2 ELSE 1 END DESC,a.updated_at DESC,a.id LIMIT $7 OFFSET $8`,
+        `WITH query_terms AS (
+          SELECT ARRAY(SELECT jsonb_array_elements_text(value)) AS patterns
+          FROM jsonb_array_elements($2::jsonb)
+        )
+        SELECT a.*,r.reviewed_at,p.producer,
+          (SELECT count(*) FROM evidence e WHERE e.workspace_id=a.workspace_id AND e.article_id=a.id AND e.revision=a.revision) AS evidence_count
+        FROM articles a
+        JOIN revisions r ON r.workspace_id=a.workspace_id AND r.article_id=a.id AND r.revision=a.revision
+        JOIN publications p ON p.workspace_id=r.workspace_id AND p.id=r.publication_id
+        CROSS JOIN LATERAL (
+          SELECT count(*) FILTER(WHERE weight>0) AS coverage,COALESCE(sum(weight),0) AS score
+          FROM (SELECT CASE
+            WHEN a.title ILIKE ANY(t.patterns) THEN 4
+            WHEN array_to_string(a.tags||a.aliases,' ') ILIKE ANY(t.patterns) THEN 3
+            WHEN a.content ILIKE ANY(t.patterns) THEN 1
+            WHEN EXISTS(SELECT 1 FROM articles g WHERE g.workspace_id=$1 AND g.deleted_at IS NULL AND g.kind='glossary'
+              AND array_to_string(g.aliases,' ') ILIKE ANY(t.patterns)
+              AND position(lower(g.title) in lower(a.title||' '||a.content))>0) THEN 1
+            ELSE 0 END AS weight FROM query_terms t) hits
+        ) relevance
+        WHERE a.workspace_id=$1 AND a.deleted_at IS NULL
+          AND ($3::text IS NULL OR $3=ANY(a.tags))
+          AND ($4::text IS NULL OR a.folder=$4)
+          AND ($5::text IS NULL OR a.kind=$5)
+          AND ($6 OR NOT EXISTS(SELECT 1 FROM links l JOIN articles newer ON newer.id=l.from_id AND newer.workspace_id=l.workspace_id
+            WHERE l.workspace_id=a.workspace_id AND l.to_id=a.id AND l.relation='supersedes' AND newer.deleted_at IS NULL))
+          AND (NOT EXISTS(SELECT 1 FROM query_terms) OR relevance.coverage>0)
+        ORDER BY relevance.coverage DESC,relevance.score DESC,a.updated_at DESC,a.id LIMIT $7 OFFSET $8`,
         [
           ws,
-          terms,
+          JSON.stringify(terms),
           q.tag ?? null,
           q.folder ?? null,
           q.kind ?? null,

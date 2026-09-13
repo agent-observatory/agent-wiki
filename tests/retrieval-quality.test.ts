@@ -1,0 +1,128 @@
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import pg from "pg";
+import { buildApp } from "../apps/agent-wiki-api/src/app.js";
+import { pool } from "../packages/core/src/db.js";
+import { hash } from "../packages/core/src/storage.js";
+const fixtures = JSON.parse(
+  await readFile(
+    new URL("../experiments/retrieval/cases.json", import.meta.url),
+    "utf8",
+  ),
+);
+const owner = "retrieval-" + randomUUID(),
+  token = randomUUID();
+const admin = new pg.Pool({
+  connectionString: process.env.MIGRATION_DATABASE_URL,
+});
+const headers = {
+  cookie: "wiki_session=" + token,
+  origin: "http://localhost:3000",
+};
+let app: Awaited<ReturnType<typeof buildApp>>, ws: string;
+const ids = new Map<string, string>();
+before(async () => {
+  process.env.OWNER_GITHUB_ID = owner;
+  await admin.query("INSERT INTO users(id,login) VALUES($1,$1)", [owner]);
+  await admin.query(
+    "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",
+    [hash(token), owner],
+  );
+  app = await buildApp();
+  ws = (
+    await app.inject({
+      method: "POST",
+      url: "/api/workspaces",
+      headers: { ...headers, "idempotency-key": randomUUID() },
+      payload: { name: "합성 검색 평가" },
+    })
+  ).json().id;
+  for (const { key, ...payload } of fixtures.documents) {
+    const r = await app.inject({
+      method: "POST",
+      url: `/api/workspaces/${ws}/articles`,
+      headers: { ...headers, "idempotency-key": randomUUID() },
+      payload: { ...payload, kind: "memory", folder: "quality" },
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    ids.set(key, r.json().id);
+  }
+});
+after(async () => {
+  await app.close();
+  await admin.end();
+  await pool.end();
+});
+test("Korean personal-memory questions rank the relevant decision before single-word distractors", async () => {
+  const results = [];
+  for (const item of fixtures.queries) {
+    const r = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/articles?q=${encodeURIComponent(item.q)}&pageSize=25`,
+      headers,
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    results.push({
+      query: item.q,
+      expected: item.expected,
+      top:
+        fixtures.documents.find(
+          (d: any) => ids.get(d.key) === r.json().items[0]?.id,
+        )?.key ?? null,
+      passed: r.json().items[0]?.id === ids.get(item.expected),
+    });
+    if (!item.semantic) {
+      const context = await app.inject({
+        method: "GET",
+        url: `/api/workspaces/${ws}/context?q=${encodeURIComponent(item.q)}`,
+        headers,
+      });
+      assert.equal(context.statusCode, 200, context.body);
+      assert.equal(context.json().citations[0]?.id, ids.get(item.expected));
+      assert.ok(context.json().citations[0]?.url.includes("revision=1"));
+    }
+  }
+  if (process.env.RETRIEVAL_REPORT)
+    await writeFile(
+      process.env.RETRIEVAL_REPORT,
+      JSON.stringify(
+        {
+          cases: results.length,
+          top1: results.filter((r) => r.passed).length,
+          results,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+  assert.ok(
+    results
+      .filter(
+        (r) => !fixtures.queries.find((q: any) => q.q === r.query)?.semantic,
+      )
+      .every((r) => r.passed),
+    JSON.stringify(results.filter((r) => !r.passed)),
+  );
+});
+
+test("ranking retains tag and folder filters and does not treat wildcard input as browse", async () => {
+  for (const [query, expected] of [
+    ["q=임베딩&tag=search", ["embedding-decision"]],
+    ["q=임베딩&folder=absent", []],
+    ["q=limit_%", ["literal"]],
+    ["q=없는검색어", []],
+  ] as [string, string[]][]) {
+    const r = await app.inject({
+      method: "GET",
+      url: `/api/workspaces/${ws}/articles?${encodeURI(query)}`,
+      headers,
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual(
+      r.json().items.map((a: any) => a.id),
+      expected.map((key) => ids.get(key)),
+    );
+  }
+});

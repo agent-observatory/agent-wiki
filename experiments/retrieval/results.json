@@ -1,0 +1,111 @@
+{
+  "description": "Synthetic fixed corpus; lexical regression and one semantic gap. Not a general accuracy estimate.",
+  "baseline": {
+    "cases": 8,
+    "top1": 3,
+    "results": [
+      {
+        "query": "임베딩 비용",
+        "expected": "embedding-decision",
+        "top": "embedding-reference",
+        "passed": false
+      },
+      {
+        "query": "임베딩을 왜 미뤘지?",
+        "expected": "embedding-decision",
+        "top": null,
+        "passed": false
+      },
+      {
+        "query": "PostgreSQL은 어디에 둬?",
+        "expected": "database",
+        "top": null,
+        "passed": false
+      },
+      {
+        "query": "인증서는 어디에 저장해?",
+        "expected": "certificate",
+        "top": "certificate",
+        "passed": true
+      },
+      {
+        "query": "Retry-After 대기",
+        "expected": "retry",
+        "top": "waiting",
+        "passed": false
+      },
+      {
+        "query": "수집 프로젝트",
+        "expected": "collector",
+        "top": "project",
+        "passed": false
+      },
+      {
+        "query": "pg",
+        "expected": "database",
+        "top": "database",
+        "passed": true
+      },
+      {
+        "query": "limit_%",
+        "expected": "literal",
+        "top": "literal",
+        "passed": true
+      }
+    ]
+  },
+  "weighted": {
+    "cases": 8,
+    "top1": 7,
+    "results": [
+      {
+        "query": "임베딩 비용",
+        "expected": "embedding-decision",
+        "top": "embedding-decision",
+        "passed": true
+      },
+      {
+        "query": "임베딩을 왜 미뤘지?",
+        "expected": "embedding-decision",
+        "top": "embedding-reference",
+        "passed": false
+      },
+      {
+        "query": "PostgreSQL은 어디에 둬?",
+        "expected": "database",
+        "top": "database",
+        "passed": true
+      },
+      {
+        "query": "인증서는 어디에 저장해?",
+        "expected": "certificate",
+        "top": "certificate",
+        "passed": true
+      },
+      {
+        "query": "Retry-After 대기",
+        "expected": "retry",
+        "top": "retry",
+        "passed": true
+      },
+      {
+        "query": "수집 프로젝트",
+        "expected": "collector",
+        "top": "collector",
+        "passed": true
+      },
+      {
+        "query": "pg",
+        "expected": "database",
+        "top": "database",
+        "passed": true
+      },
+      {
+        "query": "limit_%",
+        "expected": "literal",
+        "top": "literal",
+        "passed": true
+      }
+    ]
+  }
+}
