@@ -103,7 +103,7 @@ after(async () => {
   await pool.end();
   await admin.end();
 });
-test("curation keeps a same-session reference without excluding a relevant decision from another session", async () => {
+test("curation finds cross-session knowledge and abstains from ambiguous or unrelated matches", async () => {
   const cases = [
     {
       name: "explicit-cross-session-change",
@@ -115,7 +115,13 @@ test("curation keeps a same-session reference without excluding a relevant decis
       name: "same-session-continuation",
       source: () => incoming,
       text: "그거 취소하고 다시 검토하자.",
-      expected: "same-session",
+      expected: "none",
+    },
+    {
+      name: "unrelated-topic",
+      source: () => incoming,
+      text: "보라색 고양이 사료",
+      expected: "none",
     },
     {
       name: "new-session-topic",
@@ -126,7 +132,7 @@ test("curation keeps a same-session reference without excluding a relevant decis
   ];
   const results = [];
   for (const item of cases) {
-    const selected = await tx(owner, ws, (c) =>
+    const { related: selected, diagnostics } = await tx(owner, ws, (c) =>
       curationContext(c, ws, item.source(), item.text),
     );
     const bytes = estimateTokens(JSON.stringify(selected));
@@ -143,7 +149,7 @@ test("curation keeps a same-session reference without excluding a relevant decis
       ]
         .map((record) => JSON.stringify(record))
         .join("\n");
-      const fromRecords = await tx(owner, ws, (c) =>
+      const { related: fromRecords } = await tx(owner, ws, (c) =>
         curationContext(c, ws, item.source(), structured),
       );
       assert.ok(
@@ -160,8 +166,14 @@ test("curation keeps a same-session reference without excluding a relevant decis
       passed:
         item.expected === "database"
           ? selected.some((x) => x.id === database)
-          : selected.some((x) => x.same_session),
+          : selected.length === 0,
     });
+    assert.equal(diagnostics.corpusSize, 7);
+    assert.ok(
+      diagnostics.candidates.every(
+        (hit) => !("text" in hit) && !("matched" in hit),
+      ),
+    );
   }
   if (process.env.CONTEXT_REPORT)
     await writeFile(

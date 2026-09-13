@@ -22,24 +22,36 @@ export const claimRelationInput = z
   .object({
     anchor: z.string().regex(/^[\w-]{1,80}$/),
     relation: z.enum(["supersedes", "retracts", "contradicts", "supports"]),
-    target: z
-      .object({
-        articleId: z.string().uuid(),
-        revision: z.number().int().positive(),
-        anchor: z.string().regex(/^[\w-]{1,80}$/),
-      })
-      .strict(),
+    target: z.union([
+      z
+        .object({
+          articleId: z.string().uuid(),
+          revision: z.number().int().positive(),
+          anchor: z.string().regex(/^[\w-]{1,80}$/),
+        })
+        .strict(),
+      z
+        .object({
+          clientRef: z.string().min(1).max(200),
+          anchor: z.string().regex(/^[\w-]{1,80}$/),
+        })
+        .strict(),
+    ]),
     evidence: z.array(evidenceInput).min(1).max(10),
   })
   .strict();
 export type ClaimRelation = z.infer<typeof claimRelationInput>;
+export type ResolvedClaimRelation = Omit<ClaimRelation, "target"> & {
+  target: { articleId: string; revision: number; anchor: string };
+};
 export async function storeClaimRelations(
   c: PoolClient,
   ws: string,
   articleId: string,
   revision: number,
   publicationId: string,
-  relations: ClaimRelation[],
+  relations: ResolvedClaimRelation[],
+  priorInPublication: Set<string> = new Set(),
 ) {
   for (const relation of relations) {
     const from = (
@@ -70,9 +82,13 @@ export async function storeClaimRelations(
       )
     )
       throw new AppError(409, "CLAIM_TARGET_VERSION_CHANGED");
-    // Targets must precede this publication. This gives an immutable, acyclic
-    // version graph and rejects self-links and forward links in the same batch.
-    if (target.publication_id === publicationId)
+    // Same-batch references resolve only to an earlier change. Combined with
+    // prior-publication references, this retains an acyclic version graph.
+    if (
+      target.publication_id === publicationId &&
+      (!priorInPublication.has(relation.target.articleId) ||
+        relation.target.articleId === articleId)
+    )
       throw new AppError(400, "CLAIM_TARGET_NOT_PRIOR");
     if (
       !from.subject ||
@@ -151,7 +167,7 @@ export async function expandClaimArticles(
     frontier = initial.slice(0, 20).map((a) => a.id),
     truncated = initial.length > 20;
   const seen = new Set(all.map((a) => a.id + ":" + a.revision));
-  for (let depth = 0; depth < 2 && frontier.length; depth++) {
+  for (let depth = 0; depth < 8 && frontier.length; depth++) {
     const rows = (
       await c.query(
         history
@@ -180,7 +196,7 @@ export async function expandClaimArticles(
       truncated = true;
       break;
     }
-    if (depth === 1 && frontier.length) truncated = true;
+    if (depth === 7 && frontier.length) truncated = true;
   }
   return { items: all, truncated };
 }

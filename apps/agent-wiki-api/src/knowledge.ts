@@ -886,6 +886,7 @@ async function consolidateClaim(
   c: PoolClient,
   ws: string,
   change: z.infer<typeof changeInput>,
+  publicationId: string,
 ) {
   if (
     change.articleId ||
@@ -907,6 +908,7 @@ async function consolidateClaim(
     await c.query(
       `SELECT a.*,cl.anchor FROM articles a JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
      WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND (SELECT count(*) FROM claims siblings WHERE siblings.workspace_id=a.workspace_id AND siblings.article_id=a.id AND siblings.revision=a.revision)=1 AND a.kind=$2 AND cl.text=$3 AND cl.subject=$4 AND cl.scope=$5 AND cl.type=$6 AND (${effectiveClaimState("cl")})=$7
+     AND NOT EXISTS(SELECT 1 FROM revisions r WHERE r.workspace_id=a.workspace_id AND r.article_id=a.id AND r.revision=a.revision AND r.publication_id=$8)
      ORDER BY a.created_at,a.id LIMIT 2`,
       [
         ws,
@@ -916,6 +918,7 @@ async function consolidateClaim(
         incoming.scope,
         incoming.type,
         incoming.state,
+        publicationId,
       ],
     )
   ).rows;
@@ -985,7 +988,14 @@ async function consolidateClaim(
 }
 
 function coalesceClaims(changes: z.infer<typeof changeInput>[]) {
-  if (changes.some((x) => x.links.length || x.supersedes.length))
+  if (
+    changes.some(
+      (x) =>
+        x.links.length ||
+        x.supersedes.length ||
+        x.claimRelations.some((relation) => "clientRef" in relation.target),
+    )
+  )
     return changes;
   const selected: typeof changes = [],
     seen = new Map<string, (typeof changes)[number]>();
@@ -1107,10 +1117,10 @@ export async function publish(
     input.changes.map((x) => [x.clientRef, x.articleId ?? randomUUID()]),
   );
   const sources = new Map<string, { text: string; row: any }>();
-  const results = [];
+  const results: { clientRef: string; id: string; revision: number }[] = [];
   for (let i = 0; i < input.changes.length; i++) {
     const change = automatic
-      ? await consolidateClaim(c, ws, input.changes[i])
+      ? await consolidateClaim(c, ws, input.changes[i], publicationId)
       : input.changes[i];
     input.changes[i] = change;
     if (change.articleId) mapped.set(change.clientRef, change.articleId);
@@ -1258,13 +1268,31 @@ export async function publish(
           ],
         );
     }
+    const localTargets = new Set<string>();
+    const resolvedRelations = change.claimRelations.map((relation) => {
+      if (!("clientRef" in relation.target))
+        return { ...relation, target: relation.target };
+      const ref = relation.target.clientRef;
+      const prior = results.find((item) => item.clientRef === ref);
+      if (!prior) throw new AppError(400, "CLAIM_LOCAL_TARGET_NOT_PRIOR");
+      localTargets.add(prior.id);
+      return {
+        ...relation,
+        target: {
+          articleId: prior.id,
+          revision: prior.revision,
+          anchor: relation.target.anchor,
+        },
+      };
+    });
     await storeClaimRelations(
       c,
       ws,
       id,
       revision,
       publicationId,
-      change.claimRelations,
+      resolvedRelations,
+      localTargets,
     );
     results.push({ clientRef: change.clientRef, id, revision });
   }

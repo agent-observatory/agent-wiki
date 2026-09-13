@@ -1,0 +1,217 @@
+{
+  "model": "deepseek-v4-flash",
+  "expected": {
+    "prior_remote": "NVIDIA",
+    "current_remote": "Alibaba",
+    "replacement_evidence_line": 2,
+    "separate_local": "NVIDIA",
+    "suggestion_not_current": "ExampleCloud",
+    "late_history_must_not_revert": true,
+    "history_required": true,
+    "max_calls": 1
+  },
+  "startedAt": "2026-09-13T13:52:45.885Z",
+  "inputHash": "af86c115036cf3b2d01d3e791065ee764fb107916075969b9bdbe39f1413e09d",
+  "calls": 1,
+  "httpStatus": 200,
+  "usage": {
+    "prompt_tokens": 874,
+    "total_tokens": 2247,
+    "completion_tokens": 1373,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "finishReason": "stop",
+  "output": {
+    "changes": [
+      {
+        "clientRef": "c1",
+        "title": "원격 정제 Provider를 NVIDIA로 결정",
+        "content": "원격 정제 Provider는 NVIDIA로 하자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "원격 정제 Provider는 NVIDIA로 하자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "remote-refinement",
+            "state": "superseded",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  1,
+                  1
+                ],
+                "quote": "원격 정제 Provider는 NVIDIA로 하자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      },
+      {
+        "clientRef": "c2",
+        "title": "원격 정제 Provider를 Alibaba로 변경",
+        "content": "NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "remote-refinement",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  2,
+                  2
+                ],
+                "quote": "NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": [
+          {
+            "anchor": "decision",
+            "relation": "supersedes",
+            "target": {
+              "clientRef": "c1",
+              "anchor": "decision"
+            },
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  2,
+                  2
+                ],
+                "quote": "NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "clientRef": "c3",
+        "title": "로컬 실험 Provider는 NVIDIA 유지",
+        "content": "로컬 실험 Provider는 NVIDIA를 그대로 쓰자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "로컬 실험 Provider는 NVIDIA를 그대로 쓰자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "local-experiment",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  3,
+                  3
+                ],
+                "quote": "로컬 실험 Provider는 NVIDIA를 그대로 쓰자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      },
+      {
+        "clientRef": "c4",
+        "title": "ExampleCloud 제안 (보류)",
+        "content": "ExampleCloud도 괜찮을까? 아직 바꾸지는 마.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "ExampleCloud도 괜찮을까? 아직 바꾸지는 마.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "remote-refinement",
+            "state": "proposed",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  4,
+                  4
+                ],
+                "quote": "ExampleCloud도 괜찮을까? 아직 바꾸지는 마."
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      },
+      {
+        "clientRef": "c5",
+        "title": "과거 결정 확인: NVIDIA 선택 회고",
+        "content": "참고로 어제는 NVIDIA를 선택했었다. 지금 원격은 Alibaba가 맞다.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "참고로 어제는 NVIDIA를 선택했었다. 지금 원격은 Alibaba가 맞다.",
+            "type": "observation",
+            "subject": "ai-provider",
+            "scope": "remote-refinement",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  5,
+                  5
+                ],
+                "quote": "참고로 어제는 NVIDIA를 선택했었다. 지금 원격은 Alibaba가 맞다."
+              }
+            ]
+          }
+        ],
+        "claimRelations": [
+          {
+            "anchor": "decision",
+            "relation": "supports",
+            "target": {
+              "clientRef": "c2",
+              "anchor": "decision"
+            },
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  5,
+                  5
+                ],
+                "quote": "참고로 어제는 NVIDIA를 선택했었다. 지금 원격은 Alibaba가 맞다."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "status": "responded",
+  "ms": 12774
+}

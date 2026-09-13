@@ -79,9 +79,11 @@ export function validateEndpoint(config: AiConfig) {
       config.max_completion_tokens != null)
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
+  if (isAlibabaQwen(config) && !["none", "default"].includes(config.reasoning))
+    throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
-    isAlibabaThinkingModel(config) &&
-    !["none", "default"].includes(config.reasoning)
+    isAlibabaDeepSeek(config) &&
+    !["none", "default", "high", "max"].includes(config.reasoning)
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
@@ -208,6 +210,11 @@ export async function callModel(
                       : { thinking: true, reasoning_effort: config.reasoning },
                 }
               : { reasoning_effort: config.reasoning }),
+        ...(isAlibabaDeepSeek(config) &&
+        (config.enable_thinking ?? config.reasoning !== "none") &&
+        ["high", "max"].includes(config.reasoning)
+          ? { reasoning_effort: config.reasoning }
+          : {}),
       }),
     },
   );

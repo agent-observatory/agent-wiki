@@ -119,7 +119,7 @@ test("real Worker pipeline with injected model merges Codex and Claude evidence 
       await runOne(
         owner,
         new AbortController().signal,
-        async (_config, _key, messages) => {
+        async (_config, _key, messages: any) => {
           called = true;
           const input = JSON.parse(
             (messages[1] as { content: string }).content,
@@ -320,4 +320,86 @@ test("repeated claims inside one response do not create duplicate articles or se
   );
   const retry = await save(payload);
   assert.deepEqual(retry, saved);
+});
+
+test("Worker keeps decisions first found in one chunk as a lineage rather than latest-only text", async () => {
+  const phrases = [
+    "정제 Provider는 NVIDIA로 결정한다.",
+    "NVIDIA 지연 때문에 Alibaba로 Provider를 바꾼다.",
+  ];
+  const src = await source("codex", phrases.join(" "), "user", true);
+  await admin.query(
+    "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+    [owner],
+  );
+  let calls = 0;
+  await runOne(
+    owner,
+    new AbortController().signal,
+    async (_config, _key, messages: any) => {
+      calls++;
+      const input = JSON.parse(messages[1].content);
+      assert.ok(
+        input.source.text.includes(phrases[0]) &&
+          input.source.text.includes(phrases[1]),
+      );
+      return {
+        output: {
+          changes: phrases.map((phrase, index) => {
+            const evidence = [
+              {
+                sourceId: input.source.id,
+                revision: 1,
+                lines: [2, 2],
+                quote: phrase,
+              },
+            ];
+            return {
+              clientRef: "provider-" + index,
+              title: "정제 제공자",
+              content: phrase,
+              kind: "memory",
+              claims: [
+                {
+                  anchor: "provider",
+                  text: phrase,
+                  type: "user_decision",
+                  subject: "ai-provider",
+                  scope: "curation",
+                  state: "current",
+                  evidence,
+                },
+              ],
+              claimRelations: index
+                ? [
+                    {
+                      anchor: "provider",
+                      relation: "supersedes",
+                      target: { clientRef: "provider-0", anchor: "provider" },
+                      evidence,
+                    },
+                  ]
+                : [],
+            };
+          }),
+        },
+        usage: { prompt_tokens: 100, completion_tokens: 50 },
+      };
+    },
+  );
+  const result = (
+    await admin.query(
+      "SELECT status,error_code,result FROM refinement_jobs WHERE workspace_id=$1 AND source_id=$2",
+      [ws, src.id],
+    )
+  ).rows[0];
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.equal(calls, 1);
+  assert.equal(result.result.items.length, 2);
+  const relations = await admin.query(
+    "SELECT * FROM claim_relations WHERE workspace_id=$1 AND from_article_id=$2",
+    [ws, result.result.items[1].id],
+  );
+  assert.equal(relations.rows[0].to_article_id, result.result.items[0].id);
+  assert.equal(relations.rows[0].evidence[0].sourceId, src.id);
 });

@@ -79,7 +79,7 @@ test("successful chunks survive a later failure and resume at the failed chunk w
     assert.equal(lease.diagnostics.leaseSeconds, JOB_LEASE_SECONDS);
     assert.equal(
       lease.diagnostics.contextSelection.version,
-      "workspace-topic-relevance-2",
+      "bm25-field-diversity-1",
     );
     assert.ok(
       lease.diagnostics.contextSelection.inputBytes <=

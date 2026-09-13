@@ -48,3 +48,23 @@ test("ambiguous references and existing article edits remain invalid rather than
   assert.equal(result.renamedReferences, 0);
   assert.equal(result.renamedAnchors, 0);
 });
+test("same-batch relation targets prevent renaming ambiguous references or target anchors", () => {
+  const input = [
+    change("old"),
+    change("old"),
+    {
+      ...change("new"),
+      claims: [{ anchor: "new-decision", text: "D" }],
+      claimRelations: [
+        {
+          anchor: "new-decision",
+          target: { clientRef: "old", anchor: "decision" },
+        },
+      ],
+    },
+  ];
+  const result = normalizeModelIdentifiers(input);
+  assert.equal(result.renamedReferences, 0);
+  assert.equal(result.renamedAnchors, 0);
+  assert.deepEqual(result.changes, input);
+});

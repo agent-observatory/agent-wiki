@@ -1,0 +1,10 @@
+{
+  "prior_remote": "NVIDIA",
+  "current_remote": "Alibaba",
+  "replacement_evidence_line": 2,
+  "separate_local": "NVIDIA",
+  "suggestion_not_current": "ExampleCloud",
+  "late_history_must_not_revert": true,
+  "history_required": true,
+  "max_calls": 1
+}

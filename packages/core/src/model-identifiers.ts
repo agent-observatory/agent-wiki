@@ -3,7 +3,10 @@ type Change = {
   articleId: string | null;
   links: string[];
   claims: { anchor: string }[];
-  claimRelations: { anchor: string }[];
+  claimRelations: {
+    anchor: string;
+    target?: { clientRef?: string; anchor: string };
+  }[];
 };
 
 // Only rename duplicate local identifiers with no references to disambiguate.
@@ -12,7 +15,14 @@ export function normalizeModelIdentifiers<T extends Change>(input: T[]) {
   const changes = structuredClone(input);
   let renamedReferences = 0;
   let renamedAnchors = 0;
-  const referenced = new Set(changes.flatMap((c) => c.links));
+  const referenced = new Set(
+    changes.flatMap((c) => [
+      ...c.links,
+      ...c.claimRelations.flatMap((r) =>
+        r.target?.clientRef ? [r.target.clientRef] : [],
+      ),
+    ]),
+  );
   const refs = new Set(changes.map((c) => c.clientRef));
   const seenRefs = new Set<string>();
   const fresh = (used: Set<string>, prefix: string) => {
@@ -32,6 +42,10 @@ export function normalizeModelIdentifiers<T extends Change>(input: T[]) {
     const anchors = new Set(change.claims.map((c) => c.anchor));
     const seenAnchors = new Set<string>();
     const related = new Set(change.claimRelations.map((r) => r.anchor));
+    for (const item of changes)
+      for (const relation of item.claimRelations)
+        if (relation.target?.clientRef === ref)
+          related.add(relation.target.anchor);
     for (const claim of change.claims) {
       const anchor = claim.anchor;
       if (

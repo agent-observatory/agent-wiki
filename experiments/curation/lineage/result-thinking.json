@@ -1,0 +1,39 @@
+{
+  "model": "deepseek-v4-flash",
+  "expected": {
+    "prior_remote": "NVIDIA",
+    "current_remote": "Alibaba",
+    "replacement_evidence_line": 2,
+    "separate_local": "NVIDIA",
+    "suggestion_not_current": "ExampleCloud",
+    "late_history_must_not_revert": true,
+    "history_required": true,
+    "max_calls": 1
+  },
+  "settings": {
+    "enable_thinking": true,
+    "thinking_budget": 1024,
+    "max_completion_tokens": 4096
+  },
+  "startedAt": "2026-09-13T13:55:26.999Z",
+  "inputHash": "af86c115036cf3b2d01d3e791065ee764fb107916075969b9bdbe39f1413e09d",
+  "calls": 1,
+  "httpStatus": 200,
+  "usage": {
+    "prompt_tokens": 874,
+    "total_tokens": 1902,
+    "completion_tokens": 1028,
+    "prompt_tokens_details": {
+      "cached_tokens": 512
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1024
+    }
+  },
+  "finishReason": "stop",
+  "output": [
+    "quote"
+  ],
+  "status": "responded",
+  "ms": 12853
+}

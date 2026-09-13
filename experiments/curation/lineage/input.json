@@ -1,0 +1,19 @@
+{
+  "source": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "revision": 1,
+    "start": 1,
+    "end": 5,
+    "text": "09:00 사용자: 원격 정제 Provider는 NVIDIA로 하자.\n10:00 사용자: NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자.\n10:05 사용자: 로컬 실험 Provider는 NVIDIA를 그대로 쓰자.\n10:10 사용자: ExampleCloud도 괜찮을까? 아직 바꾸지는 마.\n11:00 사용자: 참고로 어제는 NVIDIA를 선택했었다. 지금 원격은 Alibaba가 맞다.",
+    "roles": [
+      {
+        "start": 1,
+        "end": 5,
+        "role": "user"
+      }
+    ],
+    "omittedLines": []
+  },
+  "related": [],
+  "reference": null
+}

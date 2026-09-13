@@ -438,6 +438,27 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
     );
     assert.equal(bodies.at(-1)!.thinking_budget, 1024);
     assert.equal(bodies.at(-1)!.enable_thinking, true);
+    for (const reasoning of ["high", "max"] as const) {
+      await callModel(
+        { ...config, enable_thinking: true, thinking_budget: null, reasoning },
+        "synthetic",
+        [],
+        AbortSignal.timeout(1000),
+      );
+      assert.equal(bodies.at(-1)!.reasoning_effort, reasoning);
+      assert.equal(bodies.at(-1)!.thinking_budget, undefined);
+    }
+    await callModel(
+      { ...config, enable_thinking: false, reasoning: "high" },
+      "synthetic",
+      [],
+      AbortSignal.timeout(1000),
+    );
+    assert.equal(
+      bodies.at(-1)!.reasoning_effort,
+      undefined,
+      "explicit OFF overrides effort",
+    );
     await assert.rejects(
       callModel(
         { ...config, model: "unrecognized-model" },
@@ -461,7 +482,7 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       ),
       /AI_REASONING_NOT_SUPPORTED/,
     );
-    assert.equal(bodies.length, 5);
+    assert.equal(bodies.length, 8);
   } finally {
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;

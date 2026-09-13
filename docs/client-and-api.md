@@ -232,3 +232,7 @@ agent-wiki search "운영 DB" --view history --scope production
 ```
 
 `current`는 대체·철회된 주장을 제외하고 제안·충돌·미확인 상태를 표시한다. `history`는 고정 Version의 변경 관계도 포함한다. 원문과 전체 Version은 반환된 링크로 확인한다. API는 `/context?view=current|history&scope=...`를 사용한다. 주장 관계 입력은 Client Skill의 [반영 계약](../packages/agent-wiki-client/skill/references/publication.md)을 따른다.
+
+### 같은 응답에서 발견한 결정 변경
+
+새 변경의 `claimRelations[].target`은 기존 지식의 `{articleId, revision, anchor}` 또는 **이번 요청에서 먼저 나온 변경**의 `{clientRef, anchor}`를 받는다. A와 B를 같은 응답에서 추출해도 B가 A를 대체한 관계를 원자적으로 저장한다. 자기/미래/없는 참조는 거부한다. 관계의 대상·범위·정정 근거 검증과 멱등성은 동일하다. 기본 `search --view current`와 `search --view history`로 현재와 변경 근거를 구분한다.

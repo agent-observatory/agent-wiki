@@ -150,6 +150,110 @@ test("current query follows explicit replacement; history retains evidence and i
     a.changes[0].content,
   );
 });
+test("one publication preserves a four-decision provider lineage and defaults to the final decision", async () => {
+  const phrases = [
+    "09:00 정제 Provider는 NVIDIA를 채택한다.",
+    "10:00 NVIDIA 호출 지연 때문에 Alibaba로 Provider를 변경한다.",
+    "11:00 검증을 위해 Alibaba에서 ExampleCloud로 변경한다.",
+    "12:00 검증을 마쳐 ExampleCloud 대신 Alibaba Singapore로 돌아간다.",
+  ];
+  const changes = [];
+  for (let i = 0; i < phrases.length; i++) {
+    const p = await proposal(phrases[i], {
+      subject: "ai-provider",
+      scope: "curation",
+    });
+    const change = p.changes[0];
+    change.clientRef = "provider-" + i;
+    change.tags = ["provider-lineage"];
+    if (i)
+      change.claimRelations = [
+        {
+          anchor: "decision",
+          relation: "supersedes",
+          target: { clientRef: "provider-" + (i - 1), anchor: "decision" },
+          evidence: change.claims[0].evidence,
+        },
+      ];
+    changes.push(change);
+  }
+  const payload = {
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes,
+  };
+  const response = await call("POST", "/publications", payload);
+  assert.equal(response.statusCode, 200, response.body);
+  const items = response.json().items;
+  assert.deepEqual(
+    (await call("POST", "/publications", payload)).json(),
+    response.json(),
+  );
+  const now = (
+    await call("GET", "/context?q=NVIDIA&tag=provider-lineage")
+  ).json();
+  assert.ok(
+    now.citations.some((item: any) => item.id === items[3].id),
+    JSON.stringify(now),
+  );
+  assert.ok(
+    !now.citations.some((item: any) =>
+      item.claims.some((claim: any) => claim.state === "superseded"),
+    ),
+  );
+  const history = (
+    await call("GET", "/context?q=NVIDIA&tag=provider-lineage&view=history")
+  ).json();
+  assert.equal(new Set(history.citations.map((item: any) => item.id)).size, 4);
+  for (let i = 0; i < items.length; i++) {
+    const article = (await call("GET", "/articles/" + items[i].id)).json();
+    assert.equal(article.claims[0].state, i === 3 ? "current" : "superseded");
+    assert.equal(article.content, phrases[i]);
+    assert.equal(article.claims[0].evidence[0].quote, phrases[i]);
+  }
+});
+test("local decision references reject forward links, missing targets and self cycles atomically", async () => {
+  for (const target of ["later", "missing", "first"]) {
+    const first = (
+      await proposal("합성 이전 결정", {
+        subject: "provider",
+        scope: "curation",
+      })
+    ).changes[0];
+    first.clientRef = "first";
+    first.claimRelations = [
+      {
+        anchor: "decision",
+        relation: "supersedes",
+        target: { clientRef: target, anchor: "decision" },
+        evidence: first.claims[0].evidence,
+      },
+    ];
+    const later = (
+      await proposal("합성 다음 결정", {
+        subject: "provider",
+        scope: "curation",
+      })
+    ).changes[0];
+    later.clientRef = "later";
+    const key = randomUUID();
+    const response = await call("POST", "/publications", {
+      idempotencyKey: key,
+      producer: { type: "agent", client: "synthetic" },
+      changes: [first, later],
+    });
+    assert.equal(response.json().error, "CLAIM_LOCAL_TARGET_NOT_PRIOR");
+    const rows = await admin.query(
+      "SELECT id FROM publications WHERE workspace_id=$1 AND idempotency_key=$2",
+      [ws, key],
+    );
+    assert.equal(
+      rows.rowCount,
+      0,
+      "invalid graph rolls back the whole publication",
+    );
+  }
+});
 test("proposals, scopes, authority and unsupported relation evidence cannot retire a decision", async () => {
   const old = await publish(await proposal("검증용 기존 결정"));
   for (const [opts, code] of [

@@ -1,0 +1,148 @@
+{
+  "model": "deepseek-v4-flash",
+  "expected": {
+    "prior_remote": "NVIDIA",
+    "current_remote": "Alibaba",
+    "replacement_evidence_line": 2,
+    "separate_local": "NVIDIA",
+    "suggestion_not_current": "ExampleCloud",
+    "late_history_must_not_revert": true,
+    "history_required": true,
+    "max_calls": 1
+  },
+  "settings": {
+    "enable_thinking": true,
+    "thinking_budget": null,
+    "reasoning_effort": "high",
+    "max_completion_tokens": 8192
+  },
+  "startedAt": "2026-09-13T14:00:30.940Z",
+  "inputHash": "af86c115036cf3b2d01d3e791065ee764fb107916075969b9bdbe39f1413e09d",
+  "calls": 1,
+  "httpStatus": 200,
+  "usage": {
+    "prompt_tokens": 874,
+    "total_tokens": 4465,
+    "completion_tokens": 3591,
+    "prompt_tokens_details": {
+      "cached_tokens": 512
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2804
+    }
+  },
+  "finishReason": "stop",
+  "output": {
+    "changes": [
+      {
+        "clientRef": "remote-nvidia",
+        "title": "원격 정제 Provider NVIDIA 선정",
+        "content": "원격 정제 Provider는 NVIDIA로 하자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "원격 정제 Provider는 NVIDIA로 하자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "remote-refining",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  1,
+                  1
+                ],
+                "quote": "09:00 사용자: 원격 정제 Provider는 NVIDIA로 하자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      },
+      {
+        "clientRef": "remote-alibaba",
+        "title": "원격 정제 Provider Alibaba로 변경",
+        "content": "원격 정제 Provider를 Alibaba로 변경하자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "원격 정제 Provider를 Alibaba로 변경하자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "remote-refining",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  2,
+                  2
+                ],
+                "quote": "10:00 사용자: NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": [
+          {
+            "anchor": "decision",
+            "relation": "supersedes",
+            "target": {
+              "clientRef": "remote-nvidia",
+              "anchor": "decision"
+            },
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  2,
+                  2
+                ],
+                "quote": "10:00 사용자: NVIDIA 호출이 반복해서 지연되니 원격 정제 Provider를 Alibaba로 변경하자."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "clientRef": "local-nvidia",
+        "title": "로컬 실험 Provider NVIDIA 유지",
+        "content": "로컬 실험 Provider는 NVIDIA를 그대로 쓰자.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision",
+            "text": "로컬 실험 Provider는 NVIDIA를 그대로 쓰자.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "local-experiment",
+            "state": "current",
+            "evidence": [
+              {
+                "sourceId": "11111111-1111-4111-8111-111111111111",
+                "revision": 1,
+                "lines": [
+                  3,
+                  3
+                ],
+                "quote": "10:05 사용자: 로컬 실험 Provider는 NVIDIA를 그대로 쓰자."
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      }
+    ]
+  },
+  "status": "responded",
+  "ms": 36960
+}
