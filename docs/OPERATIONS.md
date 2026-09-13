@@ -13,7 +13,7 @@
 
 ## 로그인 직후 위키 진입
 
-2026-09-14. 로그인 후 `/workspaces`에서 접근 가능한 첫 Workspace의 Knowledge로 바로 이동한다. 별도 목록 화면·공간 관리 링크를 제거하고 사이드바 Workspace 전환을 유지한다. 로그인 전·요청 실패·Workspace 없음은 공통 진입 화면에 표시한다. Web 프로덕션 빌드 통과. 원격 배포·로그인 후 이동은 후속 확인한다.
+2026-09-14. 로그인 후 `/workspaces`에서 접근 가능한 첫 Workspace의 Knowledge로 바로 이동한다. 별도 목록 화면·공간 관리 링크를 제거하고 사이드바 Workspace 전환을 유지한다. 로그인 전·요청 실패·Workspace 없음은 공통 진입 화면에 표시한다. Web 타입 검사·프로덕션 빌드와 [CI·K3s 자동 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34767555123)를 통과했다. 운영 Edge의 기존 GitHub 로그인 세션으로 `/workspaces` 진입 → 개인 작업 Knowledge 자동 이동, 사이드바 Workspace 선택 메뉴 유지를 확인했다. GitHub OAuth 재로그인은 따로 실행하지 않았다. 배포 코드 `2a30e64`.
 
 ## 웹 안내 간소화
 
