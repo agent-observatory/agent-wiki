@@ -1,0 +1,20 @@
+{
+  "version":"model-selection-1",
+  "models":["qwen3.8-max","qwen3.8-flash","qwen3.7-flash","deepseek-v4-flash"],
+  "region":"ap-southeast-1",
+  "thinking":false,
+  "maxOutputTokens":6144,
+  "timeoutMs":330000,
+  "automaticRetries":0,
+  "smallCalls":4,
+  "followup":"At most two leading candidates on one roughly 30K-token distractor context, same cases and prompt. No forced followup if small results clearly disqualify candidates.",
+  "maxTotalCalls":6,
+  "maxReportedTokens":110000,
+  "quotaChecked":"2026-09-13",
+  "quotaPerExactModel":1000000,
+  "quotaExpiry":"2026-11-26",
+  "stopOnExhaust":true,
+  "productionWrites":false,
+  "ranking":"Semantic correctness and harmful current-decision/verification errors first, exact sufficient evidence and structured contract second; speed/tokens only tie-breakers. Review Korean statements manually against frozen expectations. Max is not an oracle.",
+  "largeComparisonLimit":"Only a distractor-context retention check, not full-session exhaustive extraction, Worker publication, or proof that 30K chunks improve curation."
+}
