@@ -75,6 +75,7 @@ function proposal(
     producer: { type: "agent", client: "remote-worker" },
     changes: [
       {
+        topic: { key: "synthetic-topic", title: "합성 검증 주제" },
         clientRef: "memory",
         title: "DB decision",
         content: text,
@@ -340,8 +341,8 @@ test("Worker keeps decisions first found in one chunk as a lineage rather than l
       calls++;
       const input = JSON.parse(messages[1].content);
       assert.ok(
-        input.source.text.includes(phrases[0]) &&
-          input.source.text.includes(phrases[1]),
+        JSON.stringify(input.source.records).includes(phrases[0]) &&
+          JSON.stringify(input.source.records).includes(phrases[1]),
       );
       return {
         output: {
@@ -355,6 +356,7 @@ test("Worker keeps decisions first found in one chunk as a lineage rather than l
               },
             ];
             return {
+              topic: { key: "synthetic-topic", title: "합성 검증 주제" },
               clientRef: "provider-" + index,
               title: "정제 제공자",
               content: phrase,

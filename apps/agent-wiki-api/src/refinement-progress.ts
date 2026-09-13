@@ -87,7 +87,7 @@ export async function refinementProgress(
     await c.query(
       `SELECT (SELECT count(*)::int FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL) AS sources,
       (SELECT count(DISTINCT CASE WHEN kind='conversation' AND origin<>'' THEN 'conversation:'||origin ELSE 'source:'||id::text END)::int FROM sources WHERE workspace_id=$1 AND deleted_at IS NULL) AS source_groups,
-      (SELECT count(*)::int FROM articles WHERE workspace_id=$1 AND deleted_at IS NULL) AS articles,
+      (SELECT count(*)::int FROM wiki_pages WHERE workspace_id=$1) AS articles,
       count(*) FILTER(WHERE status='completed')::int AS uploads_completed,
       count(*) FILTER(WHERE status IN ('uploading','queued','verifying'))::int AS uploads_pending
      FROM collection_uploads WHERE workspace_id=$1`,

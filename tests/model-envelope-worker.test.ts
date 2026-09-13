@@ -68,6 +68,7 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
       return {
         output: {
           changes: Array.from({ length: 12 }, (_, i) => ({
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: `item-${i}`,
             title: `Synthetic ${i}`,
             content: `Claim ${i}`,
@@ -77,14 +78,7 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
                 anchor: "claim",
                 text: `Claim ${i}`,
                 type: "unconfirmed",
-                evidence: [
-                  {
-                    sourceId: input.source.id,
-                    revision: 1,
-                    lines: [1, 1],
-                    quote: input.source.text.split("\n")[0],
-                  },
-                ],
+                evidence: [{ recordId: input.source.records[0].recordId }],
               },
             ],
           })),
@@ -107,7 +101,7 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
   );
   assert.equal(run.status, "completed");
   assert.equal(run.error_code, null);
-  assert.equal(run.diagnostics.inputSplit, true);
+  assert.ok(run.diagnostics.inputBudget.estimatedTokens <= 30000);
   assert.equal(
     (
       await admin.query(

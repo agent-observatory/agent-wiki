@@ -43,6 +43,7 @@ test("a resumed chunk retrieves its own topic instead of the source beginning", 
             producer: { type: "agent", client: "fixture" },
             changes: [
               {
+                topic: { key: "synthetic-topic", title: "합성 검증 주제" },
                 clientRef: "topic",
                 title: topic,
                 content: topic,

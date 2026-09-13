@@ -61,8 +61,12 @@ ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_key text NOT NULL DEFAULT '';
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_title text NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS wiki_pages(workspace_id uuid NOT NULL REFERENCES workspaces(id),id uuid NOT NULL,topic_key text NOT NULL,title text NOT NULL,content text NOT NULL,revision int NOT NULL,input_hash text NOT NULL,tags text[] NOT NULL DEFAULT '{}',updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),UNIQUE(workspace_id,topic_key));
+CREATE TABLE IF NOT EXISTS wiki_page_versions(workspace_id uuid NOT NULL,page_id uuid NOT NULL,revision int NOT NULL,title text NOT NULL,content text NOT NULL,snapshot jsonb NOT NULL,input_hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,page_id,revision),FOREIGN KEY(workspace_id,page_id) REFERENCES wiki_pages(workspace_id,id));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews'] LOOP
+ FOREACH t IN ARRAY ARRAY['wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);

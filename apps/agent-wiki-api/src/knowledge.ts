@@ -1,4 +1,9 @@
 import {
+  refreshWikiPages,
+  listWikiPages,
+  wikiPageDetail,
+} from "./wiki-pages.js";
+import {
   reviewComparison,
   confirmReview,
   pendingReviews,
@@ -62,6 +67,13 @@ export const MAX_PUBLICATION_CHANGES = 12;
 export const changeInput = z
   .object({
     clientRef: small,
+    topic: z
+      .object({
+        key: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
+        title: small,
+      })
+      .strict()
+      .optional(),
     articleId: uuid.nullable().default(null),
     baseRevision: z.number().int().positive().nullable().default(null),
     title: small,
@@ -332,6 +344,22 @@ export function registerKnowledge(
     ).rows;
     return { ...paged(rows, page), query: q.q, queryStatus };
   }
+  app.get(base + "/wiki-pages", (r) =>
+    scoped(r, (c, ws) => listWikiPages(c, ws, r.query)),
+  );
+  app.get(base + "/wiki-pages/:id", (r) =>
+    scoped(r, (c, ws) => wikiPageDetail(c, ws, uuid.parse(params(r).id))),
+  );
+  app.get(base + "/wiki-pages/:id/revisions/:revision", (r) =>
+    scoped(r, (c, ws) =>
+      wikiPageDetail(
+        c,
+        ws,
+        uuid.parse(params(r).id),
+        z.coerce.number().int().positive().parse(params(r).revision),
+      ),
+    ),
+  );
   app.get(base + "/articles", (r) =>
     scoped(r, (c, ws) => search(c, ws, r.query)),
   );
@@ -427,11 +455,15 @@ export function registerKnowledge(
         .int()
         .positive()
         .parse((r.body as any).revision);
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        ws,
+      ]);
       const changed = await c.query(
         "UPDATE articles SET deleted_at=now(),updated_at=now() WHERE workspace_id=$1 AND id=$2 AND revision=$3 AND deleted_at IS NULL RETURNING id",
         [ws, uuid.parse(params(r).id), rev],
       );
       if (!changed.rowCount) conflict("REVISION_CONFLICT");
+      await refreshWikiPages(c, ws);
       return { ok: true };
     });
   });
@@ -827,6 +859,16 @@ export function registerKnowledge(
           discoveryOnly: true,
         }))
         .slice(0, 30),
+      wikiPages: (
+        await c.query(
+          `SELECT DISTINCT p.id,p.title,p.revision FROM wiki_pages p JOIN articles a ON a.workspace_id=p.workspace_id AND a.topic_key=p.topic_key WHERE p.workspace_id=$1 AND a.id=ANY($2::uuid[]) ORDER BY p.title,p.id LIMIT 10`,
+          [ws, citations.map((x) => x.id)],
+        )
+      ).rows.map((p) => ({
+        ...p,
+        discoveryOnly: true,
+        url: `/workspaces/${ws}/knowledge/${p.id}?page=true&revision=${p.revision}`,
+      })),
       citations,
       truncated:
         expanded.truncated ||
@@ -842,6 +884,10 @@ export function registerKnowledge(
     // Dedicated revision/source endpoints provide the full record on demand.
     while (JSON.stringify(result).length > 16000) {
       result.truncated = true;
+      if (result.wikiPages.length) {
+        result.wikiPages.pop();
+        continue;
+      }
       if (result.topics.length) {
         result.topics.pop();
         continue;
@@ -947,6 +993,9 @@ async function consolidateClaim(
     ...change,
     articleId: article.id,
     baseRevision: article.revision,
+    topic: article.topic_key
+      ? { key: article.topic_key, title: article.topic_title }
+      : change.topic,
     title: article.title,
     content: article.content,
     kind: article.kind,
@@ -1220,6 +1269,11 @@ export async function publish(
           change.aliases,
         ],
       );
+    if (change.topic)
+      await c.query(
+        "UPDATE articles SET topic_key=$3,topic_title=$4 WHERE workspace_id=$1 AND id=$2",
+        [ws, id, change.topic.key, change.topic.title],
+      );
     await c.query(
       "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
       [
@@ -1229,6 +1283,7 @@ export async function publish(
         change.title,
         change.content,
         JSON.stringify({
+          topic: change.topic,
           kind: change.kind,
           folder: change.folder,
           tags: change.tags,
@@ -1334,6 +1389,7 @@ export async function publish(
     [ws],
   );
   if (cycle.rowCount) throw new AppError(400, "SUPERSESSION_CYCLE");
+  await refreshWikiPages(c, ws);
   if (input.startContext) {
     const id =
       mapped.get(input.startContext.articleRef) ??

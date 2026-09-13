@@ -11,7 +11,7 @@ agent-wiki recall --project agent-wiki
 agent-wiki search "단일 VM" --project agent-wiki
 ```
 
-`recall`은 저장된 시작 문서·목차를 조회한다. 아직 수집·정제하지 못한 대화까지 기억한다고 설명하지 않는다. 웹은 지식·근거·Version·진행 상태·설정의 읽기 전용 뷰어다. 지식 수정·검토·AI 설정·정제 제어는 CLI에서 실행한다.
+`recall`은 저장된 시작 문서·목차를 조회한다. 아직 수집·정제하지 못한 대화까지 기억한다고 설명하지 않는다. 웹은 지식·근거·Version·진행 상태·설정의 읽기 전용 뷰어다. 지식 수정·검토·AI 설정은 CLI에서 실행한다. 자동 정제 중지·재개는 웹 Curation에서도 같은 Version 검사 API로 실행한다.
 
 ## 연결과 지침
 
@@ -240,3 +240,7 @@ agent-wiki search "운영 DB" --view history --scope production
 새 변경의 `claimRelations[].target`은 기존 지식의 `{articleId, revision, anchor}` 또는 **이번 요청에서 먼저 나온 변경**의 `{clientRef, anchor}`를 받는다. A와 B를 같은 응답에서 추출해도 B가 A를 대체한 관계를 원자적으로 저장한다. 자기/미래/없는 참조는 거부한다. 관계의 대상·범위·정정 근거 검증과 멱등성은 동일하다. 기본 `search --view current`와 `search --view history`로 현재와 변경 근거를 구분한다.
 
 저장 단계 실패를 수정한 뒤 검증된 출력 캐시만 재반영하려면 `agent-wiki api POST /refinements/<job-id>/retry --file retry.json`에 `{"reuseOutput":true}`를 전달한다. 모델 재호출 없이 발행을 다시 검증한다. 캐시가 없으면 거부하며, 기본 재시도는 새 모델 응답을 받는다.
+
+### Wiki Pages 조회
+
+`agent-wiki pages [검색어]`는 주제별 페이지를 나열하고 `agent-wiki page ID [--revision N]`는 본문과 고정된 Claim·관계 스냅샷을 읽는다. `article ID`는 내부 Claim의 원문 근거·리니지를 상세 조회한다. L4 `search`는 Workspace 전체에서 찾고 `--tag`를 명시한 경우만 Tag로 제한한다. 검색 응답의 `wikiPages`는 연결된 페이지 탐색 링크이며 현재 결정의 근거는 `citations`의 상태·Version을 따른다.

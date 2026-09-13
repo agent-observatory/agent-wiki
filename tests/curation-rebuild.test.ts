@@ -99,6 +99,7 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
     producer: { type: "agent", client: "fixture" },
     changes: [
       {
+        topic: { key: "synthetic-topic", title: "합성 검증 주제" },
         clientRef: "test",
         title: "Synthetic knowledge",
         content: "테스트 지식",

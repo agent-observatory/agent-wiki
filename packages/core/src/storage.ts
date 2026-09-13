@@ -1,3 +1,4 @@
+import { AppError } from "./db.js";
 import { createHash } from "node:crypto";
 import {
   gzipSync,
@@ -19,7 +20,36 @@ async function ociClient() {
           new objectstorage.ObjectStorageClient({
             authenticationDetailsProvider,
           }),
-      ));
+      )
+      .catch((error) => {
+        client = undefined;
+        throw error;
+      }));
+}
+async function readObject(key: string) {
+  const request = {
+    namespaceName: process.env.OCI_NAMESPACE!,
+    bucketName: process.env.OCI_BUCKET!,
+    objectName: key,
+  };
+  const c = await ociClient();
+  try {
+    return await c.getObject(request);
+  } catch (error) {
+    const e = error as { statusCode?: number; code?: string };
+    if (e.statusCode !== 401 && e.code !== "NotAuthenticated") throw error;
+    // Refresh a stale instance-principal session once for this read only.
+    // Writes and authorization failures are never blindly replayed.
+    if ((await client) === c) client = undefined;
+    try {
+      return await (await ociClient()).getObject(request);
+    } catch (retryError) {
+      const retried = retryError as { statusCode?: number; code?: string };
+      if (retried.statusCode === 401 || retried.code === "NotAuthenticated")
+        throw new AppError(502, "SOURCE_AUTH_FAILED");
+      throw retryError;
+    }
+  }
 }
 export function mask(text: string) {
   return text
@@ -70,12 +100,7 @@ async function sourceBuffer(key: string) {
   if (process.env.SOURCE_STORAGE === "local")
     buffer = await readFile(localPath(key));
   else {
-    const c = await ociClient();
-    const response = await c.getObject({
-      namespaceName: process.env.OCI_NAMESPACE!,
-      bucketName: process.env.OCI_BUCKET!,
-      objectName: key,
-    });
+    const response = await readObject(key);
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of response.value as AsyncIterable<Uint8Array>) {
@@ -168,12 +193,7 @@ export async function getBlob(key: string, limit = 5 * 1024 * 1024) {
     const { createReadStream } = await import("node:fs");
     input = createReadStream(blobPath(key));
   } else {
-    const c = await ociClient();
-    const r = await c.getObject({
-      namespaceName: process.env.OCI_NAMESPACE!,
-      bucketName: process.env.OCI_BUCKET!,
-      objectName: key,
-    });
+    const r = await readObject(key);
     input = r.value as AsyncIterable<Uint8Array>;
   }
   const chunks: Buffer[] = [];

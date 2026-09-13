@@ -1,0 +1,102 @@
+{
+  "source": {
+    "text": "초기에는 정제 제공자로 NVIDIA를 채택했다. 무료로 원문 추출의 품질을 실험하기 위한 결정이었으며 운영 안정성은 아직 확인하지 않았다.\n이제 NVIDIA를 취소하고 Alibaba로 바꾸자. 응답 지연과 반복 실패가 개발을 방해하기 때문이다. 같은 원문 정제 작업에 적용하되, 원문과 이전 결정의 근거는 유지한다.\nAlibaba 정제 동시 실행은 5개로 제한한다. 개인 위키이므로 대규모 부하보다 비용과 확인 가능한 품질을 우선한다. 추론을 끄는 방안은 아직 검토 의견이고 채택한 것은 아니다."
+  },
+  "model": "deepseek-v4-flash",
+  "usage": {
+    "prompt_tokens": 1067,
+    "completion_tokens": 4505,
+    "total_tokens": 5572,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3835
+    }
+  },
+  "output": {
+    "changes": [
+      {
+        "clientRef": "change1",
+        "topic": {
+          "key": "ai-curation",
+          "title": "AI 정제 연결"
+        },
+        "title": "초기 정제 제공자 결정",
+        "content": "초기에는 NVIDIA를 정제 제공자로 채택했다.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "decision-nvidia",
+            "text": "초기에는 정제 제공자로 NVIDIA를 채택했다. 이는 무료로 원문 추출의 품질을 실험하기 위한 결정이었으며, 운영 안정성은 아직 확인하지 않았다.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "curation",
+            "state": "current",
+            "evidence": [
+              {
+                "recordId": "record-1"
+              }
+            ]
+          }
+        ],
+        "claimRelations": []
+      },
+      {
+        "clientRef": "change2",
+        "topic": {
+          "key": "ai-curation",
+          "title": "AI 정제 연결"
+        },
+        "title": "정제 제공자 변경 및 동시 실행 제한",
+        "content": "NVIDIA에서 Alibaba로 변경하고 동시 실행을 5개로 제한했다.",
+        "kind": "memory",
+        "tags": [],
+        "claims": [
+          {
+            "anchor": "switch-provider",
+            "text": "NVIDIA를 취소하고 Alibaba로 변경했다. 응답 지연과 반복 실패가 개발을 방해했기 때문이다. 동일한 원문 정제 작업에 적용하며, 원문과 이전 결정의 근거는 유지한다.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "curation",
+            "state": "current",
+            "evidence": [
+              {
+                "recordId": "record-2"
+              }
+            ]
+          },
+          {
+            "anchor": "concurrency-limit",
+            "text": "Alibaba 정제 동시 실행은 5개로 제한한다. 개인 위키이므로 대규모 부하보다 비용과 확인 가능한 품질을 우선한다. 추론을 끄는 방안은 아직 검토 의견이고 채택한 것은 아니다.",
+            "type": "user_decision",
+            "subject": "ai-provider",
+            "scope": "curation",
+            "state": "current",
+            "evidence": [
+              {
+                "recordId": "record-3"
+              }
+            ]
+          }
+        ],
+        "claimRelations": [
+          {
+            "anchor": "switch-provider",
+            "relation": "supersedes",
+            "target": {
+              "clientRef": "change1",
+              "anchor": "decision-nvidia"
+            },
+            "evidence": [
+              {
+                "recordId": "record-2"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

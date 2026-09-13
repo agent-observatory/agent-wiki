@@ -67,7 +67,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
             <p className="text-2xl font-semibold tabular-nums">
               {storage.source_groups.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                세션·문서
+                세션
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
@@ -90,7 +90,7 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
             <p className="text-2xl font-semibold tabular-nums">
               {sessions.current.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                / {sessions.total.toLocaleString()}개 세션·문서
+                / {sessions.total.toLocaleString()}개 세션
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
@@ -132,11 +132,11 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
           {waitingReasons[schedule.reason]}
         </span>
         <span className="text-muted-foreground">
-          미반영 세션·문서 {sessions.waiting.toLocaleString()}개
+          미반영 세션 {sessions.waiting.toLocaleString()}개
         </span>
         {sessions.attention > 0 && (
           <StatusBadge status="failed">
-            확인 필요 {sessions.attention.toLocaleString()}개 세션·문서
+            확인 필요 {sessions.attention.toLocaleString()}개 세션
           </StatusBadge>
         )}
         {schedule.nextAttemptAt && (

@@ -63,6 +63,7 @@ async function main() {
         "source get ID [--start N --end N]",
         "publish FILE.json",
         "publication status KEY",
+        "pages [query] | page ID [--revision N]",
         "ai show | update FILE.json [--key-env ENV_NAME] | test [FILE.json] [--key-env ENV_NAME] | pause | resume",
         "api GET|POST|PUT|PATCH|DELETE /workspace-path [--file FILE.json] [--idempotency-key KEY] [--secret-output FILE]",
         "workspace list | create NAME",
@@ -288,6 +289,12 @@ async function main() {
       }),
     );
   }
+  if (command === "pages") return output(await request("/wiki-pages?" + new URLSearchParams({q:args[0]??"",page:option("page","1"),pageSize:option("page-size","25")})));
+  if (command === "page") {
+    if (!args[0]) throw new Error("Wiki Page ID required");
+    const revision=option("revision");
+    return output(await request("/wiki-pages/"+args[0]+(revision?"/revisions/"+revision:"")));
+  }
   const tag = option("tag", connection.tag);
   if (command === "recall")
     return output(await request("/recall?" + new URLSearchParams({ tag })));
@@ -302,7 +309,7 @@ async function main() {
         "/context?" +
           new URLSearchParams({
             q: args[0],
-            tag,
+            ...(option("tag") ? {tag:option("tag")} : {}),
             view,
             ...(scope ? { scope } : {}),
           }),

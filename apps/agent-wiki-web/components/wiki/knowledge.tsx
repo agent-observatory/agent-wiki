@@ -1,4 +1,5 @@
 "use client";
+import { WikiPageDetail } from "./wiki-page";
 import { layerLabel, LAYER_NAMES } from "@/lib/layers";
 import { KnowledgeHistory } from "./knowledge-history";
 import { Pagination } from "./pagination";
@@ -25,7 +26,7 @@ import { api, useApi } from "@/lib/api";
 import { Heading, Loading, Failure, Empty, When } from "./common";
 const kinds: Record<string, string> = {
   article: "문서",
-  memory: "기억",
+  memory: "Claim",
   glossary: "용어",
 };
 const types: Record<string, string> = {
@@ -75,7 +76,7 @@ function KnowledgeArticles() {
   if (q) filter.set("q", q);
   if (tag) filter.set("tag", tag);
   const { data, error } = useApi(
-    `/api/workspaces/${workspaceId}/articles?${filter}`,
+    `/api/workspaces/${workspaceId}/wiki-pages?${filter}`,
   );
   const root = `/workspaces/${workspaceId}/knowledge`;
   return (
@@ -127,23 +128,21 @@ function KnowledgeArticles() {
           {data.items.map((a: any) => (
             <Link
               className="group block py-5 hover:bg-accent/50 px-3 -mx-3 rounded-md"
-              href={`${root}/${a.id}`}
+              href={`${root}/${a.id}?page=true`}
               key={a.id}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-base font-bold group-hover:underline">
                   {a.title}
                 </span>
-                <Badge variant="secondary">{kinds[a.kind]}</Badge>
-                <Badge variant="outline">
-                  {a.reviewPending ? "검토 전" : "검토 완료"}
-                </Badge>
+                <Badge variant="secondary">Wiki Page</Badge>
+                <Badge variant="outline">주장 기반 구성</Badge>
               </div>
               <p className="mt-2 line-clamp-2 text-muted-foreground">
                 {a.content.replace(/[#*`]/g, "").slice(0, 180)}
               </p>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>근거 {a.evidence_count}개</span>
+                <span>Claims {a.claim_count}개</span>
                 <Badge variant="outline">Version {a.revision}</Badge>
                 <When value={a.updated_at} />
                 {a.tags.map((t: string) => (
@@ -159,6 +158,10 @@ function KnowledgeArticles() {
   );
 }
 export function KnowledgeDetail() {
+  const query = useSearchParams();
+  return query.get("page") === "true" ? <WikiPageDetail /> : <ClaimDetail />;
+}
+function ClaimDetail() {
   const { workspaceId, id } = useParams<{ workspaceId: string; id: string }>();
   const query = useSearchParams();
   const router = useRouter();
@@ -324,7 +327,11 @@ export function KnowledgeDetail() {
             </section>
           )}
           {a.claims.map((c: any) => (
-            <section key={c.anchor} className="rounded-lg border p-5">
+            <section
+              id={c.anchor}
+              key={c.anchor}
+              className="rounded-lg border p-5 scroll-mt-8"
+            >
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{types[c.type]}</Badge>
                 {c.state !== "current" && (

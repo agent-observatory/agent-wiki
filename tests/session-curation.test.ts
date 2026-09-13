@@ -75,35 +75,32 @@ test("small increments of one session share a model call and keep separate immut
     async (_config, _key, messages) => {
       calls++;
       const input = JSON.parse((messages[1] as { content: string }).content);
-      assert.ok(input.source.text.includes("첫 결정"), "first input missing");
       assert.ok(
-        input.source.text.includes("변경 결정"),
+        JSON.stringify(input.source.records).includes("첫 결정"),
+        "first input missing",
+      );
+      assert.ok(
+        JSON.stringify(input.source.records).includes("변경 결정"),
         "second increment must join the first call",
       );
-      const lines = input.source.text.split("\n");
+      const lines = input.source.records;
       return {
         output: {
-          changes: lines.map((line: string, i: number) => ({
+          changes: lines.map((line: any, i: number) => ({
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "item-" + i,
             title: "기록 " + i,
-            content: JSON.parse(line).text,
+            content: line.text,
             kind: "memory",
             claims: [
               {
                 anchor: "claim",
-                text: JSON.parse(line).text,
+                text: line.text,
                 type: "user_decision",
                 subject: "server",
                 scope: "personal",
                 state: "current",
-                evidence: [
-                  {
-                    sourceId: input.source.id,
-                    revision: 1,
-                    lines: [input.source.start + i, input.source.start + i],
-                    quote: line,
-                  },
-                ],
+                evidence: [{ recordId: line.recordId }],
               },
             ],
           })),
@@ -202,7 +199,9 @@ test("failed batch retries the frozen input; an arrival during the call waits fo
   let initial = "",
     late: { id: string; job: string } | undefined;
   await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
-    initial = JSON.parse((m[1] as { content: string }).content).source.text;
+    initial = JSON.stringify(
+      JSON.parse((m[1] as { content: string }).content).source.records,
+    );
     late = await appendInput("arrived-after-capture");
     throw new ModelError("AI_HTTP_429", true, 1);
   });
@@ -227,7 +226,9 @@ test("failed batch retries the frozen input; an arrival during the call waits fo
   await ready();
   let retried = "";
   await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
-    retried = JSON.parse((m[1] as { content: string }).content).source.text;
+    retried = JSON.stringify(
+      JSON.parse((m[1] as { content: string }).content).source.records,
+    );
     return { output: { changes: [] }, usage: { total_tokens: 1 } };
   });
   assert.equal(retried, initial);
@@ -250,7 +251,9 @@ test("failed batch retries the frozen input; an arrival during the call waits fo
   await ready();
   let next = "";
   await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
-    next = JSON.parse((m[1] as { content: string }).content).source.text;
+    next = JSON.stringify(
+      JSON.parse((m[1] as { content: string }).content).source.records,
+    );
     return { output: { changes: [] }, usage: { total_tokens: 1 } };
   });
   assert.ok(next.includes("arrived-after-capture"));
@@ -262,7 +265,9 @@ test("capture is bounded, does not cross sessions, and rebuild clears membership
   const other = await appendInput("other-session", "codex:other");
   await ready();
   await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
-    const text = JSON.parse((m[1] as { content: string }).content).source.text;
+    const text = JSON.stringify(
+      JSON.parse((m[1] as { content: string }).content).source.records,
+    );
     assert.ok(text.includes("bounded-first"));
     assert.ok(!text.includes("bounded-second"));
     assert.ok(!text.includes("other-session"));

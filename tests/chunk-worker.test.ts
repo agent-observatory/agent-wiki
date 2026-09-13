@@ -240,6 +240,7 @@ test("incremental curation sees prior claim context and adds a grounded replacem
         producer: { type: "agent", client: "synthetic" },
         changes: [
           {
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "a",
             title: "운영 데이터베이스",
             content: oldText,
@@ -284,16 +285,12 @@ test("incremental curation sees prior claim context and adds a grounded replacem
     assert.equal(prior.text, oldText);
     assert.equal(prior.same_session, true);
     assert.equal(prior.scope, "production");
-    const evidence = {
-      sourceId: second,
-      revision: 1,
-      lines: [2, 2],
-      quote: input.source.text.split("\n")[1],
-    };
+    const evidence = { recordId: input.source.records[1].recordId };
     return {
       output: {
         changes: [
           {
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "b",
             title: "새 운영 DB",
             content: newText,
@@ -373,16 +370,12 @@ test("incremental curation sees prior claim context and adds a grounded replacem
     const target = input.related.find(
       (a: any) => a.id === result.relations[0].from_article_id,
     );
-    const evidence = {
-      sourceId: assistantSource,
-      revision: 1,
-      lines: [2, 2],
-      quote: input.source.text.split("\n")[1],
-    };
+    const evidence = { recordId: input.source.records[1].recordId };
     return {
       output: {
         changes: [
           {
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "unsafe",
             title: "설치 완료 주장",
             content: assistantText,

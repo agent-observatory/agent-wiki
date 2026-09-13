@@ -47,6 +47,8 @@ export async function rebuildCuration(
     )
   ).rows[0].n;
   for (const table of [
+    "wiki_page_versions",
+    "wiki_pages",
     "claim_relations",
     "evidence",
     "claims",

@@ -4,7 +4,7 @@
 
 **데스크톱 웹 전용이며 모바일 대응·검증은 범위에 두지 않는다.**
 
-**웹 UI의 기본은 shadcn/ui다. 공식 컴포넌트·블록·테마를 먼저 사용하고 Wiki에 필요한 부분만 조합한다.** 에이전트의 근거 조회가 주 용례이며 웹은 지식·원문·검토 결과·진행 상태를 읽는 뷰어다. 변경은 CLI에서 수행한다.
+**웹 UI의 기본은 shadcn/ui다. 공식 컴포넌트·블록·테마를 먼저 사용하고 Wiki에 필요한 부분만 조합한다.** 에이전트의 근거 조회가 주 용례이며 웹은 지식·원문·검토 결과·진행 상태를 읽는 뷰어다. 변경은 CLI에서 수행하며, 자동 정제 중지·재개는 웹 Curation에서도 제공한다.
 
 2026-09-12 공식 [저장소](https://github.com/shadcn-ui/ui)·[소개](https://ui.shadcn.com/docs)·[컴포넌트](https://ui.shadcn.com/docs/components)·[테마](https://ui.shadcn.com/docs/theming)를 확인해 기본 기준으로 선택했다. 공식 shadcn CLI 4.21.0으로 생성한 Neutral·Radix 계열 컴포넌트를 사용한다. Tailwind 4 의미 토큰과 아이콘 전용 다크/라이트 토글을 적용했다. 컴포넌트 소스는 `apps/agent-wiki-web/components/ui`에 있으며 원본은 MIT 라이선스다. 운영 배포 상태는 `OPERATIONS.md`를 따른다.
 
@@ -29,7 +29,7 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 ## 화면별 조합
 
-사이드바는 **L3 · Knowledge → L1–L2 · Sources → 설정** 세 항목이다. Knowledge의 탭은 지식 목록·반영 이력, Sources의 탭은 Raw Sources·Curation·수집 상태다. Sources의 수집·반영 요약은 공통이며 모델 호출·정제 진단은 Curation 탭에만 둔다. 별도 Audit·Curation 메뉴는 두지 않는다. 탭 변경은 해당 목록의 첫 페이지로 이동하며 탭·페이지·검색은 URL로 표현해 뒤로 가기로 복원한다.
+사이드바는 **L3 · Knowledge → L1–L2 · Sources → 설정** 세 항목이다. Knowledge의 탭은 지식 목록·반영 이력, Sources의 탭은 Curation·수집 상태·Raw Sources 순서이며 기본 탭은 Curation이다. Sources의 수집·반영 요약은 공통이며 모델 호출·정제 진단은 Curation 탭에만 둔다. 별도 Audit·Curation 메뉴는 두지 않는다. 탭 변경은 해당 목록의 첫 페이지로 이동하며 탭·페이지·검색은 URL로 표현해 뒤로 가기로 복원한다.
 
 | 화면·기능 | 사용할 기본 구성 |
 | --- | --- |
@@ -51,9 +51,17 @@ OpenGateway는 중성 표면·문서 밀도를 참고했던 이전 레퍼런스�
 
 설정 메뉴에는 **AI 연결 · Client 연결**을 둔다. Curation에는 AI 설정 탭을 두지 않는다.
 
-AI 설정은 **BYOK 단일 연결의 읽기 전용 요약**이다. API 키 원문은 표시하지 않는다. 설정·Hello 테스트·자동 정제 재개는 별도 CLI 명령이다. Free 선택기·저장 폼·웹의 테스트·재개 버튼은 두지 않는다.
+AI 설정은 **BYOK 단일 연결의 읽기 전용 요약**이다. API 키 원문은 표시하지 않는다. 설정·Hello 테스트는 CLI 명령이다. 자동 정제 중지·재개는 CLI와 웹 Curation에서 같은 API를 사용한다. Free 선택기·설정 저장 폼·웹의 Hello 테스트 버튼은 두지 않는다.
 
 AI 연결 요약에는 `model`, `maxInputTokens`, 출력 한도 한 개(`max_tokens` 또는 `max_completion_tokens`), 추론 설정, `requestsPerMinute`, `concurrency`를 표시한다. 추론이 꺼졌거나 설정되지 않은 부가 값·일일 제한은 생략한다. 주소·키 원문·내부 문자 제한·Version·중복 출력 한도·CLI 안내는 표시하지 않는다. 제공자 파라미터는 영문 필드명을 유지하고 Wiki 자체 제한과 구분한다. 호출 이력은 입력/출력과 그 안에 포함된 캐시/추론 토큰을 구분하며 당시 추론 설정을 함께 보여준다.
+
+### 원문 열람·처리 상태
+
+- Raw Sources는 세션별 한 줄 요약이다. 상세에는 수집 횟수·마지막 수집·보관 기록 수·압축 용량과 접힌 수집 이력을 표시한다. 확정된 업로드 메타데이터만 집계하며 한 업로드의 저장 조각·중복 재전송을 여러 수집으로 세지 않는다.
+- 상세 진입은 DB 메타데이터만 읽는다. 전체 기록 보기·인용 구간 요청 때 본문을 읽고, 세션의 이어진 기록을 이전·다음으로 탐색한다. 원문 수동 등록 버튼은 두지 않는다.
+- 목록은 서버 페이지네이션 25·50·100개다. Curation은 개별 작업을 펼치지 않고 세션별 상태·이번 처리 진행률·새 기록 대기·마지막 반영을 표시한다. 처리 시작 때 범위를 고정하므로 새 증분이 진행률 분모를 늘리지 않는다.
+- 보이는 정제 상태는 15초마다 갱신한다. CLI 중지·재개는 다음 조회에 반영하며 진행 중인 청크는 마무리한다. 웹 중지·재개는 저장된 상태를 즉시 표시하고 진행 상태를 다시 조회한다. 저장 중 버튼을 비활성화하고 Version 충돌·실패는 버튼 옆에 표시한다. 표시한 페이지 항목과 전체 집계를 구분한다.
+- 웹 Version 링크는 해당 개정의 문서 제목과 배지로 표시한다. Workspace 없음과 조회 실패도 구분해서 보여준다.
 
 ## 테마 토큰
 
@@ -76,7 +84,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 ## 밀도·접근성
 
-- Sources의 수는 정제를 기다리는 수집 자료 수이고 Knowledge의 수는 생성된 지식 수다. 원천 자료 종류인 세션·입력 문서를 생성될 지식 문서 수와 혼동하지 않게 설명한다. 현재 `세션·문서` 표기는 종류를 묶은 표현이며 각각 같은 개수라는 뜻이 아니다. 수집 자료와 지식은 다대다 관계다.
+- Sources의 수는 정제를 기다리는 수집 자료 수이고 Knowledge의 수는 생성된 지식 수다. 원천 자료 종류인 세션·입력 문서를 생성될 지식 문서 수와 혼동하지 않게 설명한다. 현재 수집 요약 표기는 `세션`으로 통일한다. 수집 자료와 지식은 다대다 관계다.
 
 - 사용자 화면은 세션 중심이다. L1은 기록 수·마지막 수집, L2는 상태·고정된 이번 처리 진행률·새 기록 대기·마지막 반영을 표시한다. 조각·청크 개수는 기본 화면에서 숨긴다. 새 증분이 기존 진행률을 낮추지 않으며, 새 수집분이 남아 있으면 최신 반영 완료로 표시하지 않는다.
 
@@ -102,7 +110,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 ## 용어 일관성
 
-계층 이름은 **L1 · Raw Sources → L2 · Curation → L3 · Knowledge → L4 · Query → L5 · Answers**로 통일한다. 개별 계층 표기에는 같은 이름을 사용한다. 통합 Sources 메뉴 이름은 `section-names.json`을 웹과 그림 생성기에서 공유한다. 설명 문장의 수집·정제·지식 같은 일반 명사는 한국어로 쓸 수 있다. 제품명 Agent Wiki와 외부 레퍼런스의 LLM Wiki는 바꾸지 않는다.
+계층 이름은 **L1 · Raw Sources → L2 · Curation → L3 · Knowledge → L4 · Query → L5 · Answers**로 통일한다. 개별 계층 표기에는 같은 이름을 사용한다. 통합 Sources 메뉴 이름은 웹의 `section-names.json`에서 정의한다. 메뉴 배치는 이 문서에만 기록하며 별도 아키텍처 그림으로 만들지 않는다. 설명 문장의 수집·정제·지식 같은 일반 명사는 한국어로 쓸 수 있다. 제품명 Agent Wiki와 외부 레퍼런스의 LLM Wiki는 바꾸지 않는다.
 
 웹과 그림 생성기는 `apps/agent-wiki-web/lib/layer-names.json`을 공통 이름 정의로 사용한다. 이름을 바꿀 때는 이 파일과 아키텍처의 계층 표를 함께 갱신한다. 문서 안의 과거 검증 기록과 보존용 설계는 당시 이름을 유지한다.
 
@@ -124,9 +132,8 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 그림은 작업 에이전트와 별도 Collector·백그라운드 정제를 분리한 **목표**를 설명한다. 그림에는 미구현·구현 완료 같은 진행 상태를 붙이지 않는다. 구현 여부는 대화와 운영 현황으로 전달한다. 실제 전환 여부는 `docs/OPERATIONS.md`를 따른다. 과거 정제 설계의 그림은 `docs/archive/server-ingest/`에 보존했다.
 
-- `wiki-layers.svg`: L1은 아래, L5는 위. 계층별 실행 주체와 같은 합성 입력·출력 예시를 나란히 둔다. L1은 서버가 검증·등록한 원문, L2는 텍스트 청킹 → 주장·근거 추출 → 비교·검증, L5는 작업 에이전트 답변이다. Memory·Article·Glossary는 지식 유형이며 직렬 생성 단계가 아니다.
+- `wiki-layers.svg`: L1–L5의 책임과 리니지를 한 그림에 둔다. 계층 상자는 진한 남색 상단 제목 띠·흰 제목과 파스텔 본문으로 통일한다. L1 → L2 → L3 정제·반영, 기존 지식을 다음 정제에 참고하는 흐름, 현재·과거 주장과 원문 근거 연결, L5 ↔ L4 독립 조회를 구분한다. 변경 예시는 합성임을 밝히며 Memory·Article·Glossary는 직렬 단계가 아닌 지식 유형으로 표시한다.
 - `wiki-deployment.svg`: 사용자 기기의 작업 에이전트와 단일 설치 패키지를 구분한다. 로컬 배포 묶음은 `agent-wiki-client`, 실행 구성은 `agent-wiki-cli`·`agent-wiki-collector`로 표시한다. 배포도는 실행 시 위치를 보여주므로 설치된 조회 Skill은 Codex·Claude Code 안에 둔다. Skill 원본의 패키지 포함·복사 과정은 설치 안내에만 설명한다. 모든 자체 운영 앱·저장소는 아키텍처의 고유 이름을 제목에 쓴다. `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`가 기본이며 Traefik·Next.js·Fastify·PostgreSQL은 본문과 아이콘으로 구분한다. 같은 프레임워크를 쓰는 앱이 추가되어도 고유 이름으로 구분한다. L2 정제는 원격 VM 내부 Worker, 외부 AI API는 VM 밖에 표시한다. 원격 VM의 K3s와 앱 Pod, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 · Raw Sources부터 L5 · Answers까지 계층 라벨을 붙인다.
-- `wiki-lineage.svg`: L1 불변 원문 → L2 정제 기록 → L3 지식 Version과 L4 검색어 준비·후보 정렬·유효성 확인·Context 반환을 한 그림으로 연결한다. L5 에이전트의 조회·근거 활용은 아래에 두고, 새 정제 완료를 기다리는 순서로 표현하지 않는다. 원문 근거 참조와 검색 흐름은 별도 색으로 구분한다.
 - `wiki-decision-history.svg`는 L2의 변경 의도 판단, L3의 과거·현재 주장 보존, L4의 현재 결정·변경 이유·충돌 조회를 계층별로 보여준다. 현재 채택과 사실 검증, 발언·실제 적용·수집 시각을 구분한다.
 - `wiki-curation.svg`·`wiki-decision-history.svg`·`wiki-curation-evaluation.svg`·`wiki-curation-rebuild.svg`: 새 증분·세션 맥락·관련 지식의 입력, 원자적 반영, 근거 있는 주장 대체, 청킹/리랭킹 비교 실험, L1을 보존하는 재생성을 각각 한 그림으로 설명한다. 처리 단계는 논리 역할이며 별도 배포 앱으로 오인시키지 않는다. 상위 설명은 짧게 두고 구현 규칙은 L2·L3 기억 설계 문서의 접힌 영역에 둔다.
 - `wiki-operations.svg`: 기존 인프라·배포·비용/오류 알림과 별도 수집 경로를 보여준다. 수집 → 원격 원문 보관 → 별도 정제를 사용자 작업 절차처럼 표현하지 않는다. 앱은 로그만 남긴다. 오류는 OCI Logging → Connector Hub → Monitoring 경보 → Notifications → Slack, 비용·사용량은 GitHub Actions → Slack으로 구분한다.
@@ -138,3 +145,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 컴포넌트 간에는 최소 32px, 그룹 경계 안쪽에는 최소 32px 여백을 둔다. 카드 높이는 내용에 맞추고 그룹 제목과 내용을 분리한다. Traefik → API → PostgreSQL은 같은 높이의 직선, Web → API는 세로선으로 둔다. 볼륨과 원문 저장소는 연결선이 다른 컴포넌트를 관통하지 않는 위치에 배치한다. K3s 상태와 PostgreSQL 데이터는 같은 연결 볼륨의 별도 경로임을 표시한다. DuckDNS 도메인은 웹에 표시하고 VM IP로 연결됨을 명시한다. DNS·인증서 발급 기관을 HTTP 요청이 통과하는 중계 서버처럼 그리지 않는다. 작업 에이전트의 조회와 Collector의 수집 선을 분리한다. Collector → Traefik/API는 위치 확인·업로드 허가·완료 통지, Collector → Object Storage는 압축 증분 본문의 직접 전송으로 구분한다.
 
 현재 그림은 `python3 scripts/generate-wiki-diagrams.py`로 함께 재생성한다. XML·상대 링크·재생성 일치와 실제 렌더링의 글자·겹침·잘림을 각각 확인한다. Codex 오른쪽 미리보기는 자동으로 열지 않는다.
+
+### Knowledge의 읽기 단위
+
+기본 지식 목록은 Wiki Pages다. 내부 Claim을 페이지처럼 나열하지 않는다. 페이지는 주제별 설명과 변경 이력을 표시하고 문단의 근거 링크에서 Claim Version·원문으로 이동한다. 페이지 Version 선택은 해당 시점에 사용한 Claim 스냅샷을 보여준다. 별도 검토 완료를 자동 표시하지 않는다.

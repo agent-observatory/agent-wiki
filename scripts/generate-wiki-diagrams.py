@@ -45,11 +45,13 @@ def canvas(w,h,title,desc):
  text(40,42,'AGENT WIKI / ARCHITECTURE',FONT["label"],True,'#526A86')
  text(40,98,title,FONT["diagram"],True)
  a(f'<path d="M40 137 H{w-40}" stroke="#172C4B" stroke-width="2"/>')
-def card(x,y,w,h,title,lines,role='app',ico=None):
+def card(x,y,w,h,title,lines,role='app',ico=None,highlight=False):
  if ico is None:
   ico={'app':'tabler-book-2','ingest':'tabler-cpu','data':'tabler-book-2','ai':'tabler-cloud','ops':'tabler-clipboard-check','web':'tabler-world'}[role]
  component(x,y,w,h,role)
- text(x+20,y+42,title,FONT['component'],True)
+ if highlight:
+  a(f'<path d="M{x+6} {y} H{x+w-6} Q{x+w} {y} {x+w} {y+6} V{y+54} H{x} V{y+6} Q{x} {y} {x+6} {y}" fill="#344256"/>')
+ text(x+20,y+(36 if highlight else 42),title,FONT['component'],True,'#FFFFFF' if highlight else '#172C4B')
  if lines:
   if ico:icon(ico,x+20,y+60,24)
   for i,line in enumerate(lines):text(x+(54 if i==0 and ico else 20),y+80+i*31,line,FONT['body'])
@@ -128,63 +130,24 @@ for right,by,n,width in [(424,734,5,150),(404,1159,1,170),(1206,1124,2,152),(154
 a('</g>')
 end('docs/assets/wiki-deployment.svg')
 
-canvas(1560,1145,'수집·정제와 사용자 조회를 분리','L1부터 L5의 논리 계층. Collector가 원문을 보관하고 원격 Worker가 외부 AI API로 정제한다. 작업 에이전트는 필요한 지식만 조회한다. 번호는 배포 위치나 원격 처리 순서를 뜻하지 않는다.')
-legend(1140,43,'원문·지식 반영','ingest');legend(1140,78,'조회·답변','query')
-box(40,164,1480,46,'#344256','#344256');text(60,195,'Workspace · 개인 작업',FONT["group"],True,'#FFFFFF');text(780,194,'Tag · agent-observatory / agent-wiki',FONT["body"],True,'#FFFFFF')
-rows=[
- (5,240,LAYER_NAMES['L5'],'조회 Skill · Wiki CLI','필요한 근거를 조회해 답변·작업','현재는 단일 VM을 유지하고 분리는 후속으로 검토한다.','app'),
- (4,420,LAYER_NAMES['L4'],'agent-wiki-api','시작 Context · 키워드·별칭 검색','VM 선택 이유 → 지식 A의 첫 번째 개정 · 근거: 원문 A의 1행','app'),
- (3,600,LAYER_NAMES['L3'],'agent-wiki-db','Memory · Article · Glossary','지식 A · 첫 번째 개정: 단일 VM 결정 / 사용자 결정 · 검토 미완료','data'),
- (2,780,LAYER_NAMES['L2'],'agent-wiki-worker','텍스트 청킹 → 주장·근거 추출 → 비교·검증·반영','청크별 처리 범위 · 이미지 분석 생략 · 모델·지침 버전 기록','ingest'),
- (1,960,LAYER_NAMES['L1'],'agent-wiki-collector','기록 선별·증분 업로드 → 서버 검증·중복 판정 → 불변 L1 등록','원문 A · 첫 번째 개정 · 1행: “지금은 단일 VM으로 운영하자.”','ops')]
-for n,y,name,who,title,example,role in rows:
- component(40,y,1480,145,role)
- box(40,y,82,145,'#344256','#344256');text(56,y+84,f'L{n}',FONT["layer"],True,'#FFFFFF')
- icon({1:'tabler-cloud-upload',2:'tabler-cpu',3:'tabler-book-2',4:'tabler-clipboard-check',5:'tabler-terminal-2'}[n],146,y+20,26)
- text(184,y+43,name,FONT["component"],True);text(146,y+82,who,FONT["body"])
- a(f'<path d="M430 {y+20} V{y+125}" stroke="#929EAD"/>')
- if n==5:
-  card(456,y+16,630,114,'Codex · Claude Code',['설치된 지침을 참고해 필요할 때 조회·답변'],'app','tabler-terminal-2')
-  component(800,y+30,266,34,'ai');icon('tabler-clipboard-check',810,y+36,22)
-  text(840,y+54,'agent-wiki · 조회 Skill',FONT["label"],True)
-  path(f'M1086 {y+77} H1136',flow='query',both=True)
-  card(1136,y+16,354,114,'agent-wiki-cli',['검색 실행 · 근거 반환'],'app','tabler-terminal-2')
- else:
-  text(456,y+43,title,FONT["component"],True);text(456,y+91,example,FONT["body"])
- if n==4:
-  path(f'M80 {y} V{y-35}',flow='query',both=True)
-  text(146,y-12,'조회 요청 / 근거 반환',FONT["label"],True,FLOW_COLORS['query'])
- elif n<5:path(f'M80 {y} V{y-35}',flow='ingest' if n<=2 else 'query')
+# One logical view: curation, changing claims, provenance, and independent retrieval.
+canvas(1560,860,'지식의 생성·변경·조회','Workspace 안에서 L1 불변 원문과 기존 지식을 L2가 비교하고 L3의 현재 결정·과거 주장·원문 근거를 연결한다. L5 작업 에이전트는 CLI로 L4를 조회하며 새 정제 완료를 기다리지 않는다. Compose에서 K3s로의 변경은 합성 예시다.')
+legend(890,87,'정제·반영','ingest');legend(1100,87,'조회·반환','query');legend(1320,87,'근거 참조','relation')
+card(40,230,440,220,layer_label(1),['Collector → API 검증·등록','Codex·Claude 원문 · 세션별 보존','A: “Compose로 운영하자.”','B: “K3s로 바꾸자.”'],'data','tabler-cloud-upload',highlight=True)
+card(550,230,440,220,layer_label(2),['agent-wiki-worker · AI 정제','증분 + 맥락 + 기존 지식 비교','주장·인용·관계 검증 → 반영','입력 범위·모델·실행 이력 보존'],'ingest','tabler-cpu',highlight=True)
+card(1060,230,460,220,layer_label(3),['agent-wiki-db · Version·근거','Compose → K3s · 변경 이유','현재 결정 / 검토 상태 구분','Memory · Article · Glossary'],'data','tabler-book-2',highlight=True)
+path('M480 340 H550',flow='ingest');path('M990 340 H1060',flow='ingest')
+path('M1280 230 V185 H770 V230',True,flow='ingest')
+text(835,175,'기존 지식을 다음 정제에 참고',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M1280 450 V500 H260 V450',flow='relation')
+text(570,490,'주장·변경 관계 → 불변 원문의 정확한 구간',FONT['label'],True,FLOW_COLORS['relation'])
+path('M1480 450 V580',flow='query')
+text(1210,551,'이미 반영된 지식을 조회',FONT['label'],True,FLOW_COLORS['query'])
+card(40,580,440,220,layer_label(5),['Codex·Claude + 조회 Skill','agent-wiki CLI로 조회','“왜 K3s로 바꿨지?”','변경 이유·근거로 답변·작업'],'app','tabler-terminal-2',highlight=True)
+card(550,580,970,220,layer_label(4),['agent-wiki-api · Workspace 범위','검색어·별칭 → 후보 정렬 → 현재/과거·적용 범위 확인','Context · 고정 Version + 주장 + 변경 이유 + 원문 근거','미해결 충돌은 함께 반환 · 일반 조회는 모델 호출 없음'],'app','tabler-book-2',highlight=True)
+path('M480 690 H550',flow='query',both=True)
+text(40,839,'정제는 백그라운드에서 진행 · 조회는 새 정제 완료를 기다리지 않음',FONT['body'])
 end('docs/assets/wiki-layers.svg')
-
-canvas(1920,1170,'리니지 · 원문에서 검색 근거까지','L1 원문과 기존 L3 지식 Version을 입력으로 L2가 정제하고 새 L3 지식과 주장별 원문 근거를 보존한다. L4는 반영된 지식의 검색 후보를 정렬하고 유효성을 확인해 고정 Version과 원문 근거를 반환한다. L5 에이전트는 CLI로 조회하며 새 정제 완료를 기다리지 않는다.')
-legend(1110,87,'정제·반영','ingest');legend(1360,87,'조회·활용','query');legend(1610,87,'근거 참조','relation')
-# Immutable sources, execution, and derived knowledge are distinct records.
-group(40,180,540,290);text(64,216,layer_label(1),FONT['group'],True,'#FFFFFF')
-card(72,266,476,172,'Codex A · Claude B',['A · “단일 VM으로 운영하자.”','B · “단일 VM 구성을 유지하자.”','세션별 불변 보관 · 메시지·도구 관계'],'data','tabler-cloud-upload')
-group(680,180,540,290);text(704,216,layer_label(2),FONT['group'],True,'#FFFFFF')
-card(712,266,476,172,'정제·반영 기록',['원문 A·B + 기존 지식 Version','텍스트 청크 · 주장별 근거 검증','처리 범위 · 모델·지침 버전 보존'],'ingest','tabler-cpu')
-group(1320,180,560,290);text(1344,216,layer_label(3),FONT['group'],True,'#FFFFFF')
-card(1352,266,496,172,'지식 A · Version 2',['운영 구성 = 단일 VM','사용자 결정 · 사실 검증과 구분','동일 주장 · A·B의 근거 연결'],'data','tabler-book-2')
-path('M580 352 H680',flow='ingest');path('M1220 352 H1320',flow='ingest')
-path('M1540 470 V510 H310 V470',flow='relation')
-text(620,500,'주장 → 불변 원문 · 정확한 구간으로 역추적',FONT['label'],True,FLOW_COLORS['relation'])
-# Knowledge enters candidate retrieval; it does not bypass ranking or validity checks.
-path('M1730 470 V550 H731 V590',flow='query')
-text(1000,541,'반영된 지식 · Version·상태·관계',FONT['label'],True,FLOW_COLORS['query'])
-group(40,590,1840,320);text(64,626,layer_label(4),FONT['group'],True,'#FFFFFF')
-text(1200,626,'Workspace 범위 · 일반 조회는 AI 호출 없음',FONT['label'],True,'#FFFFFF')
-card(72,688,418,190,'검색어 준비',['원래 표현 + 조사 제거형 검색','중복 검색어는 한 번 계산','핵심어 없으면 검색어 안내'],'app','tabler-terminal-2')
-card(522,688,418,190,'후보 검색·정렬',['일치한 검색어 수 우선','제목 4 · 태그/별칭 3 · 본문 1','페이지 분할 전에 정렬'],'app','tabler-book-2')
-card(972,688,418,190,'유효성 확인',['현재 / 과거 · 적용 범위','대체 관계 → 현재 주장','미해결 충돌은 함께 반환'],'data','tabler-clipboard-check')
-card(1422,688,426,190,'Context 반환',['결정과 이유를 함께 담는 발췌','고정 Version · 원문 근거','최대 6개 · 반환 예산 적용'],'app','tabler-book-2')
-for x in [490,940,1390]:path(f'M{x} 784 H{x+32}',flow='query')
-# The agent requests retrieval independently of collection and curation.
-card(72,980,868,148,layer_label(5)+' · 작업 에이전트',['“지금 운영 구성은?”','조회 Skill 참고 → agent-wiki-cli로 검색'],'app','tabler-terminal-2')
-path('M281 980 V910',flow='query');text(300,955,'조회 요청',FONT['label'],True,FLOW_COLORS['query'])
-card(972,980,876,148,'근거를 활용한 답변·작업',['“현재 운영 구성은 단일 VM이다.”','지식 A · Version 2 / Codex A·Claude B · 각 1행'],'app','tabler-terminal-2')
-path('M1635 910 V980',flow='query');text(1654,955,'근거 반환',FONT['label'],True,FLOW_COLORS['query'])
-end('docs/assets/wiki-lineage.svg')
 
 canvas(1560,1210,'운영 · 사용자 작업과 백그라운드 처리 분리','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
 rows=[(190,'01','인프라',[
@@ -306,10 +269,24 @@ card(1010,555,486,92,'Version 3 · 검토 전',[],'ingest')
 text(40,716,'Version 3은 검토 완료인 Version 1과 비교 · 검토 이력이 없으면 직전 Version',FONT['body'])
 end('docs/assets/wiki-review.svg')
 
-# The web groups related results; processing and storage layers remain distinct.
-SECTION_NAMES=json.loads(Path('apps/agent-wiki-web/lib/section-names.json').read_text())
-canvas(1560,400,'웹 탐색 · 세 메뉴로 모으기','Knowledge는 현재 지식과 반영 이력, Sources는 원문과 정제 및 수집 상태, 설정은 AI와 Client 연결을 제공한다. L1과 L2의 내부 책임은 유지한다.')
-card(40,178,472,172,layer_label(3),['지식 목록 · 반영 이력','상세: Version · 변경 이유 · 근거'],'data')
-card(544,178,472,172,SECTION_NAMES['sources'],[f'{LAYER_NAMES["L1"]} · {LAYER_NAMES["L2"]}','수집 상태 · 호출 이력'],'ingest')
-card(1048,178,472,172,'설정',['AI 연결 · Client 연결','수정·검토·설정 변경은 CLI'],'ops')
-end('docs/assets/wiki-navigation.svg')
+# One diagram connects the layer model, atomic decisions and a readable topic page.
+canvas(1560,1260,'원문 → Claims · Decisions → Wiki Pages → 답변','L1–L5와 L3 내부 지식 구성을 한 그림으로 설명한다. L2는 근거 ID로 원문을 연결하고 주제별 페이지를 구성한다. L3는 작은 주장·결정과 읽기용 페이지를 구분하며 과거 결정과 변경 이유를 보존한다. 아래 제공자 변경은 합성 예시다.')
+card(40,180,650,155,layer_label(1),['원문 대화 · 세션별 불변 증분','Evidence · 선택한 기록의 원문 근거'],'data',highlight=True)
+card(870,180,650,155,layer_label(2),['주장 추출 · 기존 결정과 비교 · 근거 검증','Topic 분류 · 변경 관계 · 페이지 구성'],'ingest',highlight=True)
+path('M690 257 H870',flow='ingest');path('M1195 335 V375 H375 V420',flow='ingest')
+group(40,420,1480,570)
+text(64,456,layer_label(3)+' · Claims와 Wiki Pages',FONT['group'],True,'#FFFFFF')
+card(64,498,420,155,'Decision A · 이전 결정',['정제 Provider = NVIDIA','대체됨 · 근거와 함께 보존'],'ops')
+card(570,498,420,155,'Decision B · 현재 결정',['정제 Provider = Alibaba','변경 이유 · 호출 지연'],'data')
+card(1076,498,420,155,'Decision C · 별도 속성',['API 동시 실행 = 5','현재 결정 · Provider와 별개'],'data')
+path('M570 575 H484',flow='relation');text(68,683,'B supersedes A · B가 A를 대체',FONT['label'],True,FLOW_COLORS['relation'])
+path('M780 653 V716',flow='ingest');path('M1286 653 V690 H780',flow='ingest')
+text(64,746,'Wiki Page · AI 정제 연결',FONT['group'],True)
+card(64,775,688,180,'현재 상태와 설명',['Alibaba · 동시 실행 5 · 적용 범위','관련 Claims의 설명·이유·제약을 함께 구성','문단 → Claim Version → Evidence'],'data')
+card(790,775,706,180,'Decision History · 변경 이력',['NVIDIA → 호출 지연 → Alibaba','이전 결정·변경 근거를 페이지에 연결','제안·미확인·충돌은 현재 결정과 구분'],'data')
+path('M375 990 V1050',flow='query')
+card(40,1050,650,155,layer_label(4),['Wiki Pages · Claims · Evidence 조회','현재 결정과 변경 이유를 구분'],'app',highlight=True)
+card(870,1050,650,155,layer_label(5),['작업 에이전트의 답변·실행','조회한 근거를 사용자 작업에 활용'],'app',highlight=True)
+path('M690 1128 H870',flow='query')
+text(40,1239,'Decision은 Claim의 유형 · Chunk는 AI 입력 처리 단위 · 페이지 구성은 L2의 책임',FONT['body'],True)
+end('docs/assets/wiki-knowledge-model.svg')

@@ -205,6 +205,7 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
       output: {
         changes: [
           {
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "decision",
             title: "검증 결정",
             content: "단일 VM을 사용한다.",
@@ -214,14 +215,7 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
                 anchor: "one",
                 text: "단일 VM을 사용한다.",
                 type: "user_decision",
-                evidence: [
-                  {
-                    sourceId: input.source.id,
-                    revision: 1,
-                    lines: [1, 1],
-                    quote: input.source.text.split("\n")[0],
-                  },
-                ],
+                evidence: [{ recordId: input.source.records[0].recordId }],
               },
             ],
           },
@@ -235,7 +229,12 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
   assert.equal(
     (
       await request("PUT", "/ai-settings", {
-        config: { ...defaults, enabled: true, dailyCalls: 1 },
+        config: {
+          ...defaults,
+          maxInputTokens: 30000,
+          enabled: true,
+          dailyCalls: 1,
+        },
         version: 1,
       })
     ).statusCode,
@@ -720,6 +719,7 @@ test("Worker anchors a quotation across consecutive transport fragments while pr
           output: {
             changes: [
               {
+                topic: { key: "synthetic-topic", title: "합성 검증 주제" },
                 clientRef: "anchored",
                 title: "정확한 인용 위치",
                 content: quote,
@@ -819,6 +819,7 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
           output: {
             changes: [
               {
+                topic: { key: "synthetic-topic", title: "합성 검증 주제" },
                 clientRef: "anchored",
                 title: "정확한 인용 위치",
                 content: quote,
@@ -952,6 +953,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
       output: {
         changes: [
           {
+            topic: { key: "synthetic-topic", title: "합성 검증 주제" },
             clientRef: "retry",
             title: "합성 인용 재생성",
             content: quote,
@@ -1143,6 +1145,7 @@ test("explicit publish-only retry reuses cached output without a model call", as
     producer: { type: "agent", client: "synthetic" },
     changes: [
       {
+        topic: { key: "synthetic-topic", title: "합성 검증 주제" },
         clientRef: "reuse",
         title: "Cached publication",
         content: "Synthetic claim",

@@ -10,7 +10,7 @@ import { RefreshCw, Play, Pause, Activity, FileText } from "lucide-react";
 import { SourceList } from "./sources";
 import { RefinementProgress } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
-import { useApi } from "@/lib/api";
+import { api, errorText, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,9 @@ const reasons: Record<string, string> = {
   AI_OUTPUT_LIMIT: "모델 출력 한도에 도달했습니다.",
   AI_INVALID_JSON: "모델이 올바른 JSON을 반환하지 않았습니다.",
   AI_INVALID_OUTPUT: "정제 결과 형식이 맞지 않습니다.",
+  SOURCE_AUTH_FAILED: "원문 저장소 인증을 확인하세요.",
+  AI_TOPIC_REQUIRED: "정제 결과에 Wiki 주제가 없어 재시도합니다.",
+  AI_EVIDENCE_REFERENCE_INVALID: "원문 기록 참조가 올바르지 않아 재시도합니다.",
   AI_EVIDENCE_REQUIRED: "정확한 원문 근거가 부족합니다.",
   EVIDENCE_MISMATCH: "인용이 원문과 다릅니다.",
   AI_HTTP_401: "API 키를 확인하세요.",
@@ -66,15 +69,47 @@ function SourcesContent() {
   const base = "/api/workspaces/" + workspaceId;
   const query = useSearchParams(),
     router = useRouter();
-  const tab = ["curation", "collectors"].includes(query.get("tab") ?? "")
+  const tab = ["raw", "collectors"].includes(query.get("tab") ?? "")
     ? query.get("tab")!
-    : "raw";
+    : "curation";
   function setTab(value: string) {
     const next = new URLSearchParams({ tab: value });
     router.push(`?${next}`, { scroll: false });
   }
   const jobs = useApi(base + "/refinements?" + query, 15000);
-  const liveControl = jobs.data?.progress.control;
+  const serverControl = jobs.data?.progress.control;
+  const [savedControl, setSavedControl] = useState<{
+    enabled: boolean;
+    version: number;
+  }>();
+  const liveControl =
+    savedControl &&
+    serverControl &&
+    savedControl.version > serverControl.version
+      ? { ...serverControl, ...savedControl }
+      : serverControl;
+  const [savingControl, setSavingControl] = useState(false);
+  const [controlError, setControlError] = useState<unknown>();
+  async function toggleCuration() {
+    if (!liveControl || savingControl) return;
+    setSavingControl(true);
+    setControlError(undefined);
+    try {
+      const result = await api(base + "/ai-settings/enabled", {
+        method: "PATCH",
+        body: JSON.stringify({
+          enabled: !liveControl.enabled,
+          version: liveControl.version,
+        }),
+      });
+      setSavedControl({ enabled: result.enabled, version: result.version });
+    } catch (error) {
+      setControlError(error);
+    } finally {
+      jobs.reload();
+      setSavingControl(false);
+    }
+  }
   const [refreshVersion, refreshSources] = useState(0);
   return (
     <>
@@ -103,15 +138,15 @@ function SourcesContent() {
       )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="raw">
-            <FileText className="size-4 mr-2" />
-            {LAYER_NAMES.L1}
-          </TabsTrigger>
           <TabsTrigger value="curation">
             <Activity className="size-4 mr-2" />
             {LAYER_NAMES.L2}
           </TabsTrigger>
           <TabsTrigger value="collectors">수집 상태</TabsTrigger>
+          <TabsTrigger value="raw">
+            <FileText className="size-4 mr-2" />
+            {LAYER_NAMES.L1}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="raw" className="pt-6">
           <SourceList key={refreshVersion} />
@@ -135,9 +170,34 @@ function SourcesContent() {
                           ? "마무리 중"
                           : "일시 중지"}
                     </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={savingControl}
+                      onClick={toggleCuration}
+                    >
+                      {savingControl ? (
+                        <RefreshCw className="animate-spin" />
+                      ) : liveControl.enabled ? (
+                        <Pause />
+                      ) : (
+                        <Play />
+                      )}
+                      {savingControl
+                        ? "저장 중"
+                        : liveControl.enabled
+                          ? "중지"
+                          : "재개"}
+                    </Button>
                   </div>
+                  {controlError != null && (
+                    <p role="alert" className="mt-2 text-xs text-destructive">
+                      {errorText(controlError)}
+                    </p>
+                  )}
                   <p className="mt-2 text-xs text-muted-foreground">
-                    중지해도 원문 수집은 계속됩니다.
+                    중지하면 진행 중인 작업을 마무리합니다. 원문 수집은
+                    계속됩니다.
                   </p>
                 </section>
                 <section className="rounded-lg border p-5">
