@@ -1,3 +1,4 @@
+import {cacheSourceTimes} from "./evidence-time.js";
 import {
   refreshWikiPages,
   listWikiPages,
@@ -87,7 +88,19 @@ export const changeInput = z
     supersedes: z.array(uuid).max(20).default([]),
     claimRelations: z.array(claimRelationInput).max(30).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((change, ctx) => {
+    const anchors = new Set(change.claims.map((claim) => claim.anchor));
+    change.claimRelations.forEach((relation, index) => {
+      if (!anchors.has(relation.anchor))
+        ctx.addIssue({
+          code: "custom",
+          path: ["claimRelations", index, "anchor"],
+          message:
+            "Relation source anchor must identify a claim in this change",
+        });
+    });
+  });
 const publicationInput = z
   .object({
     idempotencyKey: keySchema,
@@ -1223,6 +1236,7 @@ export async function publish(
             ).rows[0],
           );
           const text = await getSource(row.object_key);
+          await cacheSourceTimes(c,ws,ev.sourceId,text);
           if (hash(text) !== row.content_hash)
             throw new AppError(500, "SOURCE_HASH_MISMATCH");
           sources.set(ev.sourceId, { text, row });

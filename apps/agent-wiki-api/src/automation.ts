@@ -1,3 +1,7 @@
+import { reprocessPlan, enqueueReprocess } from "./curation-reprocess.js";
+import { refreshWikiPages } from "./wiki-pages.js";
+import { backfillEvidenceTimes } from "./evidence-time.js";
+import { publish } from "./knowledge.js";
 import { registerAiSettings } from "./ai-settings.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import { rebuildCuration } from "./curation-rebuild.js";
@@ -135,6 +139,168 @@ export function registerAutomation(
       });
     },
   );
+  app.get(base + "/curation/reprocess/plan/:runId", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) =>
+      reprocessPlan(
+        c,
+        ws,
+        z
+          .string()
+          .uuid()
+          .parse((r.params as any).runId),
+      ),
+    );
+  });
+  app.post(base + "/curation/reprocess", (r) => {
+    sessionOnly(r);
+    const body = z
+      .object({
+        requestId: z.string().uuid(),
+        runId: z.string().uuid(),
+        fingerprint: z.string().length(64),
+        mode: z.enum(["analyze", "revalidate"]).default("analyze"),
+        reason: z.string().min(1).max(1000),
+      })
+      .strict()
+      .parse(r.body);
+    return scoped(r, (c, ws) => enqueueReprocess(c, ws, body));
+  });
+  app.get(base + "/curation/reprocess/:id", (r) => {
+    sessionOnly(r);
+    return scoped(r, async (c, ws) =>
+      requireRow(
+        (
+          await c.query(
+            "SELECT * FROM curation_reprocesses WHERE workspace_id=$1 AND id=$2",
+            [
+              ws,
+              z
+                .string()
+                .uuid()
+                .parse((r.params as any).id),
+            ],
+          )
+        ).rows[0],
+      ),
+    );
+  });
+  app.post(base + "/curation/reprocess/:id/apply", (r) => {
+    sessionOnly(r);
+    const body = z
+      .object({
+        fingerprint: z.string().length(64),
+        publication: z.record(z.string(), z.unknown()),
+      })
+      .strict()
+      .parse(r.body);
+    return scoped(r, async (c, ws) => {
+      const request = requireRow(
+        (
+          await c.query(
+            "SELECT * FROM curation_reprocesses WHERE workspace_id=$1 AND id=$2 FOR UPDATE",
+            [
+              ws,
+              z
+                .string()
+                .uuid()
+                .parse((r.params as any).id),
+            ],
+          )
+        ).rows[0],
+      );
+      const publicationHash = hash(JSON.stringify(body.publication));
+      if (request.status === "applied") {
+        if (request.candidate.publicationHash !== publicationHash)
+          throw new AppError(409, "IDEMPOTENCY_CONFLICT");
+        return request.candidate.applied;
+      }
+      if (request.status !== "ready")
+        throw new AppError(409, "REPROCESS_NOT_READY");
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        ws,
+      ]);
+      const current = await reprocessPlan(c, ws, request.original_run_id);
+      if (current.fingerprint !== body.fingerprint)
+        throw new AppError(409, "REPROCESS_PLAN_CHANGED");
+      const changes = z
+        .array(
+          z
+            .object({
+              articleId: z.string().uuid().nullable().optional(),
+              baseRevision: z.number().int().nullable().optional(),
+              claims: z.array(z.object({ anchor: z.string() }).passthrough()),
+            })
+            .passthrough(),
+        )
+        .parse(body.publication.changes);
+      // A correction retains every old anchor, including retracted history.
+      for (const change of changes)
+        if (change.articleId) {
+          const old = await c.query(
+            "SELECT cl.anchor,a.revision FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id AND a.revision=cl.revision WHERE cl.workspace_id=$1 AND cl.article_id=$2 AND a.deleted_at IS NULL",
+            [ws, change.articleId],
+          );
+          if (old.rows.some((row) => row.revision !== change.baseRevision))
+            throw new AppError(409, "REVISION_CONFLICT");
+          if (
+            old.rows.some(
+              (row) =>
+                !change.claims.some((claim) => claim.anchor === row.anchor),
+            )
+          )
+            throw new AppError(400, "REPROCESS_PRESERVE_CLAIMS");
+        }
+      // An agent supplies an explicitly reviewed publication, including fixed
+      // article/baseRevision for corrections. Candidate omission never deletes.
+      const result = await publish(
+        c,
+        ws,
+        {
+          ...body.publication,
+          reason:
+            "분석 정정 · 재작업 " +
+            request.id +
+            " · " +
+            String(body.publication.reason ?? ""),
+        },
+        { userId: r.identity!.userId, scope: "manage" },
+      );
+      await c.query(
+        "UPDATE curation_reprocesses SET status='applied',candidate=candidate||$3::jsonb,updated_at=now() WHERE workspace_id=$1 AND id=$2",
+        [
+          ws,
+          request.id,
+          JSON.stringify({
+            applied: result,
+            publicationHash,
+          }),
+        ],
+      );
+      return result;
+    });
+  });
+  app.post(base + "/wiki-pages/reassemble", (r) => {
+    sessionOnly(r);
+    return scoped(r, async (c, ws) => {
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        ws,
+      ]);
+      const sources = await backfillEvidenceTimes(c, ws);
+      await refreshWikiPages(c, ws);
+      return {
+        modelCalls: 0,
+        sources,
+        rewoundCuration: false,
+        pages: (
+          await c.query(
+            "SELECT id,title,revision FROM wiki_pages WHERE workspace_id=$1 ORDER BY topic_key",
+            [ws],
+          )
+        ).rows,
+      };
+    });
+  });
   registerAiSettings(app, scoped, sessionOnly);
   app.patch(base + "/ai-settings/enabled", (r) => {
     sessionOnly(r);
@@ -158,7 +324,7 @@ export function registerAutomation(
         return { enabled: body.enabled, version };
       const row = (
         await c.query(
-          "UPDATE ai_settings SET config=jsonb_set(config,'{enabled}',$2::jsonb),version=version+1,updated_at=now() WHERE workspace_id=$1 RETURNING version",
+          "UPDATE ai_settings SET config=jsonb_set(config,'{enabled}',$2::jsonb),stopped_reason=NULL,stopped_at=NULL,version=version+1,updated_at=now() WHERE workspace_id=$1 RETURNING version",
           [ws, JSON.stringify(body.enabled)],
         )
       ).rows[0];

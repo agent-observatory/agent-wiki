@@ -61,12 +61,16 @@ ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
+ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_reason text;
+ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_at timestamptz;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_key text NOT NULL DEFAULT '';
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_title text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS wiki_pages(workspace_id uuid NOT NULL REFERENCES workspaces(id),id uuid NOT NULL,topic_key text NOT NULL,title text NOT NULL,content text NOT NULL,revision int NOT NULL,input_hash text NOT NULL,tags text[] NOT NULL DEFAULT '{}',updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),UNIQUE(workspace_id,topic_key));
 CREATE TABLE IF NOT EXISTS wiki_page_versions(workspace_id uuid NOT NULL,page_id uuid NOT NULL,revision int NOT NULL,title text NOT NULL,content text NOT NULL,snapshot jsonb NOT NULL,input_hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,page_id,revision),FOREIGN KEY(workspace_id,page_id) REFERENCES wiki_pages(workspace_id,id));
+CREATE TABLE IF NOT EXISTS source_record_times(workspace_id uuid NOT NULL,source_id uuid NOT NULL,line int NOT NULL,recorded_at timestamptz NOT NULL,time_kind text NOT NULL,PRIMARY KEY(workspace_id,source_id,line),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
+CREATE TABLE IF NOT EXISTS curation_reprocesses(workspace_id uuid NOT NULL,id uuid NOT NULL,original_run_id uuid NOT NULL REFERENCES refinement_runs(id),mode text NOT NULL,status text NOT NULL DEFAULT 'pending',reason text NOT NULL,plan jsonb NOT NULL,run_id uuid REFERENCES refinement_runs(id),candidate jsonb,error_code text,lease_until timestamptz,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews'] LOOP
+ FOREACH t IN ARRAY ARRAY['curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
  EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);

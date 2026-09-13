@@ -13,7 +13,7 @@
 
 ## 읽는 순서
 
-**`architecture.md` → `l2-l3-memory.md`의 그림 → `OPERATIONS.md`의 현재 상태.** 설치가 필요할 때만 `client-and-api.md`를 읽는다. 수집·API 상세 계약은 구현 에이전트의 참고다.
+**사람은 `architecture.md`의 그림과 표를 먼저 본다.** 구현 에이전트는 관련 상세 계약과 `OPERATIONS.md`의 현재 상태를 이어 읽는다. 설치가 필요할 때만 `client-and-api.md`를 읽는다. 수집·API 상세 계약은 구현 에이전트의 참고다.
 
 ## 유지할 원칙
 

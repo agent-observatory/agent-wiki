@@ -8,6 +8,7 @@ export type PageClaim = {
   scope: string;
   state: string;
   title: string;
+  evidence_times?: { at: string; kind: string }[];
 };
 export type PageRelation = {
   from_article_id: string;
@@ -42,8 +43,30 @@ export function renderWikiPage(
 ) {
   const href = (c: PageClaim) =>
     `${root}/${c.article_id}?revision=${c.revision}&tab=evidence#${c.anchor}`;
+  const timeLabel = (c: PageClaim) => {
+    const times = (c.evidence_times ?? [])
+      .filter((t) => Number.isFinite(Date.parse(t.at)))
+      .sort((a, b) => a.at.localeCompare(b.at));
+    if (!times.length) return "시각 미확인";
+    const format = (t: { at: string; kind: string }) =>
+      (t.kind === "recovered" ? "복구 기록 " : "기록 ") +
+      new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }).format(new Date(t.at));
+    const labels = [...new Set(times.map(format))];
+    return (
+      labels.slice(0, 2).join(" · ") +
+      (labels.length > 2 ? ` 외 ${labels.length - 2}건` : "")
+    );
+  };
   const paragraph = (c: PageClaim) =>
-    `${c.text}\n\n[${types[c.type] ?? "Claim"} · ${c.scope || "범위 미지정"} · 근거](${href(c)})`;
+    `${c.text}\n\n[${types[c.type] ?? "Claim"} · ${c.scope || "범위 미지정"} · ${timeLabel(c)} · 근거](${href(c)})`;
   const current = claims.filter((c) => c.state === "current");
   const unresolved = claims.filter((c) =>
     ["proposed", "unconfirmed", "conflicted"].includes(c.state),
@@ -60,10 +83,17 @@ export function renderWikiPage(
     if (items.length)
       sections.push(
         `## ${heading}\n\n` +
-          items
+          [...new Set(items.map((c) => c.title))]
             .map(
-              (c) =>
-                `### ${c.title}${c.state === "current" ? "" : ` · ${states[c.state]}`}\n\n${paragraph(c)}`,
+              (title) =>
+                `### ${title}\n\n` +
+                items
+                  .filter((c) => c.title === title)
+                  .map(
+                    (c) =>
+                      `${c.state === "current" ? "" : `**${states[c.state]}**\n\n`}${paragraph(c)}`,
+                  )
+                  .join("\n\n"),
             )
             .join("\n\n"),
       );

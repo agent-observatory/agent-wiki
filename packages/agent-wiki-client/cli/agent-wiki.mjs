@@ -274,7 +274,7 @@ async function main() {
     const patch = file ? await jsonFile(file) : {};
     if ("enabled" in patch)
       throw new Error("Use ai pause or ai resume separately");
-    const { hasKey, version, ...config } = settings;
+    const { hasKey, version, stoppedReason, stoppedAt, ...config } = settings;
     const apiKey = keyEnv ? process.env[keyEnv] : undefined;
     if (keyEnv && !apiKey)
       throw new Error("Requested API key environment variable is empty");
@@ -289,11 +289,54 @@ async function main() {
       }),
     );
   }
-  if (command === "pages") return output(await request("/wiki-pages?" + new URLSearchParams({q:args[0]??"",page:option("page","1"),pageSize:option("page-size","25")})));
+  if (command === "reassemble")
+    return output(
+      await request("/wiki-pages/reassemble", { method: "POST", body: {} }),
+    );
+  if (command === "reprocess") {
+    const action = args.shift(),
+      id = args[0];
+    if (action === "plan")
+      return output(await request("/curation/reprocess/plan/" + id));
+    if (action === "show")
+      return output(await request("/curation/reprocess/" + id));
+    if (action === "enqueue")
+      return output(
+        await request("/curation/reprocess", {
+          method: "POST",
+          body: await jsonFile(id),
+        }),
+      );
+    if (action === "apply")
+      return output(
+        await request("/curation/reprocess/" + id + "/apply", {
+          method: "POST",
+          body: await jsonFile(args[1]),
+        }),
+      );
+    throw new Error(
+      "Use reprocess plan RUN_ID|enqueue FILE|show ID|apply ID FILE",
+    );
+  }
+  if (command === "pages")
+    return output(
+      await request(
+        "/wiki-pages?" +
+          new URLSearchParams({
+            q: args[0] ?? "",
+            page: option("page", "1"),
+            pageSize: option("page-size", "25"),
+          }),
+      ),
+    );
   if (command === "page") {
     if (!args[0]) throw new Error("Wiki Page ID required");
-    const revision=option("revision");
-    return output(await request("/wiki-pages/"+args[0]+(revision?"/revisions/"+revision:"")));
+    const revision = option("revision");
+    return output(
+      await request(
+        "/wiki-pages/" + args[0] + (revision ? "/revisions/" + revision : ""),
+      ),
+    );
   }
   const tag = option("tag", connection.tag);
   if (command === "recall")
@@ -309,7 +352,7 @@ async function main() {
         "/context?" +
           new URLSearchParams({
             q: args[0],
-            ...(option("tag") ? {tag:option("tag")} : {}),
+            ...(option("tag") ? { tag: option("tag") } : {}),
             view,
             ...(scope ? { scope } : {}),
           }),

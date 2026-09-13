@@ -263,7 +263,36 @@ export async function callModel(
     }
   }
   if (!response.ok || response.status === 202) {
-    await response.body?.cancel();
+    // Read only a bounded error envelope; never retain provider prose or secrets.
+    let providerCode: unknown;
+    if (
+      response.status === 403 &&
+      new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com")
+    ) {
+      const reader = response.body?.getReader();
+      if (reader) {
+        const parts: Uint8Array[] = [];
+        let bytes = 0;
+        try {
+          while (true) {
+            const item = await reader.read();
+            if (item.done) break;
+            bytes += item.value.length;
+            if (bytes > 16384) break;
+            parts.push(item.value);
+          }
+          if (bytes <= 16384) {
+            const body = JSON.parse(Buffer.concat(parts).toString());
+            providerCode = body.error?.code ?? body.code;
+          }
+        } catch {
+        } finally {
+          await reader.cancel().catch(() => {});
+        }
+      }
+    } else await response.body?.cancel();
+    if (providerCode === "AllocationQuota.FreeTierOnly")
+      throw new ModelError("AI_FREE_QUOTA_EXHAUSTED");
     throw new ModelError(
       "AI_HTTP_" + response.status,
       response.status === 202 ||

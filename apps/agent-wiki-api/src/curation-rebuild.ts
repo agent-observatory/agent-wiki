@@ -31,6 +31,19 @@ export async function rebuildCuration(
   ).rows;
   if (jobs.some((j) => j.status === "running"))
     throw new AppError(409, "CURATION_STILL_RUNNING");
+  if (
+    (
+      await c.query(
+        "SELECT 1 FROM curation_reprocesses WHERE workspace_id=$1 AND status='running' LIMIT 1",
+        [ws],
+      )
+    ).rowCount
+  )
+    throw new AppError(409, "CURATION_STILL_RUNNING");
+  await c.query(
+    "UPDATE curation_reprocesses SET status='failed',error_code='REPROCESS_PLAN_CHANGED',updated_at=now() WHERE workspace_id=$1 AND status IN ('pending','ready')",
+    [ws],
+  );
   // Same lock as manual publications. Worker admission takes the settings lock
   // before a job lock; publication takes a job lock before this knowledge lock.
   await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [ws]);

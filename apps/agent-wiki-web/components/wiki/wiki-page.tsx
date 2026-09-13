@@ -52,6 +52,12 @@ export function WikiPageDetail() {
           </SelectContent>
         </Select>
       </div>
+      {data.hasUnprocessedSources && (
+        <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
+          아직 처리하지 않은 원문이 있습니다. 이후 결정은 반영되지 않았을 수
+          있습니다.
+        </p>
+      )}
       {data.revision !== data.currentRevision && (
         <p className="mb-4 text-sm">
           과거 Version입니다.{" "}

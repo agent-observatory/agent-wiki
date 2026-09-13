@@ -28,22 +28,29 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
     const title = old?.title ?? topic.topic_title;
     const claims = (
       await c.query(
-        `SELECT cl.*,a.title,${effectiveClaimState("cl")} AS state FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
+        `SELECT cl.*,a.title,${effectiveClaimState("cl")} AS state,
+        COALESCE((SELECT jsonb_agg(DISTINCT jsonb_build_object('at',t.recorded_at,'kind',t.time_kind)) FROM evidence e JOIN source_record_times t ON t.workspace_id=e.workspace_id AND t.source_id=e.source_id AND t.line=e.line_start WHERE e.workspace_id=cl.workspace_id AND e.article_id=cl.article_id AND e.revision=cl.revision AND e.anchor=cl.anchor),'[]'::jsonb) AS evidence_times FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
       WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND a.topic_key=$2 AND
       (cl.revision=a.revision OR EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=$1 AND cr.to_article_id=cl.article_id AND cr.to_revision=cl.revision AND cr.to_anchor=cl.anchor AND cr.relation IN ('supersedes','retracts','contradicts')))
       ORDER BY a.created_at,a.id,cl.revision,cl.anchor`,
         [ws, topic.topic_key],
       )
     ).rows;
+    for (const claim of claims)
+      claim.evidence_times.sort(
+        (a: any, b: any) =>
+          String(a.at).localeCompare(String(b.at)) ||
+          String(a.kind).localeCompare(String(b.kind)),
+      );
     const relations = (
       await c.query(
-        `SELECT cr.* FROM claim_relations cr JOIN articles a ON a.workspace_id=cr.workspace_id AND a.id=cr.from_article_id WHERE cr.workspace_id=$1 AND a.topic_key=$2 AND a.deleted_at IS NULL ORDER BY cr.created_at,cr.from_article_id,cr.from_anchor`,
+        `SELECT cr.* FROM claim_relations cr JOIN articles a ON a.workspace_id=cr.workspace_id AND a.id=cr.from_article_id WHERE cr.workspace_id=$1 AND a.topic_key=$2 AND a.deleted_at IS NULL ORDER BY cr.created_at,cr.from_article_id,cr.from_anchor,cr.from_revision,cr.to_article_id,cr.to_revision,cr.to_anchor,cr.relation`,
         [ws, topic.topic_key],
       )
     ).rows;
     const references = (
       await c.query(
-        `SELECT cl.*,a.title FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id WHERE cl.workspace_id=$1 AND a.id=ANY($2::uuid[])`,
+        `SELECT cl.*,a.title FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id WHERE cl.workspace_id=$1 AND a.id=ANY($2::uuid[]) ORDER BY cl.article_id,cl.revision,cl.anchor`,
         [
           ws,
           [
@@ -67,7 +74,13 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       `/workspaces/${ws}/knowledge`,
       references,
     );
-    const snapshot = { claims, relations, references, tags };
+    const snapshot = {
+      assemblyVersion: "topic-sections-2",
+      claims,
+      relations,
+      references,
+      tags,
+    };
     const fingerprint = hash(JSON.stringify({ title, content, snapshot }));
     if (old?.input_hash === fingerprint) continue;
     const id = old?.id ?? randomUUID(),
@@ -123,6 +136,12 @@ export async function wikiPageDetail(
   if (!row) throw new AppError(404, "NOT_FOUND");
   return {
     ...row,
+    hasUnprocessedSources: !!(
+      await c.query(
+        "SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed' LIMIT 1",
+        [ws],
+      )
+    ).rowCount,
     revisions: (
       await c.query(
         "SELECT revision,created_at FROM wiki_page_versions WHERE workspace_id=$1 AND page_id=$2 ORDER BY revision DESC",

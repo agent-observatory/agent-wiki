@@ -27,6 +27,8 @@ type Settings = {
   config: AiConfig;
   encrypted_key?: string | null;
   version: number;
+  stopped_reason?: string | null;
+  stopped_at?: string | null;
 };
 const input = z
   .object({
@@ -60,7 +62,7 @@ export function registerAiSettings(
     return scoped(r, async (c, ws) => {
       const row = (
         await c.query(
-          "SELECT config,encrypted_key,version FROM ai_settings WHERE workspace_id=$1",
+          "SELECT config,encrypted_key,version,stopped_reason,stopped_at FROM ai_settings WHERE workspace_id=$1",
           [ws],
         )
       ).rows[0] as Settings | undefined;
@@ -68,6 +70,8 @@ export function registerAiSettings(
       return {
         ...config,
         hasKey: !!row?.encrypted_key,
+        stoppedReason: row?.stopped_reason ?? null,
+        stoppedAt: row?.stopped_at ?? null,
         version: row?.version ?? 0,
       };
     });
@@ -86,6 +90,9 @@ export function registerAiSettings(
       ).rows[0] as Settings | undefined;
       if ((row?.version ?? 0) !== body.version)
         throw new AppError(409, "REVISION_CONFLICT");
+      // Only the explicit enabled endpoint can start or pause curation.
+      if (config.enabled !== (row?.config.enabled ?? false))
+        throw new AppError(400, "USE_CURATION_CONTROL");
       const secret = resolveKey(row, config, body.apiKey);
       if (config.enabled && !secret) throw new AppError(400, "AI_KEY_REQUIRED");
       await c.query(

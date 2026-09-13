@@ -1,8 +1,7 @@
 "use client";
 import { layerLabel } from "@/lib/layers";
-import { Database, ListChecks, FileCheck2, Clock3 } from "lucide-react";
+import { Database, ListChecks, FileCheck2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatusBadge } from "./status-badge";
 import { When } from "./common";
 
 export const waitingReasons: Record<string, string> = {
@@ -51,7 +50,7 @@ export type RefinementProgressData = {
 };
 
 export function RefinementProgress({ data }: { data: RefinementProgressData }) {
-  const { sessions, storage, schedule } = data;
+  const { sessions, storage } = data;
   return (
     <section
       aria-label="원문에서 지식까지의 처리 현황"
@@ -122,28 +121,6 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
             </p>
           </CardContent>
         </Card>
-      </div>
-      <div
-        className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg bg-muted/40 px-4 py-3 text-sm"
-        role="status"
-      >
-        <span className="flex items-center gap-2 font-medium">
-          <Clock3 className="size-4 shrink-0" />
-          {waitingReasons[schedule.reason]}
-        </span>
-        <span className="text-muted-foreground">
-          미반영 세션 {sessions.waiting.toLocaleString()}개
-        </span>
-        {sessions.attention > 0 && (
-          <StatusBadge status="failed">
-            확인 필요 {sessions.attention.toLocaleString()}개 세션
-          </StatusBadge>
-        )}
-        {schedule.nextAttemptAt && (
-          <span className="text-muted-foreground">
-            다음 시도 가능 <When value={schedule.nextAttemptAt} />
-          </span>
-        )}
       </div>
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
         <span>

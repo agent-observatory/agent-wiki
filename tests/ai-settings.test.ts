@@ -201,10 +201,21 @@ test("five pending sessions can run concurrently while a sixth stays queued", as
     (
       await put({
         ...byok,
-        enabled: true,
+        enabled: false,
         requestsPerMinute: 120,
         concurrency: 5,
         retryDelaySeconds: 30,
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: endpoint() + "/enabled",
+        headers,
+        payload: { enabled: true, version: (await get()).version },
       })
     ).statusCode,
     200,
@@ -249,7 +260,17 @@ test("five pending sessions can run concurrently while a sixth stays queued", as
   }
   assert.equal(sixth, true);
   assert.equal(entered, 6);
-  await put({ ...byok, enabled: false });
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: endpoint() + "/enabled",
+        headers,
+        payload: { enabled: false, version: (await get()).version },
+      })
+    ).statusCode,
+    200,
+  );
 });
 
 test("progress applies defaults when saved settings predate BYOK limits", async () => {

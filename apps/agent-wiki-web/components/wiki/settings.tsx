@@ -1,7 +1,17 @@
 "use client";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Cpu, KeyRound } from "lucide-react";
-import { useApi } from "@/lib/api";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { api, errorText, useApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heading, Loading, Failure } from "./common";
@@ -9,6 +19,10 @@ import { Connections } from "./connections";
 
 type Mode = "byok";
 type Config = {
+  version: number;
+  hasKey: boolean;
+  stoppedReason?: string | null;
+  stoppedAt?: string | null;
   mode: Mode;
   enabled: boolean;
   provider: string;
@@ -28,6 +42,7 @@ type Config = {
 };
 
 export function Settings() {
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const query = useSearchParams();
   const router = useRouter();
   const tab = query.get("tab") === "client" ? "client" : "ai";
@@ -51,7 +66,7 @@ export function Settings() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="ai" className="pt-6">
-          <AIConnection />
+          <AIConnection key={workspaceId} />
         </TabsContent>
         <TabsContent value="client" className="pt-6">
           <Connections />
@@ -62,12 +77,26 @@ export function Settings() {
 }
 function AIConnection() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
+  const [editing, setEditing] = useState(false);
   const settings = useApi(`/api/workspaces/${workspaceId}/ai-settings`, 15000);
   if (settings.error) return <Failure error={settings.error} />;
   if (!settings.data) return <Loading />;
   const config = settings.data as Config;
+  if (editing)
+    return (
+      <AIConnectionForm
+        key={workspaceId}
+        config={config}
+        base={`/api/workspaces/${workspaceId}/ai-settings`}
+        onClose={() => {
+          setEditing(false);
+          settings.reload();
+        }}
+      />
+    );
   const thinking = config.enable_thinking ?? config.reasoning !== "none";
   const settingsRows: [string, string | number][] = [
+    ["Endpoint", config.baseUrl],
     ["model", config.model],
     ["maxInputTokens", config.maxInputTokens],
     config.max_completion_tokens !== undefined
@@ -93,6 +122,13 @@ function AIConnection() {
     <>
       <div className="mb-4 flex items-center gap-3">
         <Badge variant="outline">BYOK</Badge>
+        <Button
+          className="ml-auto"
+          variant="outline"
+          onClick={() => setEditing(true)}
+        >
+          편집
+        </Button>
         <span className="inline-flex items-center gap-2 text-sm">
           <CheckCircle2
             className={
@@ -104,6 +140,15 @@ function AIConnection() {
           {settings.data.hasKey ? "키 연결됨" : "키 없음"}
         </span>
       </div>
+      {config.stoppedReason && (
+        <p
+          role="status"
+          className="mb-4 text-sm text-amber-700 dark:text-amber-400"
+        >
+          무료 한도 소진으로 정제가 중지됐습니다. 모델·한도를 확인한 뒤 직접
+          재개하세요.
+        </p>
+      )}
       <dl className="divide-y border-y">
         {settingsRows.map(([key, value]) => (
           <div
@@ -118,5 +163,203 @@ function AIConnection() {
         ))}
       </dl>
     </>
+  );
+}
+
+function AIConnectionForm({
+  config: receivedConfig,
+  base,
+  onClose,
+}: {
+  config: Config;
+  base: string;
+  onClose: () => void;
+}) {
+  const [config] = useState(receivedConfig);
+  const [draft, setDraft] = useState(config);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState<"save" | "test" | null>(null);
+  const [error, setError] = useState<unknown>();
+  const [tested, setTested] = useState<string>();
+  function update(field: keyof Config, value: unknown) {
+    setDraft((d) => ({ ...d, [field]: value }));
+    setTested(undefined);
+    setError(undefined);
+  }
+  async function submit(action: "save" | "test") {
+    if (busy) return;
+    setBusy(action);
+    setError(undefined);
+    setTested(undefined);
+    const { hasKey, version, stoppedReason, stoppedAt, ...values } = draft;
+    try {
+      const result = await api(base + (action === "test" ? "/test" : ""), {
+        method: action === "test" ? "POST" : "PUT",
+        body: JSON.stringify({
+          config: { ...values, enabled: config.enabled },
+          version: config.version,
+          ...(key.trim() ? { apiKey: key.trim() } : {}),
+        }),
+      });
+      if (action === "save") {
+        setKey("");
+        onClose();
+      } else
+        setTested(
+          `Hello · 연결 성공 ${(result.durationMs / 1000).toFixed(1)}초`,
+        );
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+  const field = (
+    name: keyof Config,
+    label: string,
+    min?: number,
+    max?: number,
+  ) => (
+    <label
+      key={name}
+      className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm"
+    >
+      <span>{label}</span>
+      <Input
+        type={min === undefined ? "text" : "number"}
+        min={min}
+        max={max}
+        value={String(draft[name] ?? "")}
+        onChange={(e) =>
+          update(
+            name,
+            min === undefined
+              ? e.target.value
+              : e.target.value === ""
+                ? null
+                : Number(e.target.value),
+          )
+        }
+      />
+    </label>
+  );
+  const thinking = draft.enable_thinking ?? draft.reasoning !== "none";
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit("save");
+      }}
+      className="max-w-3xl"
+    >
+      <fieldset disabled={!!busy} className="divide-y border-y">
+        {field("baseUrl", "Endpoint")}
+        {field("model", "model")}
+        <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
+          <span>API key</span>
+          <Input
+            type="password"
+            autoComplete="off"
+            value={key}
+            placeholder={config.hasKey ? "저장된 키 유지" : "API key 입력"}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setTested(undefined);
+            }}
+          />
+        </label>
+        <details className="py-3">
+          <summary className="cursor-pointer text-sm">고급 설정</summary>
+          {field("maxInputTokens", "maxInputTokens", 3000, 32000)}
+          {draft.max_completion_tokens !== undefined
+            ? field(
+                "max_completion_tokens",
+                "max_completion_tokens · 비우면 기본값",
+                512,
+                32768,
+              )
+            : field("maxTokens", "max_tokens", 512, 16384)}
+          <label className="flex items-center justify-between py-3 text-sm">
+            enable_thinking
+            <input
+              type="checkbox"
+              checked={thinking}
+              onChange={(e) => update("enable_thinking", e.target.checked)}
+            />
+          </label>
+          {thinking && (
+            <>
+              <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
+                <span>reasoning_effort</span>
+                <Select
+                  disabled={!!busy}
+                  value={draft.reasoning}
+                  onValueChange={(value) => update("reasoning", value)}
+                >
+                  <SelectTrigger aria-label="reasoning_effort">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(/qwen/.test(draft.model)
+                      ? ["default", "none"]
+                      : /deepseek-v4/.test(draft.model)
+                        ? ["default", "none", "high", "max"]
+                        : ["default", "none", "low", "high"]
+                    ).map((v) => (
+                      <SelectItem key={v} value={v}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              {field("thinking_budget", "thinking_budget · 선택", 1, 32768)}
+            </>
+          )}
+          {field("requestsPerMinute", "requestsPerMinute", 1, 120)}
+          {field("concurrency", "concurrency", 1, 5)}
+          {field("retryDelaySeconds", "retryDelaySeconds", 5, 600)}
+          {field("dailyCalls", "dailyCalls · 선택", 1, 1000)}
+        </details>
+      </fieldset>
+      {error != null && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {errorText(error)}
+        </p>
+      )}
+      {tested && (
+        <p
+          role="status"
+          className="mt-3 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400"
+        >
+          <CheckCircle2 className="size-4" />
+          {tested}
+        </p>
+      )}
+      <div className="mt-4 flex items-center gap-2">
+        <Button type="submit" disabled={!!busy}>
+          {busy === "save" ? "저장 중" : "저장"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!!busy}
+          onClick={() => submit("test")}
+        >
+          {busy === "test" ? "연결 확인 중" : "연결 테스트"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={!!busy}
+          onClick={onClose}
+        >
+          취소
+        </Button>
+        <span className="ml-2 text-xs text-muted-foreground">
+          저장·테스트는 정제를 시작하지 않습니다.
+        </span>
+      </div>
+    </form>
   );
 }

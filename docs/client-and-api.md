@@ -244,3 +244,28 @@ agent-wiki search "운영 DB" --view history --scope production
 ### Wiki Pages 조회
 
 `agent-wiki pages [검색어]`는 주제별 페이지를 나열하고 `agent-wiki page ID [--revision N]`는 본문과 고정된 Claim·관계 스냅샷을 읽는다. `article ID`는 내부 Claim의 원문 근거·리니지를 상세 조회한다. L4 `search`는 Workspace 전체에서 찾고 `--tag`를 명시한 경우만 Tag로 제한한다. 검색 응답의 `wikiPages`는 연결된 페이지 탐색 링크이며 현재 결정의 근거는 `citations`의 상태·Version을 따른다.
+
+## 선택 재작업과 재조립
+
+전체 초기화 대신 기존 성공·원문을 유지한다. 자동 정제 시작·중지는 별도 사용자 명령이며 아래 명령에 재개를 포함하지 않는다.
+
+| CLI | 결과 |
+| --- | --- |
+| `agent-wiki reprocess plan RUN_ID` | 성공 실행의 원문 범위·입력 해시·기존 Claim/Version·fingerprint |
+| `agent-wiki reprocess enqueue request.json` | 같은 범위의 재작업 예약. 정제 OFF면 실행하지 않음 |
+| `agent-wiki reprocess show REQUEST_ID` | pending/running/ready/failed/applied와 후보·기존 주장 |
+| `agent-wiki reprocess apply REQUEST_ID reviewed.json` | 사용자 확인한 정정안을 Version 검사 후 반영 |
+| `agent-wiki reassemble` | AI 호출 없이 기존 Claim에서 페이지 재조립 |
+
+<details>
+<summary>에이전트용 요청·검증 계약</summary>
+
+`request.json`은 `{requestId,runId,fingerprint,mode,reason}`이다. requestId는 UUID, mode는 `analyze`(새 모델 분석) 또는 `revalidate`(호환되는 저장 출력 검증)다. plan의 modelCalls=1은 새 분석의 예상 호출 수이며 재검증은 0회다. 입력은 전체 세션이 아니라 해당 성공 실행의 고정 구간이다. 실패 실행은 기존 retry API를 사용한다.
+
+`reviewed.json`은 `{fingerprint,publication}`이다. fingerprint는 현재 plan에서 재확인하고 publication은 기존 발행 계약을 따른다. 자동 후보를 그대로 실행하지 않는다. 에이전트가 이전 Claim과 후보를 읽고 변경·유지·불확실 항목을 설명한 뒤 사용자의 확인을 받는다. 정정할 기존 articleId/baseRevision을 넣고 기존 anchor를 모두 보존한다. 수정 결과에 남지 않아야 할 오해석은 삭제 대신 근거를 확인해 철회 상태로 설명한다. 이는 사용자 결정이 바뀌었다는 관계와 구분한다. 새 Claim은 별도로 추가할 수 있으며 기존 주장의 근거·리니지를 임의로 다시 쓰지 않는다. 자동 의미 병합·분리 기능은 없다.
+
+같은 requestId의 다른 입력은 409, 실행·반영 중 지식 변경은 REPROCESS_PLAN_CHANGED, 오래된 Version은 REVISION_CONFLICT다. 반영 응답 유실은 같은 파일로 재시도하고, 내용 수정 때는 새 idempotencyKey로 재검토한다. 후보 반영은 검토 완료 확정이 아니다. `review confirm`은 별도 승인이다. 새 분석 실패는 자동 반복하지 않는다. 기존 호출 이력에 kind=reprocess로 구분하며 모델 없는 재검증은 모델 호출 목록에서 제외한다.
+
+API는 `/curation/reprocess/plan/:runId`, `/curation/reprocess`, `/curation/reprocess/:id`, `/curation/reprocess/:id/apply`, `/wiki-pages/reassemble`이며 기존 Workspace 권한 경계를 적용한다. 웹 AI 연결 편집·Hello도 CLI와 같은 AI 설정 API/Version을 사용한다. PUT 설정에서 enabled 변경은 거부하고, 명시적인 `/ai-settings/enabled`만 사용자 제어에 쓴다.
+
+</details>

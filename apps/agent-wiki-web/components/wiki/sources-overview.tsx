@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { RefreshCw, Play, Pause, Activity, FileText } from "lucide-react";
 import { SourceList } from "./sources";
-import { RefinementProgress } from "./refinement-progress";
+import { RefinementProgress, waitingReasons } from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
 import { api, errorText, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -160,9 +160,9 @@ function SourcesContent() {
                   <div className="flex gap-2 items-center justify-between mt-3 font-semibold">
                     <span className="inline-flex items-center gap-2">
                       {liveControl.enabled ? (
-                        <Play className="size-4" />
+                        <Play className="size-4 text-emerald-700 dark:text-emerald-400" />
                       ) : (
-                        <Pause className="size-4" />
+                        <Pause className="size-4 text-amber-800 dark:text-amber-400" />
                       )}
                       {liveControl.enabled
                         ? "활성"
@@ -195,10 +195,37 @@ function SourcesContent() {
                       {errorText(controlError)}
                     </p>
                   )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    중지하면 진행 중인 작업을 마무리합니다. 원문 수집은
-                    계속됩니다.
-                  </p>
+                  <div
+                    role="status"
+                    className="mt-3 space-y-2 text-xs text-muted-foreground"
+                  >
+                    <p>
+                      미반영 세션{" "}
+                      {jobs.data.progress.sessions.waiting.toLocaleString()}개
+                      {jobs.data.progress.sessions.attention > 0 && (
+                        <span className="ml-2">
+                          <StatusBadge status="failed">
+                            확인 필요 {jobs.data.progress.sessions.attention}개
+                          </StatusBadge>
+                        </span>
+                      )}
+                    </p>
+                    {liveControl.enabled && (
+                      <p>
+                        {waitingReasons[jobs.data.progress.schedule.reason]}
+                      </p>
+                    )}
+                    {liveControl.enabled &&
+                      jobs.data.progress.schedule.nextAttemptAt && (
+                        <p>
+                          다음 시도{" "}
+                          <When
+                            value={jobs.data.progress.schedule.nextAttemptAt}
+                          />
+                        </p>
+                      )}
+                    <p>중지해도 원문 수집은 계속됩니다.</p>
+                  </div>
                 </section>
                 <section className="rounded-lg border p-5">
                   <p className="text-sm text-muted-foreground">
@@ -363,8 +390,15 @@ function CallHistoryRow({ run: r }: { run: any }) {
           {r.settings.provider} · {r.settings.model}
         </span>
         <span>{r.prompt_version}</span>
+        {diagnostics?.kind === "reprocess" && (
+          <Badge variant="secondary">
+            재작업 · {diagnostics.stage === "candidate" ? "검토 후보" : "분석"}
+          </Badge>
+        )}
         <span className="inline-flex flex-wrap gap-x-2 gap-y-1 tabular-nums">
-          {diagnostics?.requestedAt && <span>시도 {diagnostics.attempt}</span>}
+          {diagnostics?.attempt != null && (
+            <span>시도 {diagnostics.attempt}</span>
+          )}
           {diagnostics?.durationMs != null && (
             <span>{(diagnostics.durationMs / 1000).toFixed(1)}초</span>
           )}
@@ -475,124 +509,31 @@ const stages: Record<string, string> = {
 };
 function RefinementHealth({ data }: { data: any }) {
   if (!data) return null;
-  const attempts = data.models.reduce((n: number, m: any) => n + m.attempts, 0);
-  const unmeasured = data.models.reduce(
-    (n: number, m: any) => n + m.unmeasured,
-    0,
-  );
+  if (!data.errors.length) return null;
   return (
-    <section className="mt-8" aria-label="최근 7일 정제 상태">
-      <h2 className="font-semibold mb-3">최근 7일 정제 상태</h2>
-      {!attempts && (
-        <p className="text-sm text-muted-foreground">
-          아직 측정된 모델 호출이 없습니다.
-        </p>
-      )}
-      {!!attempts && (
-        <div className="overflow-x-auto border-y">
-          <table className="w-full text-sm min-w-[620px]">
-            <thead className="text-muted-foreground">
-              <tr>
-                {[
-                  "모델",
-                  "호출 시도",
-                  "정제 성공률",
-                  "자동 재시도",
-                  "평균 / 95% 소요 시간",
-                ].map((x) => (
-                  <th key={x} className="text-left font-normal py-3 pr-4">
-                    {x}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.models
-                .filter((m: any) => m.attempts > 0)
-                .map((m: any) => (
-                  <tr key={`${m.provider}/${m.model}`} className="border-t">
-                    <td className="py-3 pr-4">
-                      <span className="block text-xs text-muted-foreground">
-                        {m.provider}
-                      </span>
-                      {m.model}
-                    </td>
-                    <td className="pr-4">{m.attempts}회</td>
-                    <td className="pr-4">
-                      {m.completed + m.failed
-                        ? `${Math.round((100 * m.completed) / (m.completed + m.failed))}%`
-                        : "—"}
-                      <span className="block text-xs text-muted-foreground">
-                        완료 {m.completed} · 실패 {m.failed} · 진행 {m.running}
-                      </span>
-                    </td>
-                    <td className="pr-4">{m.retries}회</td>
-                    <td>
-                      {m.average_ms == null
-                        ? "—"
-                        : `${(m.average_ms / 1000).toFixed(1)}초 / ${(m.p95_ms / 1000).toFixed(1)}초`}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="text-xs text-muted-foreground mt-2">
-        성공률은 모델 호출 후 정제 완료 여부로 계산하며 진행 중인 실행은
-        제외합니다. 소요 시간은 모델 응답·결과 조회 대기를 포함합니다.
-        {unmeasured > 0 &&
-          ` 이전 기록 ${unmeasured}건은 측정값이 없어 통계에서 제외합니다.`}
-      </p>
-      {!!data.errors.length && (
-        <div className="mt-4 space-y-2">
-          <h3 className="text-sm font-medium">반복 오류 · 상위 10개</h3>
-          {data.errors.map((e: any) => (
-            <div
-              key={`${e.provider}/${e.model}/${e.error_code}/${e.stage}`}
-              className="flex flex-wrap justify-between gap-2 text-xs border-b pb-2"
-            >
-              <div className="min-w-0 break-words">
-                <span className="font-medium">
-                  {reasons[e.error_code] ?? e.error_code}
-                </span>{" "}
-                <StatusBadge status="failed">{e.count}회</StatusBadge>{" "}
-                <span className="text-muted-foreground">
-                  · {stages[e.stage] ?? "단계 미집계"} · {e.provider} /{" "}
-                  {e.model}
-                </span>
-              </div>
+    <section className="mt-8" aria-label="반복 오류">
+      <h2 className="font-semibold mb-3">반복 오류 · 상위 10개</h2>
+      <div className="space-y-2">
+        {data.errors.map((e: any) => (
+          <div
+            key={`${e.provider}/${e.model}/${e.error_code}/${e.stage}`}
+            className="flex flex-wrap justify-between gap-2 text-xs border-b pb-2"
+          >
+            <div className="min-w-0 break-words">
+              <span className="font-medium">
+                {reasons[e.error_code] ?? e.error_code}
+              </span>{" "}
+              <StatusBadge status="failed">{e.count}회</StatusBadge>{" "}
               <span className="text-muted-foreground">
-                최근 <When value={e.last_seen} compact />
+                · {stages[e.stage] ?? "단계 미집계"} · {e.provider} / {e.model}
               </span>
             </div>
-          ))}
-        </div>
-      )}
-      {!!attempts && (
-        <details className="mt-4 text-sm">
-          <summary className="cursor-pointer text-muted-foreground">
-            일별 기록
-          </summary>
-          <div className="mt-2 divide-y">
-            {data.daily.map((d: any) => (
-              <div
-                key={d.day}
-                className="flex flex-wrap justify-between gap-2 py-2 text-xs"
-              >
-                <span>{d.day} (UTC)</span>
-                <span className="flex flex-wrap items-center gap-2">
-                  시도 {d.attempts}
-                  <StatusBadge status="completed">
-                    완료 {d.completed}
-                  </StatusBadge>
-                  <StatusBadge status="failed">실패 {d.failed}</StatusBadge>
-                </span>
-              </div>
-            ))}
+            <span className="text-muted-foreground">
+              최근 <When value={e.last_seen} compact />
+            </span>
           </div>
-        </details>
-      )}
+        ))}
+      </div>
     </section>
   );
 }
