@@ -38,9 +38,11 @@
 - **배포:** Terraform으로 기존 경보를 활성화하고 비용 조회 계정의 로그 권한을 제거했다. Connector·Slack 구독 ACTIVE를 확인했다. GitHub 오류 workflow를 비활성화하고 전용 `OCI_LOG_CONFIG` secret을 삭제했다.
 - **검증:** Terraform mock plan 3개·비용 알림 테스트 12개 통과, SVG XML·실제 렌더링 확인. 02:05:37 한국 시각 Worker stdout 합성 ERROR → OCI Logging 1건 → 02:09 오류 지표 1건 → 02:14:30 경보 FIRING → 02:14:32 Slack 수신을 확인했다. 전체 약 9분이며 경보 후 전달은 약 2초다. 아래 이전 GitHub 오류 점검 기록은 당시 방식이며 현재 설계로 읽지 않는다.
 
-**추가 확인 — RESET 표시:** 같은 경보의 02:14:32 `OK_TO_FIRING`은 Slack 카드였으나 02:28의 `RESET`(평가 시각 02:23)은 경보 메타데이터 JSON으로 도착했다. 새 앱 오류나 원문 로그 유출이 아니라 지표가 끊긴 뒤의 경보 초기화 메시지다. 운영 API로 `ONS_OPTIMIZED`·활성 SLACK 구독 1개·Monitoring 연결을 확인했으므로 설정 누락이나 중복 구독으로 설명되지 않는다. OCI의 RESET 메시지 서식 처리 문제로 추정하며 서비스 내부 원인은 미확정이다. 발동 알림만 확인한 기존 검증은 모든 상태의 카드 표시를 보장하지 않는다. 이번 조사에서는 알림 경로·자원을 변경하거나 시험 메시지를 추가 전송하지 않았다.
+**추가 확인 — RESET 표시:** 같은 경보의 02:14:32 `OK_TO_FIRING`은 Slack 카드였으나 02:28의 `RESET`(평가 시각 02:23)은 경보 메타데이터 JSON으로 도착했다. 새 앱 오류나 원문 로그 유출이 아니라 지표가 끊긴 뒤의 경보 초기화 메시지다. 운영 API로 `ONS_OPTIMIZED`·활성 SLACK 구독 1개·Monitoring 연결을 확인했으므로 설정 누락이나 중복 구독으로 설명되지 않는다. OCI의 RESET 메시지 서식 처리 문제로 추정하며 서비스 내부 원인은 미확정이다. 발동 알림만 확인한 기존 검증은 모든 상태의 카드 표시를 보장하지 않는다. 이 현상을 처음 조사할 때는 알림 경로·자원을 변경하지 않았다.
 
-[Notifications 문서](https://docs.oracle.com/en-us/iaas/Content/Notification/Concepts/notificationoverview.htm)의 friendly formatting은 Email 전용이다. `ONS_OPTIMIZED`를 바꾸는 것만으로 Slack RESET 서식을 보장할 수 없다. 오류만 알리고 일관된 짧은 서식을 강제하려면 별도 필터/포매터가 필요하며, 기본 OCI 경로 유지와 구분해 후속 결정한다.
+공식 문서는 Slack 경보 카드와 제목·본문의 동적 변수를 지원한다고 설명한다. Notifications의 Email 전용 friendly formatting 설명을 Slack 서식 미지원으로 해석하지 않는다. RESET이 원래 JSON이어야 한다는 공식 근거는 확인하지 못했다.
+
+**서식 적용·실제 검증 완료:** 기존 경보 제목은 `Agent Wiki`, 본문은 굵은 상태·코드 서식의 평가 시각·오류 로그 링크로 줄였다. Terraform은 기존 경보 1개만 수정했으며 모의 검사 3개를 통과했다. 새 자원·포매터·앱 배포는 없다. 02:39의 첫 합성 시험은 시각 형식 오류로 수집기가 제외했다. 실제 앱과 같은 밀리초 UTC 형식으로 보낸 02:45:17 시험은 02:48:33 OCI Logging 전송 HTTP 200을 확인했다. 02:54:27 경보 발동 → 02:54:29 Slack 카드 수신을 확인했고, Edge에서 굵은 상태·코드 시각·로그 링크가 렌더링됐다. 03:08:38에 후속 RESET도 JSON이 아닌 카드로 수신됐고, 굵은 `OK`·코드 시각·로그 링크·녹색 경계가 표시됐다. [발동 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322069229589)와 [RESET 카드](https://hyune-c.slack.com/archives/C0C19NLR9PG/p1789322918936799)를 실제 Slack 웹에서 확인했다. 이전 JSON 발생의 서비스 내부 원인은 확정하지 못했으며, 이번 결과는 같은 운영 경로의 한 번의 발동·RESET 주기에 대한 검증이다.
 
 공식 형식: [OCI 기본 Slack 경보](https://docs.oracle.com/en-us/iaas/Content/Monitoring/alarm-message-examples.htm).
 

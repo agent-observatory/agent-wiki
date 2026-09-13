@@ -133,9 +133,10 @@ resource "oci_monitoring_alarm" "errors" {
   evaluation_slack_duration = "PT5M"
   destinations              = [oci_ons_notification_topic.errors[0].id]
   message_format            = "ONS_OPTIMIZED"
-  notification_title        = "Agent Wiki · 오류 로그 상태 변경"
-  alarm_summary             = "5분 구간에 ERROR 이상 로그가 있으면 알림을 보냅니다."
+  notification_title        = "Agent Wiki"
+  alarm_summary             = "{{type}} · {{timestamp}}"
   body                      = <<-EOT
+    *{{status}}* · `{{timestamp}}`
     <https://cloud.oracle.com/logging/search?region=ap-osaka-1&searchQuery=${urlencode("search \"${var.tenancy_id}/${oci_logging_log_group.wiki[0].id}/${oci_logging_log.app[0].id}\" | where data.severityNumber >= 17 | sort by datetime desc")}|오류 로그 보기>
   EOT
   # State transitions only; no periodic repeat and no per-request dimensions.
