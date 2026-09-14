@@ -5,16 +5,16 @@
 | 구분 | 확인한 상태 |
 | --- | --- |
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
-| 로컬 패키지 | 0.7.5 준비(미배포·미설치) · 0.7.4 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
+| 로컬 패키지 | 0.7.5 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
-| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 56 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 58 · 2번 모델 미설정 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
-## 재개 후 첫 관찰 · 맥락 예산 확대와 과잉 추출 억제 · 로컬 검증 완료 · 미배포
+## 재개 후 첫 관찰 · 맥락 예산 확대 · 추정기 전환 · 2번 모델 · 배포 완료
 
-2026-09-14. 사용자가 `ai resume`(Version 57)한 뒤 실패 작업 3개를 `POST /refinements/<id>/retry`로 다시 돌렸다. 세 실행 모두 `remote-curation-14`에서 첫 시도로 완료됐고 인용 검증 28/28·28/28·30/30, 스키마 오류 0이었다. 이후 자동 진행으로 청크 36/142까지 처리한 시점에 새 실패 `CLAIM_REPLACEMENT_NOT_CURRENT` 1건이 났고 사용자가 개선 후 재개하기로 중지했다(Version 58). **아래 변경은 로컬 검증까지 마쳤고 배포는 사용자 지시를 기다린다.**
+2026-09-14. 사용자가 `ai resume`(Version 57)한 뒤 실패 작업 3개를 `POST /refinements/<id>/retry`로 다시 돌렸다. 세 실행 모두 `remote-curation-14`에서 첫 시도로 완료됐고 인용 검증 28/28·28/28·30/30, 스키마 오류 0이었다. 이후 자동 진행으로 청크 36/142까지 처리한 시점에 새 실패 `CLAIM_REPLACEMENT_NOT_CURRENT` 1건이 났고 사용자가 개선 후 재개하기로 중지했다(Version 58). **아래 변경은 로컬 검증 후 사용자 지시로 배포했다.** `d216cf3`의 [CI·K3s 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34818686294)가 test·publish·deploy 모두 성공했고 `/readyz`는 ready다. 배포 후 설정은 **OFF·Version 58·`maxInputTokens` 30,000·`fallbackModel` null·`fallbackActive` false**로 변경 없음을 확인했다. 재개 전 사용자가 `maxInputTokens` 16,000과 `fallbackModel`을 저장하고 재개한다. 로컬 Client 0.7.5와 Codex·Claude Skill을 갱신했고 Collector 설정은 그대로다.
 
 ### 관찰한 문제
 
@@ -37,7 +37,7 @@
 - 실행 진단에 `published.changes/consolidated/relations`를 남겨 청크가 기존 문서에 합쳐진 비율(통합률)을 이후 측정한다. `consolidated`는 기존 문서의 새 Version으로 반영된 변경 수다.
 - 배포 후 비교 기준: 참고 지식 선택 수(1~3 → 목표 4 이상), 청크당 변경 중앙값(4 → 감소), 새 문서 대비 통합 비율, 출력 토큰·추론 비율, 제목 겹침 쌍 증가 속도.
 
-### 2번 모델 자동 이어가기 · 미배포
+### 2번 모델 자동 이어가기
 
 사용자 요청(2026-09-14): 1번 모델 `deepseek-v4-flash`의 무료 할당량(약 100K 남음)이 소진되면 손으로 바꾸지 않고 2번 모델 `deepseek-v4-flash-0731`(1M)로 이어가고, 그 사이 사용자가 2번을 1번으로 올리고 새 2번을 지정하면 끊김 없이 계속되게 한다. 2번 모델은 비워둘 수 있다.
 
@@ -47,7 +47,7 @@
 - AGENTS.md·Skill·설계 문서의 "자동 모델 전환 없음" 규칙을 "사용자가 지정한 2번 모델로의 전환만 자동"으로 고쳤다. Client 0.7.5.
 - 검증: Worker 통합 검사(1번 소진 → 2번 완료, 다음 작업은 2번으로 시작, 승격 저장 후 해제, 2번 부재 시 중지)와 설정 API 검사(동일 모델 거부, 표시, 2번 없는 Hello 거부)를 추가했다. 스키마는 `fallback_active_since` 열 추가만이며 배포 시 migration Job이 적용한다.
 
-### 조각 크기 · 추정기 전환 · 미배포
+### 조각 크기 · 추정기 전환
 
 사용자 질문(성공 실행의 입력이 모두 10K 미만, 32K까지 같은 단가)에 대한 판단: 조각을 키우는 것이 유리하되 한 번에 3~4배가 아니라 약 2배로 한 단계씩 올린다. 호출마다 반복되는 지침·주제·참고 맥락(현재 입력의 25~30%)이 줄고, 출력·추론은 입력에 비례해 늘지 않으며, 한 세션의 A→B→C 변화가 같은 조각에 들어갈 확률이 오른다. 3~4배로 바로 가면 호출 시간 p95 178초가 330초 제한을 넘어 재시도 비용이 커지고 12개 변경 상한과 긴 입력 누락 위험이 있다.
 
