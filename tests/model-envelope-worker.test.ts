@@ -41,7 +41,14 @@ before(async () => {
       "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
       [
         ws,
-        JSON.stringify({ ...defaults, enabled: true, maxInputTokens: 30000 }),
+        // Byte-estimating endpoint: this scenario checks the conservative
+        // upper-bound path; Alibaba models use the tokenizer estimate.
+        JSON.stringify({
+          ...defaults,
+          enabled: true,
+          maxInputTokens: 30000,
+          baseUrl: "https://api.deepseek.com/v1",
+        }),
         encryptSecret("synthetic"),
       ],
     );

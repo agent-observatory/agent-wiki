@@ -297,13 +297,14 @@ export async function runOne(
             source.id,
             chunkText,
             contextReserve,
+            countInputTokens,
           );
           // Retry feedback shares the existing context reservation; do not cut
           // source rows or enlarge the provider input to fit repair instructions.
           while (
             task.validationRetry &&
             related.length &&
-            estimateTokens(
+            countInputTokens(
               JSON.stringify({
                 related,
                 validationRetry: task.validationRetry,
@@ -317,6 +318,8 @@ export async function runOne(
             selected: related.length,
             sameSession: related.filter((claim) => claim.same_session).length,
             inputBytes: estimateTokens(JSON.stringify(related)),
+            inputUnits: countInputTokens(JSON.stringify(related)),
+            counter: tokenCounter.version,
             budget: contextReserve,
             selectedReferences: related.map((claim) => ({
               id: claim.id,

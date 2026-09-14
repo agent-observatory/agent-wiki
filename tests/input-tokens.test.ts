@@ -36,7 +36,22 @@ test("Qwen packs mixed Korean/code near its 25K estimate without losing rows", a
     if (i < chunks.length - 1) assert.ok(counter.count(assembled) > 18000);
   }
   assert.ok(counter.count(text) < estimateTokens(text));
-  const free = await inputTokenCounter(defaults);
-  assert.equal(free.count(text), estimateTokens(text));
-  assert.equal(free.version, "utf8-upper-bound-1");
+  // Providers without a recommended tokenizer keep the byte upper bound.
+  const other = await inputTokenCounter({
+    ...defaults,
+    provider: "openai-compatible",
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-v4-flash",
+  });
+  assert.equal(other.count(text), estimateTokens(text));
+  assert.equal(other.version, "utf8-upper-bound-1");
+  const deepseek = await inputTokenCounter({
+    ...defaults,
+    provider: "openai-compatible",
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    model: "deepseek-v4-flash",
+  });
+  assert.equal(deepseek.version, "o200k-estimate-margin10-1");
+  assert.equal(deepseek.count(text), counter.count(text));
+  assert.ok(deepseek.count(text) < estimateTokens(text) / 2);
 });

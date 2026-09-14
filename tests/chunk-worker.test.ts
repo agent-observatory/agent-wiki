@@ -50,7 +50,13 @@ before(async () => {
       "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
       [
         ws,
-        JSON.stringify({ ...defaults, enabled: true }),
+        // Byte-estimating endpoint keeps this multi-chunk scenario meaningful;
+        // Alibaba models use the tokenizer estimate and pack more per chunk.
+        JSON.stringify({
+          ...defaults,
+          enabled: true,
+          baseUrl: "https://api.deepseek.com/v1",
+        }),
         encryptSecret("synthetic"),
       ],
     );

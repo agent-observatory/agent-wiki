@@ -201,6 +201,7 @@ export async function runReprocess(
         );
         diag.skippedReason = "saved_output_revalidation";
       } else {
+        const counter = await inputTokenCounter(task.config);
         const context = await tx(owner, ws, (c) =>
           curationContext(
             c,
@@ -208,6 +209,7 @@ export async function runReprocess(
             input.source.id,
             input.source.text,
             contextBudget(task.config.maxInputTokens),
+            counter.count,
           ),
         );
         input.related = context.related;
@@ -234,7 +236,6 @@ export async function runReprocess(
             }),
           },
         ];
-        const counter = await inputTokenCounter(task.config);
         const estimated = messages.reduce(
           (n, m) => n + counter.count(m.content),
           128,

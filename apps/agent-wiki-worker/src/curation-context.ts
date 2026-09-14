@@ -31,6 +31,7 @@ export async function curationContext(
   sourceId: string,
   text: string,
   budget = CONTEXT_BUDGET,
+  count: (text: string) => number = estimateTokens,
 ) {
   // Search decoded conversational text, including late-chunk topic changes.
   const query = text
@@ -82,12 +83,12 @@ export async function curationContext(
     // Never drop the L1 input or silently treat a shortened claim as complete.
     while (
       candidate.text.length > 80 &&
-      estimateTokens(JSON.stringify([...related, candidate])) > budget
+      count(JSON.stringify([...related, candidate])) > budget
     ) {
       candidate.text = Array.from(candidate.text).slice(0, -40).join("");
       candidate.textTruncated = true;
     }
-    if (estimateTokens(JSON.stringify([...related, candidate])) > budget) {
+    if (count(JSON.stringify([...related, candidate])) > budget) {
       budgetSkipped++;
       continue;
     }
