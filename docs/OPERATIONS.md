@@ -358,7 +358,7 @@ Curation은 상태·처리한 원문 조각·이번 묶음 청크·다음 대기
 
 Slack 카드에서는 신호등 범례·조회 범위·집계 지연·과금 주의 문구를 제거했다. 비용·상태·사용률·증감·상세 링크만 간결하게 표시하며 판정 기준과 조회 범위는 이 문서에 유지한다.
 
-2026-09-14. GitHub 예약 실행은 지연·누락될 수 있으므로, 09:13 한국 시각의 일일 요약이 실행되지 않아도 그날의 다음 6시간 비용 점검이 일일 요약을 보완하도록 했다. 체크포인트는 한국 날짜별로 한 번만 기록하며, 일일 요약 전의 점검은 이상 알림만 확인한다. 실행 로그에는 `daily_summary=delivered|already_delivered|not_due`를 남겨 Slack 전송 여부를 확인한다.
+2026-09-14. GitHub 예약 실행은 지연·누락될 수 있으므로, 09:13 한국 시각의 일일 요약이 실행되지 않아도 그날의 다음 6시간 비용 점검이 일일 요약을 보완하도록 했다. 체크포인트는 한국 날짜별로 한 번만 기록하며, 일일 요약 전의 점검은 이상 알림만 확인한다. 실행 로그에는 `daily_summary=delivered|already_delivered|not_due`를 남겨 Slack 전송 여부를 확인한다. 이날 09:13 KST 실행은 GitHub에 생성되지 않았고, 수정 후 [수동 일일 요약](https://github.com/agent-observatory/agent-wiki/actions/runs/34806822139)은 43초 만에 성공해 `daily_summary=delivered`를 확인했다.
 
 ## 이전 오류 조회 Actions
 
