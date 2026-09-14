@@ -8,9 +8,9 @@
 
 **주장은 근거·변경 관계를 관리하는 단위이고, 페이지는 같은 주제의 지식을 읽는 단위다.** 한 주장마다 페이지를 만들거나, 세션·수집 청크마다 페이지를 나누지 않는다.
 
-아래 그림은 아키텍처 문서와 같은 L1–L5 한 장이다. 이 문서는 그 가운데 **01 L2 정제 파이프라인과 L3 참고 루프·재시도 루프, 02 L3의 Claims·Decisions·Wiki Pages, 04 검토**를 설명한다. 03의 조회는 [아키텍처의 L4 · Query / L5 · Answers](architecture.md#l4--query--l5--answers)를 따른다.
+아래 그림은 아키텍처 문서와 같은 **L1 → L3 정제 한 장**이다. 위에서 아래로 **01 기존 청크 추출(요약) → 02 추출이 L3에 남기는 통합 전 주장 → 03 관계만 정하는 Consolidation Job → 04 그 결과인 Wiki Page 새 Version과 Knowledge 화면·검토**다. 03·04의 점선 테두리는 설계이며 미구현이다([통합](#통합--consolidation--설계--미구현)). 조회는 [아키텍처의 L4 → L5 그림](architecture.md#l4--query--l5--answers)에 있다.
 
-![L1부터 L5까지 한 장. 01 Codex·Claude 두 세션의 L1 증분을 Worker가 청킹·입력 조립·AI 판단·서버 검증으로 정제하고 L3 현재 주장의 BM25 후보를 규칙 재정렬 뒤 입력 조립에 되돌리며 검증 실패는 같은 청크를 다시 보낸다. 02 L3가 Decision A를 B가 대체한 관계와 별도 속성 C를 보존하고 Decision History·현재 상태 페이지를 조립한다. 03 L5 에이전트가 L4의 후보·Claim 관계·원문 구간 조회를 반복한다. 04 에이전트 Skill·CLI 비교·사용자 확인·CLI 확정과 Version 3을 검토 완료 Version 1과 비교하는 기준](assets/wiki-l1-l5.svg)
+![L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제하고, L3 현재 주장의 BM25 후보를 입력 조립에 되돌리며, 출력 오류는 같은 청크를 다시 보내고, 관계만 실패한 반영은 주장을 반영한 뒤 관계를 통합 대기함에 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job이 gather → model → validate → publish 네 Step으로 관계만 판단해 자동 반영하며 Step별 상태를 따로 기록한다. 04 Wiki Page 새 Version은 현재 주장만 나열하고 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억한다. 점선 테두리는 설계·미구현](assets/wiki-l1-l3-curation.svg)
 
 ### 용어
 
@@ -44,6 +44,69 @@
 Worker는 같은 주제의 독립된 주장들을 한 변경에 담을 수 있다. 모델은 근거에 있는 이유·범위·제약을 포함한 설명 문단을 쓰고 Topic의 key·title을 지정한다. 새 주장·관계가 반영되는 트랜잭션에서 L2가 해당 Workspace의 주제 페이지 입력 해시를 비교하고 바뀐 페이지만 새 Version으로 저장한다. 원문·모델을 다시 읽지 않는다. 페이지 내용은 검증된 Claim 문단을 현재·미해결·과거·변경 근거로 구성하며 추가 AI 서술을 생성하지 않는다. 문단의 의미가 원문으로 뒷받침되는지는 모델 판단과 후속 에이전트 검토의 대상이다. 인용 문자열 일치만으로 사실 검증을 완료했다고 보지 않는다.
 
 동일한 Topic key가 페이지 식별 기준이고 그 선택은 모델이 한다. 입력에는 기존 Topic 목록을 전달하며 검색 유사도만으로 주장을 동일시하지 않는다. 주제가 잘못 묶이거나 여러 key로 갈리는 경우는 검토 대상이다. 가장 최근에 수집됐다는 이유로 결정을 승격하지 않는다. 페이지는 사람의 검토 완료를 자동 선언하지 않으며 Claim 단위 검토 API·Skill을 유지한다. 페이지 자체의 별도 검토 확정·의미적 병합/분리 명령은 후속 범위다.
+
+## 통합 · Consolidation · 설계 · 미구현
+
+**추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다.** 지금은 청크 추출이 관계까지 한 번에 내고 같은 Worker 시도 안에서 바로 반영한다. 관계 하나가 검증에 실패하면 추출 전체를 버리고 모델을 다시 부르며, 관계를 놓친 추출은 같은 subject·scope에 `current` 주장을 둘 남긴다(그림 02). 아래 설계는 이 둘을 나눠 푼다. 사용자는 방향(자동 반영·자동 트리거·관계 지연)을 승인했고 **구현·배포·검증은 아직 없다.** 그림 03·04의 점선 테두리가 이 범위다. 구현 순서는 대기함·관계 지연 → `relation reject`·거절 기억 → Job과 네 Step → Knowledge 화면이다. 자동 반영은 되돌리는 명령이 있어야 안전하므로 reject가 publish의 자동 반영보다 먼저다.
+
+| 구분 | 추출 · 기존 | 통합 · 설계 |
+| --- | --- | --- |
+| 단위 | 청크 | 주제 · Topic key |
+| 입력 | 새 원문 + 세션 맥락 + 참고 주장 최대 6개 | 주제의 `current`·`proposed`·`unconfirmed`·`conflicted` 주장 전체 + 대기함의 관계 + 거절 기억 |
+| 모델 출력 | 새 주장·근거·관계 | 기존 주장 사이의 관계만. 새 주장·본문·상태 필드 변경 없음 |
+| 호출 수 | 청크당 1회 | 주제당 배치 1회. 통합할 것이 없으면 0회 |
+| 실패 | 같은 청크 재호출 | 실패한 Step만 재시도. 앞 Step 결과 재사용 |
+| 반영 | 즉시 | 즉시(자동). 적합성은 기존 review로 나중에 검토 |
+
+### 언제 실행하나
+
+- 자동: 세션의 고정 처리 범위(`cycle_id`)의 모든 청크가 반영을 마치면, 그 범위의 반영이 닿은 주제마다 Job 1개를 만든다. 청크마다 만들지 않는다. 이것이 "모든 청크 이중 호출 금지"의 경계선이다.
+- 대기함에 관계가 남은 주제는 새 청크가 오지 않아도 Job을 만든다. 관계를 대기함에 넣는 시점에 그 주제의 Job을 예약하므로 사람이나 다음 수집을 기다리다 멈추지 않는다.
+- 수동: `agent-wiki consolidate TOPIC_KEY`가 "지금 통합"이다. `consolidate status [TOPIC_KEY]`는 열린 Job과 Step 상태를 보여준다. 사용자 명령이므로 자동 정제 중지 중에도 그 1회는 실행하고 실행 이력에 남긴다. 자동 트리거는 중지 상태·일일 한도·RPM·동시성을 추출과 같은 키로 지킨다.
+- 주제당 열린 Job(pending·running·재시도 대기)은 1개다. 열린 동안 들어온 트리거는 `rerun_requested`만 표시하고, Job이 끝나면 다음 Job을 만든다. 같은 세션의 추출과 그 주제의 통합은 순차이며 서로 다른 주제의 통합은 추출과 같은 동시성 한도 안에서 병렬이다.
+
+### Job과 Step
+
+Job은 `consolidation_jobs` 한 행이고 Step은 그 안의 네 항목이다. Step 상태는 `pending → running → done | failed | skipped`이며 각 Step에 `attempts`·`error_code`·`retry_at`·`input_hash`·`output`을 따로 둔다. 실패는 어느 Step에서 죽었는지 그대로 보이고, 재시도는 그 Step부터 시작한다.
+
+| Step | 하는 일 | 모델 | 실패 분류와 재시도 |
+| --- | --- | --- | --- |
+| `gather` | 주제의 주장을 (subject, scope)별로 묶고 상태·고정 Version·근거 ID·기존 관계·대기함 관계·거절 기억을 읽어 입력을 고정한다. 입력 해시를 저장한다 | 없음 | DB 일시 오류만 내부 조회 규칙(deadline·backoff+jitter·최대 2회 추가)으로 재시도. 묶음마다 `current`가 1개 이하이고 대기함·미해결 `contradicts`가 없으면 나머지 Step을 `skipped`로 끝낸다 |
+| `model` | gather 결과 하나로 BYOK 1회. 묶음마다 `supersedes`·`retracts`·`supports`·`contradicts`·`leave_unresolved(이유)` 중에서 제안한다. 새 주장·본문·상태 필드 변경은 출력 계약 위반이다. 관계 근거는 출발 주장의 기존 근거 ID 중에서 고른다. 대기함의 관계와 거절된 관계는 참고 정보로 함께 전달한다 | BYOK 1회. 입력 예산을 넘으면 묶음을 나눠 각각 1회 | 일시 제공자 오류(`429`·5xx·연결·시간 초과)는 추출과 같은 키 대기·`Retry-After`+5초 규칙. 출력 오류(잘못된 JSON·알 수 없는 주장 ID·허용 외 관계·근거 ID 불일치)는 캐시를 비우고 새 응답, 같은 Job·세대에서 3회 연속이면 확인 필요. 어느 경우도 gather를 다시 하지 않는다 |
+| `validate` | `storeClaimRelations`와 같은 규칙을 모델 제안에 적용한다: 대상 존재·삭제 여부, subject·scope 일치, 결정 권한(`user_decision`은 `user_decision`만 대체), 출발 상태 `current`(`supersedes`·`retracts`), 대상이 이미 대체·철회되지 않음, 순환 없음, 근거가 출발 주장의 근거 안에 있음, 거절 기억에 없음 | 없음 | 규칙 위반은 관계별로 `rejected_by_rule`과 코드로 Step 출력에 남기고 Step은 `done`이다. 모델에 되돌리지 않는다. 남은 관계가 없으면 publish는 `skipped` |
+| `publish` | 통과한 관계를 consolidation publication으로 `claim_relations`에 저장한다. 출발·대상 모두 이미 있는 고정 Version이며 새 Revision을 만들지 않는다. 같은 트랜잭션에서 주제 페이지 입력 해시를 비교해 바뀐 페이지만 새 Version을 만들고 대기함 항목을 `resolved`로 표시한다 | 없음 | 대상 Version이 gather 뒤 바뀌었으면(`CLAIM_TARGET_VERSION_CHANGED`) 같은 anchor·text·type·subject·scope의 현재 Version으로 재대상해 반영한다. 다르면 Job `attempt`+1로 gather부터 다시 하며 이때만 모델을 다시 부른다. Job 재시작은 최대 3회. DB 일시 오류는 publish만 재시도하며 멱등 키는 Job ID·attempt다 |
+
+실행 이력·토큰·진단은 `refinement_runs`에 `kind=consolidation`으로 남기고 호출 목록·오늘 호출 수에 넣는다. `skipped`는 호출이 아니다. Step 결과는 Job 행에 보존하고 다음 Job이 앞 Job의 출력을 입력으로 쓰지 않는다. 종료 신호에서는 실행 중인 Step을 마치고 다음 Step을 남긴다.
+
+### 관계 지연 · 대기함
+
+추출의 publish에서 **관계만** 실패하는 두 코드 `CLAIM_TARGET_VERSION_CHANGED`·`CLAIM_TARGET_ALREADY_RETIRED`는 추출을 버리지 않는다. 주장·근거·통과한 관계는 그 트랜잭션에서 반영하고, 실패한 관계는 출발 주장의 확정 ID·Version·anchor, 의도한 대상, 관계 종류, 근거, 실행 ID, 오류 코드와 함께 그 주제의 대기함(`consolidation_inbox`)에 넣는다. 다음 Consolidation Job의 gather가 읽어 model 입력에 "이전 추출이 제안했던 관계"로 전달하고, validate·publish를 거쳐 반영되거나 규칙 거절로 끝난다. 조용히 버리지 않고 사람을 기다리게 하지도 않는다. `CLAIM_SCOPE_MISMATCH`·`CLAIM_RELATION_TARGET_INVALID`·`DECISION_AUTHORITY_MISMATCH`·`CLAIM_REPLACEMENT_NOT_CURRENT`·`CLAIM_RELATION_EVIDENCE_REQUIRED`·`CLAIM_TARGET_NOT_PRIOR`는 모델 출력 오류이므로 기존대로 새 응답 재시도다. 호출 전 참고 맥락 변경(`CURATION_CONTEXT_CHANGED`)도 기존대로 두며 대기함으로 옮길지는 실제 실패 사례를 본 뒤 정한다.
+
+### `relation reject` · 자동 반영을 되돌리는 명령
+
+`agent-wiki relation reject --from ARTICLE_ID/REVISION/ANCHOR --to ARTICLE_ID/REVISION/ANCHOR --relation supersedes --client claude --reason "..."` (API `POST /claim-relations/reject`).
+
+- 그 관계 때문에 유효 상태가 바뀐 주장(`supersedes`·`retracts`는 대상, `contradicts`는 양쪽)에 같은 주장·근거를 그대로 담은 **정정 Version**을 기존 불변 Revision 방식으로 발행한다. 새 Version을 가리키는 관계가 없으므로 상태가 관계 전으로 돌아간다. 관계 행·이전 Version·원문은 지우지 않는다. `supports`는 상태를 바꾸지 않으므로 거절 기록만 남기고 페이지를 재조립한다.
+- 거절 기억 `claim_relation_rejections`(from·to·relation·이유·거절 publication·시각)를 저장한다. gather가 제외하고 model 입력에 "거절된 관계"로 알려 재제안을 막는다. 리니지 패널은 거절 표시와 정정 Version을 함께 보여준다.
+- Consolidation이 넣은 관계는 기존 `review queue`·`review diff`의 "관계 추가"로 이미 나타난다. reject는 그 diff를 사용자에게 설명하고 승인받은 뒤 실행한다. reject는 검토 확정이 아니며 `review confirm`은 별도다. 새 저장 방식·이벤트 소싱·Git 저장소는 도입하지 않는다.
+
+### Knowledge 화면 · 현재 주장 목록과 리니지 패널
+
+웹은 이미 받는 Wiki Page Version 스냅샷(`claims`·`relations`·`references`)을 마크다운 대신 구조로 그린다. 새 API·새 저장은 없다. 마크다운의 `## Decision History` 절과 반영 이력 페이지(발행 이벤트의 시간순 목록)는 그대로 둔다.
+
+- 기본 목록은 `current` 주장만 (subject, scope)별로 묶어 보여준다. subject·scope가 없는 주장은 마지막 '미분류' 묶음이다. `proposed`·`unconfirmed`·`conflicted`는 묶음마다 접힌 개수로 표시한다.
+- 주장을 클릭하면 오른쪽 패널(데스크톱 전용)이 리니지를 계산한다. 스냅샷 안에서 `supersedes`·`retracts`를 뒤(이 주장이 대체한 것)와 앞(이 주장을 대체한 것)으로 따라간다. 후속이 둘이면 분기로 둘 다 표시하고 오류로 보지 않는다. `contradicts`는 배지, `supports`는 근거 추가 사슬이다. 관계마다 근거·publication 종류(추출·통합·수동)·시각을 보여주고, 거절된 관계는 취소선과 정정 Version 링크로 표시한다. 선형 이력을 강제하지 않는다.
+- 스냅샷에 `rejections`를 추가한다(`refreshWikiPages`). 주제 목록의 `consolidation: {state, jobId, updatedAt}`는 라이브 상태이며 불변 Version에 넣지 않는다. 열린 Job이 있으면 **통합 대기**, 확인 필요면 **확인 필요** 배지다. 배지가 없어도 검토 완료는 아니다.
+
+### 하지 않는 것과 필요한 저장
+
+청크 추출을 Job/Step으로 바꾸지 않는다(이미 청크·세대·출력 캐시로 같은 성질을 가진다). 모든 청크 이중 호출, Git/Gitea 저장, 이벤트 소싱, 주장 상태 필드의 자동 승격(`proposed` → `current`는 사용자 결정), 임베딩은 하지 않는다.
+
+| 테이블 · 설계 | 내용 |
+| --- | --- |
+| `consolidation_jobs` | workspace·topic_key·status·attempt·rerun_requested·trigger(`cycle`·`deferred`·`manual`)·steps(JSONB: Step별 status·attempts·error_code·retry_at·input_hash·output)·run IDs |
+| `consolidation_inbox` | 지연된 관계: 출발 주장 ID/Version/anchor·의도한 대상·관계·근거·원 실행 ID·오류 코드·resolved_job_id |
+| `claim_relation_rejections` | from·to·relation·이유·거절 publication·시각 |
 
 ## 정제 흐름 · 실험 · 재생성
 
@@ -92,7 +155,7 @@ Codex와 Claude의 세션은 별도 L1이며 **지식의 정체성은 대상·�
 
 `record-reference-1`은 모델 입력에 청크 안의 비어 있지 않은 기록과 명시적 `recordId`를 제공한다. 모델은 인용문·원문 UUID·행 번호를 다시 쓰지 않고 `evidence:[{recordId}]`로 기록을 선택한다. 서버가 그 기록의 원래 텍스트와 행을 복원하고 불변 L1 위치로 환산한다. 존재하지 않는 ID, 생략·빈 행, ID와 조작된 인용의 혼합은 거부한다. 원래 응답은 실행 이력에 보존한다. 공개 CLI publication의 원문 인용 계약은 그대로이며 기존 방식의 응답은 별도 정확 일치 검사 대상이다.
 
-인용 복원 뒤에도 원문 해시·내용·역할·범위·관계 권한·Version 검사는 유지한다. 원문 위치 연결의 정확성과 그 원문이 주장을 논리적으로 뒷받침하는지는 별개다. 잘못된 기록 선택은 의미 검토로 탐지해야 한다. JSON·잘못된 근거 ID 등 출력 오류는 기록하고 기존 제한된 대기 후 새 응답으로 재시도한다. 원문 인증 실패는 제공자 호출 오류로 분류하지 않는다. Claim의 type(발화 권한)과 state(채택 상태)를 구분하고 관계는 변경의 claimRelations에 둔다. 관계 출발 anchor는 같은 변경의 Claim이어야 하며 저장 전에 검사한다. 구조 검증 실패도 재생성 대상으로 분류하며, 다음 입력에 오류 필드 경로·코드를 전달한다. 값을 임의로 고치거나 관계를 버려 통과시키지 않는다.
+인용 복원 뒤에도 원문 해시·내용·역할·범위·관계 권한·Version 검사는 유지한다. 원문 위치 연결의 정확성과 그 원문이 주장을 논리적으로 뒷받침하는지는 별개다. 잘못된 기록 선택은 의미 검토로 탐지해야 한다. JSON·잘못된 근거 ID 등 출력 오류는 기록하고 기존 제한된 대기 후 새 응답으로 재시도한다. 원문 인증 실패는 제공자 호출 오류로 분류하지 않는다. Claim의 type(발화 권한)과 state(채택 상태)를 구분하고 관계는 변경의 claimRelations에 둔다. 관계 출발 anchor는 같은 변경의 Claim이어야 하며 저장 전에 검사한다. 구조 검증 실패도 재생성 대상으로 분류하며, 다음 입력에 오류 필드 경로·코드를 전달한다. 값을 임의로 고치거나 관계를 버려 통과시키지 않는다. 관계만 실패한 반영(대상 Version 변경·이미 대체됨)은 추출을 버리지 않고 주장을 반영한 뒤 그 관계를 주제의 통합 대기함에 명시적으로 넘긴다([통합](#통합--consolidation--설계--미구현) · 설계·미구현). 조용히 버리거나 몰래 재생성하지 않는다.
 
 L2 입력에서 확인된 세션 메타데이터 이벤트·암호화 본문·기본 시스템/Skill/개발자 지침 필드를 제외한다. `text-fields-4`는 provenance·ID와 명시적인 lineage 이벤트를 AI 본문에서 빼고, 명시적인 메시지 `role=system/developer`도 제외한다. 중첩 스냅샷에서는 해당 메시지만 제외하며 사용자 메시지·본문에 인용된 지침·역할 미확인 내용은 유지한다. 세션 ID·에이전트 별명·시작 시각을 지식으로 만들지 않는다. L1은 그대로 두고 해당 줄만 비워 원문 줄 번호를 유지한다. 생략 범위는 입력·실행 기록에 남기며 그 범위를 걸친 인용은 거부한다. 제외 필드만 있는 청크는 모델을 호출하지 않는다. Collector가 L1 전에 실행 메타데이터와 중복 컴팩션 기록을 선별한다. L2는 남은 원문의 의미를 임의로 지우지 않는다. 컴팩션의 중첩 메시지는 각각의 발화자를 구분하고, 도구 실행 요청과 실제 출력도 분리한다.
 
@@ -175,7 +238,7 @@ L4 일반 조회는 검색어별 **일치 개수 → 필드 점수 → 갱신 �
 
 기본은 **한 번의 추론 호출에서 추출과 관계 비교**다. 호출 분리는 필수 조건이 아니다. 추론 ON/OFF와 단계별 모델 선택은 별도 축이며, 현재 Alibaba DeepSeek Flash는 `enable_thinking=true`, `reasoning=high`, `thinking_budget=null`을 사용한다. 전체 생성 상한은 선택 설정 `max_completion_tokens`로 관리한다. 명시적 `null`이면 출력 제한 필드를 보내지 않고 제공자 기본값을 사용한다. 작은 비교의 결과·한계는 [실험 기록](../experiments/curation/lineage/README.md)에 둔다.
 
-관계 판단이 불명확하면 **추출 후보 + 관련 과거 주장 + 양쪽 근거**만 넣는 별도 비교 단계를 둔다. 원문 전체 재전송·모든 청크의 무조건 이중 호출은 피한다. 분리할 경우 기계적인 추출에는 가벼운 모델·추론 OFF, 관계 비교에는 추론 ON을 비교하되 그 구성이 더 낫다고 미리 확정하지 않는다. 비교 결과는 동일·대체·철회·충돌·범위 차이·판단 보류를 구분한다. 검색 후보 자체가 없으면 재정렬만 반복하지 않고 별칭·검색어·제한된 과거 근거를 보강한다.
+관계 판단이 불명확하면 **추출 후보 + 관련 과거 주장 + 양쪽 근거**만 넣는 별도 비교 단계를 둔다. 주제 단위로 그 단계를 실행하는 설계가 [통합 · Consolidation](#통합--consolidation--설계--미구현)이며 아직 구현하지 않았다. 원문 전체 재전송·모든 청크의 무조건 이중 호출은 피한다. 분리할 경우 기계적인 추출에는 가벼운 모델·추론 OFF, 관계 비교에는 추론 ON을 비교하되 그 구성이 더 낫다고 미리 확정하지 않는다. 비교 결과는 동일·대체·철회·충돌·범위 차이·판단 보류를 구분한다. 검색 후보 자체가 없으면 재정렬만 반복하지 않고 별칭·검색어·제한된 과거 근거를 보강한다.
 
 추가 단계도 모델·프롬프트·입출력·사용량·지연·재시도·채택 결과를 독립적으로 기록하고 동일 RPM·동시성·중지 정책을 지킨다. 추출 성공 뒤 비교가 실패하면 추출을 재호출하지 않는 체크포인트가 필요하다. 단계별 실제 구현·검증 여부는 운영 현황에서 구분한다. 추가 AI 판단 역시 사용자 검토 완료를 대신하지 않는다.
 
@@ -237,6 +300,7 @@ L4 일반 조회는 검색어별 **일치 개수 → 필드 점수 → 갱신 �
 | Object Storage · L1 | 텍스트·이미지 분리 zstd, 불변 원문·위치 |
 | PostgreSQL · L2 | 입력 목록·청크·미해결 항목·세션 맥락 Version·처리 위치·실행 이력 |
 | PostgreSQL · L3 | 문서/주장 Version·근거·대체/철회/충돌 관계 |
+| PostgreSQL · 통합 · 설계 | `consolidation_jobs`·`consolidation_inbox`·`claim_relation_rejections`. [통합](#통합--consolidation--설계--미구현) 구현 전에는 없음 |
 | Query · L4 | 관련 주장과 유효성·충돌·근거를 반환. 과거 기준 조회는 고정 Version 사용 |
 
 그래프는 **관계 모델**로 사용하며 전용 그래프 DB는 도입하지 않는다. 기존 테이블에 주장 단위 관계와 실행 상태를 확장하고 SQL로 제한 탐색한다. 페이지 연결·문서 단위 대체와 주장 단위 의미 관계를 구분한다. 임베딩은 검색 누락을 확인한 뒤 평가하며 증분 맥락 전달이나 정정 판단의 대체 수단이 아니다.
@@ -307,7 +371,7 @@ BYOK 입력은 전체 입력 목표 상한 30,000이며 출력 상한은 선택 
 
 ## 에이전트와 함께 검토하기
 
-검토 흐름은 L1–L5 그림의 04다. 에이전트 · Skill(`review queue`) → CLI 개념 비교(`review diff`) → 사용자 확인 → CLI 검토 확정(`review confirm`) 순서이며, 검토 대상은 자동 정제의 새 Version과 Reprocess 후보다. Version 3은 검토 완료인 Version 1과 비교하고 검토 이력이 없으면 직전 Version과 비교한다.
+검토는 L1 → L3 그림 04의 왼쪽 카드다. 에이전트 · Skill(`review queue`) → CLI 개념 비교(`review diff`) → 사용자 확인 → CLI 검토 확정(`review confirm`) 순서이며, 검토 대상은 자동 정제의 새 Version, Reprocess 후보, 그리고 설계 중인 Consolidation이 자동 반영한 관계다. 비교 기준은 가장 가까운 검토 완료 Version이고 검토 이력이 없으면 직전 Version과 비교한다. 잘못 반영된 관계를 되돌리는 `relation reject`는 [통합](#relation-reject--자동-반영을-되돌리는-명령)에 있으며 미구현이다.
 
 **자동 정제 결과는 검토 전이다.** 검토 완료는 사용자가 해당 지식 상태를 확인했다는 기록이며, 객관적으로 검증된 사실이라는 뜻은 아니다. 검토는 Version과 당시 주장·범위·상태·근거·관계 스냅샷에 귀속된다. 새 Version이나 영향을 주는 관계 변경은 다시 검토할 대상이다.
 
@@ -332,6 +396,7 @@ BYOK 입력은 전체 입력 목표 상한 30,000이며 출력 상한은 선택 
 - `Reprocess/revalidate`: 같은 프롬프트·입력 버전·텍스트의 저장 출력을 공통 검증기로 다시 검사한다. 모델 호출은 없다. 호환되지 않는 캐시는 거부한다.
 - 후보 반영은 에이전트가 사용자에게 차이를 설명하고 기존 articleId/baseRevision에 맞춘 발행안을 제출한다. fingerprint와 Version을 재확인한다. 기존 anchor 누락은 거부한다. 잘못된 과거 분석을 정정했다는 이유를 저장하며 사용자 결정의 `supersedes`를 임의 생성하지 않는다. 이전 Claim Revision과 사람 검토 스냅샷은 보존한다.
 - `Reassemble`: 근거 시각 메타데이터를 불변 원문에서 보충하고 기존 Claim을 제목별로 묶는다. 변경된 페이지에만 새 Version을 만든다. AI 호출·큐 되감기·검토 확정은 없다.
+- `Consolidate` · 설계·미구현: 주제 하나의 기존 주장 사이 관계만 다시 판단한다. 새 주장·원문 재읽기는 없고 모델 호출은 주제당 1회다. [통합](#통합--consolidation--설계--미구현).
 
 Alibaba HTTP 403 응답의 `error.code`가 `AllocationQuota.FreeTierOnly` 또는 `insufficient_quota`이거나 `error.type`이 `insufficient_quota`인 경우만 할당량 소진으로 분류한다(호환 모드 엔드포인트는 후자를 쓴다는 걸 실제 소진 계정으로 확인). 403·429 응답 본문은 16 KiB 이내에서 `code`·`type` 두 필드만 읽고 영문자·숫자·`.`·`-`·`_` 64자 이내로 검증한 값만 실행 진단 `providerError`와 실패 로그에 남긴다. `message`·`id`는 읽지 않는다. 429는 분류하지 않고 진단만 남긴다(같은 코드라도 429는 요청·토큰 속도 제한이지 소진이 아니다). 해당 실행이 사용한 설정 Version이 여전히 유효할 때만 중지한다. 이전 설정의 늦은 오류가 새 설정을 끄지 않는다. 사용자가 `fallback` 슬롯(최대 1개, 1·2번 합쳐 총 2개 모델까지)을 두었으면 1번 모델의 소진은 중지가 아니라 같은 키의 2번 모델로 이어가며 Workspace의 `fallback_active_since`에 기록한다. 각 슬롯은 model·reasoning·enable_thinking·thinking_budget·max_completion_tokens·maxTokens·maxInputTokens·maxInputChars·timeoutSeconds를 독립적으로 가지며 requestsPerMinute·concurrency·retryDelaySeconds·dailyCalls·baseUrl·API 키만 두 모델이 공유한다. 설정 Version은 바꾸지 않아 진행 중 작업이 계속되고, 사용자가 1번·2번 모델을 바꿔 저장하면 해제된다. 2번 모델의 소진 또는 2번 부재만 중지한다. 그 밖의 자동 모델 전환·자동 재개는 없다. 이미 전송한 호출은 완료될 수 있다. [공식 무료 한도 문서](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 

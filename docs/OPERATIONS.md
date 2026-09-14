@@ -12,6 +12,16 @@
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
+## 통합(Consolidation) 설계 · Knowledge 리니지 패널 설계 · 그림 L1–L5 한 장 → L1–L3·L4–L5 두 장 · 설계 단계 · 미구현
+
+2026-09-15. 같은 날 앞선 두 차례 설계 대화(Knowledge 페이지의 현재 주장·리니지 UX, Job/Step 모델의 Consolidation 파이프라인)를 하나의 설계로 합쳐 `l2-l3-memory.md`에 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--설계--미구현) 절로 적고 그림으로 그렸다. **설계 단계다. 코드·마이그레이션·배포·검증은 없다.** 사용자가 승인한 것은 방향 세 가지(자동 반영, cycle 완료 시 주제별 자동 트리거 + 수동 `consolidate`, 관계만 실패한 반영의 대기함 지연)이며 구현 착수는 아직 승인하지 않았다. 사용자는 그림을 보고 추가 피드백을 주기로 했다.
+
+- 설계 요지: 추출은 청크마다 주장을 만들고, 통합은 주제마다 기존 주장 사이의 관계만 정한다. Consolidation Job은 `gather → model → validate → publish` 네 Step이며 Step마다 status·attempts·error·retryAt를 따로 기록해 실패한 Step부터 재시도한다. 모델 호출은 주제당 1회, 통합할 것이 없으면 0회다. 추출 publish의 `CLAIM_TARGET_VERSION_CHANGED`·`CLAIM_TARGET_ALREADY_RETIRED`는 추출을 버리지 않고 주장을 반영한 뒤 관계를 대기함에 넘긴다. 자동 반영을 되돌리는 `relation reject`(정정 Version + 거절 기억)가 자동 반영보다 먼저 필요하다. Knowledge 화면은 기존 Wiki Page 스냅샷을 구조로 그려 current 주장만 (subject, scope)별로 나열하고, 클릭한 주장의 리니지 패널이 supersedes·retracts를 앞뒤로 따라간다. 열린 Job이 있는 주제는 "통합 대기"다.
+- 설계에서 내가 정한 것(사용자 미확인): 지연 대상 코드를 위 둘로 한정(`CURATION_CONTEXT_CHANGED`는 유지), 통합 관계는 새 Revision 없이 기존 고정 Version 사이에 consolidation publication으로 저장, reject의 정정 Version은 상태가 바뀐 대상 주장(contradicts는 양쪽)에만 발행, 관계 근거는 출발 주장의 기존 근거 ID 중 선택, 수동 `consolidate`는 자동 정제 중지 중에도 그 1회 실행, publish의 Version 변경은 같은 주장이면 재대상·아니면 gather부터 최대 3회, 주장 상태 필드의 자동 승격 없음. `AGENTS.md`의 정제 큐 원칙에 관계 지연 한 문장을 더했다. `l2-l3-memory.md`의 "관계를 버려 통과시키지 않는다"는 문장은 그대로 두고 지연 규칙을 이어 붙였다.
+- 그림: 사용자가 "스타일만 비슷하게 하고 완전히 새로 그린다"고 했고 최종 범위를 "L1~L3 지식 정제 한 장 + L4~L5 검색 한 장, 아키텍처 포함 3장"으로 정했다. `wiki-l1-l5.svg`(1680×3100, 네 띠)를 지우고 `wiki-l1-l3-curation.svg`(1760×2450)와 `wiki-l4-l5-query.svg`(1760×1020)를 새로 그렸다. 옛 그림에서 L3가 두 번(01 안의 참고 루프 세 장, 02의 Decision·페이지) 설명되던 것을 "통합 전 주장 → 통합 → 통합 후 페이지"의 한 줄거리로 바꿨다. 옛 01의 두 세션 카드 두 장은 L1 카드 하나로, L3 참고 루프의 세 카드(L3 읽기·BM25·규칙 재정렬)는 카드 하나로 줄였다. 옛 02의 Decision History·현재 상태 페이지 두 장은 04의 Knowledge 페이지 카드 하나와 리니지 패널로 대체했다. 옛 04의 Version 1·2·3 비교 기준 상자는 문서의 검토 절에 이미 있어 그림에서 뺐다. 옛 03의 조회는 L4–L5 한 장에 사용자 질문 → 에이전트 → 3단계 → 인용 답변의 줄거리로 다시 그렸다. 설계·미구현 부분은 같은 색에 점선 테두리이며 범례 한 항목으로 표시한다(`DESIGN.md`에 규칙 추가). `architecture.md`는 L1–L5와 지식 모델 절에 정제 그림, L4 · Query / L5 · Answers 절에 조회 그림을 삽입한다.
+
+검증: 생성기 2회 재실행의 SHA-256 일치(CI `Check diagrams`와 같은 명령)·SVG 3개 XML·`architecture.md`·`l2-l3-memory.md`·`DESIGN.md`·`client-and-api.md`·`README.md`·`AGENTS.md`의 상대 링크와 GitHub 방식 앵커, 두 새 그림의 PNG 렌더링(Noto Sans KR)에서 겹침·잘림을 눈으로 확인했다. 이번에는 텍스트 폭도 같은 글꼴로 재서 상자 밖으로 나가는 글자와 겹치는 라벨을 스크립트로 검사했고(첫 렌더에서 라벨 두 개 이동), 문제 0으로 끝냈다. 문서·그림 변경이며 앱 코드·배포·정제 상태·데이터는 바꾸지 않았다.
+
 ## 그림 6장 → 2장 · 아키텍처 한 장 · L1–L5 한 장 · 목록형 내용은 표로 이동
 
 2026-09-15. 사용자가 "아키텍처는 한 장, L1–L5의 흐름은 최소 1장·최대 2장, 전체 3장이 상한이며 가능하면 2장 안"으로 고정했다. 앞선 두 차례 정비(화살표 수정, L2·L3 그림 5장 → 1장 통합)는 장수를 6장으로 남겼으므로 이번에는 내용을 갈라 **`wiki-architecture.svg`(아키텍처) · `wiki-l1-l5.svg`(L1–L5 흐름) 두 장**으로 줄였다. 기준은 "상자와 화살표가 관계·흐름을 보여주는가, 아니면 사실 목록인가"다. 목록은 문서의 표로 옮기고 그림에서는 지웠다.

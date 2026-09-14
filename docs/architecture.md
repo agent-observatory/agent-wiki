@@ -22,7 +22,7 @@
 
 ### 단일 VM · K3s
 
-아키텍처 그림은 이 한 장이다. 사용자 기기의 에이전트·CLI·Collector, 단일 VM 안의 K3s·Traefik·Web·API·Worker·PostgreSQL·영속 볼륨, VM 밖의 Object Storage·AI Provider·DNS·인증서 발급 기관과 그 사이의 조회·수집·저장 경로를 담는다. L1–L5의 흐름은 [L1–L5와 지식 모델](#l1l5와-지식-모델)의 두 번째 그림에 둔다.
+아키텍처 그림은 이 한 장이다. 사용자 기기의 에이전트·CLI·Collector, 단일 VM 안의 K3s·Traefik·Web·API·Worker·PostgreSQL·영속 볼륨, VM 밖의 Object Storage·AI Provider·DNS·인증서 발급 기관과 그 사이의 조회·수집·저장 경로를 담는다. L1 → L3 정제는 [L1–L5와 지식 모델](#l1l5와-지식-모델), L4 → L5 조회는 [L4 · Query / L5 · Answers](#l4--query--l5--answers)의 그림에 둔다. 그림은 이 세 장이 전부다.
 
 ![아키텍처 한 장. 사용자 기기의 Codex·Claude Code·agent-wiki-client와 단일 OCI VM 안의 K3s·Traefik·Web·API·Worker·PostgreSQL·PVC, VM 밖의 Object Storage·AI Provider·DuckDNS·인증서 발급 기관. Collector는 압축 증분을 Object Storage에 직접 올리고 Worker가 검증·등록·정제한다](assets/wiki-architecture.svg)
 
@@ -139,11 +139,11 @@ L2는 같은 대상·범위에서 변경 의도를 판단하고, L3는 과거 �
 
 ## L1–L5와 지식 모델
 
-L1–L5의 흐름은 아래 한 장이다. 위에서 아래로 **01 L1 증분 → L2 Worker 정제(청킹 → 입력 조립 → AI 판단 → 서버 검증, L3 현재 주장의 BM25 후보 되돌림, 검증 실패의 같은 청크 재시도), 02 L3의 Decision A·B·C와 supersedes → Wiki Page의 변경 이력·현재 상태, 03 L5 에이전트 ↔ L4의 후보 → Claim·관계 → 원문 구간 조회, 04 검토 Version 비교와 사용자 확정**이다. 같은 그림을 [L2·L3 기억 설계](l2-l3-memory.md)도 사용한다.
+L1 → L3 정제는 아래 한 장이다. 위에서 아래로 **01 L1 증분 → L2 청크 추출(청킹 → 입력 조립 → AI 추출 → 서버 검증 → 반영, L3 현재 주장의 BM25 후보 되돌림, 출력 오류의 같은 청크 재시도, 관계만 실패한 반영의 대기함 지연), 02 추출이 L3에 남기는 통합 전 주장(같은 subject·scope에 current 둘, 제안, 대기함의 관계), 03 주제마다 관계만 판단하는 Consolidation Job의 gather → model → validate → publish, 04 그 결과인 Wiki Page 새 Version의 현재 주장 목록·클릭한 주장의 리니지 패널·검토와 relation reject**다. 03·04의 점선 테두리는 설계이며 미구현이다. 같은 그림을 [L2·L3 기억 설계](l2-l3-memory.md)가 자세히 설명한다.
 
-![L1부터 L5까지 한 장. 01 Codex·Claude 두 세션의 L1 증분을 Worker가 청킹·입력 조립·AI 판단·서버 검증으로 정제하고 L3 현재 주장의 BM25 후보를 규칙 재정렬 뒤 입력 조립에 되돌리며 검증 실패는 같은 청크를 다시 보낸다. 02 L3가 Decision A를 B가 대체한 관계와 별도 속성 C를 보존하고 Decision History·현재 상태 페이지를 조립한다. 03 L5 에이전트가 L4의 후보·Claim 관계·원문 구간 조회를 반복하고 조회 이력은 traceId로 남는다. 04 에이전트 Skill·CLI 비교·사용자 확인·CLI 확정과 Version 3을 검토 완료 Version 1과 비교하는 기준](assets/wiki-l1-l5.svg)
+![L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제하고, L3 현재 주장의 BM25 후보를 입력 조립에 되돌리며, 출력 오류는 같은 청크를 다시 보내고, 관계만 실패한 반영은 주장을 반영한 뒤 관계를 통합 대기함에 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job이 gather → model → validate → publish 네 Step으로 관계만 판단해 자동 반영하며 Step별 상태를 따로 기록한다. 04 Wiki Page 새 Version은 현재 주장만 나열하고 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억한다. 점선 테두리는 설계·미구현](assets/wiki-l1-l3-curation.svg)
 
-그림의 NVIDIA → Alibaba는 합성 예시다. **지식은 현재 결정과 변경 이유를 함께 보존하고, 원문 근거까지 역추적한다.** 같은 대상·범위에서 변경 의도를 어떻게 가르는지(명시적인 변경·검토 의견·다른 적용 범위·불명확한 결론·늦게 수집된 발언)는 그림이 아니라 [주장과 관계 표](l2-l3-memory.md#주장과-관계)에 둔다.
+그림의 NVIDIA → Alibaba는 합성 예시다. **지식은 현재 결정과 변경 이유를 함께 보존하고, 원문 근거까지 역추적한다.** 추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다. 리니지 패널은 그 관계를 사람이 읽는 방법이며, 통합이 끝나지 않은 주제는 **통합 대기**로 표시해 완성된 페이지로 오해하지 않게 한다. 통합·리니지 패널·relation reject의 규칙은 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--설계--미구현)에 있고 구현·배포는 아직 없다. 같은 대상·범위에서 변경 의도를 어떻게 가르는지(명시적인 변경·검토 의견·다른 적용 범위·불명확한 결론·늦게 수집된 발언)는 그림이 아니라 [주장과 관계 표](l2-l3-memory.md#주장과-관계)에 둔다.
 
 L1–L5는 우리 제품의 논리 모델이며 공식 표준이나 실행 순서가 아니다. L2는 작업 세션과 분리된 정제 실행이다. L4는 Wiki 서버의 검색·근거 제공, L5는 작업 에이전트의 답변·작업을 맡는다. 실제 조회는 **L5 에이전트 → Wiki CLI → L4 검색 → 근거 반환 → L5 답변·작업**의 왕복이다. 조회 Skill은 판단 지침, Wiki CLI는 L5 에이전트가 사용하는 조회 도구다.
 
@@ -161,7 +161,7 @@ Schema·Index·Log·Lint는 구조 규칙·목차·실행 이력·점검을 뜻�
 
 ## 로직이 바뀔 때 개선하는 방법
 
-**기존 원문과 지식을 유지하고 필요한 분석·조립만 다시 한다.** 분석 오류를 고친 개정과 사용자가 A에서 B로 결정을 바꾼 이력은 구분한다. 세 가지 재작업은 L1–L5 그림의 서로 다른 위치로 다시 들어간다. Retry는 01의 서버 검증 → AI 판단 재시도 루프, Reprocess의 후보는 04의 검토 대상, Reassemble은 02의 Wiki Page 새 Version이다.
+**기존 원문과 지식을 유지하고 필요한 분석·조립만 다시 한다.** 분석 오류를 고친 개정과 사용자가 A에서 B로 결정을 바꾼 이력은 구분한다. 세 가지 재작업은 L1 → L3 그림의 서로 다른 위치로 다시 들어간다. Retry는 01의 서버 검증 → AI 재시도 루프, Reprocess의 후보는 04의 검토 카드, Reassemble은 04의 Wiki Page 새 Version이다. 설계 중인 Consolidation은 03이며 기존 주장 사이의 관계만 다시 판단한다.
 
 | 변경 | 다시 하는 범위 | 결과 | AI 호출 |
 | --- | --- | --- | --- |
@@ -220,7 +220,9 @@ Obsidian 앱은 사용하지 않는다. 관계는 PostgreSQL로 시작한다. Cy
 
 **L5의 작업 에이전트가 검색을 계획하고, L4가 근거를 제공한다.** 현재 구조에 Agentic RAG의 조회 반복을 적용한다. 임베딩은 후보를 찾는 방법이며 에이전트의 조회 제어와 별개다. 별도 서버 에이전트·매 조회 모델 호출은 두지 않는다.
 
-조회 흐름은 [L1–L5 그림](#l1l5와-지식-모델)의 03이다. L5 에이전트(Codex·Claude Code + 조회 Skill) → Wiki CLI `query search`의 짧은 Claim 후보 → 선택한 Claim의 고정 Version·상태·대체/철회/충돌 관계(L3에서 읽기) → 필요한 원문 구간(L4가 L1에서 읽어 돌려주며 에이전트는 Object Storage를 직접 읽지 않음) → L5의 인용 답변이다. 근거가 부족하면 검색어·깊이를 바꿔 같은 traceId로 반복하고, 반환은 미반영 / 없음 / 실패 / 잘림을 구분한다. 서버 AI 호출은 0회다.
+조회 흐름은 아래 한 장이다. 사용자의 질문 → L5 에이전트(Codex·Claude Code + 조회 Skill) → Wiki CLI `query search`의 짧은 Claim 후보 → 선택한 Claim의 고정 Version·상태·대체/철회/충돌 관계(L3에서 읽기) → 필요한 원문 구간(L4가 L1에서 읽어 돌려주며 에이전트는 Object Storage를 직접 읽지 않음) → L5의 인용 답변이다. 근거가 부족하면 검색어·깊이를 바꿔 같은 traceId로 반복하고, 반환은 미반영 / 없음 / 실패 / 잘림을 구분한다. 서버 AI 호출은 0회다.
+
+![L4·L5 한 장. 왼쪽은 사용자의 질문, L5 작업 에이전트, 인용 답변이고 오른쪽 L4 그룹은 query search의 BM25 후보 → query claim의 고정 Version·상태·관계 → query source의 원문 구간 세 단계와 traceId 조회 이력이다. claim은 아래의 L3 PostgreSQL을, source는 L1 원문 저장소를 읽어 돌려주며 에이전트는 저장소를 직접 읽지 않는다. 하단 띠는 서버 AI 호출 0회와 12단계·64,000자·80줄 한도](assets/wiki-l4-l5-query.svg)
 
 | 질문 목적 | 조회 내용 |
 | --- | --- |

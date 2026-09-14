@@ -8,16 +8,18 @@ LAYER_NAMES=json.loads(Path('apps/agent-wiki-web/lib/layer-names.json').read_tex
 def layer_label(n):return f'L{n} · {LAYER_NAMES[f"L{n}"]}'
 FONT={'diagram':34,'group':24,'component':20,'body':18,'label':16,'layer':32}
 def a(s):p.append(s)
-def box(x,y,w,h,f='#FFFFFF',st='#CDD9E7'):a(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{f}" stroke="{st}"/>')
+# design=True marks a part that is designed but not implemented: same fill, dashed border.
+DESIGN_DASH=' stroke-dasharray="10 6" stroke-width="2.5"'
+def box(x,y,w,h,f='#FFFFFF',st='#CDD9E7',design=False):a(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{f}" stroke="{st}"'+(DESIGN_DASH if design else '')+'/>')
 # Neutral enclosing regions; role colors belong to individual components.
 PALETTE={
  'app':('#DBEAFE','#7EA6D8'), 'ingest':('#FDE7C2','#C89A55'),
  'data':('#D4EDE4','#74AA98'), 'ai':('#EBDFFA','#AA8ACA'),
  'ops':('#E3E7ED','#929EAD'), 'web':('#FFFFFF','#929EAD'),
 }
-def component(x,y,w,h,role):box(x,y,w,h,*PALETTE[role])
-def group(x,y,w,h):
- a(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"/>')
+def component(x,y,w,h,role,design=False):box(x,y,w,h,*PALETTE[role],design=design)
+def group(x,y,w,h,design=False):
+ a(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="#F1F2F4" stroke="#596679" stroke-width="2.5"'+(' stroke-dasharray="10 6"' if design else '')+'/>')
  a(f'<path d="M{x+6} {y} H{x+w-6} Q{x+w} {y} {x+w} {y+6} V{y+54} H{x} V{y+6} Q{x} {y} {x+6} {y}" fill="#344256"/>')
 def text(x,y,s,z=FONT['body'],b=False,c='#172C4B'):a(f'<text x="{x}" y="{y}" font-size="{z}" font-weight="{700 if b else 400}" fill="{c}">{escape(s)}</text>')
 FLOW_COLORS={'ingest':'#B35C00','query':'#245CC5','ops':'#68778B','relation':'#8054A3'}
@@ -28,6 +30,8 @@ def flow_markers():
  return ''.join(f'<marker id="arrow-{k}" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="{c}" stroke-width="2"/></marker>' for k,c in FLOW_COLORS.items())
 def legend(x,y,label,flow,dash=False):
  path(f'M{x} {y} H{x+48}',dash,flow);text(x+62,y+6,label,FONT["label"],True,FLOW_COLORS[flow])
+def legend_design(x,y,label):
+ box(x,y-11,48,22,'#FFFFFF','#596679',design=True);text(x+62,y+6,label,FONT["label"],True,'#596679')
 def icon(n,x,y,z=28):
  s=Path('docs/assets/icons/'+n+'.svg').read_text();ids=re.findall(r'id="([^"]+)"',s);prefix=f'{n}-{x}-{y}-'
  for i in ids:s=s.replace(f'id="{i}"',f'id="{prefix+i}"').replace(f'url(#{i})',f'url(#{prefix+i})')
@@ -37,8 +41,8 @@ def icon(n,x,y,z=28):
 def start(h,title,desc):a(f'''<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="{h}" viewBox="0 0 1560 {h}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#59769B" stroke-width="1.8"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="{h}" fill="#FFFFFF"/>''')
 def end(file):
  a('</g></svg>');Path(file).write_text(('\n'.join(p)+'\n').replace('</defs>',flow_markers()+'</defs>',1))
-# Two sheets only: the architecture (deployment topology) and the L1-L5 flow.
-# Both describe the target, not deployment completion.
+# Three sheets: the architecture (deployment topology), L1-L3 curation, L4-L5 query.
+# All describe the target, not deployment completion. Dashed borders mark designed-only parts.
 def canvas(w,h,title,desc):
  global p
  p=[]
@@ -46,10 +50,10 @@ def canvas(w,h,title,desc):
  text(40,42,'AGENT WIKI / ARCHITECTURE',FONT["label"],True,'#526A86')
  text(40,98,title,FONT["diagram"],True)
  a(f'<path d="M40 137 H{w-40}" stroke="#172C4B" stroke-width="2"/>')
-def card(x,y,w,h,title,lines,role='app',ico=None,highlight=False):
+def card(x,y,w,h,title,lines,role='app',ico=None,highlight=False,design=False):
  if ico is None:
   ico={'app':'tabler-book-2','ingest':'tabler-cpu','data':'tabler-book-2','ai':'tabler-cloud','ops':'tabler-clipboard-check','web':'tabler-world'}[role]
- component(x,y,w,h,role)
+ component(x,y,w,h,role,design)
  if highlight:
   a(f'<path d="M{x+6} {y} H{x+w-6} Q{x+w} {y} {x+w} {y+6} V{y+54} H{x} V{y+6} Q{x} {y} {x+6} {y}" fill="#344256"/>')
  text(x+20,y+(36 if highlight else 42),title,FONT['component'],True,'#FFFFFF' if highlight else '#172C4B')
@@ -136,89 +140,114 @@ for right,by,n,width in [(424,734,5,150),(404,1159,1,170),(1206,1124,2,152),(154
 a('</g>')
 end('docs/assets/wiki-architecture.svg')
 
-# The single L1-L5 sheet. Four bands stack top to bottom: 01 raw increments through the
-# worker pipeline (with the L3 reference loop and the retry loop), 02 L3 decisions and pages,
-# 03 staged query and the agent, 04 review. Lists of facts (change-intent cases, experiment
-# steps, rebuild steps, reprocess columns, port tables) live in markdown tables, not here.
-canvas(1680,3100,'L1 → L5 · 원문에서 답변까지','L1부터 L5까지 한 장. 01은 두 세션의 증분을 Worker가 청킹·입력 조립·AI 판단·서버 검증으로 정제하고, L3 현재 주장의 BM25 후보를 규칙 재정렬 뒤 입력 조립에 되돌리며, 검증 실패는 같은 청크를 다시 보낸다. 02는 L3가 결정 A·B·C와 대체 관계를 보존하고 Decision History·현재 상태 페이지를 조립한다. 03은 L5 에이전트가 L4의 후보 → Claim·관계 → 원문 구간 조회를 반복해 근거를 받는다. 04는 검토 Version 비교와 사용자 확정이다. 정제 Provider를 NVIDIA에서 Alibaba로 바꾸는 예시는 합성이다.')
-legend(640,87,'정제·반영','ingest');legend(830,87,'재시도','ingest',True);legend(1040,87,'조회·반환','query');legend(1250,87,'대체 관계','relation');legend(1460,87,'기록·기준','ops',True)
-def section(y,label,sep=True):
- if sep:a(f'<path d="M40 {y-50} H1640" stroke="#CDD9E7" stroke-width="2"/>')
- text(40,y,label,FONT['group'],True)
+# Sheet 2 of 3: L1 -> L3 curation. One throughline, top to bottom: 01 raw increments through the
+# existing per-chunk extraction (summarised), 02 the claim pile that extraction leaves in L3 (two
+# current claims in one subject/scope, a proposed claim, a deferred relation), 03 the Consolidation
+# Job whose four steps decide current-vs-history relations (design only), 04 the Wiki Page Version
+# that results: a list of current claims, the lineage panel for one claim, and review with relation
+# reject. Dashed borders mark parts that are designed but not implemented.
+canvas(1760,2450,'L1 → L3 · 지식 정제 · 추출과 통합','L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제한다. L3 현재 주장의 BM25 후보를 입력 조립에 되돌리고 출력 오류는 같은 청크를 다시 보낸다. 관계만 실패한 반영은 주장을 반영하고 관계를 통합 대기함에 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job이 gather → model → validate → publish 네 Step으로 관계만 판단해 자동 반영한다. Step별 상태를 따로 기록하고 실패한 Step부터 재시도한다. 04 Wiki Page 새 Version은 현재 주장만 나열하고, 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억해 재제안을 막는다. Consolidation·리니지 패널·relation reject는 설계이며 미구현이다. NVIDIA → Alibaba 예시는 합성이다.')
+legend(1100,80,'정제·반영','ingest');legend(1290,80,'지연·재시도','ingest',True);legend(1500,80,'조회·읽기','query')
+legend(1100,112,'대체 관계','relation');legend(1290,112,'기록·기준','ops',True);legend_design(1500,112,'설계 · 미구현')
+def section(y,label):text(40,y,label,FONT['group'],True)
 
-section(182,'01 · '+layer_label(1)+' → '+layer_label(2)+' · 증분 정제',False)
-card(40,210,680,172,'Codex · 이전 증분 · '+layer_label(1),['“정제 Provider는 NVIDIA로 하자.”','09:00 발언 예시 · 주장 A의 원문 보존','불변 원문 · 재생성 때도 유지'],'data','tabler-book-2')
-card(960,210,680,172,'Claude · 새 증분 · '+layer_label(1),['“호출 지연 때문에 Alibaba로 바꾸자.”','10:00 발언 예시 · 변경 이유와 원문 보존','텍스트만 정제 · 이미지·URL은 모델에 보내지 않음'],'data','tabler-book-2')
-path('M380 382 V430',flow='ingest');path('M1300 382 V430',flow='ingest')
-group(40,430,1600,610)
-text(64,466,'agent-wiki-worker · '+layer_label(2)+' · 청킹 → 입력 조립 → AI 판단 → 서버 검증',FONT['group'],True,'#FFFFFF')
-cols=[64,462,860,1258]
-pipeline=[('처리 범위 · 청킹',['수집 범위 고정 · 텍스트만','요청·도구 관계와 근거 유지'],'ingest','tabler-cpu'),('입력 조립',['새 청크 · 참고 맥락 · 기존 주장','최대 6개 · 입력 예산 · 잘림 기록','원문과 기존 주장을 구분'],'ingest','tabler-book-2'),('AI · 추출과 관계 판단',['추가 · 대체 · 철회 · 충돌','변경 이유 · 중간 결정 보존'],'ai','openai'),('서버 검증',['인용 · 역할 · Version','범위 일치 · 순환 방지'],'ingest','tabler-clipboard-check')]
+section(182,'01 · '+layer_label(1)+' → '+layer_label(2)+' · 청크 추출 · 기존 구현의 요약')
+card(40,210,600,160,'L1 · 세션 증분 · 고정 처리 범위',['Codex 09:00 “정제 Provider는 NVIDIA로 하자.”','Claude 10:00 “호출 지연 때문에 Alibaba로 바꾸자.”','불변 원문 · 텍스트만 정제 · 합성 예시'],'data','tabler-book-2')
+path('M340 370 V430',flow='ingest')
+group(40,430,1680,560)
+text(64,466,'agent-wiki-worker · '+layer_label(2)+' · 청크당 모델 호출 1회 · 같은 세션은 순차',FONT['group'],True,'#FFFFFF')
+cols=[64,390,716,1042,1368]
+pipeline=[('청킹',['요청·도구 묶음 경계 우선','예산 초과는 재귀 분할'],'ingest','tabler-cpu'),('입력 조립',['새 청크 + 세션 맥락','+ 기존 주장 최대 6개'],'ingest','tabler-book-2'),('AI · 추출·관계 판단',['주장 · 근거 recordId','supersedes · retracts · …'],'ai','openai'),('서버 검증',['인용 · 범위 · 권한 · Version','순환 · 출발 상태 검사'],'ingest','tabler-clipboard-check'),('반영 · publish',['주장·근거·관계 한 트랜잭션','바뀐 주제 페이지 새 Version'],'data','postgresql')]
 for i,(title,lines,role,ico) in enumerate(pipeline):
- card(cols[i],510,358,170,title,lines,role,ico)
- if i<3:path(f'M{cols[i]+358} 595 H{cols[i+1]}',flow='ingest')
-# Candidate lookup is a side loop: the chunk's terms go down to BM25, the selected claims come back into input assembly.
-path('M243 680 V752 H600 V810',flow='query');text(262,744,'이번 청크의 검색어',FONT['label'],True,FLOW_COLORS['query'])
-path('M980 810 V732 H680 V680',flow='query');text(700,724,'관련 후보 · 최대 6개 · 입력 예산',FONT['label'],True,FLOW_COLORS['query'])
-reference=[(layer_label(3)+' 읽기',['Workspace 전체 현재 주장','제목 · 본문 · 대상 · 별칭','동일 세션 우선 강제 없음'],'data','postgresql'),('BM25 · 후보 검색',['희소성 · 빈도 · 길이','관련 후보 최대 24개','일치 없음 → 후보 없음'],'app','tabler-book-2'),('규칙 재정렬',['대상 · 범위 · 별칭 일치','여러 주제의 후보를 유지','유사도는 병합 승인이 아님'],'app','tabler-clipboard-check')]
-for i,(title,lines,role,ico) in enumerate(reference):
- card(cols[i],810,358,184,title,lines,role,ico)
- if i<2:path(f'M{cols[i]+358} 902 H{cols[i+1]}',flow='query')
-# Validation failure re-sends the same chunk to the model (dashed ingest); the Retry card explains the loop.
-path('M1300 680 V748 H1100 V680',True,flow='ingest');path('M1300 748 V810',True,flow='ingest')
-text(1320,772,'검증 실패 → 새 응답',FONT['label'],True,FLOW_COLORS['ingest'])
-card(1258,810,290,184,'Retry · 실패 청크만',['실패한 청크부터 다시','3회 연속 오류 → 확인 필요','성공 청크 · 위치 유지'],'ops','tabler-clipboard-check')
-# Verified changes go down into L3; L3's current claims are read back into the reference row.
-path('M1590 680 V1090',flow='ingest');text(1420,1066,'검증된 변경 → 반영',FONT['label'],True,FLOW_COLORS['ingest'])
-path('M243 1090 V994',flow='query');text(262,1066,'기존 주장 참고',FONT['label'],True,FLOW_COLORS['query'])
+ card(cols[i],510,290,170,title,lines,role,ico)
+ if i<4:path(f'M{cols[i]+290} 595 H{cols[i+1]}',flow='ingest')
+# Reference loop: selected L3 candidates come back into input assembly; L3 itself is read from band 02.
+card(390,760,290,170,'L3 참고 · 후보',['BM25 후보 24 → 규칙 재정렬','대상·범위·별칭 가중 · 최대 6개','유사도 ≠ 동일 주장'],'app','tabler-book-2')
+path('M535 760 V680',flow='query');text(550,728,'선택 후보',FONT['label'],True,FLOW_COLORS['query'])
+path('M535 1060 V930',flow='query');text(550,1030,'Workspace 현재 주장 읽기',FONT['label'],True,FLOW_COLORS['query'])
+# Output errors re-send the same chunk (dashed ingest). Only this loop calls the model again.
+card(1042,760,290,170,'Retry · 출력 오류만',['같은 청크 새 응답 · 캐시 비움','3회 연속 → 확인 필요','성공 청크·처리 위치 유지'],'ops','tabler-clipboard-check')
+path('M1187 680 V722 H861 V680',True,flow='ingest');text(1200,712,'검증 실패 → 새 응답',FONT['label'],True,FLOW_COLORS['ingest'])
+# Verified claims (and relations that pass) go to L3. A relation-only failure keeps the claims and
+# defers just that relation to the topic's consolidation inbox.
+path('M1390 680 V1060',flow='ingest');text(1406,1030,'검증된 주장·관계 → L3',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M1600 680 V1060',True,flow='ingest');text(1616,900,'관계만 지연',FONT['label'],True,FLOW_COLORS['ingest'])
 
-group(40,1090,1600,640)
-text(64,1126,'02 · '+layer_label(3)+' · Claims · Decisions · Wiki Pages · 상태·관계·근거 보존',FONT['group'],True,'#FFFFFF')
-card(64,1168,420,155,'Decision A · 이전 결정',['정제 Provider = NVIDIA','대체됨 · 근거와 함께 보존'],'ops')
-card(614,1168,420,155,'Decision B · 현재 결정',['정제 Provider = Alibaba','변경 이유 · 호출 지연 · 사용자 결정'],'data')
-card(1164,1168,412,155,'Decision C · 별도 속성',['API 동시 실행 = 5','현재 결정 · Provider와 별개'],'data')
-path('M614 1245 H484',flow='relation')
-text(499,1233,'supersedes',FONT['label'],True,FLOW_COLORS['relation']);text(500,1268,'B가 A를 대체',FONT['label'],True,FLOW_COLORS['relation'])
-# History is built from A and the B→A relation; the current state only from B and C, so B drops into both pages.
-path('M274 1323 V1445',flow='ingest');path('M714 1323 V1445',flow='ingest')
-path('M934 1323 V1445',flow='ingest');path('M1370 1323 V1445',flow='ingest')
-text(300,1390,'이전 결정 A + 대체 관계 → 변경 이력',FONT['label'],True,FLOW_COLORS['ingest'])
-text(960,1390,'현재 결정 B · C → 현재 상태',FONT['label'],True,FLOW_COLORS['ingest'])
-card(64,1445,740,180,'Wiki Page · Decision History · 변경 이력',['NVIDIA → 호출 지연 → Alibaba','이전 결정·변경 근거를 페이지에 연결','제안·미확인·충돌은 현재 결정과 구분'],'data')
-card(836,1445,740,180,'Wiki Page · 현재 상태와 설명',['Alibaba · 동시 실행 5 · 적용 범위','관련 Claims의 설명·이유·제약을 함께 구성','문단 → Claim Version → Evidence'],'data')
-text(64,1665,'현재 채택 ≠ 사실 검증 · 사용자 결정 / 도구 관찰 / AI 해석을 구분 · 페이지는 Claim 고정 Version의 조립',FONT['component'],True)
-text(64,1702,'검토 의견·다른 적용 범위·늦게 도착한 과거 발언은 시각만으로 대체하지 않음 · Reassemble은 모델 호출 없이 페이지만 새 Version',FONT['body'])
+group(40,1060,1680,330)
+text(64,1096,'02 · '+layer_label(3)+' · 통합 전 · 같은 subject·scope에 current가 둘 남아 있다',FONT['group'],True,'#FFFFFF')
+card(64,1130,270,130,'Claim D · proposed',['“Qwen도 괜찮을까?”','검토 의견 · 미해결'],'ops','tabler-clipboard-check')
+card(364,1130,270,130,'Claim C · current',['API 동시 실행 = 5','concurrency · 별도 묶음'],'data','tabler-book-2')
+text(64,1310,'상태는 원래 state와 관계로 계산 · 관계가 없으면 이력도 없다',FONT['label'])
+box(700,1130,700,200,'#FFFFFF','#929EAD')
+text(720,1160,'subject ai-provider · scope curation · current 2개 → 통합 대상',FONT['label'],True)
+card(720,1180,320,130,'Claim A · current',['정제 Provider = NVIDIA','사용자 결정 · 09:00 근거'],'data','tabler-book-2')
+card(1060,1180,320,130,'Claim B · current',['정제 Provider = Alibaba','사용자 결정 · 이유: 호출 지연'],'data','tabler-book-2')
+card(1430,1130,266,190,'통합 대기함 · 지연된 관계',['B supersedes A · 409','대상 Version 변경 (409)','주장은 반영 · 관계만 대기','폐기 없음 · 사람 대기 없음'],'ingest','tabler-cloud-upload',design=True)
+# Both inputs land above the gather step.
+path('M520 1390 V1440',flow='ingest');text(410,1425,'통합 전 주장',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M1563 1320 V1410 H560 V1440',True,flow='ingest');text(1580,1370,'다음 통합 입력',FONT['label'],True,FLOW_COLORS['ingest'])
 
-section(1830,'03 · '+layer_label(4)+' ↔ '+layer_label(5)+' · 단계적 조회',False)
-card(40,1860,430,235,layer_label(5)+' · 작업 에이전트',['Codex · Claude Code + 조회 Skill','현재 / 변경 이유 / 개요 판단','근거 부족 시 검색어·깊이 조정','충분하면 고정 Version으로 인용'],'app','tabler-cpu')
-text(40,2125,'미반영 / 없음 / 실패 / 잘림을 구분해 반환',FONT['label'],True,FLOW_COLORS['query'])
-group(520,1860,1120,300)
-text(544,1896,layer_label(4)+' · Wiki CLI query → agent-wiki-api · 후보 → Claim·관계 → 원문 구간',FONT['group'],True,'#FFFFFF')
-stages=[('search · 후보',['필드별 BM25 · 제목·별칭·본문','짧은 Claim 후보 · 문서별 교차','unmatchedTerms 함께 반환'],'app','tabler-book-2'),('claim · 관계',['고정 Version · 상태 · 범위','대체·철회·충돌 · 깊이 1~3','L3에서 읽기'],'data','postgresql'),('source · 원문 구간',['필요한 근거 구간만 · 최대 80줄','불변 원문 · 해시·위치 확인','L1에서 읽기'],'data','oracle')]
+group(40,1440,1680,510,design=True)
+text(64,1476,'03 · Consolidation Job · 주제별 1회 · 관계만 판단 · 새 주장 없음 · 설계 · 미구현',FONT['group'],True,'#FFFFFF')
+card(64,1540,300,190,'트리거',['cycle 완료 → 주제마다 1회','대기함 관계가 있는 주제 포함','수동 · agent-wiki consolidate','열린 Job은 주제당 1개'],'ops','clock',design=True)
+path('M364 1620 H404',flow='ingest')
+steps=[('gather · 수집',['주제 주장 + 대기함 관계','(subject, scope) 묶음 · 상태별','거절 기억 제외 · 모델 호출 없음'],'ingest','tabler-cpu'),('model · 관계 판단',['BYOK 1회 · 새 주장 없음','supersedes · retracts · supports','contradicts · leave_unresolved'],'ai','openai'),('validate · 검증',['publish와 같은 규칙','범위 · 권한 · Version · 순환','위반은 코드와 함께 기록'],'ingest','tabler-clipboard-check'),('publish · 자동 반영',['관계 저장 · 자동 반영','같은 트랜잭션 · 페이지 새 Version','검토는 나중 · review queue'],'data','postgresql')]
+xs=[404,734,1064,1394]
+for i,(title,lines,role,ico) in enumerate(steps):
+ card(xs[i],1540,300,190,title,lines,role,ico,design=True)
+ if i<3:path(f'M{xs[i]+300} 1635 H{xs[i+1]}',flow='ingest')
+text(404,1775,'Step마다 status · attempts · error · retryAt를 따로 기록 · 실패한 Step부터 재시도 · 앞 Step 결과 재사용',FONT['body'],True)
+text(404,1805,'model 출력 오류 → 새 응답 · 3회 연속이면 확인 필요 · 일시 제공자 오류는 추출과 같은 키 대기',FONT['label'])
+text(404,1833,'publish의 대상 Version 변경 → 같은 주장이면 현재 Version으로 재대상 · 아니면 gather부터 · Job 재시작 최대 3회',FONT['label'])
+card(64,1790,300,130,'거절 관계 기억',['reject한 관계 저장','같은 관계 재제안 제외'],'ops','tabler-clipboard-check',design=True)
+path('M364 1845 H384 V1660 H404',True,flow='ops')
+# publish -> the page Version below; review's rejections -> the memory above (edge to edge).
+path('M1544 1730 V1980 H846 V2010',flow='ingest');text(862,1972,'관계 반영 → 페이지 새 Version',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M214 2010 V1950',True,flow='ops');text(230,1988,'거절 저장',FONT['label'],True,FLOW_COLORS['ops'])
+
+group(40,2010,1680,390)
+text(64,2046,'04 · '+layer_label(3)+' · 통합 후 · Wiki Page 새 Version · Knowledge 화면과 검토',FONT['group'],True,'#FFFFFF')
+card(64,2090,472,270,'검토 · review · relation reject',['review queue · diff → 새 관계 확인','relation reject → 정정 Version 발행','대상 주장을 관계 전 상태로 복원','거절 기억에 저장 → 재제안 제외','자동 반영 ≠ 검토 완료 · 승인은 사용자'],'ops','tabler-clipboard-check',design=True)
+card(576,2090,540,270,'Knowledge 페이지 · 현재 주장만',['ai-provider · curation','↳ B · 정제 Provider = Alibaba → 클릭','concurrency · curation','↳ C · API 동시 실행 = 5','미해결 1 · 제안 D · 접힌 개수','통합 대기 배지 · Job이 열린 동안'],'web','tabler-world',design=True)
+path('M1116 2225 H1156',flow='query');text(1118,2212,'클릭',FONT['label'],True,FLOW_COLORS['query'])
+component(1156,2090,540,270,'data',design=True)
+text(1176,2132,'리니지 패널 · B를 클릭',FONT['component'],True)
+box(1176,2150,200,64,'#FFFFFF','#74AA98');text(1190,2176,'Claim B · current',FONT['label'],True);text(1190,2200,'정제 Provider = Alibaba',FONT['label'])
+box(1476,2150,200,64,'#FFFFFF','#929EAD');text(1490,2176,'Claim A · superseded',FONT['label'],True);text(1490,2200,'정제 Provider = NVIDIA',FONT['label'])
+path('M1376 2182 H1476',flow='relation');text(1384,2172,'supersedes',FONT['label'],True,FLOW_COLORS['relation'])
+text(1176,2252,'변경 이유 · 호출 지연 · 근거 10:00 · Version 고정',FONT['body'])
+text(1176,2283,'후속이 둘이면 둘 다 표시 · contradicts는 배지',FONT['body'])
+text(1176,2314,'거절된 관계는 정정 Version과 함께 표시',FONT['body'])
+text(1176,2342,'Decision History 마크다운 절은 그대로 유지',FONT['label'])
+end('docs/assets/wiki-l1-l3-curation.svg')
+
+# Sheet 3 of 3: L4 -> L5 query. Left column is the L5 side (question, agent, cited answer); the
+# L4 group holds the three staged calls and the trace log; the L3 and L1 stores each step reads sit
+# below the step that reads them. The question-purpose table stays in architecture.md.
+canvas(1760,1020,'L4 → L5 · 조회 · 질문에서 인용 답변까지','L4·L5 한 장. 사용자의 질문을 받은 L5 작업 에이전트가 조회 Skill의 지침으로 핵심어와 목적을 정하고 agent-wiki-cli query로 L4에 요청한다. L4는 query search의 BM25 후보 → query claim의 고정 Version·상태·관계 → query source의 원문 구간을 같은 traceId로 반환하며 서버 AI 호출은 없다. claim은 L3 PostgreSQL을, source는 L1 Object Storage를 읽어 돌려주고 에이전트는 저장소를 직접 읽지 않는다. 조회 이력은 단계·반환량·지연·잘림만 30일 기록한다. 근거가 충분하면 L5가 고정 Version을 인용해 답한다.')
+legend(1290,87,'조회·반환','query');legend(1480,87,'기록','ops',True)
+card(40,200,380,150,'사용자 · 질문',['“왜 NVIDIA에서 Alibaba로 바꿨지?”','목적 · history · 변경 이유'],'web','')
+path('M230 350 V410',flow='query',both=True)
+card(40,410,380,270,layer_label(5)+' · 작업 에이전트',['Codex · Claude Code + 조회 Skill','핵심어 선택 · 목적 판단 · 단계 계획','근거 부족 → 검색어·깊이 바꿔 반복','충분하면 고정 Version으로 인용','미반영 / 없음 / 실패 / 잘림 구분'],'app','tabler-terminal-2')
+path('M230 680 V740',flow='query');text(246,718,'근거 충분',FONT['label'],True,FLOW_COLORS['query'])
+card(40,740,380,140,layer_label(5)+' · 인용 답변',['A → 변경 근거 → B · Version 고정','시간순·유사도로 이유를 만들지 않음'],'app','tabler-clipboard-check')
+path('M420 440 H500',flow='query');text(432,430,'요청',FONT['label'],True,FLOW_COLORS['query'])
+path('M500 490 H420',flow='query');text(432,514,'반환',FONT['label'],True,FLOW_COLORS['query'])
+
+group(500,200,1220,470)
+text(524,236,layer_label(4)+' · agent-wiki-cli query → agent-wiki-api · 같은 traceId · 서버 AI 호출 0회',FONT['group'],True,'#FFFFFF')
+stages=[('1 · query search · 후보',['필드별 BM25 · 제목 4 · 태그 3 · 본문 1','짧은 Claim 후보 · 문서별 교차 배치','unmatchedTerms · needs_terms 반환'],'app','tabler-book-2'),('2 · query claim · 관계',['선택한 articleId · revision · anchor','고정 Version · 상태 · 적용 범위','대체·철회·충돌 관계 · 깊이 1~3'],'data','postgresql'),('3 · query source · 원문 구간',['필요한 근거 구간만 · 최대 80줄','불변 원문 · 해시·위치 확인','에이전트는 저장소를 직접 읽지 않음'],'data','oracle')]
 for i,(title,lines,role,ico) in enumerate(stages):
- x=544+i*364;card(x,1930,340,190,title,lines,role,ico)
- if i<2:path(f'M{x+340} 2025 H{x+364}',flow='query')
-path('M470 1977 H520',flow='query',both=True)
-# claim reads L3 above; source reads L1 (shown again where it is read, the agent never touches Object Storage).
-path('M1078 1930 V1730',flow='query',both=True)
-path('M1442 2120 V2200',flow='query',both=True)
-card(1272,2200,340,130,layer_label(1),['불변 원문 · 필요한 구간만 읽기'],'data','oracle')
-path('M714 2160 V2200',True)
-card(544,2200,640,130,'조회 이력 · traceId',['같은 질문은 같은 traceId · 단계·반환량·지연 · 30일 보관','질문·원문·답변·내부 추론은 기록하지 않음'],'ops','tabler-clipboard-check')
-box(40,2370,1600,74,'#F1F2F4','#929EAD');text(64,2402,'서버 AI 호출 0회 · 조회는 정제를 시작하지 않음 · 최대 12단계 / 64,000자 · L5 토큰은 별도 관측',FONT['body'],True)
-text(64,2430,'임베딩·모델 리랭커는 검색 실패 사례가 쌓인 뒤 평가한다.',FONT['label'])
-
-section(2530,'04 · 검토 · 자동 정제 결과와 Reprocess 후보는 검토 전 · 사용자 확인으로 확정')
-items=[('에이전트 · Skill',['review queue · 검토 대상 선택','자동 정제 결과 · Reprocess 후보'],'app'),('CLI · 개념 비교',['review diff · 검토 Version 기준','주장·범위·근거·관계의 차이'],'app'),('사용자 확인',['변경 이유와 근거 확인','수정은 별도 publication'],'web'),('CLI · 검토 확정',['review confirm · Version·해시 검사','스냅샷 보존 · 완료 ≠ 사실 검증'],'data')]
-for i,(title,lines,role) in enumerate(items):
- x=40+i*410;card(x,2580,370,170,title,lines,role)
- if i<3:path(f'M{x+370} 2665 H{x+410}',flow='query')
-group(40,2800,1600,220)
-text(64,2836,'지식과 검토 이력 · Version 3은 가장 가까운 검토 완료인 Version 1과 비교',FONT['group'],True,'#FFFFFF')
-card(64,2900,496,92,'Version 1 · 검토 완료',[],'data')
-card(592,2900,496,92,'Version 2 · 검토 전',[],'ingest')
-card(1120,2900,496,92,'Version 3 · 검토 전',[],'ingest')
-path('M1368 2900 V2876 H312 V2900',True)
-text(800,2870,'비교 기준',FONT['label'],True,FLOW_COLORS['ops'])
-text(40,3060,'검토 이력이 없으면 직전 Version과 비교 · 검토는 Version·스냅샷에 귀속되며 새 Version은 다시 검토 대상 · 웹은 조회만, 확정은 CLI',FONT['body'])
-end('docs/assets/wiki-l1-l5.svg')
+ x=524+i*400;card(x,280,370,200,title,lines,role,ico)
+ if i<2:path(f'M{x+370} 380 H{x+400}',flow='query')
+path('M709 480 V510',True,flow='ops')
+card(524,510,370,130,'조회 이력 · traceId · 30일',['단계·반환량·지연·잘림만 기록','질문·원문·답변은 기록하지 않음'],'ops','tabler-clipboard-check')
+# Stores sit under the step that reads them; the agent never touches them directly.
+path('M1109 480 V730',flow='query',both=True);text(1125,610,'고정 Version · 관계 읽기',FONT['label'],True,FLOW_COLORS['query'])
+card(924,730,370,130,layer_label(3)+' · PostgreSQL',['Claims · 관계 · Wiki Page Version','상태는 관계로 계산'],'data','postgresql')
+path('M1509 480 V730',flow='query',both=True);text(1525,610,'필요한 구간만 읽기',FONT['label'],True,FLOW_COLORS['query'])
+card(1324,730,370,130,layer_label(1)+' · 원문 저장소',['불변 원문 · zstd · Object Storage','L4가 읽어 돌려줌'],'data','oracle')
+box(40,910,1680,70,'#F1F2F4','#929EAD')
+text(64,940,'서버 AI 호출 0회 · 조회는 정제·검토 확정을 시작하지 않음 · 최대 12단계 / 64,000자 · 원문 최대 80줄 · L5 토큰은 별도 관측',FONT['body'],True)
+text(64,968,'임베딩·모델 리랭커는 검색 실패 사례가 쌓인 뒤 평가 · 질문 목적(current / history / overview)별 반환은 아키텍처의 표',FONT['label'])
+end('docs/assets/wiki-l4-l5-query.svg')

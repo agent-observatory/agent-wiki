@@ -170,6 +170,8 @@ macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalM
 | 관리 API | `agent-wiki api GET /refinements` / `api POST /refinements/ID/retry` |
 | 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
 
+설계만 있고 아직 없는 명령: `agent-wiki consolidate TOPIC_KEY` · `consolidate status [TOPIC_KEY]` · `relation reject --from … --to … --relation … --client … --reason …`. 계약은 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--설계--미구현)에 있으며 구현 뒤 이 표에 옮긴다.
+
 설정은 `primary`(1번, 필수)·`fallback`(2번, `null`이면 없음, 최대 1개까지) 두 모델 슬롯과 공통 필드로 나뉜다. 각 슬롯은 `model`·`reasoning`·`enable_thinking`·`thinking_budget`·`max_completion_tokens`·`maxTokens`·`maxInputTokens`·`maxInputChars`·`timeoutSeconds`(모델 호출 제한 초, 60~900, 기본 330)를 독립적으로 가진다. `baseUrl`·API 키·`requestsPerMinute`·`concurrency`·`retryDelaySeconds`·`dailyCalls`는 두 모델이 공유한다. `ai update`의 JSON은 바뀔 필드만 담되 `primary`·`fallback`은 슬롯 전체가 아니라 바뀔 필드만 넣어도 기존 슬롯 값에 병합된다(예: `{"primary":{"reasoning":"high"}}`). `{"fallback": null}`로 2번 모델을 지운다.
 
 Alibaba Qwen·DeepSeek의 `max_completion_tokens`는 선택 설정이다. `{"primary":{"max_completion_tokens": null}}`을 `ai update`로 저장하면 `max_completion_tokens`와 대체 `max_tokens`를 모두 보내지 않는다. 웹에는 `Provider default`로 표시한다. 숫자를 지정하면 해당 상한을 보낸다. 필드가 없는 설정은 `maxTokens`를 사용하므로 생략 요청은 명시적 `null`로 구분한다. `ai test`는 이 설정과 별개로 짧은 Hello 출력 상한을 둔다.
