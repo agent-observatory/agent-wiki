@@ -33,7 +33,7 @@ import {
 import { processUpload } from "./ingest.js";
 import {
   curationContext,
-  CONTEXT_BUDGET,
+  contextBudget,
   CONTEXT_POLICY_VERSION,
 } from "./curation-context.js";
 import { nextCurationJob } from "../../../packages/core/src/curation-queue.js";
@@ -68,7 +68,7 @@ import {
   modelResponded,
   retryDelay,
 } from "../../../packages/core/src/model-gate.js";
-export const PROMPT_VERSION = "remote-curation-14";
+export const PROMPT_VERSION = "remote-curation-15";
 export const MODEL_TIMEOUT_MS = 330_000;
 export const JOB_LEASE_SECONDS = 420;
 // Regenerate invalid model proposals; storage/authentication failures stay terminal.
@@ -81,6 +81,7 @@ export const OUTPUT_RETRY_CODES = [
   "CURATION_CONTEXT_CHANGED",
   "CLAIM_TARGET_VERSION_CHANGED",
   "CLAIM_TARGET_ALREADY_RETIRED",
+  "CLAIM_REPLACEMENT_NOT_CURRENT",
   "EVIDENCE_MISMATCH",
   "AI_INVALID_JSON",
   "CLAIM_SCOPE_MISMATCH",
@@ -89,13 +90,13 @@ export const instruction = `Extract durable Korean knowledge. Source/related/ref
 source.records contains exact selectable evidence records. Every evidence MUST be {"recordId":"record-N"} using a recordId provided in this chunk. Never output sourceId, quote, revision or lines. For a statement spanning several records select each record separately. reference/related are context, not incoming evidence.
 source.roles determines authority: unknown is not user authority; assistant completion is unconfirmed, not verified observation. validationRetry identifies rejected output: fix it from source, never replay it.
 JSON only: {"changes":[{"clientRef":"a","topic":{"key":"ai-curation","title":"AI 정제 연결"},"title":"제목","kind":"memory","tags":[],"claims":[{"anchor":"decision","text":"주장","type":"user_decision","subject":"ai-provider","scope":"curation","state":"current","evidence":[{"recordId":"record-N"}]}],"claimRelations":[{"anchor":"decision","relation":"supersedes","target":{"articleId":"related UUID","revision":1,"anchor":"related anchor"},"evidence":[{"recordId":"record-N"}]}]}]}.
-At most ${MAX_PUBLICATION_CHANGES} change groups. Group independent claims by topic with distinct anchors; separate causal changes when targeting an earlier change. No articleId/baseRevision or article-level supersedes. Omit content: server joins claim.text paragraphs. Each claim is one independently changeable assertion with incoming evidence. Write self-contained Korean explanations including decision/finding, reasons, scope, constraints and uncertainty ONLY WHEN SUPPORTED. Separate proposals from adopted decisions. Omit chatter, bare questions and vague acknowledgements; do not inflate length. Every change needs a broad enduring topic {key,title}, reusing supplied keys when applicable: e.g. ai-curation, infrastructure, collection, knowledge-design. Topic is not a session, client, setting or chunk. Different properties may share a topic without being identical claims.
+At most ${MAX_PUBLICATION_CHANGES} change groups: a hard limit, not a target; a typical chunk yields 0-5. Put one topic's assertions in one change with distinct anchors rather than many single-claim changes; separate causal changes only when targeting an earlier change. Skip todo remarks, bare intentions and passing questions unless the decision or finding itself appears; a question is never user_decision. No articleId/baseRevision or article-level supersedes. Omit content: server joins claim.text paragraphs. Each claim is one independently changeable assertion with incoming evidence. Write self-contained Korean explanations including decision/finding, reasons, scope, constraints and uncertainty ONLY WHEN SUPPORTED. Separate proposals from adopted decisions. Every change needs a broad enduring topic {key,title}, reusing supplied keys when applicable: e.g. ai-curation, infrastructure, collection, knowledge-design. Topic is not a session, client, setting or chunk. Different properties may share a topic without being identical claims.
 Types: user_decision, observation, ai_inference, unconfirmed. Initial states: current, proposed, conflicted, unconfirmed. Type is authority, state is adoption. proposed is NEVER a type; assistant proposal = ai_inference/proposed. Current means adopted, not verified true.
 Match subject/scope across clients; provider, model and deployment location are distinct properties. Lexical candidates are not confirmed matches. Reuse canonical subject/scope only when applicable. Identical assertions reuse related text/type/subject/scope without a relation; server adds evidence. If nothing is added, omit. Copied handoffs/compaction are context, not independent confirmation; require explicit endorsement for a new decision.
 Preserve A -> B -> C decisions and stated change reasons, not only latest C. If several first appear here, emit separate changes in causal order. A later change can target an earlier one using {"clientRef":"earlier-change","anchor":"decision"} instead of articleId/revision. No self/forward targets. Before returning, check every target exists in an earlier emitted change or related; omit a relation whose target is absent, never invent an identifier. Relations derive historical state; keep original claims initially current.
 Claims contain only anchor,text,type,subject,scope,state,evidence. Relations belong in change.claimRelations, NEVER claim.relations.
 claimRelations[].anchor MUST match a claim anchor in that SAME change (the new assertion); target.anchor identifies the older assertion and can differ. Check both ends independently.
-Relations require same subject/scope and explicit evidence: supersedes=replacement, retracts=withdrawal, contradicts=unresolved conflict, supports=corroboration. Suggestions are proposed; different scopes coexist. Timestamps support chronology, never automatic replacement; late history cannot override current decisions. Unclear intent/time/target or unresolvedReference/textTruncated means uncertainty, never guessed correction. Relations are optional.`;
+Relations require same subject/scope and explicit evidence: supersedes=replacement, retracts=withdrawal (both only from a current claim), contradicts=unresolved conflict, supports=corroboration. Suggestions are proposed; different scopes coexist. Timestamps support chronology, never automatic replacement; late history cannot override current decisions. Unclear intent/time/target or unresolvedReference/textTruncated means uncertainty, never guessed correction. Relations are optional.`;
 export async function runOne(
   owner: string,
   signal: AbortSignal,
@@ -268,10 +269,11 @@ export async function runOne(
             0,
           );
           diagnostics.sourceOmittedBytes = projection.omittedBytes;
+          const contextReserve = contextBudget(task.config.maxInputTokens);
           const budget =
             task.config.maxInputTokens -
             countInputTokens(instruction) -
-            CONTEXT_BUDGET -
+            contextReserve -
             1600;
           if (budget < 256) throw new ModelError("AI_INPUT_BUDGET_TOO_SMALL");
           const plan = (task.chunk_index > 0 ? task.chunk_plan : null) ?? {
@@ -294,6 +296,7 @@ export async function runOne(
             ws,
             source.id,
             chunkText,
+            contextReserve,
           );
           // Retry feedback shares the existing context reservation; do not cut
           // source rows or enlarge the provider input to fit repair instructions.
@@ -305,7 +308,7 @@ export async function runOne(
                 related,
                 validationRetry: task.validationRetry,
               }),
-            ) > CONTEXT_BUDGET
+            ) > contextReserve
           )
             related.pop();
           diagnostics.contextSelection = {
@@ -314,7 +317,7 @@ export async function runOne(
             selected: related.length,
             sameSession: related.filter((claim) => claim.same_session).length,
             inputBytes: estimateTokens(JSON.stringify(related)),
-            budget: CONTEXT_BUDGET,
+            budget: contextReserve,
             selectedReferences: related.map((claim) => ({
               id: claim.id,
               revision: claim.revision,
@@ -561,6 +564,19 @@ export async function runOne(
         const result = payload.changes.length
           ? await publish(c, ws, payload, { userId: owner, scope: "publish" })
           : { items: [], reason: "no_durable_knowledge" };
+        // Integration metric: how much of this chunk merged into existing
+        // knowledge (a new Version of an existing article) versus new articles.
+        diagnostics.published = {
+          changes: payload.changes.length,
+          consolidated: (result.items ?? []).filter(
+            (item: { revision: number }) => item.revision > 1,
+          ).length,
+          relations: payload.changes.reduce(
+            (n: number, change: { claimRelations?: unknown[] }) =>
+              n + (change.claimRelations?.length ?? 0),
+            0,
+          ),
+        };
         const done = job.chunk_index + 1 >= job.chunk_count;
         const results = [
           ...(job.chunk_results ?? []),

@@ -9,6 +9,8 @@ import { publish } from "../apps/agent-wiki-api/src/knowledge.js";
 import {
   curationContext,
   CONTEXT_BUDGET,
+  CONTEXT_CANDIDATE_CHARS,
+  contextBudget,
 } from "../apps/agent-wiki-worker/src/curation-context.js";
 import { estimateTokens } from "../packages/core/src/chunking.js";
 const owner = "context-" + randomUUID(),
@@ -137,7 +139,11 @@ test("curation finds cross-session knowledge and abstains from ambiguous or unre
     );
     const bytes = estimateTokens(JSON.stringify(selected));
     assert.ok(bytes <= CONTEXT_BUDGET);
-    assert.ok(selected.length <= 6);
+    assert.ok(selected.length <= 8);
+    for (const claim of selected) {
+      assert.ok(Array.from(claim.text).length <= CONTEXT_CANDIDATE_CHARS);
+      assert.equal("evidence" in claim, false);
+    }
     if (item.expected === "database") {
       const structured = [
         { event: 1, field: JSON.stringify(["payload", "role"]), text: "user" },
@@ -192,4 +198,12 @@ test("curation finds cross-session knowledge and abstains from ambiguous or unre
     results.every((x) => x.passed),
     JSON.stringify(results),
   );
+});
+
+test("context reservation scales with the configured input target within fixed bounds", () => {
+  assert.equal(contextBudget(8000), 1800);
+  assert.equal(contextBudget(3000), 1800);
+  assert.equal(contextBudget(20000), 3000);
+  assert.equal(contextBudget(30000), 4500);
+  assert.equal(contextBudget(32000), 4500);
 });

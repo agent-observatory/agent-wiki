@@ -959,6 +959,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
         "EVIDENCE_MISMATCH",
         "CLAIM_SCOPE_MISMATCH",
         "AI_UNKNOWN_CLAIM_TARGET",
+        "CLAIM_REPLACEMENT_NOT_CURRENT",
       ][calls],
     );
     assert.ok(input.validationRetry.previousRunId);
@@ -974,11 +975,12 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
             content: quote,
             kind: "memory",
             claimRelations:
-              calls === 3 || calls === 4
+              calls >= 3 && calls <= 5
                 ? [
                     {
                       anchor: "decision",
-                      relation: "supports",
+                      // Call 5: an unconfirmed claim may not replace a decision.
+                      relation: calls === 5 ? "supersedes" : "supports",
                       target:
                         calls === 4
                           ? { clientRef: "missing", anchor: "decision" }
@@ -1017,7 +1019,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
       usage: { total_tokens: 10 },
     };
   };
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     assert.equal(
       await runOne(owner, new AbortController().signal, model),
       true,
@@ -1052,6 +1054,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
         "EVIDENCE_MISMATCH",
         "CLAIM_SCOPE_MISMATCH",
         "AI_UNKNOWN_CLAIM_TARGET",
+        "CLAIM_REPLACEMENT_NOT_CURRENT",
       ][attempt],
     );
     assert.equal(
@@ -1091,7 +1094,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
     );
   }
   assert.equal(await runOne(owner, new AbortController().signal, model), true);
-  assert.equal(calls, 5);
+  assert.equal(calls, 6);
   const final = await tx(owner, ws, async (c) => ({
     job: (
       await c.query(
@@ -1114,7 +1117,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
   assert.deepEqual(final.evidence, [{ quote: raw }]);
   assert.deepEqual(
     final.runs.map((r) => r.status),
-    ["failed", "failed", "failed", "failed", "completed"],
+    ["failed", "failed", "failed", "failed", "failed", "completed"],
   );
   assert.equal(
     final.runs[1].output.changes[0].claims[0].evidence[0].quote,

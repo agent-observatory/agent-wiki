@@ -8,14 +8,29 @@ import {
 
 // Fixed reservation prevents later knowledge growth from changing an existing
 // chunk's budget. These are retrieval hints; only the incoming L1 is evidence
-// for a newly extracted assertion.
+// for a newly extracted assertion. Production runs under the 1,800-byte budget
+// admitted 1–3 of 24 candidates (Korean is 3 bytes per character), so the
+// model rarely saw an existing claim and re-created it: 4,500 bytes with
+// shorter candidate text admits several distinct topics instead of one.
 export const CONTEXT_BUDGET = 1800;
+export const CONTEXT_BUDGET_MAX = 4500;
+export const CONTEXT_CANDIDATE_CHARS = 300;
+export const CONTEXT_MAX_RELATED = 8;
+// 15% of the configured input target, never below the historical 1,800 bytes
+// nor above 4,500: 30,000 → 4,500, the 8,000 default → 1,800.
+export function contextBudget(maxInputTokens: number) {
+  return Math.min(
+    CONTEXT_BUDGET_MAX,
+    Math.max(CONTEXT_BUDGET, Math.floor(maxInputTokens * 0.15)),
+  );
+}
 export const CONTEXT_POLICY_VERSION = CANDIDATE_POLICY;
 export async function curationContext(
   c: PoolClient,
   ws: string,
   sourceId: string,
   text: string,
+  budget = CONTEXT_BUDGET,
 ) {
   // Search decoded conversational text, including late-chunk topic changes.
   const query = text
@@ -51,39 +66,33 @@ export async function curationContext(
   const related: any[] = [];
   let budgetSkipped = 0;
   for (const hit of result.ranked) {
+    // The model must not cite a related claim's evidence, so its source ids
+    // are omitted from the payload; the fixed article/revision/anchor is enough
+    // for relations and the server restores evidence from L1.
     const { aliases, ...row } = hit.candidate;
-    const evidence = (
-      await c.query(
-        "SELECT source_id,source_revision,line_start,line_end FROM evidence WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4 ORDER BY source_id,line_start LIMIT 2",
-        [ws, row.id, row.revision, row.anchor],
-      )
-    ).rows;
     const candidate = {
       ...row,
-      text: row.text.slice(0, 600),
-      textTruncated: row.text.length > 600,
+      text: row.text.slice(0, CONTEXT_CANDIDATE_CHARS),
+      textTruncated: row.text.length > CONTEXT_CANDIDATE_CHARS,
       ...(hit.reasons.includes("ambiguous_session_reference")
         ? { unresolvedReference: true }
         : {}),
-      evidence,
     };
     // Keep a top-ranked long claim usable, but make its partial nature explicit.
     // Never drop the L1 input or silently treat a shortened claim as complete.
     while (
       candidate.text.length > 80 &&
-      estimateTokens(JSON.stringify([...related, candidate])) > CONTEXT_BUDGET
+      estimateTokens(JSON.stringify([...related, candidate])) > budget
     ) {
       candidate.text = Array.from(candidate.text).slice(0, -40).join("");
       candidate.textTruncated = true;
     }
-    if (
-      estimateTokens(JSON.stringify([...related, candidate])) > CONTEXT_BUDGET
-    ) {
+    if (estimateTokens(JSON.stringify([...related, candidate])) > budget) {
       budgetSkipped++;
       continue;
     }
     related.push(candidate);
-    if (related.length === 6) break;
+    if (related.length === CONTEXT_MAX_RELATED) break;
   }
   return {
     related,

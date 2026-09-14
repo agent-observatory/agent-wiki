@@ -28,7 +28,7 @@ import {
 } from "../../../packages/core/src/curation-input.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
 import { reprocessPlan } from "../../agent-wiki-api/src/curation-reprocess.js";
-import { curationContext } from "./curation-context.js";
+import { curationContext, contextBudget } from "./curation-context.js";
 import { prepareProposal } from "./curation-proposal.js";
 // Reanalysis produces a review candidate; it never publishes or rewinds coverage.
 export async function runReprocess(
@@ -202,7 +202,13 @@ export async function runReprocess(
         diag.skippedReason = "saved_output_revalidation";
       } else {
         const context = await tx(owner, ws, (c) =>
-          curationContext(c, ws, input.source.id, input.source.text),
+          curationContext(
+            c,
+            ws,
+            input.source.id,
+            input.source.text,
+            contextBudget(task.config.maxInputTokens),
+          ),
         );
         input.related = context.related;
         diag.contextSelection = context.diagnostics;

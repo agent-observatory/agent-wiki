@@ -106,6 +106,14 @@ export function prepareProposal(
     if (change.articleId || change.baseRevision || change.supersedes.length)
       throw new ModelError("AI_WHOLE_ARTICLE_REPLACEMENT_FORBIDDEN");
     for (const relation of change.claimRelations) {
+      // Only an adopted assertion replaces or withdraws an older one. Reject
+      // here so the model regenerates instead of failing at publish.
+      if (
+        ["supersedes", "retracts"].includes(relation.relation) &&
+        change.claims.find((claim) => claim.anchor === relation.anchor)
+          ?.state !== "current"
+      )
+        throw new ModelError("CLAIM_REPLACEMENT_NOT_CURRENT");
       const target = relation.target;
       if ("clientRef" in target) {
         const priorIndex = result.changes.findIndex(
