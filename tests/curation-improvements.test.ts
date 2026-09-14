@@ -81,6 +81,7 @@ test("Alibaba exhaustion is distinguished from auth/rate/unknown 403 without log
         callModel(
           {
             ...defaults,
+            ...defaults.primary,
             provider: "openai-compatible",
             baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
             model: "deepseek-v4-flash",
@@ -112,7 +113,12 @@ test("a non-Alibaba host's 403 never reads the body for a provider code", async 
       });
     await assert.rejects(
       callModel(
-        { ...defaults, provider: "openai-compatible", baseUrl: "https://api.deepseek.com/v1" },
+        {
+          ...defaults,
+          ...defaults.primary,
+          provider: "openai-compatible",
+          baseUrl: "https://api.deepseek.com/v1",
+        },
         "synthetic",
         [],
         AbortSignal.timeout(500),

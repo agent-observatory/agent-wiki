@@ -7,6 +7,7 @@ import { inputTokenCounter } from "../packages/core/src/input-tokens.js";
 test("Qwen packs mixed Korean/code near its 25K estimate without losing rows", async () => {
   const counter = await inputTokenCounter({
     ...defaults,
+    ...defaults.primary,
     provider: "openai-compatible",
     baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     model: "qwen3.7-flash-2026-07-15",
@@ -39,6 +40,7 @@ test("Qwen packs mixed Korean/code near its 25K estimate without losing rows", a
   // Providers without a recommended tokenizer keep the byte upper bound.
   const other = await inputTokenCounter({
     ...defaults,
+    ...defaults.primary,
     provider: "openai-compatible",
     baseUrl: "https://api.deepseek.com/v1",
     model: "deepseek-v4-flash",
@@ -47,6 +49,7 @@ test("Qwen packs mixed Korean/code near its 25K estimate without losing rows", a
   assert.equal(other.version, "utf8-upper-bound-1");
   const deepseek = await inputTokenCounter({
     ...defaults,
+    ...defaults.primary,
     provider: "openai-compatible",
     baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     model: "deepseek-v4-flash",

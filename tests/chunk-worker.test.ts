@@ -8,13 +8,10 @@ import { putSource, hash } from "../packages/core/src/storage.js";
 import {
   defaults,
   encryptSecret,
+  leaseSecondsFor,
   ModelError,
 } from "../packages/core/src/ai.js";
-import {
-  runOne,
-  MODEL_TIMEOUT_MS,
-  JOB_LEASE_SECONDS,
-} from "../apps/agent-wiki-worker/src/worker.js";
+import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 const owner = "chunk-worker-" + randomUUID(),
   ws = randomUUID(),
   source = randomUUID(),
@@ -80,9 +77,13 @@ test("successful chunks survive a later failure and resume at the failed chunk w
           )
         ).rows[0],
     );
-    assert.equal(MODEL_TIMEOUT_MS, 330_000);
-    assert.equal(lease.diagnostics.modelTimeoutMs, 330_000);
-    assert.equal(lease.diagnostics.leaseSeconds, JOB_LEASE_SECONDS);
+    const modelTimeoutMs = defaults.primary.timeoutSeconds * 1000;
+    assert.equal(modelTimeoutMs, 330_000);
+    assert.equal(lease.diagnostics.modelTimeoutMs, modelTimeoutMs);
+    assert.equal(
+      lease.diagnostics.leaseSeconds,
+      leaseSecondsFor(defaults.primary),
+    );
     assert.equal(
       lease.diagnostics.contextSelection.version,
       "bm25-field-diversity-1",
@@ -91,13 +92,14 @@ test("successful chunks survive a later failure and resume at the failed chunk w
       lease.diagnostics.contextSelection.inputBytes <=
         lease.diagnostics.contextSelection.budget,
     );
-    assert.ok(lease.remaining > MODEL_TIMEOUT_MS / 1000 + 60);
+    assert.ok(lease.remaining > modelTimeoutMs / 1000 + 60);
     const input = JSON.parse(
       z.object({ content: z.string() }).parse(m[1]).content,
     );
     starts.push(input.source.start);
     assert.ok(
-      Buffer.byteLength(m[0].content + m[1].content) <= defaults.maxInputTokens,
+      Buffer.byteLength(m[0].content + m[1].content) <=
+        defaults.primary.maxInputTokens,
     );
     return { output: { changes: [] }, usage: { total_tokens: 50 } };
   };

@@ -7,13 +7,16 @@ import {
   callModel,
   defaults as baseDefaults,
   aiConfig,
+  modelParams,
   ModelError,
   parseRetryAfter,
   validateEndpoint,
+  validateEffectiveEndpoint,
   effectiveModelConfig,
 } from "../packages/core/src/ai.js";
 const defaults = {
   ...baseDefaults,
+  ...baseDefaults.primary,
   provider: "nvidia" as const,
   baseUrl: "https://integrate.api.nvidia.com/v1",
   model: "deepseek-ai/deepseek-v4-flash-0731",
@@ -399,16 +402,21 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       }),
     );
   };
-  const config = aiConfig.parse({
-    ...defaults,
-    provider: "openai-compatible",
-    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    model: "deepseek-v4-flash",
-    enable_thinking: false,
-    thinking_budget: 1024,
-    max_completion_tokens: 16384,
-    enabled: false,
-  });
+  const config = effectiveModelConfig(
+    aiConfig.parse({
+      ...baseDefaults,
+      provider: "openai-compatible",
+      baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      primary: {
+        model: "deepseek-v4-flash",
+        enable_thinking: false,
+        thinking_budget: 1024,
+        max_completion_tokens: 16384,
+      },
+      enabled: false,
+    }),
+    false,
+  );
   try {
     for (const model of [
       "deepseek-v4-flash",
@@ -540,15 +548,20 @@ test("Qwen forwards explicit thinking budget and total completion cap, preservin
       }),
     );
   };
-  const config = aiConfig.parse({
-    ...defaults,
-    provider: "openai-compatible",
-    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    model: "qwen3.7-flash",
-    enable_thinking: true,
-    thinking_budget: 1024,
-    max_completion_tokens: 4096,
-  });
+  const config = effectiveModelConfig(
+    aiConfig.parse({
+      ...baseDefaults,
+      provider: "openai-compatible",
+      baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      primary: {
+        model: "qwen3.7-flash",
+        enable_thinking: true,
+        thinking_budget: 1024,
+        max_completion_tokens: 4096,
+      },
+    }),
+    false,
+  );
   try {
     const r = await callModel(
       config,
@@ -650,34 +663,41 @@ test("the effective fallback config passes endpoint validation as a single model
     ...baseDefaults,
     provider: "openai-compatible",
     baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    model: "deepseek-v4-flash",
-    fallbackModel: "deepseek-v4-flash-0731",
+    primary: { model: "deepseek-v4-flash" },
+    fallback: { model: "deepseek-v4-flash-0731" },
   });
   validateEndpoint(config);
   const effective = effectiveModelConfig(config, true);
   assert.equal(effective.model, "deepseek-v4-flash-0731");
-  assert.equal(effective.fallbackModel, null);
-  validateEndpoint(effective);
+  validateEffectiveEndpoint(effective);
   assert.equal(effectiveModelConfig(config, false).model, "deepseek-v4-flash");
-  assert.throws(
-    () => validateEndpoint({ ...config, fallbackModel: config.model }),
-    (e: any) => e.code === "AI_FALLBACK_SAME_MODEL",
-  );
-  // A newer minor-version sibling (deepseek-v4.1-flash) is a recognized
-  // fallback and validates cleanly, including through effectiveModelConfig.
-  const widened = { ...config, fallbackModel: "deepseek-v4.1-flash" };
-  validateEndpoint(widened);
-  validateEndpoint(effectiveModelConfig(widened, true));
-  // When the fallback is a model our regex does not recognize at all, the
-  // shared reasoning fields (inherited from the primary) fail validation for
-  // it specifically, and that must be attributed to the fallback, not read
-  // as if the primary model itself were rejected.
   assert.throws(
     () =>
       validateEndpoint({
         ...config,
-        enable_thinking: true,
-        fallbackModel: "unrecognized-model",
+        fallback: modelParams.parse({ model: config.primary.model }),
+      }),
+    (e: any) => e.code === "AI_FALLBACK_SAME_MODEL",
+  );
+  // A newer minor-version sibling (deepseek-v4.1-flash) is a recognized
+  // fallback and validates cleanly, including through effectiveModelConfig.
+  const widened = {
+    ...config,
+    fallback: modelParams.parse({ model: "deepseek-v4.1-flash" }),
+  };
+  validateEndpoint(widened);
+  validateEffectiveEndpoint(effectiveModelConfig(widened, true));
+  // When the fallback is a model our regex does not recognize at all, its own
+  // reasoning fields fail validation for it specifically, and that must be
+  // attributed to the fallback, not read as if primary were rejected.
+  assert.throws(
+    () =>
+      validateEndpoint({
+        ...config,
+        fallback: modelParams.parse({
+          model: "unrecognized-model",
+          enable_thinking: true,
+        }),
       }),
     (e: any) => e.code === "AI_FALLBACK_REASONING_NOT_SUPPORTED",
   );

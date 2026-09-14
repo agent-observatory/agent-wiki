@@ -26,8 +26,7 @@ const byok = {
   mode: "byok",
   provider: "openai-compatible",
   baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-  model: "qwen3.7-flash",
-  maxInputTokens: 25000,
+  primary: { ...defaults.primary, model: "qwen3.7-flash", maxInputTokens: 25000 },
 };
 
 const endpoint = () => "/api/workspaces/" + ws + "/ai-settings";
@@ -74,7 +73,15 @@ test("BYOK keeps credentials at the configured host and rejects the removed Free
   assert.equal(view.freePreset, undefined);
   assert.equal(JSON.stringify(view).includes("synthetic-"), false);
   assert.equal((await put({ ...byok, mode: "free" })).statusCode, 400);
-  assert.equal((await put({ ...byok, maxInputTokens: 25000 })).statusCode, 200);
+  assert.equal(
+    (
+      await put({
+        ...byok,
+        primary: { ...byok.primary, maxInputTokens: 25000 },
+      })
+    ).statusCode,
+    200,
+  );
   const row = (
     await admin.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
   ).rows[0];
@@ -127,8 +134,11 @@ test("Hello tests unsaved settings, uses target credential, and never saves or q
       payload: {
         config: {
           ...byok,
-          model: "qwen3.7-flash-2026-07-15",
-          max_completion_tokens: null,
+          primary: {
+            ...byok.primary,
+            model: "qwen3.7-flash-2026-07-15",
+            max_completion_tokens: null,
+          },
         },
         version: before.version,
       },
@@ -285,28 +295,60 @@ test("progress applies defaults when saved settings predate BYOK limits", async 
 });
 
 test("fallback model must differ from the first model, is reported, and Hello can target it only when set", async () => {
-  const same = await put({ ...byok, fallbackModel: byok.model });
+  const same = await put({
+    ...byok,
+    fallback: { model: byok.primary.model },
+  });
   assert.equal(same.statusCode, 400);
   assert.equal(same.json().error, "AI_FALLBACK_SAME_MODEL");
-  const saved = await put({ ...byok, fallbackModel: "qwen3.7-plus" });
+  const saved = await put({
+    ...byok,
+    fallback: { model: "qwen3.7-plus" },
+  });
   assert.equal(saved.statusCode, 200, saved.body);
   const shown = await get();
-  assert.equal(shown.fallbackModel, "qwen3.7-plus");
+  assert.equal(shown.fallback.model, "qwen3.7-plus");
   assert.equal(shown.fallbackActive, false);
-  assert.equal(shown.activeModel, byok.model);
-  const cleared = await put({ ...byok, fallbackModel: null });
+  assert.equal(shown.activeModel, byok.primary.model);
+  const cleared = await put({ ...byok, fallback: null });
   assert.equal(cleared.statusCode, 200, cleared.body);
-  assert.equal((await get()).fallbackModel, null);
+  assert.equal((await get()).fallback, null);
   const missing = await app.inject({
     method: "POST",
     url: endpoint() + "/test",
     headers,
     payload: {
-      config: { ...byok, fallbackModel: null },
+      config: { ...byok, fallback: null },
       version: (await get()).version,
       target: "fallback",
     },
   });
   assert.equal(missing.statusCode, 400);
   assert.equal(missing.json().error, "AI_FALLBACK_MODEL_REQUIRED");
+});
+
+test("each model slot keeps its own call timeout, independently bounded", async () => {
+  const saved = await put({
+    ...byok,
+    primary: { ...byok.primary, timeoutSeconds: 600 },
+    fallback: { model: "qwen3.7-plus", timeoutSeconds: 120 },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  const shown = await get();
+  assert.equal(shown.primary.timeoutSeconds, 600);
+  assert.equal(shown.fallback.timeoutSeconds, 120);
+  const tooLow = await put({
+    ...byok,
+    primary: { ...byok.primary, timeoutSeconds: 30 },
+  });
+  assert.equal(tooLow.statusCode, 400);
+  const tooHigh = await put({
+    ...byok,
+    primary: { ...byok.primary, timeoutSeconds: 1800 },
+  });
+  assert.equal(tooHigh.statusCode, 400);
+  assert.equal(
+    (await put({ ...byok, fallback: null })).statusCode,
+    200,
+  );
 });

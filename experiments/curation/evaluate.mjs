@@ -7,7 +7,8 @@ const fixtures = JSON.parse(
 const core = (name) =>
   import(pathToFileURL(resolve("dist/packages/core/src/" + name + ".js")).href);
 const { pool, tx } = await core("db");
-const { aiConfig, decryptSecret, callModel, ModelError } = await core("ai");
+const { aiConfig, decryptSecret, callModel, effectiveModelConfig, ModelError } =
+  await core("ai");
 const { modelGateKey, waitForModelSlot, coolDownModel, modelResponded } =
   await core("model-gate");
 const owner = process.env.OWNER_GITHUB_ID;
@@ -28,7 +29,13 @@ try {
         )
       ).rows[0],
   );
-  const config = aiConfig.parse({ ...row.config, maxTokens: 1024 });
+  const config = effectiveModelConfig(
+    aiConfig.parse({
+      ...row.config,
+      primary: { ...row.config.primary, maxTokens: 1024 },
+    }),
+    false,
+  );
   if (
     config.provider !== "nvidia" ||
     config.baseUrl !== "https://integrate.api.nvidia.com/v1"

@@ -213,7 +213,8 @@ async function main() {
       pathToFileURL(resolve("dist/packages/core/src/" + name + ".js")).href
     );
   const { pool, tx } = await core("db");
-  const { aiConfig, decryptSecret, parseRetryAfter } = await core("ai");
+  const { aiConfig, decryptSecret, parseRetryAfter, effectiveModelConfig } =
+    await core("ai");
   const { modelGateKey, waitForModelSlot, coolDownModel, modelResponded } =
     await core("model-gate");
   const { getSource, hash } = await core("storage");
@@ -269,7 +270,7 @@ async function main() {
           [ws],
         )
       ).rows[0];
-      const config = aiConfig.parse(row.config);
+      const config = effectiveModelConfig(aiConfig.parse(row.config), false);
       if (
         config.provider !== "nvidia" ||
         config.model !== "deepseek-ai/deepseek-v4-flash-0731" ||
@@ -315,7 +316,7 @@ async function main() {
     const instruction = /const instruction = `([\s\S]*?)`;/.exec(source)?.[1];
     if (!instruction) throw Error("Cannot find the exact deployed instruction");
     const secret = decryptSecret(settings.encrypted_key),
-      config = aiConfig.parse(settings.config);
+      config = effectiveModelConfig(aiConfig.parse(settings.config), false);
     const gate = modelGateKey(config.baseUrl, secret);
     const base = {
       model: config.model,

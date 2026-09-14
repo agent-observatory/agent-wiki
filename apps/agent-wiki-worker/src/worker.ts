@@ -54,6 +54,7 @@ import {
   decryptSecret,
   callModel,
   effectiveModelConfig,
+  leaseSecondsFor,
   ModelError,
 } from "../../../packages/core/src/ai.js";
 import {
@@ -71,8 +72,6 @@ import {
   retryDelay,
 } from "../../../packages/core/src/model-gate.js";
 export const PROMPT_VERSION = "remote-curation-15";
-export const MODEL_TIMEOUT_MS = 330_000;
-export const JOB_LEASE_SECONDS = 420;
 // Regenerate invalid model proposals; storage/authentication failures stay terminal.
 export const OUTPUT_RETRY_CODES = [
   "AI_INVALID_OUTPUT",
@@ -123,8 +122,9 @@ export async function runOne(
       if (!settings?.config.enabled || !settings.encrypted_key) return null;
       const baseConfig = aiConfig.parse(settings.config);
       const fallbackActive =
-        !!settings.fallback_active_since && !!baseConfig.fallbackModel;
+        !!settings.fallback_active_since && !!baseConfig.fallback;
       const config = effectiveModelConfig(baseConfig, fallbackActive);
+      const leaseSeconds = leaseSecondsFor(config);
       // Expired attempts remain in history; unfinished work becomes retryable.
       await c.query(
         "UPDATE refinement_runs SET status='interrupted',error_code='LEASE_EXPIRED',finished_at=now() WHERE workspace_id=$1 AND status='running' AND job_id IN (SELECT id FROM refinement_jobs WHERE workspace_id=$1 AND status='running' AND lease_until<now())",
@@ -219,8 +219,8 @@ export async function runOne(
         minIntervalMs: 60000 / config.requestsPerMinute,
         concurrency: config.concurrency,
         retryBaseSeconds: config.retryDelaySeconds,
-        modelTimeoutMs: MODEL_TIMEOUT_MS,
-        leaseSeconds: JOB_LEASE_SECONDS,
+        modelTimeoutMs: config.timeoutSeconds * 1000,
+        leaseSeconds,
         ...(job.output ? { recoveryOf: job.run_id } : {}),
       };
       await c.query(
@@ -241,7 +241,7 @@ export async function runOne(
       );
       await c.query(
         "UPDATE refinement_jobs SET status='running',attempts=attempts+1,lease_until=now()+make_interval(secs=>$4),run_id=$3,updated_at=now() WHERE workspace_id=$1 AND id=$2",
-        [ws, job.id, runId, JOB_LEASE_SECONDS],
+        [ws, job.id, runId, leaseSeconds],
       );
       return {
         ...job,
@@ -425,9 +425,9 @@ export async function runOne(
             [ws, task.runId, JSON.stringify(input)],
           ),
         );
-        const callSignal = AbortSignal.any([
+        let callSignal = AbortSignal.any([
           signal,
-          AbortSignal.timeout(MODEL_TIMEOUT_MS),
+          AbortSignal.timeout(task.config.timeoutSeconds * 1000),
         ]);
         const modelNeeded = input.source.text.trim().length > 0;
         if (modelNeeded)
@@ -505,13 +505,19 @@ export async function runOne(
                 error instanceof ModelError &&
                 error.code === "AI_FREE_QUOTA_EXHAUSTED" &&
                 !task.fallbackActive &&
-                task.baseConfig.fallbackModel
+                task.baseConfig.fallback
               ))
                 throw error;
               await activateFallback(owner, ws, task.settingsVersion);
               const from = task.config.model;
               task.config = effectiveModelConfig(task.baseConfig, true);
               task.fallbackActive = true;
+              // The fallback slot may have its own (typically longer) call
+              // deadline; rebuild the deadline the retried call is bound to.
+              callSignal = AbortSignal.any([
+                signal,
+                AbortSignal.timeout(task.config.timeoutSeconds * 1000),
+              ]);
               diagnostics.fallback = {
                 from,
                 to: task.config.model,

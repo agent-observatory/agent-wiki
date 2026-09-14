@@ -245,7 +245,7 @@ test("disabled worker makes no calls; enabled publication preserves exact eviden
       await configureAndControl({
         config: {
           ...defaults,
-          maxInputTokens: 30000,
+          primary: { ...defaults.primary, maxInputTokens: 30000 },
           enabled: true,
           dailyCalls: 1,
         },
@@ -495,7 +495,7 @@ test("live pause/resume changes only enabled, preserves drafts through versions,
   const paused = (await request("GET", "/ai-settings")).json();
   assert.equal(paused.enabled, false);
   assert.equal(paused.dailyCalls, 1000);
-  assert.equal(paused.model, config.model);
+  assert.equal(paused.primary.model, config.primary.model);
   assert.equal(paused.hasKey, true);
   assert.equal(
     (
@@ -1234,7 +1234,7 @@ test("first-model quota exhaustion continues on the configured fallback model an
       ...defaults,
       enabled: true,
       dailyCalls: null,
-      fallbackModel: fallback,
+      fallback: { model: fallback },
     },
     version: settings.version,
   });
@@ -1272,7 +1272,7 @@ test("first-model quota exhaustion continues on the configured fallback model an
   const calls: string[] = [];
   const model = async (config: any) => {
     calls.push(config.model);
-    if (config.model === defaults.model)
+    if (config.model === defaults.primary.model)
       throw new ModelError("AI_FREE_QUOTA_EXHAUSTED");
     return {
       output: { changes: [] },
@@ -1282,7 +1282,7 @@ test("first-model quota exhaustion continues on the configured fallback model an
   const first = await makeJob();
   await releaseGate();
   assert.equal(await runOne(owner, new AbortController().signal, model), true);
-  assert.deepEqual(calls, [defaults.model, fallback]);
+  assert.deepEqual(calls, [defaults.primary.model, fallback]);
   const state = await tx(owner, ws, async (c) => ({
     job: (
       await c.query(
@@ -1306,8 +1306,8 @@ test("first-model quota exhaustion continues on the configured fallback model an
   assert.equal(state.job.status, "completed", state.job.error_code);
   assert.equal(state.run.status, "completed");
   assert.equal(state.run.settings.model, fallback);
-  assert.equal(state.run.settings.fallbackFrom, defaults.model);
-  assert.equal(state.run.diagnostics.fallback.from, defaults.model);
+  assert.equal(state.run.settings.fallbackFrom, defaults.primary.model);
+  assert.equal(state.run.diagnostics.fallback.from, defaults.primary.model);
   assert.equal(state.run.diagnostics.fallback.to, fallback);
   assert.equal(
     state.run.diagnostics.fallback.reason,
@@ -1320,7 +1320,7 @@ test("first-model quota exhaustion continues on the configured fallback model an
   const shown = (await request("GET", "/ai-settings")).json();
   assert.equal(shown.fallbackActive, true);
   assert.equal(shown.activeModel, fallback);
-  assert.equal(shown.fallbackModel, fallback);
+  assert.equal(shown.fallback.model, fallback);
   // Later work starts on the fallback without spending a call on the first model.
   await makeJob();
   calls.length = 0;
@@ -1340,7 +1340,11 @@ test("first-model quota exhaustion continues on the configured fallback model an
   } = (await request("GET", "/ai-settings")).json();
   const promoted = await request("PUT", "/ai-settings", {
     version,
-    config: { ...config, model: fallback, fallbackModel: null },
+    config: {
+      ...config,
+      primary: { ...config.primary, model: fallback },
+      fallback: null,
+    },
   });
   assert.equal(promoted.statusCode, 200, promoted.body);
   const after = (await request("GET", "/ai-settings")).json();

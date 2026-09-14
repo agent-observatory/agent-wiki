@@ -290,12 +290,32 @@ async function main() {
     const apiKey = keyEnv ? process.env[keyEnv] : undefined;
     if (keyEnv && !apiKey)
       throw new Error("Requested API key environment variable is empty");
+    // primary/fallback are per-model-slot objects: merge into the existing
+    // slot instead of the flat shallow merge below, so a patch naming only
+    // one field (e.g. {"primary":{"reasoning":"high"}}) does not drop the
+    // slot's other saved fields. {"fallback":null} clears the second model.
+    const { primary: primaryPatch, fallback: fallbackPatch, ...sharedPatch } =
+      patch;
+    const mergedPrimary = primaryPatch
+      ? { ...config.primary, ...primaryPatch }
+      : config.primary;
+    const mergedFallback = !("fallback" in patch)
+      ? config.fallback
+      : fallbackPatch === null
+        ? null
+        : { ...(config.fallback ?? {}), ...fallbackPatch };
     return output(
       await request("/ai-settings" + (action === "test" ? "/test" : ""), {
         method: action === "test" ? "POST" : "PUT",
         body: {
           version,
-          config: { ...config, ...patch, enabled: config.enabled },
+          config: {
+            ...config,
+            ...sharedPatch,
+            primary: mergedPrimary,
+            fallback: mergedFallback,
+            enabled: config.enabled,
+          },
           ...(apiKey ? { apiKey } : {}),
           ...(action === "test" && args.includes("--fallback")
             ? { target: "fallback" }

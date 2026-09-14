@@ -8,9 +8,23 @@
 | 로컬 패키지 | 0.7.5 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex·Claude 모두 Agent Wiki 프로젝트만 · 10분 · Claude는 2026-09-14 사용자 지시로 활성화 |
-| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 61 · 2번 모델 `deepseek-v4-flash-0731` · `maxInputTokens` 16,000 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 64 · 1번 `deepseek-v4-flash-0731` · 2번 모델 `deepseek-v4.1-flash` · `maxInputTokens` 16,000 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 · 모델별 파라미터 분리·`timeoutSeconds` 설정은 미배포 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## 모델별 파라미터 분리 · 호출 제한 확장 · Fable 진단 · 미배포
+
+2026-09-14. 배포된 할당량 수정 이후 2번 모델(`deepseek-v4-flash-0731`)로 정제를 재개했더니 "생각보다 엄청 오래 걸린다"는 관찰이 나왔다. 최근 7일 지표를 보니 1번(`deepseek-v4-flash`)은 평균 69초·p95 145초였는데 2번은 평균 269초(성공한 호출만도 약 220초)·p95 330초로 **고정 호출 제한(330초)에 절반이 그대로 걸려 `AI_TIMEOUT`으로 잘렸다**(12분 사이 5건). 두 모델 설정(추론 high, thinking_budget 무제한)은 동일했으므로 설정 회귀가 아니라 모델 자체가 훨씬 오래 생각하는 것으로 보인다.
+
+Fable에게 진단·실험 설계를 맡겼다: 가장 유력한 원인은 thinking_budget 상한이 없어 2번 모델이 훨씬 오래 추론하는 것(서빙 속도 차이·전환 직후 동시 폭주 가능성도 있으나 완료된 실행의 추론 토큰 수를 DB에서 조회하면 호출 없이 판별 가능). 타임아웃을 10분으로 늘리는 안은 비권장(타임아웃 나도 제공자는 토큰을 이미 소비해 쿼타만 태우고 결과는 없음 — 호출량 절감이라는 1순위와 상충)했지만, 사용자는 "돈이라 늦게라도 되는게 중요하다"며 **완료 우선**을 확정 지시했다.
+
+- **모델 1·모델 2 완전 분리 설정**으로 재설계했다. 지금까지 `reasoning`·`enable_thinking`·`thinking_budget`·`max_completion_tokens`·`maxTokens`·`maxInputTokens`·`maxInputChars`는 두 모델이 공유하는 한 벌이었다(모델 이름만 `model`/`fallbackModel`로 갈렸다). 이제 `primary`(1번, 필수)·`fallback`(2번, `null`이면 없음, 최대 1개까지)이 각자 이 필드들을 독립적으로 가진다. `requestsPerMinute`·`concurrency`·`retryDelaySeconds`·`dailyCalls`·`baseUrl`·API 키는 그대로 공유한다.
+- **모델 호출 제한(`timeoutSeconds`)을 고정 330초에서 슬롯별 60~900초 설정값으로 바꿨다.** 기본값은 그대로 330초라 기존 동작은 안 바뀌고, 필요한 모델만 늘릴 수 있다(예: 2번 모델을 600~900초로). 작업 임대 시간은 `timeoutSeconds`+120초와 420초 중 큰 값으로 자동 계산해 항상 호출 제한보다 길게 유지한다(수동 조정 불필요). HTTP 연결의 유휴 한도도 슬롯별 타임아웃에 맞춰 같이 늘어난다.
+- 웹 설정 화면을 좌우 2단으로 바꿨다: 왼쪽 "모델 1", 오른쪽 "모델 2"(비어 있으면 추가/제거 버튼)에 각자 model·timeoutSeconds·maxInputTokens·max_tokens 또는 max_completion_tokens·enable_thinking·reasoning_effort·thinking_budget을 따로 입력한다. 공통 항목(Endpoint·API key·requestsPerMinute·concurrency·retryDelaySeconds·dailyCalls)은 위쪽에 한 번만 둔다.
+- CLI `ai update`의 설정 JSON도 `{"primary":{...}}`·`{"fallback":{...}|null}` 형태로 바뀌었다. 슬롯 안의 일부 필드만 보내도 기존 슬롯 값에 병합되므로(예: `{"primary":{"reasoning":"high"}}`) 슬롯 전체를 다시 쓸 필요는 없다.
+- 개발 모드라 하위 호환 없이 스키마를 바로 바꿨다(Workspace 1개, 설정 1행). 배포되면 웹/CLI에서 설정을 다시 저장해야 새 구조로 채워진다.
+- 검증: 새 단위 테스트(모델별 timeoutSeconds 저장·경계값 60/900 거부, 폴백 슬롯 검증·같은 모델 거부·`AI_FALLBACK_REASONING_NOT_SUPPORTED`, 폴백 전환 시 새 타임아웃 반영)와 전체 DB 테스트(179+26건), 타입 검사, 웹 빌드 모두 통과. **웹 새 2단 레이아웃은 브라우저에서 직접 클릭해 확인하지 못했다** — 실제 로그인 세션을 로컬에 만드는 절차가 없어 코드 리뷰·빌드 통과로만 검증했으니 배포 후 화면을 한 번 눈으로 확인하는 게 좋다.
+- 아직 미배포. 배포 후 사용자가 실제 `timeoutSeconds` 값(예: 2번 모델 600~900초)을 얼마로 둘지 정해서 저장해야 한다.
 
 ## 할당량 소진 오분류 수정 · 모델 계열 인식 확장 · 배치 API 기각 · 시간 표시 통일 · 미배포
 

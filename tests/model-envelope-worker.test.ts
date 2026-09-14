@@ -46,7 +46,7 @@ before(async () => {
         JSON.stringify({
           ...defaults,
           enabled: true,
-          maxInputTokens: 30000,
+          primary: { ...defaults.primary, maxInputTokens: 30000 },
           baseUrl: "https://api.deepseek.com/v1",
         }),
         encryptSecret("synthetic"),

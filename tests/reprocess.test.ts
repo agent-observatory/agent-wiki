@@ -81,7 +81,7 @@ before(async () => {
       JSON.stringify({
         ...defaults,
         enabled: true,
-        maxInputTokens: 30000,
+        primary: { ...defaults.primary, maxInputTokens: 30000 },
         requestsPerMinute: 120,
       }),
       encryptSecret("synthetic"),

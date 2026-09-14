@@ -3,7 +3,8 @@ import { pathToFileURL } from "node:url";
 const core = (name) =>
   import(pathToFileURL(resolve("dist/packages/core/src/" + name + ".js")).href);
 const { pool, tx } = await core("db");
-const { aiConfig, callModel, decryptSecret, ModelError } = await core("ai");
+const { aiConfig, callModel, effectiveModelConfig, decryptSecret, ModelError } =
+  await core("ai");
 const {
   modelGateKey,
   gateReady,
@@ -27,7 +28,13 @@ try {
         )
       ).rows[0],
   );
-  const config = aiConfig.parse({ ...row.config, maxTokens: 512 });
+  const config = effectiveModelConfig(
+    aiConfig.parse({
+      ...row.config,
+      primary: { ...row.config.primary, maxTokens: 512 },
+    }),
+    false,
+  );
   if (
     config.provider !== "nvidia" ||
     config.baseUrl !== "https://integrate.api.nvidia.com/v1"

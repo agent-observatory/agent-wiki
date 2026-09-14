@@ -167,7 +167,8 @@ test("CLI shares one Client credential, preserves pause and does not retry write
         JSON.stringify({
           enabled: false,
           mode: "byok",
-          model: "synthetic",
+          primary: { model: "synthetic" },
+          fallback: null,
           version: 7,
           hasKey: true,
           profiles: {},
@@ -207,11 +208,15 @@ test("CLI shares one Client credential, preserves pause and does not retry write
     await run("ai", "show");
     assert.equal(requests[0].auth, "Bearer client-secret");
     const file = join(dir, "config-update.json");
-    await writeFile(file, JSON.stringify({ model: "new-synthetic" }));
+    await writeFile(
+      file,
+      JSON.stringify({ primary: { model: "new-synthetic" } }),
+    );
     await assert.rejects(run("ai", "update", file), /synthetic unavailable/);
     assert.equal(requests.filter((r) => r.method === "PUT").length, 1);
     assert.equal(requests.at(-1).body.config.enabled, false);
-    assert.equal(requests.at(-1).body.config.model, "new-synthetic");
+    assert.equal(requests.at(-1).body.config.primary.model, "new-synthetic");
+    assert.equal(requests.at(-1).body.config.fallback, null);
     const beforeWrites = requests.length;
     await assert.rejects(
       run(

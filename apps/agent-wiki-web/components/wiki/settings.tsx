@@ -18,6 +18,27 @@ import { Heading, Loading, Failure } from "./common";
 import { Connections } from "./connections";
 
 type Mode = "byok";
+// One model's own parameters: the primary and fallback slots each carry an
+// independent copy, only baseUrl/key and the rate limits below are shared.
+type ModelSlot = {
+  model: string;
+  enable_thinking?: boolean;
+  thinking_budget?: number | null;
+  max_completion_tokens?: number | null;
+  maxTokens: number;
+  maxInputTokens: number;
+  maxInputChars: number;
+  reasoning: string;
+  timeoutSeconds: number;
+};
+const emptySlot: ModelSlot = {
+  model: "",
+  maxTokens: 2048,
+  maxInputTokens: 8000,
+  maxInputChars: 24000,
+  reasoning: "none",
+  timeoutSeconds: 330,
+};
 type Config = {
   version: number;
   hasKey: boolean;
@@ -30,19 +51,12 @@ type Config = {
   enabled: boolean;
   provider: string;
   baseUrl: string;
-  model: string;
-  fallbackModel: string | null;
   dailyCalls: number | null;
   requestsPerMinute: number;
   concurrency: number;
   retryDelaySeconds: number;
-  maxTokens: number;
-  enable_thinking?: boolean;
-  thinking_budget?: number | null;
-  max_completion_tokens?: number | null;
-  maxInputChars: number;
-  maxInputTokens: number;
-  reasoning: string;
+  primary: ModelSlot;
+  fallback: ModelSlot | null;
 };
 
 export function Settings() {
@@ -79,6 +93,45 @@ export function Settings() {
     </>
   );
 }
+function slotRows(slot: ModelSlot): [string, string | number][] {
+  const thinking = slot.enable_thinking ?? slot.reasoning !== "none";
+  return [
+    ["model", slot.model],
+    ["timeoutSeconds", slot.timeoutSeconds],
+    ["maxInputTokens", slot.maxInputTokens],
+    slot.max_completion_tokens !== undefined
+      ? ["max_completion_tokens", slot.max_completion_tokens ?? "Provider default"]
+      : ["max_tokens", slot.maxTokens],
+    ["enable_thinking", thinking ? "true" : "false"],
+    ...(thinking && !["none", "default"].includes(slot.reasoning)
+      ? [["reasoning_effort", slot.reasoning] as [string, string]]
+      : []),
+    ...(thinking && slot.thinking_budget != null
+      ? [["thinking_budget", slot.thinking_budget] as [string, number]]
+      : []),
+  ];
+}
+function SlotList({ title, slot }: { title: string; slot: ModelSlot | null }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium text-muted-foreground">{title}</h3>
+      {slot ? (
+        <dl className="divide-y border-y">
+          {slotRows(slot).map(([key, value]) => (
+            <div key={key} className="grid grid-cols-[160px_1fr] gap-4 py-3 text-sm">
+              <dt className="text-muted-foreground">{key}</dt>
+              <dd className="break-all">
+                {typeof value === "number" ? value.toLocaleString() : value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="border-y py-3 text-sm text-muted-foreground">설정 안 됨</p>
+      )}
+    </div>
+  );
+}
 function AIConnection() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [editing, setEditing] = useState(false);
@@ -98,27 +151,11 @@ function AIConnection() {
         }}
       />
     );
-  const thinking = config.enable_thinking ?? config.reasoning !== "none";
-  const settingsRows: [string, string | number][] = [
+  const sharedRows: [string, string | number][] = [
     ["Endpoint", config.baseUrl],
-    ["model", config.model],
-    ["fallback model", config.fallbackModel ?? "없음"],
-    ["maxInputTokens", config.maxInputTokens],
-    config.max_completion_tokens !== undefined
-      ? [
-          "max_completion_tokens",
-          config.max_completion_tokens ?? "Provider default",
-        ]
-      : ["max_tokens", config.maxTokens],
-    ["enable_thinking", thinking ? "true" : "false"],
-    ...(thinking && !["none", "default"].includes(config.reasoning)
-      ? [["reasoning_effort", config.reasoning] as [string, string]]
-      : []),
-    ...(thinking && config.thinking_budget != null
-      ? [["thinking_budget", config.thinking_budget] as [string, number]]
-      : []),
     ["requestsPerMinute", config.requestsPerMinute],
     ["concurrency", config.concurrency],
+    ["retryDelaySeconds", config.retryDelaySeconds],
     ...(config.dailyCalls != null
       ? [["dailyCalls", config.dailyCalls] as [string, number]]
       : []),
@@ -164,12 +201,9 @@ function AIConnection() {
           다시 사용합니다.
         </p>
       )}
-      <dl className="divide-y border-y">
-        {settingsRows.map(([key, value]) => (
-          <div
-            key={key}
-            className="grid grid-cols-[220px_1fr] gap-6 py-3 text-sm"
-          >
+      <dl className="mb-6 divide-y border-y">
+        {sharedRows.map(([key, value]) => (
+          <div key={key} className="grid grid-cols-[220px_1fr] gap-6 py-3 text-sm">
             <dt className="text-muted-foreground">{key}</dt>
             <dd className="break-all">
               {typeof value === "number" ? value.toLocaleString() : value}
@@ -177,8 +211,20 @@ function AIConnection() {
           </div>
         ))}
       </dl>
+      <div className="grid grid-cols-2 gap-8">
+        <SlotList title="모델 1 (기본)" slot={config.primary} />
+        <SlotList title="모델 2 (폴백)" slot={config.fallback} />
+      </div>
     </>
   );
+}
+
+function reasoningOptions(model: string) {
+  return /qwen/.test(model)
+    ? ["default", "none"]
+    : /deepseek-v4/.test(model)
+      ? ["default", "none", "high", "max"]
+      : ["default", "none", "low", "high"];
 }
 
 function AIConnectionForm({
@@ -196,8 +242,20 @@ function AIConnectionForm({
   const [busy, setBusy] = useState<"save" | "test" | null>(null);
   const [error, setError] = useState<unknown>();
   const [tested, setTested] = useState<string>();
-  function update(field: keyof Config, value: unknown) {
+  function updateShared(field: keyof Config, value: unknown) {
     setDraft((d) => ({ ...d, [field]: value }));
+    setTested(undefined);
+    setError(undefined);
+  }
+  function updateSlot(
+    slot: "primary" | "fallback",
+    field: keyof ModelSlot,
+    value: unknown,
+  ) {
+    setDraft((d) => {
+      const current = d[slot];
+      return current ? { ...d, [slot]: { ...current, [field]: value } } : d;
+    });
     setTested(undefined);
     setError(undefined);
   }
@@ -219,12 +277,11 @@ function AIConnectionForm({
       activeModel,
       ...values
     } = draft;
-    const fallbackModel = values.fallbackModel?.trim() || null;
     try {
       const result = await api(base + (action === "test" ? "/test" : ""), {
         method: action === "test" ? "POST" : "PUT",
         body: JSON.stringify({
-          config: { ...values, fallbackModel, enabled: config.enabled },
+          config: { ...values, enabled: config.enabled },
           version: config.version,
           ...(key.trim() ? { apiKey: key.trim() } : {}),
           ...(action === "test" ? { target } : {}),
@@ -243,7 +300,7 @@ function AIConnectionForm({
       setBusy(null);
     }
   }
-  const field = (
+  const sharedField = (
     name: keyof Config,
     label: string,
     min?: number,
@@ -260,7 +317,7 @@ function AIConnectionForm({
         max={max}
         value={String(draft[name] ?? "")}
         onChange={(e) =>
-          update(
+          updateShared(
             name,
             min === undefined
               ? e.target.value
@@ -272,19 +329,108 @@ function AIConnectionForm({
       />
     </label>
   );
-  const thinking = draft.enable_thinking ?? draft.reasoning !== "none";
+  function slotField(
+    slotName: "primary" | "fallback",
+    data: ModelSlot,
+    name: keyof ModelSlot,
+    label: string,
+    min?: number,
+    max?: number,
+  ) {
+    return (
+      <label
+        key={name}
+        className="grid grid-cols-[140px_1fr] items-center gap-4 py-3 text-sm"
+      >
+        <span>{label}</span>
+        <Input
+          type={min === undefined ? "text" : "number"}
+          min={min}
+          max={max}
+          value={String(data[name] ?? "")}
+          onChange={(e) =>
+            updateSlot(
+              slotName,
+              name,
+              min === undefined
+                ? e.target.value
+                : e.target.value === ""
+                  ? null
+                  : Number(e.target.value),
+            )
+          }
+        />
+      </label>
+    );
+  }
+  function SlotFields({
+    slotName,
+    data,
+  }: {
+    slotName: "primary" | "fallback";
+    data: ModelSlot;
+  }) {
+    const thinking = data.enable_thinking ?? data.reasoning !== "none";
+    return (
+      <div className="divide-y">
+        {slotField(slotName, data, "model", "model")}
+        {slotField(slotName, data, "timeoutSeconds", "timeoutSeconds(초)", 60, 900)}
+        {slotField(slotName, data, "maxInputTokens", "maxInputTokens", 3000, 32000)}
+        {data.max_completion_tokens !== undefined
+          ? slotField(
+              slotName,
+              data,
+              "max_completion_tokens",
+              "max_completion_tokens · 비우면 기본값",
+              512,
+              32768,
+            )
+          : slotField(slotName, data, "maxTokens", "max_tokens", 512, 16384)}
+        <label className="flex items-center justify-between py-3 text-sm">
+          enable_thinking
+          <input
+            type="checkbox"
+            checked={thinking}
+            onChange={(e) => updateSlot(slotName, "enable_thinking", e.target.checked)}
+          />
+        </label>
+        {thinking && (
+          <>
+            <label className="grid grid-cols-[140px_1fr] items-center gap-4 py-3 text-sm">
+              <span>reasoning_effort</span>
+              <Select
+                disabled={!!busy}
+                value={data.reasoning}
+                onValueChange={(value) => updateSlot(slotName, "reasoning", value)}
+              >
+                <SelectTrigger aria-label={slotName + "-reasoning_effort"}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasoningOptions(data.model).map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            {slotField(slotName, data, "thinking_budget", "thinking_budget · 선택", 1, 32768)}
+          </>
+        )}
+      </div>
+    );
+  }
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         void submit("save");
       }}
-      className="max-w-3xl"
+      className="max-w-4xl"
     >
       <fieldset disabled={!!busy} className="divide-y border-y">
-        {field("baseUrl", "Endpoint")}
-        {field("model", "model")}
-        {field("fallbackModel", "fallback model · 비우면 없음")}
+        {sharedField("baseUrl", "Endpoint")}
         <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
           <span>API key</span>
           <Input
@@ -298,60 +444,66 @@ function AIConnectionForm({
             }}
           />
         </label>
-        <details className="py-3">
-          <summary className="cursor-pointer text-sm">고급 설정</summary>
-          {field("maxInputTokens", "maxInputTokens", 3000, 32000)}
-          {draft.max_completion_tokens !== undefined
-            ? field(
-                "max_completion_tokens",
-                "max_completion_tokens · 비우면 기본값",
-                512,
-                32768,
+        {sharedField("requestsPerMinute", "requestsPerMinute", 1, 120)}
+        {sharedField("concurrency", "concurrency", 1, 5)}
+        {sharedField("retryDelaySeconds", "retryDelaySeconds", 5, 600)}
+        {sharedField("dailyCalls", "dailyCalls · 선택", 1, 1000)}
+        <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
+          <span>maxInputChars(1번)</span>
+          <Input
+            type="number"
+            min={2000}
+            max={60000}
+            value={String(draft.primary.maxInputChars ?? "")}
+            onChange={(e) =>
+              updateSlot(
+                "primary",
+                "maxInputChars",
+                e.target.value === "" ? null : Number(e.target.value),
               )
-            : field("maxTokens", "max_tokens", 512, 16384)}
-          <label className="flex items-center justify-between py-3 text-sm">
-            enable_thinking
-            <input
-              type="checkbox"
-              checked={thinking}
-              onChange={(e) => update("enable_thinking", e.target.checked)}
-            />
-          </label>
-          {thinking && (
-            <>
-              <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
-                <span>reasoning_effort</span>
-                <Select
-                  disabled={!!busy}
-                  value={draft.reasoning}
-                  onValueChange={(value) => update("reasoning", value)}
-                >
-                  <SelectTrigger aria-label="reasoning_effort">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(/qwen/.test(draft.model)
-                      ? ["default", "none"]
-                      : /deepseek-v4/.test(draft.model)
-                        ? ["default", "none", "high", "max"]
-                        : ["default", "none", "low", "high"]
-                    ).map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              {field("thinking_budget", "thinking_budget · 선택", 1, 32768)}
-            </>
-          )}
-          {field("requestsPerMinute", "requestsPerMinute", 1, 120)}
-          {field("concurrency", "concurrency", 1, 5)}
-          {field("retryDelaySeconds", "retryDelaySeconds", 5, 600)}
-          {field("dailyCalls", "dailyCalls · 선택", 1, 1000)}
-        </details>
+            }
+          />
+        </label>
       </fieldset>
+      <div className="mt-6 grid grid-cols-2 gap-8">
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-muted-foreground">모델 1 (기본)</h3>
+          <SlotFields slotName="primary" data={draft.primary} />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">모델 2 (폴백)</h3>
+            {draft.fallback ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!!busy}
+                onClick={() => updateShared("fallback", null)}
+              >
+                제거
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!!busy}
+                onClick={() => updateShared("fallback", emptySlot)}
+              >
+                추가
+              </Button>
+            )}
+          </div>
+          {draft.fallback ? (
+            <SlotFields slotName="fallback" data={draft.fallback} />
+          ) : (
+            <p className="py-3 text-sm text-muted-foreground">
+              비우면 1번 모델의 무료 한도 소진 시 안전 중지됩니다.
+            </p>
+          )}
+        </div>
+      </div>
       {error != null && (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {errorText(error)}
@@ -378,7 +530,7 @@ function AIConnectionForm({
         >
           {busy === "test" ? "연결 확인 중" : "연결 테스트"}
         </Button>
-        {draft.fallbackModel?.trim() && (
+        {draft.fallback?.model?.trim() && (
           <Button
             type="button"
             variant="outline"

@@ -11,6 +11,7 @@ import {
   decryptSecret,
   callModel,
   effectiveModelConfig,
+  leaseSecondsFor,
   ModelError,
 } from "../../../packages/core/src/ai.js";
 import {
@@ -78,8 +79,9 @@ export async function runReprocess(
       if (!request) return null;
       const baseConfig = aiConfig.parse(settings.config);
       const fallbackActive =
-        !!settings.fallback_active_since && !!baseConfig.fallbackModel;
+        !!settings.fallback_active_since && !!baseConfig.fallback;
       const config = effectiveModelConfig(baseConfig, fallbackActive);
+      const leaseSeconds = leaseSecondsFor(config);
       if (
         config.dailyCalls !== null &&
         (
@@ -119,11 +121,12 @@ export async function runReprocess(
         ],
       );
       await c.query(
-        "UPDATE curation_reprocesses SET status='running',run_id=$3,lease_until=now()+interval '7 minutes',updated_at=now() WHERE workspace_id=$1 AND id=$2",
-        [ws, request.id, runId],
+        "UPDATE curation_reprocesses SET status='running',run_id=$3,lease_until=now()+make_interval(secs=>$4),updated_at=now() WHERE workspace_id=$1 AND id=$2",
+        [ws, request.id, runId, leaseSeconds],
       );
       return {
         request,
+        leaseSeconds,
         original,
         config,
         baseConfig,
@@ -258,9 +261,9 @@ export async function runReprocess(
         };
         if (estimated > task.config.maxInputTokens)
           throw new ModelError("AI_INPUT_LIMIT");
-        const callSignal = AbortSignal.any([
+        let callSignal = AbortSignal.any([
             signal,
-            AbortSignal.timeout(330000),
+            AbortSignal.timeout(task.config.timeoutSeconds * 1000),
           ]),
           gate = modelGateKey(task.config.baseUrl, task.secret);
         await waitForModelSlot(
@@ -273,8 +276,8 @@ export async function runReprocess(
           throw new ModelError("CURATION_CONTROL_CHANGED");
         const lease = await tx(owner, ws, (c) =>
           c.query(
-            "UPDATE curation_reprocesses SET lease_until=now()+interval '7 minutes' WHERE workspace_id=$1 AND id=$2 AND run_id=$3 AND status='running' RETURNING id",
-            [ws, task.request.id, task.runId],
+            "UPDATE curation_reprocesses SET lease_until=now()+make_interval(secs=>$4) WHERE workspace_id=$1 AND id=$2 AND run_id=$3 AND status='running' RETURNING id",
+            [ws, task.request.id, task.runId, task.leaseSeconds],
           ),
         );
         if (!lease.rowCount) throw new ModelError("REPROCESS_LEASE_LOST");
@@ -318,13 +321,19 @@ export async function runReprocess(
               error instanceof ModelError &&
               error.code === "AI_FREE_QUOTA_EXHAUSTED" &&
               !task.fallbackActive &&
-              task.baseConfig.fallbackModel
+              task.baseConfig.fallback
             ))
               throw error;
             await activateFallback(owner, ws, task.settingsVersion);
             const from = task.config.model;
             task.config = effectiveModelConfig(task.baseConfig, true);
             task.fallbackActive = true;
+            // The fallback slot may have its own (typically longer) call
+            // deadline; rebuild the deadline the retried call is bound to.
+            callSignal = AbortSignal.any([
+              signal,
+              AbortSignal.timeout(task.config.timeoutSeconds * 1000),
+            ]);
             diag.fallback = {
               from,
               to: task.config.model,

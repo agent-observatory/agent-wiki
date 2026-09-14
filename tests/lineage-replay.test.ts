@@ -65,7 +65,11 @@ for (const variant of ["off", "high", "record-reference"])
         "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
         [
           ws,
-          { ...defaults, enabled: true, maxInputTokens: 25000 },
+          {
+            ...defaults,
+            enabled: true,
+            primary: { ...defaults.primary, maxInputTokens: 25000 },
+          },
           encryptSecret("synthetic"),
         ],
       );

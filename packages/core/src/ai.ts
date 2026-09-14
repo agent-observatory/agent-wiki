@@ -8,37 +8,31 @@ import { AppError } from "./db.js";
 const Agent: typeof ModelAgent = createRequire(import.meta.url)(
   "undici/lib/dispatcher/agent.js",
 );
-// Keep HTTP inactivity limits above the Worker's total 330-second deadline.
-// Scope this dispatcher to model traffic; other application requests keep theirs.
-const modelTransport = {
-  dispatcher: new Agent().compose(
-    (dispatch) => (options, handler) =>
-      dispatch(
-        { ...options, headersTimeout: 360_000, bodyTimeout: 360_000 },
-        handler,
-      ),
-  ),
-};
-export const aiConfig = z
+// Keep HTTP inactivity limits above whichever model slot's own call deadline
+// applies; cached per distinct timeoutSeconds so calls at the same deadline
+// still share one connection pool. Scoped to model traffic only.
+function buildTransport(ms: number) {
+  return {
+    dispatcher: new Agent().compose(
+      (dispatch) => (options, handler) =>
+        dispatch({ ...options, headersTimeout: ms, bodyTimeout: ms }, handler),
+    ),
+  };
+}
+const transportCache = new Map<number, ReturnType<typeof buildTransport>>();
+function modelTransport(timeoutSeconds: number) {
+  let entry = transportCache.get(timeoutSeconds);
+  if (!entry) {
+    entry = buildTransport(timeoutSeconds * 1000 + 30_000);
+    transportCache.set(timeoutSeconds, entry);
+  }
+  return entry;
+}
+// Per-model-slot parameters: everything that can differ between the first
+// (primary) and second (fallback) model on the same endpoint and key.
+export const modelParams = z
   .object({
-    enabled: z.boolean().default(false),
-    mode: z.literal("byok").default("byok"),
-    provider: z
-      .enum(["nvidia", "openai-compatible"])
-      .default("openai-compatible"),
-    baseUrl: z
-      .string()
-      .url()
-      .default("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
-    model: z.string().min(1).max(160).default("deepseek-v4-flash"),
-    // Second model on the same endpoint and key. When the first model's free
-    // quota is exhausted the Worker continues on this one instead of stopping;
-    // null means no fallback and the existing safety stop applies.
-    fallbackModel: z.string().trim().min(1).max(160).nullable().default(null),
-    dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
-    requestsPerMinute: z.number().int().min(1).max(120).default(20),
-    concurrency: z.number().int().min(1).max(5).default(1),
-    retryDelaySeconds: z.number().int().min(5).max(600).default(120),
+    model: z.string().min(1).max(160),
     enable_thinking: z.boolean().optional(),
     thinking_budget: z.number().int().min(1).max(32768).nullable().optional(),
     // Alibaba: null deliberately omits both output-cap fields; absent uses maxTokens.
@@ -55,79 +49,112 @@ export const aiConfig = z
     reasoning: z
       .enum(["default", "none", "low", "high", "max"])
       .default("none"),
+    // Per-call HTTP deadline for this model slot. A generously slow model
+    // (e.g. a heavier reasoning snapshot) can be given more room without
+    // raising the deadline for a faster one on the other slot.
+    timeoutSeconds: z.number().int().min(60).max(900).default(330),
+  })
+  .strict();
+export type ModelParams = z.infer<typeof modelParams>;
+export const aiConfig = z
+  .object({
+    enabled: z.boolean().default(false),
+    mode: z.literal("byok").default("byok"),
+    provider: z
+      .enum(["nvidia", "openai-compatible"])
+      .default("openai-compatible"),
+    baseUrl: z
+      .string()
+      .url()
+      .default("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+    dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
+    requestsPerMinute: z.number().int().min(1).max(120).default(20),
+    concurrency: z.number().int().min(1).max(5).default(1),
+    retryDelaySeconds: z.number().int().min(5).max(600).default(120),
+    primary: modelParams.default({
+      model: "deepseek-v4-flash",
+      maxTokens: 2048,
+      maxInputTokens: 8000,
+      maxInputChars: 24000,
+      reasoning: "none",
+      timeoutSeconds: 330,
+    }),
+    // At most one fallback: the Worker only ever calls these two model slots.
+    // When the first model's free quota is exhausted the Worker continues on
+    // this one instead of stopping; null means no fallback and the existing
+    // safety stop applies.
+    fallback: modelParams.nullable().default(null),
   })
   .strict();
 export type AiConfig = z.infer<typeof aiConfig>;
 export const defaults = aiConfig.parse({});
-export function isAlibabaQwen(config: AiConfig) {
+// The single model slot actually being called, with the shared (endpoint,
+// rate-limit) fields flattened in alongside it.
+export type EffectiveAiConfig = Omit<AiConfig, "primary" | "fallback"> &
+  ModelParams;
+type ModelIdentity = { provider: AiConfig["provider"]; baseUrl: string; model: string };
+export function isAlibabaQwen(config: ModelIdentity) {
   return (
     config.provider === "openai-compatible" &&
     new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
     /^qwen3\.[5-8]-(flash|plus|max)(?:-|$)/.test(config.model)
   );
 }
-export function isAlibabaDeepSeek(config: AiConfig) {
+export function isAlibabaDeepSeek(config: ModelIdentity) {
   return (
     config.provider === "openai-compatible" &&
     new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
     /^deepseek-v4(?:\.\d)?-(flash|pro)(?:-\d{4})?$/.test(config.model)
   );
 }
-export function isAlibabaThinkingModel(config: AiConfig) {
+export function isAlibabaThinkingModel(config: ModelIdentity) {
   return isAlibabaQwen(config) || isAlibabaDeepSeek(config);
 }
 // The model the Worker actually calls: the fallback once the first model's
-// free quota is exhausted for this Workspace, otherwise the configured model.
+// free quota is exhausted for this Workspace, otherwise the primary model.
 export function effectiveModelConfig(
   config: AiConfig,
   fallbackActive: boolean,
-): AiConfig {
-  // The effective config names a single model; keeping fallbackModel here
-  // would make validateEndpoint see two identical models at call time.
-  return fallbackActive && config.fallbackModel
-    ? { ...config, model: config.fallbackModel, fallbackModel: null }
-    : config;
+): EffectiveAiConfig {
+  const { primary, fallback, ...shared } = config;
+  const params = fallbackActive && fallback ? fallback : primary;
+  return { ...shared, ...params };
 }
-export function validateEndpoint(config: AiConfig) {
-  if (config.fallbackModel !== null) {
-    if (config.fallbackModel === config.model)
-      throw new AppError(400, "AI_FALLBACK_SAME_MODEL");
-    try {
-      validateEndpoint({
-        ...config,
-        model: config.fallbackModel,
-        fallbackModel: null,
-      });
-    } catch (e) {
-      // Name which model failed: the shared reasoning fields are validated
-      // against whichever model is being checked, and a rejection here is
-      // about the second model, not the primary one already validated above.
-      if (e instanceof AppError && e.code === "AI_REASONING_NOT_SUPPORTED")
-        throw new AppError(400, "AI_FALLBACK_REASONING_NOT_SUPPORTED");
-      throw e;
-    }
-  }
+// Lease must outlive the model call itself with room for the context fetch,
+// validation and publish steps that follow it in the same job.
+export const MIN_LEASE_SECONDS = 420;
+export const LEASE_BUFFER_SECONDS = 120;
+export function leaseSecondsFor(config: { timeoutSeconds: number }) {
+  return Math.max(MIN_LEASE_SECONDS, config.timeoutSeconds + LEASE_BUFFER_SECONDS);
+}
+function validateModelParams(
+  config: { provider: AiConfig["provider"]; baseUrl: string },
+  params: ModelParams,
+) {
+  const effective = { ...config, ...params };
   if (
-    !isAlibabaThinkingModel(config) &&
-    (config.enable_thinking !== undefined ||
-      config.thinking_budget != null ||
-      config.max_completion_tokens != null)
+    !isAlibabaThinkingModel(effective) &&
+    (params.enable_thinking !== undefined ||
+      params.thinking_budget != null ||
+      params.max_completion_tokens != null)
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
-  if (isAlibabaQwen(config) && !["none", "default"].includes(config.reasoning))
+  if (isAlibabaQwen(effective) && !["none", "default"].includes(params.reasoning))
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
-    isAlibabaDeepSeek(config) &&
-    !["none", "default", "high", "max"].includes(config.reasoning)
+    isAlibabaDeepSeek(effective) &&
+    !["none", "default", "high", "max"].includes(params.reasoning)
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
   if (
     config.provider === "nvidia" &&
-    ((config.model.startsWith("deepseek-ai/deepseek-v4-") &&
-      config.reasoning === "low") ||
-      (config.model === "moonshotai/kimi-k3" && config.reasoning === "none"))
+    ((params.model.startsWith("deepseek-ai/deepseek-v4-") &&
+      params.reasoning === "low") ||
+      (params.model === "moonshotai/kimi-k3" && params.reasoning === "none"))
   )
     throw new AppError(400, "AI_REASONING_NOT_SUPPORTED");
+}
+function validateHost(config: { provider: AiConfig["provider"]; baseUrl: string }) {
   const url = new URL(config.baseUrl);
   const hosts = (
     process.env.AI_ALLOWED_HOSTS ??
@@ -148,6 +175,31 @@ export function validateEndpoint(config: AiConfig) {
     url.hostname !== "integrate.api.nvidia.com"
   )
     throw new AppError(400, "AI_ENDPOINT_NOT_ALLOWED");
+}
+// Validates the persisted settings record: both model slots (primary always,
+// fallback when set) plus the shared endpoint. Called before saving.
+export function validateEndpoint(config: AiConfig) {
+  if (config.fallback) {
+    if (config.fallback.model === config.primary.model)
+      throw new AppError(400, "AI_FALLBACK_SAME_MODEL");
+    try {
+      validateModelParams(config, config.fallback);
+    } catch (e) {
+      // Name which model failed: primary is validated separately below, so a
+      // rejection here is about the second model, not the first.
+      if (e instanceof AppError && e.code === "AI_REASONING_NOT_SUPPORTED")
+        throw new AppError(400, "AI_FALLBACK_REASONING_NOT_SUPPORTED");
+      throw e;
+    }
+  }
+  validateModelParams(config, config.primary);
+  validateHost(config);
+}
+// Validates just the one model slot actually being called, as a defense-in-
+// depth check right before the HTTP request goes out.
+export function validateEffectiveEndpoint(config: EffectiveAiConfig) {
+  validateModelParams(config, config);
+  validateHost(config);
 }
 function key() {
   const v = process.env.AI_ENCRYPTION_KEY ?? "";
@@ -204,18 +256,18 @@ export type ModelObservation =
   | { type: "completion"; finishReason?: string; outputChars: number }
   | { type: "usage"; usage: Record<string, unknown> };
 export async function callModel(
-  config: AiConfig,
+  config: EffectiveAiConfig,
   secret: string,
   messages: unknown[],
   signal: AbortSignal,
   beforePoll?: () => Promise<void>,
   observe?: (event: ModelObservation) => void,
 ) {
-  validateEndpoint(config);
+  validateEffectiveEndpoint(config);
   let response = await fetch(
     config.baseUrl.replace(/\/$/, "") + "/chat/completions",
     {
-      ...modelTransport,
+      ...modelTransport(config.timeoutSeconds),
       method: "POST",
       redirect: "error",
       signal,
@@ -299,7 +351,7 @@ export async function callModel(
       response = await fetch(
         config.baseUrl.replace(/\/$/, "") + "/status/" + id,
         {
-          ...modelTransport,
+          ...modelTransport(config.timeoutSeconds),
           headers: { authorization: "Bearer " + secret },
           redirect: "error",
           signal,

@@ -46,7 +46,7 @@ const testInput = input.extend({
 });
 function resolveKey(
   row: Settings | undefined,
-  config: AiConfig,
+  config: { baseUrl: string },
   apiKey?: string,
 ) {
   if (apiKey?.trim()) return encryptSecret(apiKey.trim());
@@ -75,7 +75,7 @@ export function registerAiSettings(
       ).rows[0] as Settings | undefined;
       const config = aiConfig.parse(row?.config ?? defaults);
       const fallbackActive =
-        !!row?.fallback_active_since && !!config.fallbackModel;
+        !!row?.fallback_active_since && !!config.fallback;
       return {
         ...config,
         hasKey: !!row?.encrypted_key,
@@ -83,7 +83,9 @@ export function registerAiSettings(
         stoppedAt: row?.stopped_at ?? null,
         fallbackActive,
         fallbackActiveSince: fallbackActive ? row?.fallback_active_since : null,
-        activeModel: fallbackActive ? config.fallbackModel : config.model,
+        activeModel: fallbackActive
+          ? config.fallback!.model
+          : config.primary.model,
         version: row?.version ?? 0,
       };
     });
@@ -111,8 +113,8 @@ export function registerAiSettings(
       // this is how the user promotes the fallback and names a new one.
       const resetFallback =
         !row ||
-        row.config.model !== config.model ||
-        (row.config.fallbackModel ?? null) !== config.fallbackModel;
+        row.config.primary.model !== config.primary.model ||
+        (row.config.fallback?.model ?? null) !== (config.fallback?.model ?? null);
       await c.query(
         "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,fallback_active_since=CASE WHEN $4 THEN NULL ELSE ai_settings.fallback_active_since END,version=ai_settings.version+1,updated_at=now()",
         [ws, JSON.stringify(config), secret ?? null, resetFallback],
@@ -128,7 +130,7 @@ export function registerAiSettings(
       const body = testInput.parse(r.body),
         saved = body.config;
       validateEndpoint(saved);
-      if (body.target === "fallback" && !saved.fallbackModel)
+      if (body.target === "fallback" && !saved.fallback)
         throw new AppError(400, "AI_FALLBACK_MODEL_REQUIRED");
       const config = effectiveModelConfig(saved, body.target === "fallback");
       const encrypted = await scoped(r, async (c, ws) => {

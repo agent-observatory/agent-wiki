@@ -154,12 +154,12 @@ export async function refinementProgress(
       enabled: config.enabled,
       stoppedReason: settings?.stopped_reason ?? null,
       fallbackActive:
-        !!settings?.fallback_active_since && !!config.fallbackModel,
+        !!settings?.fallback_active_since && !!config.fallback,
       activeModel:
-        settings?.fallback_active_since && config.fallbackModel
-          ? config.fallbackModel
-          : config.model,
-      fallbackModel: config.fallbackModel,
+        settings?.fallback_active_since && config.fallback
+          ? config.fallback.model
+          : config.primary.model,
+      fallbackModel: config.fallback?.model ?? null,
       version: settings?.version ?? 0,
       dailyCalls: config.dailyCalls,
       requestsPerMinute: config.requestsPerMinute,
