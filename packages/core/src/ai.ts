@@ -82,8 +82,10 @@ export function effectiveModelConfig(
   config: AiConfig,
   fallbackActive: boolean,
 ): AiConfig {
+  // The effective config names a single model; keeping fallbackModel here
+  // would make validateEndpoint see two identical models at call time.
   return fallbackActive && config.fallbackModel
-    ? { ...config, model: config.fallbackModel }
+    ? { ...config, model: config.fallbackModel, fallbackModel: null }
     : config;
 }
 export function validateEndpoint(config: AiConfig) {

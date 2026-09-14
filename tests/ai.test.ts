@@ -9,6 +9,8 @@ import {
   aiConfig,
   ModelError,
   parseRetryAfter,
+  validateEndpoint,
+  effectiveModelConfig,
 } from "../packages/core/src/ai.js";
 const defaults = {
   ...baseDefaults,
@@ -632,4 +634,24 @@ test("failed JSON still reports usage and finish reason for later diagnosis", as
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("the effective fallback config passes endpoint validation as a single model", () => {
+  const config = aiConfig.parse({
+    ...baseDefaults,
+    provider: "openai-compatible",
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    model: "deepseek-v4-flash",
+    fallbackModel: "deepseek-v4-flash-0731",
+  });
+  validateEndpoint(config);
+  const effective = effectiveModelConfig(config, true);
+  assert.equal(effective.model, "deepseek-v4-flash-0731");
+  assert.equal(effective.fallbackModel, null);
+  validateEndpoint(effective);
+  assert.equal(effectiveModelConfig(config, false).model, "deepseek-v4-flash");
+  assert.throws(
+    () => validateEndpoint({ ...config, fallbackModel: config.model }),
+    (e: any) => e.code === "AI_FALLBACK_SAME_MODEL",
+  );
 });
