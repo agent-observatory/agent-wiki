@@ -61,7 +61,7 @@ async function main() {
         'search "question" [--tag TAG --view current|history --scope SCOPE]',
         'query search "keywords" [--view current|history|overview --scope SCOPE --limit N --trace ID]',
         "query claim ID --revision N --anchor ANCHOR [--depth 1 --trace ID]",
-        "query source ID --start N --end N [--trace ID] | query trace ID",
+        "query source ID --start N --end N [--trace ID] | query trace ID | query traces",
         "source add FILE [--kind conversation|document|code|note] [--origin LOCATION]",
         "source get ID [--start N --end N]",
         "publish FILE.json",
@@ -363,6 +363,7 @@ async function main() {
       const value = option(flag);
       if (value) fields[name] = value;
     }
+    if (action === "traces") return output(await request("/query/traces"));
     if (!id) throw new Error("Query text or ID required");
     let path;
     if (action === "search") {

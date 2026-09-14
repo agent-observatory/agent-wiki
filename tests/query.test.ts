@@ -37,7 +37,7 @@ async function add(
     key = ws + "/" + hash(raw) + ".txt.gz";
   await putSource(key, raw);
   await read(
-    "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'synthetic','conversation',$1::text,$3,$3,$4,2,$1::text,true)",
+    "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'synthetic','conversation',$1::text,$3,$3,$4,2,$1::text,true)",
     [src, ws, hash(raw), key],
   );
   const e = {
@@ -172,6 +172,8 @@ test("same trace connects seed, selected claim, exact relation evidence and sour
   );
   assert.equal(source.statusCode, 200, source.body);
   assert.ok(source.json().text.includes("호출 장애"));
+  const recent = (await api("/query/traces")).json();
+  assert.ok(recent.items.some((x: any) => x.traceId === trace));
   const audit = (await api("/query/traces/" + trace)).json();
   assert.equal(audit.steps, 3);
   assert.equal(audit.serverModelCalls, 0);

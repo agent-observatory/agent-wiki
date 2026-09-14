@@ -50,3 +50,20 @@ test("BM25 saturates repeated text; ties are stable; aliases and Korean particle
   )[0].score;
   assert.ok(many / one < 2.3);
 });
+
+// Regression suite predates BM25: retain multi-keyword coverage and literal names.
+test("existing retrieval questions retain relevant decisions over single-word title distractors", () => {
+  const old = JSON.parse(
+    readFileSync(
+      new URL("../experiments/retrieval/cases.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const docs = old.documents.map((d: any) => ({ ...d, id: d.key }));
+  for (const q of old.queries.filter((q: any) => !q.semantic))
+    assert.equal(
+      rankQueryDocuments(docs, q.q)[0]?.document.id,
+      q.expected,
+      q.q,
+    );
+});

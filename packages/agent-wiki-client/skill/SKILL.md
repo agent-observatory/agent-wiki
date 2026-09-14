@@ -31,7 +31,7 @@ Current lookup may include proposed/conflicted/unconfirmed claims; never flatten
 
 Reuse a fixed Version already read in this conversation for the same historical question. Recheck current state for questions about changes since then. Avoid rereading entire pages and raw sources already represented by sufficient claims.
 
-`agent-wiki query trace ID` reports actual server steps, returned character counts, selected claim/source references and latency. A detail read means selected evidence, not proof it was used in the final answer. L5 input/output/cache/reasoning tokens are unknown unless the host reports them; do not estimate them from the server's character count or call server retrieval free of all model cost. Server model calls are zero. Error events use the same trace ID in structured operational logs; successful retrieval metadata is retained for 30 days.
+`agent-wiki query traces` lists the latest 20 traces; `agent-wiki query trace ID` reports actual server steps, returned character counts, selected claim/source references and latency. A detail read means selected evidence, not proof it was used in the final answer. L5 input/output/cache/reasoning tokens are unknown unless the host reports them; do not estimate them from the server's character count or call server retrieval free of all model cost. Server model calls are zero. Error events use the same trace ID in structured operational logs; successful retrieval metadata is retained for 30 days.
 
 
 ## Curate and publish

@@ -32,7 +32,7 @@ const evidence = (e: any) => ({
   sourceId: e.source_id ?? e.sourceId,
   revision: 1,
   lines: e.lines ?? [e.line_start, e.line_end],
-  unavailable: e.unavailable ?? false,
+  unavailable: e.unavailable ?? null,
 });
 const nodeKey = (x: any) => [x.articleId, x.revision, x.anchor].join(":");
 export function registerQuery(
@@ -351,6 +351,7 @@ export function registerQuery(
       return {
         claim: {
           ...mapClaim(selected),
+          documentSupersededBy: d.supersededBy,
           reviewPending: d.reviewPending,
           reviewedAt: d.reviewed_at,
           currentRevision: d.currentRevision,
@@ -402,6 +403,18 @@ export function registerQuery(
         url: `${appUrl}/workspaces/${ws}/sources/${id}?revision=1&start=${q.start}&end=${q.end}`,
       };
     }),
+  );
+  app.get(base + "/traces", (r) =>
+    scoped(r, async (c, ws) => ({
+      items: (
+        await c.query(
+          `SELECT trace_id AS "traceId",count(*)::int steps,sum(response_chars)::int AS "responseChars",sum(duration_ms)::int AS "durationMs",max(created_at) AS "lastReadAt" FROM retrieval_events WHERE workspace_id=$1 AND created_at>now()-interval '30 days' GROUP BY trace_id ORDER BY max(created_at) DESC,trace_id LIMIT 20`,
+          [ws],
+        )
+      ).rows,
+      retentionDays: 30,
+      limit: 20,
+    })),
   );
   app.get(base + "/traces/:id", (r) =>
     scoped(r, async (c, ws) => {

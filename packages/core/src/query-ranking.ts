@@ -1,6 +1,6 @@
 import { lexicalTerms } from "./knowledge-candidates.js";
 import { searchTermGroups } from "./search-terms.js";
-export const QUERY_POLICY = "bm25-fields-1";
+export const QUERY_POLICY = "bm25-fields-coverage-1";
 export interface QueryDocument {
   id: string;
   title: string;
@@ -54,8 +54,18 @@ export function rankQueryDocuments<T extends QueryDocument>(
       });
       // Partial technical names and Korean compounds remain discoverable even
       // without a morphological tokenizer. Keep fallback below exact term hits.
-      let fallback = 0;
+      let fallback = 0,
+        coverage = 0;
       for (const group of searchTermGroups(query)) {
+        const raw = [
+          document.title,
+          ...(document.aliases ?? []),
+          ...(document.tags ?? []),
+          document.content,
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (group.some((t) => raw.includes(t))) coverage++;
         if (group.some((t) => document.title.toLowerCase().includes(t)))
           fallback += 0.03;
         else if (
@@ -70,11 +80,19 @@ export function rankQueryDocuments<T extends QueryDocument>(
         else if (group.some((t) => document.content.toLowerCase().includes(t)))
           fallback += 0.01;
       }
-      return { document, score: score + fallback, matched: [...matched] };
+      return {
+        document,
+        score: score + fallback,
+        coverage,
+        matched: [...matched],
+      };
     })
-    .filter((x) => x.score > 0)
+    .filter((x) => x.coverage > 0)
     .sort(
-      (a, b) => b.score - a.score || a.document.id.localeCompare(b.document.id),
+      (a, b) =>
+        b.coverage - a.coverage ||
+        b.score - a.score ||
+        a.document.id.localeCompare(b.document.id),
     );
 }
 export function legacyQueryRank<T extends QueryDocument>(
