@@ -12,6 +12,14 @@
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
+## 그림 연결 수정 · L2·L3 그림 한 장 통합 · 문서 변경
+
+2026-09-14. 사용자가 `wiki-knowledge-model.svg`의 화살표 오류를 눈으로 발견했다. 대체된 Decision A는 B의 supersedes 화살표만 받고 Wiki Page로 이어지지 않았고, B·C에서 내려온 화살표는 두 페이지 상자 사이의 빈칸에 닿았다. Decision History의 내용(NVIDIA → 호출 지연 → Alibaba)은 A에서 오는데 그림은 A를 막다른 카드로 보여줬다. 이제 A와 B는 Decision History로, B와 C는 현재 상태와 설명으로 각각 곧게 내려가며 두 페이지 상자의 좌우 위치를 출처에 맞게 바꿨다. supersedes 라벨은 A·B 사이 화살표에 붙이고 범례를 추가했으며 요청·응답인 L4 ↔ L5는 양방향으로 고쳤다. 정제 흐름 그림에서 관련 후보 화살표가 AI 카드로 가던 것은 입력 조립 카드로 고쳤고 `wiki-query.svg`에 범례를 추가했다. 그 밖의 배포·운영·재작업 그림은 상자 내용과 화살표 방향이 일치했다.
+
+사용자 요청으로 아키텍처 문서 밖의 그림 `wiki-curation.svg`·`wiki-decision-history.svg`·`wiki-curation-evaluation.svg`·`wiki-curation-rebuild.svg`·`wiki-review.svg`를 `wiki-l2-l3-memory.svg` 한 장(01–04, 1680×3960)으로 합쳤다. 정제 흐름과 결정 이력은 같은 NVIDIA → Alibaba 예시를 공유하므로 01 하나로 묶고 중복된 L3 A/B 상자를 하나로 줄였다. 어느 문서에도 삽입되지 않던 `wiki-layers.svg`는 `wiki-knowledge-model.svg`와 내용이 겹쳐 제거했다. 여섯 그림의 생성 코드와 파일을 지웠고 `l2-l3-memory.md`는 한 장을 한 번 삽입하며 검토 절은 그림의 04를 가리킨다. 현재 SVG는 아키텍처 5개와 통합 그림 1개다.
+
+검증: 생성기 재실행 일치(CI `Check diagrams`와 같은 명령)·XML·문서 상대 링크와 PNG 렌더링의 겹침·잘림을 확인했다. 문서·그림 변경이며 앱 배포·정제 상태·데이터는 바꾸지 않았다.
+
 ## 지식 페이지 정렬 수정 · 미배포
 
 2026-09-14. 사용자가 "인프라" Wiki Page를 열어보니 비슷한 주장이 시간순이 아니라 뒤섞여 있다고 지적했다("채팅 타임스탬프가 아니라 세션 업로드 타임스탬프 같다"). Fable과 함께 원인을 진단했다: `apps/agent-wiki-api/src/wiki-pages.ts`가 주장을 실제 대화 시각(`evidence_times`)이 아니라 **그 주장이 DB에 발행된 시각**(`a.created_at`)으로 정렬하고 있었다. 실제 프로덕션 데이터로 확인한 결과, 같은 시간대(2026-09-11 22:45~46)에 오간 대화 내용이 발행 시각 차이 때문에 하루 넘게 떨어진 위치("2026-09-13 20:23"과 "2026-09-14 05:44")에 표시되고 있었다.
