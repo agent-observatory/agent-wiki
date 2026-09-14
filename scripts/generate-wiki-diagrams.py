@@ -60,13 +60,13 @@ def card(x,y,w,h,title,lines,role='app',ico=None,highlight=False):
   icon(ico,x+w-44,y+20,24)
 
 
-canvas(1920,1280,'단일 VM · K3s 아키텍처','OCI A1 VM 하나에서 K3s server와 containerd가 앱을 관리한다. Traefik이 HTTPS 요청을 Service로 전달하고 cert-manager가 TLS Secret을 관리한다. PostgreSQL은 PVC와 local PV를 통해 기존 Block Volume을 사용한다. Collector 직접 업로드와 L1부터 L5까지의 책임은 유지한다.')
+canvas(1920,1400,'단일 VM · K3s 아키텍처','OCI A1 VM 하나에서 K3s server와 containerd가 앱을 관리한다. Traefik이 HTTPS 요청을 Service로 전달하고 cert-manager가 TLS Secret을 관리한다. PostgreSQL은 PVC와 local PV를 통해 기존 Block Volume을 사용한다. Collector는 압축 증분을 Object Storage에 직접 올리고, Worker가 그 원문을 검증·등록하고 텍스트를 읽어 정제한다. L1부터 L5까지의 책임은 유지한다.')
 legend(1110,87,'수집·지식 반영','ingest');legend(1370,87,'조회·응답','query');legend(1600,87,'설정·인증·저장','ops',True)
 a('<g transform="translate(0,-250)">')
 card(1640,410,240,120,'DuckDNS · 도메인',['VM 공인 주소 연결','agent-wiki.duckdns.org'],'web','tabler-world')
-card(1640,550,240,160,'agent-wiki-data',['Block Volume · 50GB','DB·K3s 영속 상태','부트 볼륨 50GB 별도'],'data','oracle')
+card(1640,550,240,160,'agent-wiki-data',['Block Volume · 50GB','VM 마운트 · DB·K3s 상태','부트 볼륨 50GB 별도'],'data','oracle')
 group(40,430,430,990);text(64,466,'사용자 기기',FONT['group'],True,'#FFFFFF')
-group(590,430,1010,990);icon('oracle',614,443,32)
+group(590,430,1010,1140);icon('oracle',614,443,32)
 text(660,466,'agent-wiki-vm · A1 · 2 OCPU / 12GB',FONT['group'],True,'#FFFFFF')
 icon('kubernetes',1180,443,32)
 text(1224,466,'K3s',FONT['group'],True,'#FFFFFF')
@@ -97,40 +97,45 @@ card(640,550,250,530,'agent-wiki-gateway',['Traefik','Reverse Proxy','외부 TCP
 text(660,817,'/ → agent-wiki-web',FONT['body'])
 text(660,861,'/api → agent-wiki-api',FONT['body'])
 card(940,550,280,130,'agent-wiki-web',['Next.js · 내부 3000','Deployment + Service'],'web','nextdotjs')
-card(940,820,280,260,'agent-wiki-api',['Fastify · 내부 3001','Deployment + Service','수집 허가·검증·L1 확정','검색·지식·설정·검토','수집·조회 HTTP API'],'app','fastify')
+card(940,820,280,260,'agent-wiki-api',['Fastify · 내부 3001','Deployment + Service','수집 허가 · 수신 검증 조율','검색·지식·설정·검토','수집·조회 HTTP API'],'app','fastify')
 card(1280,820,280,210,'agent-wiki-db',['PostgreSQL · 내부 5432','StatefulSet + Service','지식·근거·변경 관계','관리 접속 · 외부 5432'],'data','postgresql')
 
 # The disk is attached to the VM. PVC/PV binds its mounted PostgreSQL path.
-path('M1640 625 H1560',True);text(1480,735,'VM 마운트',FONT['label'])
+path('M1640 625 H1560',True)
 card(1280,550,280,150,'agent-wiki-db-data',['PVC → local PV','Block Volume의 DB 경로','Retain · 노드 고정'],'data','tabler-book-2')
 path('M1420 820 V700',True);text(1438,764,'데이터 읽기·쓰기',FONT['label'])
 
-# API only orchestrates source registration; collector bytes bypass the VM.
-path('M1220 1060 H1640',True,both=True);text(1310,1090,'원문 허가·검증',FONT['label'])
+# API issues upload grants; collector bytes bypass the VM. Worker verifies the staged
+# upload, writes the immutable L1 object and later reads its text for chunking.
+path('M1220 1060 H1640',True,both=True);text(1310,1090,'업로드 허가 · PAR 발급',FONT['label'])
 card(1640,890,240,190,'agent-wiki-sources',['OCI Object Storage','불변 L1 · 압축 보관','텍스트·이미지 분리'],'data','oracle')
-path('M418 1300 H480 V1470 H1900 V1000 H1880',flow='ingest')
-text(650,1500,'압축 증분 직접 업로드 · 본문은 VM을 통과하지 않음',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M418 1300 H480 V1600 H1900 V1000 H1880',flow='ingest')
+text(650,1630,'압축 증분 직접 업로드 · 본문은 VM을 통과하지 않음',FONT['label'],True,FLOW_COLORS['ingest'])
 
-# Worker executes domain code and accesses DB directly.
-path('M1220 1195 H1250 V1010 H1280',flow='ingest',both=True)
-card(940,1140,280,220,'agent-wiki-worker',['Deployment · 원격 정제','텍스트 청킹·주장 추출','기존 지식 비교·관계 연결','BYOK · RPM·동시성 제어','수신 포트 없음'],'ingest','tabler-cpu')
-path('M1220 1330 H1640',flow='ingest',both=True)
-text(1310,1357,'텍스트·정제 결과',FONT['label'],True,FLOW_COLORS['ingest'])
-card(1640,1285,240,100,'AI Provider',[],'ai','openai')
+# Worker executes domain code and accesses DB and Object Storage directly.
+path('M1220 1170 H1250 V1010 H1280',flow='ingest',both=True)
+card(940,1140,280,250,'agent-wiki-worker',['Deployment · 원격 정제','수신 검증 · 불변 L1 등록','텍스트 청킹·주장 추출','기존 지식 비교·관계 연결','BYOK · RPM·동시성 제어','수신 포트 없음'],'ingest','tabler-cpu')
+path('M1700 1080 V1120 H1600 V1210 H1220',flow='ingest',both=True)
+text(1300,1202,'원문 검증·등록 · 텍스트 읽기',FONT['label'],True,FLOW_COLORS['ingest'])
+path('M1220 1250 H1640',flow='ingest',both=True)
+text(1300,1277,'텍스트·정제 결과',FONT['label'],True,FLOW_COLORS['ingest'])
+card(1640,1200,240,100,'AI Provider',[],'ai','openai')
 
-# Control components are shown off the application request path.
-card(640,1140,250,220,'K3s 제어·실행',['API Server · 6443','kubelet · 10250','Scheduler · 10259','containerd · 로컬 통신','관리 포트 · 외부 비공개'],'ops','kubernetes')
-card(1280,1140,280,170,'cert-manager',['인증서 발급·자동 갱신','Webhook · 내부 443','ACME · 외부 443'],'ops','tabler-clipboard-check')
-card(1640,1130,240,130,'인증서 발급 기관',['ACME · Let’s Encrypt','도메인 소유 확인'],'ops','letsencrypt')
-path('M1560 1225 H1640',True,both=True)
-path('M1420 1140 V1095 H770 V1080',True);text(785,1119,'TLS Secret',FONT['label'])
+# cert-manager sits under the gateway so the TLS Secret hand-off is one short line.
+card(640,1140,250,170,'cert-manager',['인증서 발급·자동 갱신','Webhook · 내부 443','ACME · 외부 443'],'ops','tabler-clipboard-check')
+path('M765 1140 V1080',True);text(780,1115,'TLS Secret',FONT['label'])
+card(1640,1320,240,130,'인증서 발급 기관',['ACME · Let’s Encrypt','도메인 소유 확인'],'ops','letsencrypt')
+path('M765 1310 V1420 H1600 V1385 H1640',True,both=True)
+
+# Control plane is shown off the application request path as one strip.
+card(640,1450,920,100,'K3s 제어·실행',['API Server 6443 · kubelet 10250 · Scheduler 10259 · containerd 로컬 · 관리 포트 외부 비공개'],'ops','kubernetes')
 for right,by,n,width in [(424,734,5,150),(404,1159,1,170),(1206,1124,2,152),(1546,804,3,172),(1206,804,4,132),(1866,874,1,170)]:
  bx=right-width
  box(bx,by,width,32,'#344256','#344256');text(bx+12,by+23,layer_label(n),FONT['label'],True,'#FFFFFF')
 a('</g>')
 end('docs/assets/wiki-deployment.svg')
 
-canvas(1560,1210,'운영 · 사용자 작업과 백그라운드 처리 분리','목표 운영 구성. 기존 VM과 볼륨, 도메인, 인증서, OAuth, 비용과 오류 모니터링을 재사용한다. CLI 반영의 멱등성과 API 정상 종료를 검증한다. 앱이 Slack을 직접 호출하지 않는다.')
+canvas(1560,1210,'운영 · 인프라 · 배포 · 알림 · 별도 수집','목표 운영 구성을 다섯 줄로 본다. 인프라와 앱 배포, 오류 로그와 비용 알림의 전달 경로, 작업 대화와 분리된 수집·정제다. 기존 VM과 볼륨, 도메인, 인증서, 비용과 오류 모니터링을 재사용한다. 앱이 Slack을 직접 호출하지 않는다.')
 rows=[(190,'01','인프라',[
  ('terraform','Terraform / HCL','기존 VM · 볼륨 · 버킷 유지','VM 사양·데이터 경로 유지'),('ubuntu','cloud-init / systemd','디스크 마운트 · K3s 기동','OS·K3s 업데이트 직접 관리'),('kubernetes','K3s','Traefik · Web · API · PostgreSQL','원격 정제 Worker · 별도 실행')]),
  (385,'02','앱 배포',[
@@ -242,11 +247,13 @@ text(40,3920,'Version 3은 검토 완료인 Version 1과 비교 · 검토 이력
 end('docs/assets/wiki-l2-l3-memory.svg')
 
 # One diagram connects the layer model, atomic decisions and a readable topic page.
-canvas(1560,1260,'원문 → Claims · Decisions → Wiki Pages → 답변','L1–L5와 L3 내부 지식 구성을 한 그림으로 설명한다. L2는 근거 ID로 원문을 연결하고 주제별 페이지를 구성한다. L3는 작은 주장·결정과 읽기용 페이지를 구분하며 과거 결정과 변경 이유를 보존한다. 현재 상태는 현재 결정 B·C에서, Decision History는 이전 결정 A와 B의 대체 관계에서 구성한다. 아래 제공자 변경은 합성 예시다.')
+canvas(1560,1260,'원문 → Claims · Decisions → Wiki Pages → 답변','L1–L5와 L3 내부 지식 구성을 한 그림으로 설명한다. L2는 근거 ID로 원문을 연결하고 L3의 기존 주장을 참고해 비교한 뒤 주제별 페이지를 구성한다. L3는 작은 주장·결정과 읽기용 페이지를 구분하며 과거 결정과 변경 이유를 보존한다. 현재 상태는 현재 결정 B·C에서, Decision History는 이전 결정 A와 B의 대체 관계에서 구성한다. 아래 제공자 변경은 합성 예시다.')
 legend(900,87,'정제·반영','ingest');legend(1120,87,'대체 관계','relation');legend(1340,87,'조회·반환','query')
 card(40,180,650,155,layer_label(1),['원문 대화 · 세션별 불변 증분','Evidence · 선택한 기록의 원문 근거'],'data',highlight=True)
 card(870,180,650,155,layer_label(2),['주장 추출 · 기존 결정과 비교 · 근거 검증','Topic 분류 · 변경 관계 · 페이지 구성'],'ingest',highlight=True)
 path('M690 257 H870',flow='ingest');path('M1195 335 V375 H375 V420',flow='ingest')
+# L2 compares new claims with what L3 already holds: a read back up, not a second write path.
+path('M1400 420 V335',flow='query');text(1412,385,'기존 주장 참고',FONT['label'],True,FLOW_COLORS['query'])
 group(40,420,1480,570)
 text(64,456,layer_label(3)+' · Claims와 Wiki Pages',FONT['group'],True,'#FFFFFF')
 card(64,498,390,155,'Decision A · 이전 결정',['정제 Provider = NVIDIA','대체됨 · 근거와 함께 보존'],'ops')
@@ -270,6 +277,7 @@ text(40,1239,'예시 페이지 ‘AI 정제 연결’ · Decision은 Claim의 �
 end('docs/assets/wiki-knowledge-model.svg')
 
 canvas(1560,820,'원문을 보존하며 분석·조립을 개선한다','Retry는 실패한 청크부터 이어간다. Reprocess는 성공한 분석 범위를 새 분석으로 비교하고 사용자가 확인한 정정만 반영한다. Reassemble은 기존 주장을 모델 호출 없이 새 페이지 Version으로 조립한다. 분석 정정은 사용자의 과거 결정 변경과 구분한다.')
+legend(1120,87,'재작업 → 결과','ingest');legend(1340,87,'구분 기준','ops',True)
 card(40,180,460,180,'Retry · 실패 부분 재시도',['실패한 청크부터 다시 실행','성공한 청크·근거·처리 위치 유지','반복 출력 오류는 3회 뒤 확인 필요'],'ingest')
 card(550,180,460,180,'Reprocess · 선택한 범위 재분석',['성공한 실행의 원문 범위를 고정','새 분석 또는 저장 출력 재검증','이전 주장·근거와 변경 후보 비교'],'ai')
 card(1060,180,460,180,'Reassemble · 페이지 재조립',['현재 Claims·Evidence를 다시 구성','제목별 묶음 · 근거 기록 시각','모델 호출 없음'],'data')
@@ -277,23 +285,27 @@ path('M270 360 V420',flow='ingest');path('M780 360 V420',flow='ingest');path('M1
 card(40,420,460,190,'다음 처리 위치로 진행',['같은 청크를 무한 반복하지 않음','인증·할당량 오류는 별도로 분류','원문과 과거 실행 이력은 보존'],'ops')
 card(550,420,460,190,'검토 후보 · 아직 미반영',['기존 지식을 즉시 덮어쓰지 않음','에이전트가 개념별 차이를 설명','사용자 확인 후 고정 Version에 반영'],'app')
 card(1060,420,460,190,'Wiki Page · 새 Version',['내용이 바뀐 주제만 새 Version','기존 Claim·검토 상태는 유지','과거 페이지도 조회 가능'],'data')
-path('M780 610 V656',flow='relation')
+# A caveat, not a flow: dashed grey so it is not read as the purple supersedes relation.
+path('M780 610 V656',True)
 card(550,656,460,90,'분석 정정 ≠ 사용자 결정 변경',[],'ops')
 text(40,792,'L1은 불변 · 입력/출력/캐시/추론 사용량을 분리 기록 · 정제 시작·중지는 사용자 명령',FONT['body'],True)
 end('docs/assets/wiki-reprocessing.svg')
 
-canvas(1560,850,'L4 · Query / L5 · Answers','작업 에이전트가 질문 목적을 정하고 짧은 후보에서 주장·변경 관계·원문으로 확장한다. 조회는 정제를 시작하지 않으며 서버 모델 호출이 없다.')
-legend(1080,87,'조회·반환','query');legend(1300,87,'관계·근거','relation')
+canvas(1560,850,'L4 · Query / L5 · Answers','작업 에이전트가 질문 목적을 정하고 짧은 후보에서 주장·변경 관계·원문으로 확장한다. L4가 L3 주장과 L1 원문 구간을 읽어 선택한 근거를 L5에 돌려준다. 조회는 정제를 시작하지 않으며 서버 모델 호출이 없다.')
+legend(870,87,'조회 기록','ops',True);legend(1080,87,'조회·반환','query');legend(1300,87,'관계·근거','relation')
 card(40,190,430,235,'L5 · Answers',['Codex · Claude + 조회 Skill','현재 / 변경 이유 / 개요 판단','근거 부족 시 검색어·깊이 조정','충분하면 고정 Version으로 인용'],'app','tabler-cpu')
 card(555,190,430,235,'L4 · Query',['Wiki CLI · query','BM25 · 제목·별칭·본문','짧은 후보 → Claim → 원문','현재 / 이력 / 개요 · 상태 구분'],'web','tabler-book-2')
 card(1070,190,450,235,'L3 · Knowledge',['Claims · Wiki Pages','현재·과거·검토 의견·충돌','대체·철회 관계와 변경 근거','주제별 페이지는 탐색 안내','같은 Workspace에서 조회'],'data','tabler-book-2')
 path('M470 255 H555',flow='query');path('M985 255 H1070',flow='query')
-path('M1070 365 H985',flow='relation');path('M555 365 H470',flow='query')
+path('M1070 365 H985',flow='relation')
 card(1070,490,450,145,'L1 · Raw Sources',['필요한 근거 구간만 읽기','불변 원문 · 해시·위치 확인'],'data','tabler-book-2')
-path('M770 425 V557 H1070',flow='query')
-path('M1295 635 V680 H20 V365 H40',flow='query')
-text(420,668,'선택한 근거 반환 · 미반영 / 없음 / 실패 / 잘림을 구분',FONT['label'],True)
-card(40,490,620,145,'조회 이력 · 평가',['동일 traceId · 조회 단계·선택 근거·반환량·지연','합성 10문항 + 상태·관계·격리 통합 검사'],'ops','tabler-clipboard-check')
+# L4 reads the raw excerpt itself; the agent never touches Object Storage, so the
+# return to L5 starts at L4, not at L1.
+path('M770 425 V557 H1070',flow='query',both=True)
+path('M620 425 V680 H20 V365 H40',flow='query')
+text(110,668,'선택한 근거 반환 · 미반영 / 없음 / 실패 / 잘림을 구분',FONT['label'],True)
+card(40,490,520,145,'조회 이력 · 평가',['동일 traceId · 조회 단계·선택 근거·반환량·지연','합성 10문항 + 상태·관계·격리 통합 검사'],'ops','tabler-clipboard-check')
+path('M585 425 V560 H560',True)
 box(40,730,1480,74,'#F1F2F4','#929EAD');text(64,762,'서버 AI 호출 0회 · 정제 상태 유지 · 최대 12단계 / 64,000자 · L5 토큰은 별도 관측',FONT['body'],True)
 text(64,790,'임베딩·모델 리랭커는 검색 실패 사례가 쌓인 뒤 평가한다.',FONT['label'])
 end('docs/assets/wiki-query.svg')

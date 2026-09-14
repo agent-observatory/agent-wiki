@@ -2,6 +2,10 @@
 <text x="40" y="42" font-size="16" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">원문을 보존하며 분석·조립을 개선한다</text>
 <path d="M40 137 H1520" stroke="#172C4B" stroke-width="2"/>
+<path d="M1120 87 H1168" fill="none" stroke="#B35C00" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-ingest)"/>
+<text x="1182" y="93" font-size="16" font-weight="700" fill="#B35C00">재작업 → 결과</text>
+<path d="M1340 87 H1388" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
+<text x="1402" y="93" font-size="16" font-weight="700" fill="#68778B">구분 기준</text>
 <rect x="40" y="180" width="460" height="180" rx="6" fill="#FDE7C2" stroke="#C89A55"/>
 <text x="60" y="222" font-size="20" font-weight="700" fill="#172C4B">Retry · 실패 부분 재시도</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="240" color="#172C4B">
@@ -70,7 +74,7 @@
 <text x="1114" y="500" font-size="18" font-weight="400" fill="#172C4B">내용이 바뀐 주제만 새 Version</text>
 <text x="1080" y="531" font-size="18" font-weight="400" fill="#172C4B">기존 Claim·검토 상태는 유지</text>
 <text x="1080" y="562" font-size="18" font-weight="400" fill="#172C4B">과거 페이지도 조회 가능</text>
-<path d="M780 610 V656" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
+<path d="M780 610 V656" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <rect x="550" y="656" width="460" height="90" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <text x="570" y="698" font-size="20" font-weight="700" fill="#172C4B">분석 정정 ≠ 사용자 결정 변경</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="966" y="676" color="#172C4B">

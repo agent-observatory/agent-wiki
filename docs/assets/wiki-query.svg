@@ -1,7 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="850" viewBox="0 0 1560 850" role="img" aria-labelledby="title desc"><title id="title">L4 · Query / L5 · Answers</title><desc id="desc">작업 에이전트가 질문 목적을 정하고 짧은 후보에서 주장·변경 관계·원문으로 확장한다. 조회는 정제를 시작하지 않으며 서버 모델 호출이 없다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="850" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="850" viewBox="0 0 1560 850" role="img" aria-labelledby="title desc"><title id="title">L4 · Query / L5 · Answers</title><desc id="desc">작업 에이전트가 질문 목적을 정하고 짧은 후보에서 주장·변경 관계·원문으로 확장한다. L4가 L3 주장과 L1 원문 구간을 읽어 선택한 근거를 L5에 돌려준다. 조회는 정제를 시작하지 않으며 서버 모델 호출이 없다.</desc><defs><marker id="arrow-ingest" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#B35C00" stroke-width="2"/></marker><marker id="arrow-query" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#245CC5" stroke-width="2"/></marker><marker id="arrow-ops" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#68778B" stroke-width="2"/></marker><marker id="arrow-relation" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="#8054A3" stroke-width="2"/></marker></defs><g font-family="Noto Sans KR, sans-serif"><rect width="1560" height="850" fill="#FFFFFF"/>
 <text x="40" y="42" font-size="16" font-weight="700" fill="#526A86">AGENT WIKI / ARCHITECTURE</text>
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">L4 · Query / L5 · Answers</text>
 <path d="M40 137 H1520" stroke="#172C4B" stroke-width="2"/>
+<path d="M870 87 H918" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
+<text x="932" y="93" font-size="16" font-weight="700" fill="#68778B">조회 기록</text>
 <path d="M1080 87 H1128" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <text x="1142" y="93" font-size="16" font-weight="700" fill="#245CC5">조회·반환</text>
 <path d="M1300 87 H1348" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
@@ -50,7 +52,6 @@
 <path d="M470 255 H555" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <path d="M985 255 H1070" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <path d="M1070 365 H985" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
-<path d="M555 365 H470" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <rect x="1070" y="490" width="450" height="145" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
 <text x="1090" y="532" font-size="20" font-weight="700" fill="#172C4B">L1 · Raw Sources</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1090" y="550" color="#172C4B">
@@ -60,10 +61,10 @@
 </svg>
 <text x="1124" y="570" font-size="18" font-weight="400" fill="#172C4B">필요한 근거 구간만 읽기</text>
 <text x="1090" y="601" font-size="18" font-weight="400" fill="#172C4B">불변 원문 · 해시·위치 확인</text>
-<path d="M770 425 V557 H1070" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
-<path d="M1295 635 V680 H20 V365 H40" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
-<text x="420" y="668" font-size="16" font-weight="700" fill="#172C4B">선택한 근거 반환 · 미반영 / 없음 / 실패 / 잘림을 구분</text>
-<rect x="40" y="490" width="620" height="145" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
+<path d="M770 425 V557 H1070" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)" marker-start="url(#arrow-query)"/>
+<path d="M620 425 V680 H20 V365 H40" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
+<text x="110" y="668" font-size="16" font-weight="700" fill="#172C4B">선택한 근거 반환 · 미반영 / 없음 / 실패 / 잘림을 구분</text>
+<rect x="40" y="490" width="520" height="145" rx="6" fill="#E3E7ED" stroke="#929EAD"/>
 <text x="60" y="532" font-size="20" font-weight="700" fill="#172C4B">조회 이력 · 평가</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="550" color="#172C4B">
   <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
@@ -72,6 +73,7 @@
 </svg>
 <text x="94" y="570" font-size="18" font-weight="400" fill="#172C4B">동일 traceId · 조회 단계·선택 근거·반환량·지연</text>
 <text x="60" y="601" font-size="18" font-weight="400" fill="#172C4B">합성 10문항 + 상태·관계·격리 통합 검사</text>
+<path d="M585 425 V560 H560" fill="none" stroke="#68778B" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-ops)"/>
 <rect x="40" y="730" width="1480" height="74" rx="6" fill="#F1F2F4" stroke="#929EAD"/>
 <text x="64" y="762" font-size="18" font-weight="700" fill="#172C4B">서버 AI 호출 0회 · 정제 상태 유지 · 최대 12단계 / 64,000자 · L5 토큰은 별도 관측</text>
 <text x="64" y="790" font-size="16" font-weight="400" fill="#172C4B">임베딩·모델 리랭커는 검색 실패 사례가 쌓인 뒤 평가한다.</text>
