@@ -45,7 +45,7 @@
 - Worker·Reprocess는 1번 모델 호출이 `AI_FREE_QUOTA_EXHAUSTED`이면 그 실행 안에서 2번 모델로 한 번 더 호출한다(호출 간격 준수, `httpRequests` +1). Workspace `ai_settings.fallback_active_since`에 기록해 이후 실행은 2번으로 시작한다. 설정 Version은 바꾸지 않아 진행 중 작업이 끊기지 않는다. 실행 이력 `settings.model`·`fallbackFrom`과 진단 `fallback{from,to,reason,at}`으로 모델별 통계가 분리된다.
 - `model` 또는 `fallbackModel`을 바꿔 저장하면 `fallback_active_since`가 지워져 1번부터 다시 쓴다. 2번도 소진되거나 2번이 없으면 기존 안전 중지(`enabled=false`·중지 이유)가 그대로다. 무료 할당량 이외의 오류는 모델을 바꾸지 않는다.
 - AGENTS.md·Skill·설계 문서의 "자동 모델 전환 없음" 규칙을 "사용자가 지정한 2번 모델로의 전환만 자동"으로 고쳤다. Client 0.7.5.
-- 검증: Worker 통합 검사(1번 소진 → 2번 완료, 다음 작업은 2번으로 시작, 승격 저장 후 해제, 2번 부재 시 중지)와 설정 API 검사(동일 모델 거부, 표시, 2번 없는 Hello 거부)를 추가했다. 스키마는 `fallback_active_since` 열 추가만이며 배포 시 migration Job이 적용한다.
+- 검증: Worker 통합 검사(1번 소진 → 2번 완료, 다음 작업은 2번으로 시작, 승격 저장 후 해제, 2번 부재 시 중지)와 설정 API 검사(동일 모델 거부, 표시, 2번 없는 Hello 거부)를 추가했다. 첫 배포 직후 사용자의 웹 "2번 모델 테스트"가 `AI_FALLBACK_SAME_MODEL`로 실패했다. 전환한 설정 객체에 `fallbackModel`이 남아 호출 직전 검증이 두 모델을 같다고 본 버그였고, 주입 모델을 쓰는 테스트는 그 검증을 지나쳐 잡지 못했다. `bdf3391`에서 전환 설정의 `fallbackModel`을 null로 두고 검증 단계 테스트를 추가해 [재배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34819312237)했다. 재배포 후 CLI `ai test --fallback`으로 운영 2번 모델 Hello가 성공했다(2.2초·입력 93·출력 22). 이 Hello 1회가 유일한 추가 모델 호출이다. 스키마는 `fallback_active_since` 열 추가만이며 배포 시 migration Job이 적용한다.
 
 ### 조각 크기 · 추정기 전환
 
