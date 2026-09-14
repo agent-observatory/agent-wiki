@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Heading, Loading, Failure, Empty, When } from "./common";
+import { Heading, Loading, Failure, Empty, When, Section } from "./common";
 const statuses: Record<string, string> = {
   uploading: "전송 중",
   queued: "검증 대기",
@@ -273,23 +273,26 @@ function SourcesContent() {
                 </section>
               </div>
 
-              <RefinementSessions workspaceId={workspaceId} />
+              <Section
+                title={`정제 세션 · ${jobs.data.progress.sessions.total.toLocaleString()}개`}
+              >
+                <RefinementSessions workspaceId={workspaceId} />
+              </Section>
               <RefinementHealth data={jobs.data.health} />
               {!!jobs.data.runs.length && (
-                <section className="mt-8">
-                  <h2 className="font-semibold mb-4">호출 이력</h2>
+                <Section title="호출 이력">
                   <div className="divide-y border-y">
                     {jobs.data.runs.map((r: any) => (
                       <CallHistoryRow key={r.id} run={r} />
                     ))}
                   </div>
-                </section>
+                  <Pagination
+                    data={jobs.data.pagination.runs}
+                    pageKey="runsPage"
+                    label="호출 이력"
+                  />
+                </Section>
               )}
-              <Pagination
-                data={jobs.data.pagination.runs}
-                pageKey="runsPage"
-                label="호출 이력"
-              />
             </>
           )}
         </TabsContent>
@@ -529,8 +532,7 @@ function RefinementHealth({ data }: { data: any }) {
   if (!data) return null;
   if (!data.errors.length) return null;
   return (
-    <section className="mt-8" aria-label="반복 오류">
-      <h2 className="font-semibold mb-3">반복 오류 · 상위 10개</h2>
+    <Section title="반복 오류 · 상위 10개">
       <div className="space-y-2">
         {data.errors.map((e: any) => (
           <div
@@ -552,6 +554,6 @@ function RefinementHealth({ data }: { data: any }) {
           </div>
         ))}
       </div>
-    </section>
+    </Section>
   );
 }

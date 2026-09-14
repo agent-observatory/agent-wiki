@@ -2,9 +2,30 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ChevronRight } from "lucide-react";
 import { errorText } from "@/lib/api";
 import { formatWhen } from "@/lib/time";
+// Collapsed by default: these hold detail lists further down the page that
+// are secondary to the summary cards/table above them.
+export function Section({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="mt-8 group" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
+        <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
+        {title}
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
+  );
+}
 export function Loading() {
   return (
     <div className="space-y-4" aria-label="불러오는 중">

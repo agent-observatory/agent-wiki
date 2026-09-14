@@ -305,6 +305,7 @@ function AIConnectionForm({
     label: string,
     min?: number,
     max?: number,
+    placeholder?: string,
   ) => (
     <label
       key={name}
@@ -315,6 +316,7 @@ function AIConnectionForm({
         type={min === undefined ? "text" : "number"}
         min={min}
         max={max}
+        placeholder={placeholder}
         value={String(draft[name] ?? "")}
         onChange={(e) =>
           updateShared(
@@ -336,6 +338,7 @@ function AIConnectionForm({
     label: string,
     min?: number,
     max?: number,
+    placeholder?: string,
   ) {
     return (
       <label
@@ -347,6 +350,7 @@ function AIConnectionForm({
           type={min === undefined ? "text" : "number"}
           min={min}
           max={max}
+          placeholder={placeholder}
           value={String(data[name] ?? "")}
           onChange={(e) =>
             updateSlot(
@@ -381,9 +385,10 @@ function AIConnectionForm({
               slotName,
               data,
               "max_completion_tokens",
-              "max_completion_tokens · 비우면 기본값",
+              "max_completion_tokens",
               512,
               32768,
+              "비우면 기본값",
             )
           : slotField(slotName, data, "maxTokens", "max_tokens", 512, 16384)}
         <label className="flex items-center justify-between py-3 text-sm">
@@ -415,7 +420,7 @@ function AIConnectionForm({
                 </SelectContent>
               </Select>
             </label>
-            {slotField(slotName, data, "thinking_budget", "thinking_budget · 선택", 1, 32768)}
+            {slotField(slotName, data, "thinking_budget", "thinking_budget", 1, 32768, "선택")}
           </>
         )}
       </div>
@@ -447,7 +452,7 @@ function AIConnectionForm({
         {sharedField("requestsPerMinute", "requestsPerMinute", 1, 120)}
         {sharedField("concurrency", "concurrency", 1, 5)}
         {sharedField("retryDelaySeconds", "retryDelaySeconds", 5, 600)}
-        {sharedField("dailyCalls", "dailyCalls · 선택", 1, 1000)}
+        {sharedField("dailyCalls", "dailyCalls", 1, 1000, "선택")}
         <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
           <span>maxInputChars(1번)</span>
           <Input

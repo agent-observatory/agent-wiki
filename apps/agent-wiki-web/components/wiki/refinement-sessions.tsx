@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi, api } from "@/lib/api";
 import { When } from "./common";
 import { Progress } from "@/components/ui/progress";
@@ -33,8 +33,21 @@ type Session = {
   reflected_at: string | null;
 };
 type Page = { page: number; pageSize: number; hasNext: boolean };
+// Simplified 3-bucket view of the finer session states above, shown as an
+// enum-style label so the filter and the per-row badge stay in sync.
+const sessionStatuses = ["PENDING", "IN_PROGRESS", "DONE"] as const;
+type SessionStatus = (typeof sessionStatuses)[number];
+function sessionStatus(state: Session["state"]): SessionStatus {
+  return state === "waiting"
+    ? "PENDING"
+    : state === "current"
+      ? "DONE"
+      : "IN_PROGRESS";
+}
 export function RefinementSessions(props: Props) {
   const query = useSearchParams();
+  const router = useRouter();
+  const status = query.get("sessionsStatus");
   const { data, error, reload } = useApi<{
     items: Session[];
     total: number;
@@ -43,13 +56,39 @@ export function RefinementSessions(props: Props) {
     `/api/workspaces/${props.workspaceId}/refinement-sessions?${query}`,
     15000,
   );
+  function setStatus(value: SessionStatus | null) {
+    const next = new URLSearchParams(query);
+    next.delete("sessionsPage");
+    if (value) next.set("sessionsStatus", value);
+    else next.delete("sessionsStatus");
+    router.push(`?${next}`, { scroll: false });
+  }
   if (error) return <Failure error={error} />;
   if (!data) return <Loading />;
   return (
     <>
-      <p className="mb-4 text-xs text-muted-foreground">
-        전체 {data.total.toLocaleString()}개 세션
-      </p>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <p className="text-xs text-muted-foreground">
+          전체 {data.total.toLocaleString()}개 세션
+        </p>
+        <div className="ml-auto flex gap-1 text-xs">
+          {[null, ...sessionStatuses].map((value) => (
+            <button
+              key={value ?? "all"}
+              type="button"
+              onClick={() => setStatus(value)}
+              className={
+                "rounded-md border px-2 py-1 " +
+                ((value ?? null) === status
+                  ? "border-foreground bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+            >
+              {value ?? "전체"}
+            </button>
+          ))}
+        </div>
+      </div>
       {!data.items.length ? (
         <Empty>수집한 원문이 들어오면 정제 작업이 표시됩니다.</Empty>
       ) : (
@@ -89,16 +128,7 @@ export function RefinementSessions(props: Props) {
                                 : "pending"
                       }
                     >
-                      {
-                        {
-                          waiting: "정제 대기",
-                          curating: "정제 중",
-                          applying: "지식 반영 중",
-                          retrying: "재시도 대기",
-                          attention: "확인 필요",
-                          current: "최신 수집분 반영 완료",
-                        }[session.state]
-                      }
+                      {sessionStatus(session.state)}
                     </StatusBadge>
                   </div>
                 </TableCell>

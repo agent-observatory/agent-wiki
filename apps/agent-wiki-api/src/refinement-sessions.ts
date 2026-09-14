@@ -7,13 +7,31 @@ const visibleJobs = `FROM refinement_jobs j JOIN sources s
   ON s.workspace_id=j.workspace_id AND s.id=j.source_id
   WHERE j.workspace_id=$1 AND s.deleted_at IS NULL`;
 
+// A simplified 3-state view over the finer-grained session states shown in
+// the detail table: not started, actively being worked (including retry and
+// needs-attention), or done.
+export const sessionStatuses = ["PENDING", "IN_PROGRESS", "DONE"] as const;
+export function sessionStatus(state: string) {
+  return state === "waiting"
+    ? "PENDING"
+    : state === "current"
+      ? "DONE"
+      : "IN_PROGRESS";
+}
+
 export async function refinementSessions(
   c: PoolClient,
   ws: string,
   query: unknown,
 ) {
   const page = pagination(query, "sessionsPage");
-  const sessions = await sessionProgress(c, ws);
+  const status = (query as { status?: unknown } | null)?.status;
+  const all = await sessionProgress(c, ws);
+  const sessions =
+    typeof status === "string" &&
+    (sessionStatuses as readonly string[]).includes(status)
+      ? all.filter((s) => sessionStatus(s.state) === status)
+      : all;
   return {
     ...paged(sessions.slice(page.offset, page.offset + page.size + 1), page),
     total: sessions.length,

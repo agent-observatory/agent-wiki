@@ -50,7 +50,7 @@ export type RefinementProgressData = {
 };
 
 export function RefinementProgress({ data }: { data: RefinementProgressData }) {
-  const { sessions, storage } = data;
+  const { sessions, storage, summary } = data;
   return (
     <section
       aria-label="원문에서 지식까지의 처리 현황"
@@ -87,14 +87,14 @@ export function RefinementProgress({ data }: { data: RefinementProgressData }) {
               {layerLabel("L2")}
             </p>
             <p className="text-2xl font-semibold tabular-nums">
-              {sessions.current.toLocaleString()}
+              {summary.chunks_done.toLocaleString()}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                / {sessions.total.toLocaleString()}개 세션
+                / {summary.chunks_total.toLocaleString()}개 청크
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              최신 수집분 반영 완료 · 처리 대기{" "}
-              {sessions.waiting.toLocaleString()}개
+              처리 대기 세션 {sessions.waiting.toLocaleString()}개 · 아래 세션
+              목록 참고
             </p>
           </CardContent>
         </Card>
