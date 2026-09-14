@@ -9,10 +9,21 @@ import { useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { RefreshCw, Play, Pause, Activity, FileText } from "lucide-react";
 import { SourceList } from "./sources";
-import { RefinementProgress, waitingReasons } from "./refinement-progress";
+import {
+  RefinementProgress,
+  waitingReasons,
+  statuses,
+  reasons,
+} from "./refinement-progress";
 import { RefinementSessions } from "./refinement-sessions";
+import {
+  ConsolidationJobs,
+  summarizeConsolidations,
+  type ConsolidationJob,
+} from "./consolidation-jobs";
 import { api, errorText, useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,41 +37,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Heading, Loading, Failure, Empty, When, Section } from "./common";
-const statuses: Record<string, string> = {
-  uploading: "전송 중",
-  queued: "검증 대기",
-  verifying: "검증 중",
-  expired: "만료",
-  pending: "대기",
-  running: "진행 중",
-  completed: "완료",
-  failed: "실패",
-  interrupted: "중단",
-};
-const reasons: Record<string, string> = {
-  AI_LINE_TOO_LARGE:
-    "단일 근거 줄이 너무 깁니다. 새 수집 경로로 재수집하거나 입력 예산을 늘려 주세요.",
-  AI_INPUT_BUDGET_TOO_SMALL: "지침과 근거를 담기에 입력 예산이 작습니다.",
-  AI_INPUT_LIMIT: "원문이 입력 한도를 초과했습니다.",
-  AI_OUTPUT_LIMIT: "모델 출력 한도에 도달했습니다.",
-  AI_INVALID_JSON: "모델이 올바른 JSON을 반환하지 않았습니다.",
-  AI_INVALID_OUTPUT: "정제 결과 형식이 맞지 않습니다.",
-  SOURCE_AUTH_FAILED: "원문 저장소 인증을 확인하세요.",
-  AI_TOPIC_REQUIRED: "정제 결과에 Wiki 주제가 없어 재시도합니다.",
-  AI_EVIDENCE_REFERENCE_INVALID: "원문 기록 참조가 올바르지 않아 재시도합니다.",
-  AI_EVIDENCE_REQUIRED: "정확한 원문 근거가 부족합니다.",
-  EVIDENCE_MISMATCH: "인용이 원문과 다릅니다.",
-  AI_HTTP_401: "API 키를 확인하세요.",
-  AI_HTTP_403: "모델 접근 권한을 확인하세요.",
-  AI_HTTP_529: "제공자 일시 오류로 재시도 대기 중입니다.",
-  AI_HTTP_429: "제공자 호출 한도로 재시도 대기 중입니다.",
-  AI_HTTP_202: "모델 처리 대기 시간이 초과됐습니다.",
-  AI_CONNECTION_FAILED: "모델 연결이 끊기거나 시간이 초과됐습니다.",
-  WORKER_STOPPED: "배포 또는 종료로 중단됐습니다.",
-  LEASE_EXPIRED: "중단된 작업을 복구했습니다.",
-  AI_TIMEOUT: "모델 응답 시간이 초과됐습니다.",
-  REVISION_CONFLICT: "기존 지식의 Version이 변경됐습니다.",
-};
 export function SourcesOverview() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   return <SourcesContent key={workspaceId} />;
@@ -78,6 +54,16 @@ function SourcesContent() {
     router.push(`?${next}`, { scroll: false });
   }
   const jobs = useApi(base + "/refinements?" + query, 15000);
+  // Consolidation is the L2 stage after extraction (docs/l2-l3-memory.md
+  // #통합--consolidation); its model calls already count in "오늘 모델 호출"
+  // and 호출 이력, so its Job state belongs on this tab next to them.
+  const consolidations = useApi<{ items: ConsolidationJob[] }>(
+    base + "/consolidations",
+    15000,
+  );
+  const consolidationSummary = consolidations.data
+    ? summarizeConsolidations(consolidations.data.items)
+    : null;
   const serverControl = jobs.data?.progress.control;
   const [savedControl, setSavedControl] = useState<{
     enabled: boolean;
@@ -122,6 +108,7 @@ function SourcesContent() {
             variant="outline"
             onClick={() => {
               jobs.reload();
+              consolidations.reload();
               refreshSources((value) => value + 1);
             }}
           >
@@ -155,7 +142,7 @@ function SourcesContent() {
         <TabsContent value="curation" className="pt-6">
           {jobs.data && (
             <>
-              <div className="grid gap-4 sm:grid-cols-3 mb-8">
+              <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <section className="rounded-lg border p-5">
                   <p className="text-sm text-muted-foreground">자동 정제</p>
                   <div className="flex gap-2 items-center justify-between mt-3 font-semibold">
@@ -243,6 +230,51 @@ function SourcesContent() {
                 </section>
                 <section className="rounded-lg border p-5">
                   <p className="text-sm text-muted-foreground">
+                    통합 · Consolidation
+                  </p>
+                  {consolidations.error ? (
+                    <p role="alert" className="mt-3 text-xs text-destructive">
+                      {errorText(consolidations.error)}
+                    </p>
+                  ) : !consolidationSummary ? (
+                    <Skeleton className="mt-3 h-7 w-28" aria-label="불러오는 중" />
+                  ) : (
+                    <>
+                      <p className="mt-3 text-xl font-semibold">
+                        {consolidationSummary.open}개
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {" "}
+                          열린 Job
+                        </span>
+                        {consolidationSummary.attention > 0 && (
+                          <span className="ml-2 align-middle">
+                            <StatusBadge status="failed">
+                              확인 필요 {consolidationSummary.attention}개
+                            </StatusBadge>
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {consolidations.data!.items.length === 0
+                          ? "세션의 처리 범위가 끝나면 주제마다 Job을 만듭니다."
+                          : consolidationSummary.lastCompletedAt
+                            ? (
+                              <>
+                                주제 {consolidations.data!.items.length}개 ·
+                                마지막 완료{" "}
+                                <When
+                                  value={consolidationSummary.lastCompletedAt}
+                                  compact
+                                />
+                              </>
+                            )
+                            : `주제 ${consolidations.data!.items.length}개 · 아직 완료한 Job 없음`}
+                      </p>
+                    </>
+                  )}
+                </section>
+                <section className="rounded-lg border p-5">
+                  <p className="text-sm text-muted-foreground">
                     오늘 모델 호출
                   </p>
                   <p className="mt-3 text-xl font-semibold">
@@ -279,6 +311,11 @@ function SourcesContent() {
               >
                 <RefinementSessions workspaceId={workspaceId} />
               </Section>
+              <ConsolidationJobs
+                items={consolidations.data?.items}
+                error={consolidations.error}
+                root={`/workspaces/${workspaceId}/knowledge`}
+              />
               <RefinementHealth data={jobs.data.health} />
               {!!jobs.data.runs.length && (
                 <Section id="curation-call-history" title="호출 이력">
@@ -412,6 +449,9 @@ function CallHistoryRow({ run: r }: { run: any }) {
           <Badge variant="secondary">
             재작업 · {diagnostics.stage === "candidate" ? "검토 후보" : "분석"}
           </Badge>
+        )}
+        {diagnostics?.kind === "consolidation" && (
+          <Badge variant="secondary">통합</Badge>
         )}
         <span className="inline-flex flex-wrap gap-x-2 gap-y-1 tabular-nums">
           {diagnostics?.attempt != null && (

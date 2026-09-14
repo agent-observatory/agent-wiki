@@ -37,11 +37,48 @@ export async function consolidationStatus(
     ).rows[0];
     return { topicKey, job: job ?? null };
   }
+  // Per-topic latest Job for the web Curation dashboard and `consolidate
+  // status`. Step outputs (the full gathered claim texts, proposed relations)
+  // are replaced by counts: a 15-second poll must not ship every topic's
+  // claims again. The single-topic form above keeps the full row.
   const items = (
     await c.query(
-      "SELECT DISTINCT ON (topic_key) * FROM consolidation_jobs WHERE workspace_id=$1 ORDER BY topic_key,created_at DESC",
+      `SELECT j.*,p.id AS page_id,p.title AS page_title FROM (
+         SELECT DISTINCT ON (topic_key) * FROM consolidation_jobs WHERE workspace_id=$1 ORDER BY topic_key,created_at DESC
+       ) j LEFT JOIN wiki_pages p ON p.workspace_id=j.workspace_id AND p.topic_key=j.topic_key
+       ORDER BY CASE j.status WHEN 'running' THEN 0 WHEN 'failed' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END,j.updated_at DESC,j.topic_key`,
       [ws],
     )
   ).rows;
-  return { items };
+  return { items: items.map(summarizeJob) };
+}
+
+function summarizeJob(row: any) {
+  const steps: Record<string, any> = row.steps ?? {};
+  const out = (name: string) => steps[name]?.output ?? {};
+  const count = (v: unknown) => (Array.isArray(v) ? v.length : null);
+  return {
+    ...row,
+    steps: Object.fromEntries(
+      Object.entries(steps).map(([name, s]: [string, any]) => [
+        name,
+        {
+          status: s.status,
+          attempts: s.attempts,
+          error_code: s.error_code ?? null,
+          retry_at: s.retry_at ?? null,
+        },
+      ]),
+    ),
+    summary: {
+      // model.output holds the gather result until the model step runs, so
+      // `relations` is absent (null) rather than 0 before that.
+      proposed: count(out("model").relations),
+      leftUnresolved: count(out("model").leaveUnresolved),
+      passed: count(out("validate").passed),
+      rejected: count(out("validate").rejected),
+      published: out("publish").published ?? null,
+      inboxResolved: out("publish").inboxResolved ?? null,
+    },
+  };
 }
