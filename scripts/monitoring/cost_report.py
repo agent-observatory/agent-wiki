@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 UTC = timezone.utc
+KST = timezone(timedelta(hours=9))
 COST_URL = 'https://cloud.oracle.com/account-management/cost-analysis?region=ap-osaka-1'
 RUN_URL = 'https://github.com/agent-observatory/agent-wiki/actions/workflows/cost-monitor.yml'
 STATE_KEY = 'ops/cost-alert-state.json'
@@ -292,7 +293,10 @@ def fetch_snapshot(client, tenancy, now):
     month = midnight.replace(day=1)
     comparison, baseline = midnight - timedelta(days=3), midnight - timedelta(days=4)
     yesterday = midnight - timedelta(days=1)
-    return {'month': month.strftime('%Y-%m'), 'checked_at': now.astimezone(timezone(timedelta(hours=9))).strftime('%m/%d %H:%M KST'),
+    local_now = now.astimezone(KST)
+    return {'month': month.strftime('%Y-%m'), 'checked_at': local_now.strftime('%m/%d %H:%M KST'),
+            'daily_key': local_now.date().isoformat(),
+            'daily_due': local_now.time() >= datetime.strptime('09:13', '%H:%M').time(),
             'comparison_date': comparison.date().isoformat(), 'baseline_date': baseline.date().isoformat(),
             'yesterday_date': yesterday.date().isoformat(),
             'cost_month': fetch('COST', month, end, 'DAILY'),
@@ -361,20 +365,25 @@ def run(mode, snapshot, state, save, deliver=send):
         deliver(alert_message(new, snapshot['checked_at']))
         for identity, level, _, _ in new: notified[identity] = level
         save(state)
-    day = snapshot['checked_at'][:5]
-    if mode == 'daily' and state.get('daily') != f'{month}:{day}':
+    day = snapshot.get('daily_key', f'{month}:{snapshot["checked_at"][:5]}')
+    wants_daily = mode == 'daily' or (mode == 'auto' and snapshot.get('daily_due', False))
+    daily_status = 'not_due'
+    if wants_daily and state.get('daily') != day:
         deliver(daily_message(snapshot))
-        state['daily'] = f'{month}:{day}'
+        state['daily'] = day
         save(state)
+        daily_status = 'delivered'
+    elif wants_daily:
+        daily_status = 'already_delivered'
     state['last_success'] = snapshot['checked_at']
     state['alerts'] = {k:v for k,v in state['alerts'].items() if k == month}
     save(state)
-    print(f'Cost check completed: {len(new)} new alerts; mode={mode}.')
+    print(f'Cost check completed: {len(new)} new alerts; mode={mode}; daily_summary={daily_status}.')
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=['check', 'daily', 'preview', 'sample'], default='preview')
+    parser.add_argument('--mode', choices=['auto', 'check', 'daily', 'preview', 'sample'], default='preview')
     args = parser.parse_args()
     import oci
     config = json.loads(os.environ['OCI_COST_CONFIG'])

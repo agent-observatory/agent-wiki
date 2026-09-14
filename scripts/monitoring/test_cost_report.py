@@ -62,6 +62,19 @@ class CostTests(unittest.TestCase):
         run('check',s,state,save,sent.append)
         self.assertEqual(len(sent),3)
 
+    def test_auto_falls_back_to_daily_summary_after_the_target_time(self):
+        s=snapshot();s.update(daily_key='2026-09-12', daily_due=True)
+        sent=[];state={}
+        run('auto',s,state,lambda _:None,sent.append)
+        self.assertEqual(len(sent),1)
+        self.assertEqual(state['daily'],'2026-09-12')
+
+    def test_auto_keeps_a_pre_target_check_quiet(self):
+        s=snapshot();s.update(daily_key='2026-09-12', daily_due=False)
+        sent=[]
+        run('auto',s,{},lambda _:None,sent.append)
+        self.assertEqual(sent,[])
+
     def test_delivery_failure_does_not_acknowledge(self):
         s=snapshot();s['cost_month']=[row(cost=1)];state={};saved=[]
         def fail(_):raise RuntimeError('synthetic network failure')
