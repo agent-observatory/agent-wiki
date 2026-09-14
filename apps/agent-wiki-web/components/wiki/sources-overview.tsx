@@ -274,13 +274,14 @@ function SourcesContent() {
               </div>
 
               <Section
+                id="curation-sessions"
                 title={`정제 세션 · ${jobs.data.progress.sessions.total.toLocaleString()}개`}
               >
                 <RefinementSessions workspaceId={workspaceId} />
               </Section>
               <RefinementHealth data={jobs.data.health} />
               {!!jobs.data.runs.length && (
-                <Section title="호출 이력">
+                <Section id="curation-call-history" title="호출 이력">
                   <div className="divide-y border-y">
                     {jobs.data.runs.map((r: any) => (
                       <CallHistoryRow key={r.id} run={r} />
@@ -532,7 +533,7 @@ function RefinementHealth({ data }: { data: any }) {
   if (!data) return null;
   if (!data.errors.length) return null;
   return (
-    <Section title="반복 오류 · 상위 10개">
+    <Section id="curation-repeated-errors" title="반복 오류 · 상위 10개">
       <div className="space-y-2">
         {data.errors.map((e: any) => (
           <div

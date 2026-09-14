@@ -1,23 +1,49 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Check, ChevronRight } from "lucide-react";
 import { errorText } from "@/lib/api";
 import { formatWhen } from "@/lib/time";
 // Collapsed by default: these hold detail lists further down the page that
-// are secondary to the summary cards/table above them.
+// are secondary to the summary cards/table above them. `id` must be stable
+// and unique per section on the page — it's the localStorage key, so the
+// open/closed choice is remembered per viewer, per section, across visits.
 export function Section({
+  id,
   title,
   defaultOpen = false,
   children,
 }: {
+  id: string;
   title: React.ReactNode;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
+  const storageKey = `agent-wiki:section:${id}`;
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) setOpen(stored === "1");
+    } catch {
+      // Private browsing or blocked storage: keep defaultOpen.
+    }
+  }, [storageKey]);
   return (
-    <details className="mt-8 group" open={defaultOpen}>
+    <details
+      className="mt-8 group"
+      open={open}
+      onToggle={(e) => {
+        const next = e.currentTarget.open;
+        setOpen(next);
+        try {
+          localStorage.setItem(storageKey, next ? "1" : "0");
+        } catch {
+          // Best-effort only; nothing to fall back to for persistence.
+        }
+      }}
+    >
       <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
         <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
         {title}
