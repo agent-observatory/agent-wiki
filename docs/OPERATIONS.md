@@ -8,11 +8,11 @@
 | 로컬 패키지 | 0.7.5 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex·Claude 모두 Agent Wiki 프로젝트만 · 10분 · Claude는 2026-09-14 사용자 지시로 활성화 |
-| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 64 · 1번 `deepseek-v4-flash-0731` · 2번 모델 `deepseek-v4.1-flash` · `maxInputTokens` 16,000 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 · 모델별 파라미터 분리·`timeoutSeconds` 설정은 미배포 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 64 · 1번 `deepseek-v4-flash-0731` · 2번 모델 `deepseek-v4.1-flash` · `maxInputTokens` 16,000 · `timeoutSeconds` 두 슬롯 다 기본값 330초 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
-## 모델별 파라미터 분리 · 호출 제한 확장 · Fable 진단 · 미배포
+## 모델별 파라미터 분리 · 호출 제한 확장 · Fable 진단 · 배포 완료 · 설정 행 수동 이관
 
 2026-09-14. 배포된 할당량 수정 이후 2번 모델(`deepseek-v4-flash-0731`)로 정제를 재개했더니 "생각보다 엄청 오래 걸린다"는 관찰이 나왔다. 최근 7일 지표를 보니 1번(`deepseek-v4-flash`)은 평균 69초·p95 145초였는데 2번은 평균 269초(성공한 호출만도 약 220초)·p95 330초로 **고정 호출 제한(330초)에 절반이 그대로 걸려 `AI_TIMEOUT`으로 잘렸다**(12분 사이 5건). 두 모델 설정(추론 high, thinking_budget 무제한)은 동일했으므로 설정 회귀가 아니라 모델 자체가 훨씬 오래 생각하는 것으로 보인다.
 
@@ -22,9 +22,10 @@ Fable에게 진단·실험 설계를 맡겼다: 가장 유력한 원인은 think
 - **모델 호출 제한(`timeoutSeconds`)을 고정 330초에서 슬롯별 60~900초 설정값으로 바꿨다.** 기본값은 그대로 330초라 기존 동작은 안 바뀌고, 필요한 모델만 늘릴 수 있다(예: 2번 모델을 600~900초로). 작업 임대 시간은 `timeoutSeconds`+120초와 420초 중 큰 값으로 자동 계산해 항상 호출 제한보다 길게 유지한다(수동 조정 불필요). HTTP 연결의 유휴 한도도 슬롯별 타임아웃에 맞춰 같이 늘어난다.
 - 웹 설정 화면을 좌우 2단으로 바꿨다: 왼쪽 "모델 1", 오른쪽 "모델 2"(비어 있으면 추가/제거 버튼)에 각자 model·timeoutSeconds·maxInputTokens·max_tokens 또는 max_completion_tokens·enable_thinking·reasoning_effort·thinking_budget을 따로 입력한다. 공통 항목(Endpoint·API key·requestsPerMinute·concurrency·retryDelaySeconds·dailyCalls)은 위쪽에 한 번만 둔다.
 - CLI `ai update`의 설정 JSON도 `{"primary":{...}}`·`{"fallback":{...}|null}` 형태로 바뀌었다. 슬롯 안의 일부 필드만 보내도 기존 슬롯 값에 병합되므로(예: `{"primary":{"reasoning":"high"}}`) 슬롯 전체를 다시 쓸 필요는 없다.
-- 개발 모드라 하위 호환 없이 스키마를 바로 바꿨다(Workspace 1개, 설정 1행). 배포되면 웹/CLI에서 설정을 다시 저장해야 새 구조로 채워진다.
+- 개발 모드라 하위 호환 없이 스키마를 바로 바꿨다(Workspace 1개, 설정 1행).
 - 검증: 새 단위 테스트(모델별 timeoutSeconds 저장·경계값 60/900 거부, 폴백 슬롯 검증·같은 모델 거부·`AI_FALLBACK_REASONING_NOT_SUPPORTED`, 폴백 전환 시 새 타임아웃 반영)와 전체 DB 테스트(179+26건), 타입 검사, 웹 빌드 모두 통과. **웹 새 2단 레이아웃은 브라우저에서 직접 클릭해 확인하지 못했다** — 실제 로그인 세션을 로컬에 만드는 절차가 없어 코드 리뷰·빌드 통과로만 검증했으니 배포 후 화면을 한 번 눈으로 확인하는 게 좋다.
-- 아직 미배포. 배포 후 사용자가 실제 `timeoutSeconds` 값(예: 2번 모델 600~900초)을 얼마로 둘지 정해서 저장해야 한다.
+- 배포·확인 완료: `3177ad2`의 [CI·K3s 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34834972571)가 test·publish·deploy 모두 성공, `/readyz` ready. 배포 직후 `GET /ai-settings`가 `INVALID_INPUT`으로 실패했다 — DB에 남아 있던 기존 설정 1행이 옛 평면 구조(`model`·`fallbackModel`·`reasoning`이 최상위)라 새 `.strict()` 스키마가 파싱을 거부했다. 사용자 승인을 받아 그 1행만 값 변경 없이 새 `primary`/`fallback` 구조로 직접 UPDATE했다(Version 64·`encrypted_key` 그대로, 두 슬롯 모두 기존 model·reasoning·maxInputTokens 등 동일 값, `timeoutSeconds`만 새로 기본값 330초로 채워짐). 이후 `ai show`·`GET /refinements`의 `progress.control` 모두 정상 응답 확인.
+- 실제 `timeoutSeconds` 값(예: 2번 모델을 더 길게)을 얼마로 둘지는 아직 사용자가 정하지 않았다 — 현재 두 슬롯 다 기본값 330초로 남아 있다.
 
 ## 할당량 소진 오분류 수정 · 모델 계열 인식 확장 · 배치 API 기각 · 시간 표시 통일 · 미배포
 
