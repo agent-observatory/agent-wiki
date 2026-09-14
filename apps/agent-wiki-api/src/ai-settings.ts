@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { AppError, tx } from "../../../packages/core/src/db.js";
+import { log } from "../../../packages/core/src/log.js";
 import {
   aiConfig,
   defaults,
@@ -200,6 +201,12 @@ export function registerAiSettings(
                 config.retryDelaySeconds,
               ),
             );
+          if (e.providerError)
+            log("warn", "ai_test_provider_error", {
+              code: e.code,
+              provider_error_code: e.providerError.code,
+              provider_error_type: e.providerError.type,
+            });
           throw new AppError(400, e.code);
         }
         if (signal.aborted) throw new AppError(400, "AI_TEST_TIMEOUT");

@@ -70,7 +70,7 @@ export function isAlibabaDeepSeek(config: AiConfig) {
   return (
     config.provider === "openai-compatible" &&
     new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com") &&
-    /^deepseek-v4-(flash|pro)(?:-\d{4})?$/.test(config.model)
+    /^deepseek-v4(?:\.\d)?-(flash|pro)(?:-\d{4})?$/.test(config.model)
   );
 }
 export function isAlibabaThinkingModel(config: AiConfig) {
@@ -92,11 +92,20 @@ export function validateEndpoint(config: AiConfig) {
   if (config.fallbackModel !== null) {
     if (config.fallbackModel === config.model)
       throw new AppError(400, "AI_FALLBACK_SAME_MODEL");
-    validateEndpoint({
-      ...config,
-      model: config.fallbackModel,
-      fallbackModel: null,
-    });
+    try {
+      validateEndpoint({
+        ...config,
+        model: config.fallbackModel,
+        fallbackModel: null,
+      });
+    } catch (e) {
+      // Name which model failed: the shared reasoning fields are validated
+      // against whichever model is being checked, and a rejection here is
+      // about the second model, not the primary one already validated above.
+      if (e instanceof AppError && e.code === "AI_REASONING_NOT_SUPPORTED")
+        throw new AppError(400, "AI_FALLBACK_REASONING_NOT_SUPPORTED");
+      throw e;
+    }
   }
   if (
     !isAlibabaThinkingModel(config) &&
@@ -160,11 +169,24 @@ export function decryptSecret(value: string) {
   cipher.setAuthTag(tag);
   return Buffer.concat([cipher.update(body), cipher.final()]).toString("utf8");
 }
+// A short, sanitized provider error token: only code/type, never message/id
+// (those can carry free text). Lets a future unmatched case stay visible in
+// diagnostics/logs without ever persisting provider prose.
+export type ProviderError = { code?: string; type?: string };
+// Untrusted response field: keep only a short enum-like token, never persist
+// or log anything else from a provider error body.
+function safeProviderToken(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  return typeof value === "string" && /^[\w.\-]{1,64}$/.test(value)
+    ? value
+    : "unparsed";
+}
 export class ModelError extends Error {
   constructor(
     public code: string,
     public retryable = false,
     public retryAfter: number | null = null,
+    public providerError: ProviderError | null = null,
   ) {
     super(code);
   }
@@ -289,9 +311,9 @@ export async function callModel(
   }
   if (!response.ok || response.status === 202) {
     // Read only a bounded error envelope; never retain provider prose or secrets.
-    let providerCode: unknown;
+    let providerError: ProviderError | null = null;
     if (
-      response.status === 403 &&
+      (response.status === 403 || response.status === 429) &&
       new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com")
     ) {
       const reader = response.body?.getReader();
@@ -308,16 +330,35 @@ export async function callModel(
           }
           if (bytes <= 16384) {
             const body = JSON.parse(Buffer.concat(parts).toString());
-            providerCode = body.error?.code ?? body.code;
-          }
+            providerError = {
+              code: safeProviderToken(body.error?.code ?? body.code),
+              type: safeProviderToken(body.error?.type ?? body.type),
+            };
+          } else providerError = { code: "unparsed", type: "unparsed" };
         } catch {
+          providerError = { code: "unparsed", type: "unparsed" };
         } finally {
           await reader.cancel().catch(() => {});
         }
       }
     } else await response.body?.cancel();
-    if (providerCode === "AllocationQuota.FreeTierOnly")
-      throw new ModelError("AI_FREE_QUOTA_EXHAUSTED");
+    // Alibaba's OpenAI-compatible endpoint returns "insufficient_quota" (code
+    // and/or type) for the same exhaustion AllocationQuota.FreeTierOnly names
+    // on the native API; observed directly against a real exhausted account
+    // on 2026-09-14. Only classify at 403 — a 429 with either code is a
+    // request/token-rate limit, not exhaustion, and must stay retryable.
+    if (
+      response.status === 403 &&
+      (providerError?.code === "AllocationQuota.FreeTierOnly" ||
+        providerError?.code === "insufficient_quota" ||
+        providerError?.type === "insufficient_quota")
+    )
+      throw new ModelError(
+        "AI_FREE_QUOTA_EXHAUSTED",
+        false,
+        null,
+        providerError,
+      );
     throw new ModelError(
       "AI_HTTP_" + response.status,
       response.status === 202 ||
@@ -325,6 +366,7 @@ export async function callModel(
         response.status === 429 ||
         response.status >= 500,
       parseRetryAfter(response.headers.get("retry-after")),
+      providerError,
     );
   }
   const chunks: Uint8Array[] = [];

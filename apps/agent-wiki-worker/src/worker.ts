@@ -796,6 +796,8 @@ export async function runOne(
           diagnostics.providerRetryAfterSeconds = e.retryAfter;
         if (/^AI_HTTP_\d{3}$/.test(code))
           diagnostics.httpStatus = Number(code.slice(-3));
+        if (e instanceof ModelError && e.providerError)
+          diagnostics.providerError = e.providerError;
         await c.query(
           "UPDATE refinement_jobs SET status=$3,error_code=$4,available_at=now()+make_interval(secs=>$5),lease_until=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND run_id=$6 AND status='running'",
           [ws, task.id, retry ? "pending" : "failed", code, delay, task.runId],
@@ -817,6 +819,10 @@ export async function runOne(
           retry_delay_seconds: diagnostics.retryDelaySeconds,
           error_code: code,
           retry,
+          provider_error_code:
+            e instanceof ModelError ? e.providerError?.code : undefined,
+          provider_error_type:
+            e instanceof ModelError ? e.providerError?.type : undefined,
         },
       );
     }

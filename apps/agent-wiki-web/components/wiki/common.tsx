@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Check } from "lucide-react";
 import { errorText } from "@/lib/api";
+import { formatWhen } from "@/lib/time";
 export function Loading() {
   return (
     <div className="space-y-4" aria-label="불러오는 중">
@@ -88,35 +89,16 @@ export function When({
   value: string;
   compact?: boolean;
 }) {
-  const date = new Date(value);
+  const formatted = formatWhen(value);
   if (compact)
     return (
       <time
         dateTime={value}
-        title={date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+        title={formatted}
         className="whitespace-nowrap tabular-nums"
       >
-        {date.toLocaleString("ko-KR", {
-          timeZone: "Asia/Seoul",
-          year: "2-digit",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        })}
+        {formatted}
       </time>
     );
-  return (
-    <time dateTime={value}>
-      {new Date(value).toLocaleString("ko-KR", {
-        timeZone: "Asia/Seoul",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}
-    </time>
-  );
+  return <time dateTime={value}>{formatted}</time>;
 }

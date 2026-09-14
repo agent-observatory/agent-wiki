@@ -404,6 +404,8 @@ export async function runReprocess(
         diag.schemaIssues = e.issues
           .map((i) => ({ path: i.path, code: i.code }))
           .slice(0, 20);
+      if (e instanceof ModelError && e.providerError)
+        diag.providerError = e.providerError;
       await tx(owner, ws, async (c) => {
         await c.query(
           "UPDATE curation_reprocesses SET status='failed',error_code=$3,lease_until=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND run_id=$4",

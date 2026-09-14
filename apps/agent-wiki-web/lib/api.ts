@@ -70,6 +70,8 @@ const messages: Record<string, string> = {
   AI_TEST_INVALID_RESPONSE: "모델이 예상한 Hello 응답을 반환하지 않았습니다.",
   AI_CONNECTION_FAILED: "AI 연결에 실패했습니다. 주소와 키를 확인해 주세요.",
   AI_REASONING_NOT_SUPPORTED: "이 모델에서 지원하는 추론 설정을 선택해 주세요.",
+  AI_FALLBACK_REASONING_NOT_SUPPORTED:
+    "2번 모델이 현재 추론 설정을 지원하지 않습니다. 같은 계열 모델을 지정하거나 추론 설정을 바꿔 주세요.",
   AI_ENCRYPTION_NOT_CONFIGURED: "서버의 API 키 암호화 설정이 필요합니다.",
   REVISION_CONFLICT:
     "다른 변경이 먼저 저장됐습니다. 최신 Version을 다시 열어 비교하세요.",

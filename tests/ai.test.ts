@@ -415,6 +415,8 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       "deepseek-v4-flash-0731",
       "deepseek-v4-pro",
       "deepseek-v4-pro-0813",
+      "deepseek-v4.1-flash",
+      "deepseek-v4.1-pro-0901",
     ]) {
       await callModel(
         { ...config, model },
@@ -481,6 +483,13 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       ),
       /AI_REASONING_NOT_SUPPORTED/,
     );
+    // The widened deepseek-v4(.N)? regex must not accept a different major
+    // version or a missing dot separator.
+    for (const model of ["deepseek-v41-flash", "deepseek-v5-flash"])
+      await assert.rejects(
+        callModel({ ...config, model }, "synthetic", [], AbortSignal.timeout(1000)),
+        /AI_REASONING_NOT_SUPPORTED/,
+      );
     await assert.rejects(
       callModel(
         {
@@ -495,7 +504,7 @@ test("Alibaba DeepSeek V4 accepts saved BYOK controls and sends native JSON requ
       ),
       /AI_REASONING_NOT_SUPPORTED/,
     );
-    assert.equal(bodies.length, 12);
+    assert.equal(bodies.length, 16);
   } finally {
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;
@@ -653,5 +662,23 @@ test("the effective fallback config passes endpoint validation as a single model
   assert.throws(
     () => validateEndpoint({ ...config, fallbackModel: config.model }),
     (e: any) => e.code === "AI_FALLBACK_SAME_MODEL",
+  );
+  // A newer minor-version sibling (deepseek-v4.1-flash) is a recognized
+  // fallback and validates cleanly, including through effectiveModelConfig.
+  const widened = { ...config, fallbackModel: "deepseek-v4.1-flash" };
+  validateEndpoint(widened);
+  validateEndpoint(effectiveModelConfig(widened, true));
+  // When the fallback is a model our regex does not recognize at all, the
+  // shared reasoning fields (inherited from the primary) fail validation for
+  // it specifically, and that must be attributed to the fallback, not read
+  // as if the primary model itself were rejected.
+  assert.throws(
+    () =>
+      validateEndpoint({
+        ...config,
+        enable_thinking: true,
+        fallbackModel: "unrecognized-model",
+      }),
+    (e: any) => e.code === "AI_FALLBACK_REASONING_NOT_SUPPORTED",
   );
 });

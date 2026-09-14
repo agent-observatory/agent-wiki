@@ -1,5 +1,6 @@
 "use client";
 import { SECTION_NAMES, LAYER_NAMES } from "@/lib/layers";
+import { formatWhen } from "@/lib/time";
 import { StatusBadge } from "./status-badge";
 import { Pagination } from "./pagination";
 
@@ -449,7 +450,13 @@ function CallHistoryRow({ run: r }: { run: any }) {
               : `thinking ${r.settings.thinking_budget ?? r.settings.reasoning ?? "default"}`}
           </span>
           {diagnostics?.httpStatus != null && (
-            <span title={`HTTP 요청 ${diagnostics.httpRequests ?? "미집계"}회`}>
+            <span
+              title={`HTTP 요청 ${diagnostics.httpRequests ?? "미집계"}회${
+                diagnostics.providerError?.code
+                  ? ` · 제공자 코드 ${diagnostics.providerError.code}`
+                  : ""
+              }`}
+            >
               HTTP {diagnostics.httpStatus}
             </span>
           )}
@@ -489,9 +496,7 @@ function CallHistoryRow({ run: r }: { run: any }) {
           )}
           {diagnostics?.retryAt && (
             <span
-              title={new Date(diagnostics.retryAt).toLocaleString("ko-KR", {
-                timeZone: "Asia/Seoul",
-              })}
+              title={formatWhen(diagnostics.retryAt)}
             >
               당시 재시도 예약{" "}
               {new Intl.DateTimeFormat("ko-KR", {

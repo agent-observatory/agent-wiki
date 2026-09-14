@@ -12,7 +12,8 @@ import {
 test("Alibaba exhaustion is distinguished from auth/rate/unknown 403 without logging provider text", async () => {
   const original = globalThis.fetch;
   try {
-    for (const [status, body, expected] of [
+    // [status, body, expected code, expected providerError (undefined = skip check)]
+    for (const [status, body, expected, providerError] of [
       [
         403,
         {
@@ -22,15 +23,57 @@ test("Alibaba exhaustion is distinguished from auth/rate/unknown 403 without log
           },
         },
         "AI_FREE_QUOTA_EXHAUSTED",
+        { code: "AllocationQuota.FreeTierOnly", type: undefined },
       ],
       [
         403,
         { code: "AllocationQuota.FreeTierOnly" },
         "AI_FREE_QUOTA_EXHAUSTED",
+        undefined,
       ],
-      [403, { error: { code: "AccessDenied" } }, "AI_HTTP_403"],
-      [429, { error: { code: "AllocationQuota.FreeTierOnly" } }, "AI_HTTP_429"],
-      [403, "x".repeat(20000), "AI_HTTP_403"],
+      [
+        403,
+        { error: { code: "AccessDenied" } },
+        "AI_HTTP_403",
+        { code: "AccessDenied", type: undefined },
+      ],
+      [429, { error: { code: "AllocationQuota.FreeTierOnly" } }, "AI_HTTP_429", undefined],
+      [403, "x".repeat(20000), "AI_HTTP_403", { code: "unparsed", type: "unparsed" }],
+      // Real body observed 2026-09-14 against a genuinely exhausted account:
+      // the OpenAI-compatible endpoint uses "insufficient_quota", not the
+      // native API's "AllocationQuota.FreeTierOnly".
+      [
+        403,
+        {
+          error: {
+            type: "insufficient_quota",
+            code: "insufficient_quota",
+            message: "never log this",
+          },
+        },
+        "AI_FREE_QUOTA_EXHAUSTED",
+        { code: "insufficient_quota", type: "insufficient_quota" },
+      ],
+      [
+        403,
+        { error: { type: "insufficient_quota" } },
+        "AI_FREE_QUOTA_EXHAUSTED",
+        { code: undefined, type: "insufficient_quota" },
+      ],
+      // Same code at 429 is a rate/token limit, not exhaustion: must stay
+      // retryable, never trigger the fallback switch or the safety stop.
+      [
+        429,
+        { error: { code: "insufficient_quota" } },
+        "AI_HTTP_429",
+        { code: "insufficient_quota", type: undefined },
+      ],
+      [
+        403,
+        { error: { code: "bad code <script>" } },
+        "AI_HTTP_403",
+        { code: "unparsed", type: undefined },
+      ],
     ] as const) {
       globalThis.fetch = async () =>
         new Response(JSON.stringify(body), { status });
@@ -46,9 +89,40 @@ test("Alibaba exhaustion is distinguished from auth/rate/unknown 403 without log
           [],
           AbortSignal.timeout(500),
         ),
-        (e: any) => e.code === expected && !e.message.includes("never log"),
+        (e: any) => {
+          assert.equal(e.code, expected);
+          assert.ok(!e.message.includes("never log"));
+          if (providerError !== undefined)
+            assert.deepEqual(e.providerError, providerError);
+          return true;
+        },
       );
     }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("a non-Alibaba host's 403 never reads the body for a provider code", async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ error: { code: "insufficient_quota" } }), {
+        status: 403,
+      });
+    await assert.rejects(
+      callModel(
+        { ...defaults, provider: "openai-compatible", baseUrl: "https://api.deepseek.com/v1" },
+        "synthetic",
+        [],
+        AbortSignal.timeout(500),
+      ),
+      (e: any) => {
+        assert.equal(e.code, "AI_HTTP_403");
+        assert.equal(e.providerError, null);
+        return true;
+      },
+    );
   } finally {
     globalThis.fetch = original;
   }
