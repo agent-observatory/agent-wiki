@@ -169,8 +169,11 @@ macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalM
 | 자동 정제 제어 | `agent-wiki ai pause` / `agent-wiki ai resume` |
 | 관리 API | `agent-wiki api GET /refinements` / `api POST /refinements/ID/retry` |
 | 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
+| 자동 반영된 관계 되돌리기 | `agent-wiki relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes\|retracts\|contradicts\|supports --client claude --reason "..."` |
+| 주제 하나 지금 통합 | `agent-wiki consolidate TOPIC_KEY` |
+| 통합 Job·Step 상태 확인 | `agent-wiki consolidate status [TOPIC_KEY]` |
 
-설계만 있고 아직 없는 명령: `agent-wiki consolidate TOPIC_KEY` · `consolidate status [TOPIC_KEY]` · `relation reject --from … --to … --relation … --client … --reason …`. 계약은 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--설계--미구현)에 있으며 구현 뒤 이 표에 옮긴다.
+계약은 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--구현-완료--운영-검증-전)에 있다.
 
 설정은 `primary`(1번, 필수)·`fallback`(2번, `null`이면 없음, 최대 1개까지) 두 모델 슬롯과 공통 필드로 나뉜다. 각 슬롯은 `model`·`reasoning`·`enable_thinking`·`thinking_budget`·`max_completion_tokens`·`maxTokens`·`maxInputTokens`·`maxInputChars`·`timeoutSeconds`(모델 호출 제한 초, 60~900, 기본 330)를 독립적으로 가진다. `baseUrl`·API 키·`requestsPerMinute`·`concurrency`·`retryDelaySeconds`·`dailyCalls`는 두 모델이 공유한다. `ai update`의 JSON은 바뀔 필드만 담되 `primary`·`fallback`은 슬롯 전체가 아니라 바뀔 필드만 넣어도 기존 슬롯 값에 병합된다(예: `{"primary":{"reasoning":"high"}}`). `{"fallback": null}`로 2번 모델을 지운다.
 

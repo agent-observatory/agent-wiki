@@ -12,6 +12,14 @@
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
+## 통합(Consolidation) 구현·배포 · Knowledge 리니지 패널 구현·배포
+
+2026-09-15. 아래 설계 기록의 방향대로 순서대로 구현해 배포했다: 관계 지연·대기함(`consolidation_inbox`) → `relation reject`·거절 기억(`claim_relation_rejections`) → Job과 네 Step(`consolidation_jobs`) → Knowledge 화면(구조화된 현재 주장 목록·리니지 패널). 커밋 `3de16fb`·`4914573`·`1895483`·`5c39d11`·`1e4ad75`. GitHub Actions `34878920175`·`34880213433`에서 각각 성공적으로 배포했다.
+
+- 로컬 검증: 합성 자료·mock 모델 응답으로 gather→model→validate→publish 전체 경로(관계 통과·거절 둘 다), 사이클 완료 자동 트리거, 열린 Job에 재요청이 오면 완료 시 바로 재실행하는 `rerun_requested` 롤오버, `relation reject`의 정정 Version 발행을 확인했다. 209 → 215개 테스트 통과, typecheck·build 통과.
+- 실행 중 발견해 함께 고친 버그: pick 단계가 gather·validate·publish(모델을 안 부르는 Step)까지 모델 호출 rate gate에 걸어 그다음 Step을 영영 못 집어가던 문제. `rerun_requested` 컬럼이 있지만 아무도 쓰지 않던 문제.
+- 운영 검증은 아직이다. 실제 세션 자료로 자동 트리거가 발동해 관계를 만들거나 거절하는 모습, 웹 Knowledge 화면의 리니지 패널·"통합 대기" 배지 표시는 배포 후 실사용에서 확인해야 한다. `docs/assets/wiki-l1-l3-curation.svg`의 점선 테두리·"설계·미구현" 라벨은 아직 이 구현을 반영해 갱신하지 않았다.
+
 ## 통합(Consolidation) 설계 · Knowledge 리니지 패널 설계 · 그림 L1–L5 한 장 → L1–L3·L4–L5 두 장 · 설계 단계 · 미구현
 
 2026-09-15. 같은 날 앞선 두 차례 설계 대화(Knowledge 페이지의 현재 주장·리니지 UX, Job/Step 모델의 Consolidation 파이프라인)를 하나의 설계로 합쳐 `l2-l3-memory.md`에 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--설계--미구현) 절로 적고 그림으로 그렸다. **설계 단계다. 코드·마이그레이션·배포·검증은 없다.** 사용자가 승인한 것은 방향 세 가지(자동 반영, cycle 완료 시 주제별 자동 트리거 + 수동 `consolidate`, 관계만 실패한 반영의 대기함 지연)이며 구현 착수는 아직 승인하지 않았다. 사용자는 그림을 보고 추가 피드백을 주기로 했다.
