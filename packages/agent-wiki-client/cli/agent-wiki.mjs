@@ -73,6 +73,7 @@ async function main() {
         "article ID [--revision N]",
         "skill install [--client codex|claude|all]",
         "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT]",
+        "relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes|retracts|contradicts|supports --client NAME --reason TEXT",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -491,6 +492,39 @@ async function main() {
       );
     }
     throw new Error("Use review queue|diff|confirm");
+  }
+  if (command === "relation") {
+    const action = args.shift();
+    if (action !== "reject") throw new Error("Use relation reject");
+    const parseRef = (name) => {
+      const raw = option(name);
+      if (!raw) throw new Error("--" + name + " is required");
+      const [id, revision, anchor] = raw.split("/");
+      if (!id || !revision || !/^\d+$/.test(revision) || !anchor)
+        throw new Error("--" + name + " must be ID/REVISION/ANCHOR");
+      return { articleId: id, revision: Number(revision), anchor };
+    };
+    const from = parseRef("from"),
+      to = parseRef("to"),
+      relation = option("relation"),
+      client = option("client"),
+      reason = option("reason");
+    if (
+      !["supersedes", "retracts", "contradicts", "supports"].includes(
+        relation,
+      )
+    )
+      throw new Error(
+        "--relation must be supersedes, retracts, contradicts or supports",
+      );
+    if (!client || !reason)
+      throw new Error("--client and --reason are required");
+    return output(
+      await request("/claim-relations/reject", {
+        method: "POST",
+        body: { from, to, relation, client, reason },
+      }),
+    );
   }
   if (command === "article") {
     const revision = option("revision");

@@ -18,6 +18,7 @@ import { pagination, paged } from "./pagination.js";
 import { detail, search } from "./article-detail.js";
 import { context } from "./knowledge-context.js";
 import { publish } from "./knowledge-publish.js";
+import { rejectClaimRelation } from "./claim-relation-reject.js";
 import { uuid, keySchema, conflict } from "./publication-schema.js";
 // Public surface used by the Worker, automation and tests. Keep these stable.
 export { publish } from "./knowledge-publish.js";
@@ -159,6 +160,12 @@ export function registerKnowledge(
       await refreshWikiPages(c, ws);
       return { ok: true };
     });
+  });
+  app.post(base + "/claim-relations/reject", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) =>
+      rejectClaimRelation(c, ws, r.body, r.identity!),
+    );
   });
   app.get(base + "/reviews", (r) =>
     scoped(r, (c, ws) => pendingReviews(c, ws, r.query)),
