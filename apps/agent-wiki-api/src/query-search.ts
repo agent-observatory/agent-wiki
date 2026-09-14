@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import {
   rankQueryDocuments,
+  uncoveredTermGroups,
   QUERY_POLICY,
 } from "../../../packages/core/src/query-ranking.js";
 import { searchTermGroups } from "../../../packages/core/src/search-terms.js";
@@ -51,6 +52,8 @@ export async function queryCandidates(
       matchedTerms: h.matched,
     })),
     policy: QUERY_POLICY,
+    // Original query terms absent from every candidate document.
+    unmatchedTerms: q.trim() ? uncoveredTermGroups(docs, q) : [],
     corpusSize: docs.length,
     truncated: rows.length > 2000 || docs.some((x) => x.content_truncated),
   };

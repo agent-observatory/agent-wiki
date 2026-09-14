@@ -1,5 +1,5 @@
 {
-  "fixture": "query-eval-1",
+  "fixture": "query-eval-2",
   "modelCalls": 0,
   "l5Usage": null,
   "scope": "Seed retrieval only; graph/state/API contracts are separate CI tests. Not end-to-end L5 quality.",
@@ -202,5 +202,69 @@
         }
       ]
     }
-  ]
+  ],
+  "regressions": {
+    "policy": "bm25-fields-coverage-1",
+    "passed": 0,
+    "total": 4,
+    "cases": [
+      {
+        "id": "r01",
+        "criterion": "empty",
+        "ids": [
+          "theme",
+          "container",
+          "payg"
+        ],
+        "unmatchedTerms": [
+          "k3s"
+        ],
+        "pass": false,
+        "knownFailing": true,
+        "consistent": true
+      },
+      {
+        "id": "r02",
+        "criterion": "empty",
+        "ids": [
+          "svg-style"
+        ],
+        "unmatchedTerms": [
+          "max_completion_tokens"
+        ],
+        "pass": false,
+        "knownFailing": true,
+        "consistent": true
+      },
+      {
+        "id": "r03",
+        "criterion": "empty",
+        "ids": [
+          "repo-split",
+          "domain"
+        ],
+        "unmatchedTerms": [
+          "page",
+          "claim"
+        ],
+        "pass": false,
+        "knownFailing": true,
+        "consistent": true
+      },
+      {
+        "id": "r04",
+        "criterion": "top1",
+        "ids": [
+          "theme",
+          "container",
+          "payg",
+          "k3s"
+        ],
+        "unmatchedTerms": [],
+        "pass": false,
+        "knownFailing": true,
+        "consistent": true
+      }
+    ]
+  }
 }

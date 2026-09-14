@@ -206,6 +206,25 @@ test("same trace connects seed, selected claim, exact relation evidence and sour
     404,
   );
 });
+test("search reports query terms that matched no knowledge even when generic words fill the candidates", async () => {
+  const mixed = (
+    await api("/query?q=" + encodeURIComponent("Alibaba K3s 전환"))
+  ).json();
+  assert.equal(mixed.status, "found");
+  assert.deepEqual(mixed.unmatchedTerms, ["k3s", "전환"]);
+  assert.deepEqual((await api("/query?q=Alibaba")).json().unmatchedTerms, []);
+  const overview = (
+    await api(
+      "/query?q=" + encodeURIComponent("Alibaba K3s") + "&view=overview",
+    )
+  ).json();
+  assert.deepEqual(overview.unmatchedTerms, ["k3s"]);
+  const context = (
+    await api("/context?q=" + encodeURIComponent("Alibaba K3s"))
+  ).json();
+  assert.deepEqual(context.unmatchedTerms, ["k3s"]);
+  assert.ok(context.notice.includes("k3s"));
+});
 test("no match and unprocessed input are different; lookup never changes curation or creates publications", async () => {
   const before = (
     await read("SELECT config FROM ai_settings WHERE workspace_id=$1", [ws])

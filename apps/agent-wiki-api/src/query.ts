@@ -118,6 +118,7 @@ export function registerQuery(
               truncated: !!result.truncated,
               status: result.status ?? "ok",
               ranking: result.ranking ?? null,
+              unmatchedTerms: result.unmatchedTerms?.length ?? null,
               hasUnprocessedInputs: result.hasUnprocessedInputs ?? null,
             },
           ],
@@ -234,6 +235,7 @@ export function registerQuery(
               ? "not_found_with_unprocessed_inputs"
               : "not_found",
           hasUnprocessedInputs: coverage,
+          unmatchedTerms: ranked.unmatchedTerms,
           items: pages.slice(0, q.limit).map((p) => ({
             pageId: p.id,
             revision: p.revision,
@@ -260,6 +262,7 @@ export function registerQuery(
             ? "not_found_with_unprocessed_inputs"
             : "not_found",
         hasUnprocessedInputs: coverage,
+        unmatchedTerms: ranked.unmatchedTerms,
         items: interleaved.slice(0, q.limit),
         truncated:
           ranked.truncated || expanded.truncated || items.length > q.limit,

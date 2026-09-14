@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   rankQueryDocuments,
   legacyQueryRank,
+  uncoveredTermGroups,
 } from "../packages/core/src/query-ranking.js";
 const fixture = JSON.parse(
   readFileSync(
@@ -66,4 +67,35 @@ test("existing retrieval questions retain relevant decisions over single-word ti
       q.expected,
       q.q,
     );
+});
+
+// Production observations (2026-09-14) replayed on synthetic analogs. The
+// recorded outcome is asserted so a ranking change must flip knownFailing on
+// purpose instead of silently changing what the evaluation reports.
+test("observed retrieval regressions keep their recorded outcome and expose unmatched terms", () => {
+  const byId = new Map<string, any>(
+    [...fixture.documents, ...fixture.regressionDocuments].map((d: any) => [
+      d.id,
+      d,
+    ]),
+  );
+  for (const r of fixture.regressions) {
+    const corpus = r.corpus.map((id: string) => byId.get(id));
+    const ids = rankQueryDocuments(corpus, r.query).map((x) => x.document.id);
+    const pass =
+      r.criterion === "empty" ? ids.length === 0 : ids[0] === r.expected[0];
+    assert.equal(pass, !r.knownFailing, r.id);
+  }
+  const docs = [
+    {
+      id: "payg",
+      title: "유료 계정 전환 결정",
+      content: "전환 이유는 한도다.",
+    },
+    { id: "k3s", title: "K3s 실행 구성", content: "단일 VM에서 관리한다." },
+  ];
+  assert.deepEqual(uncoveredTermGroups(docs, "K3s 전환 이유"), []);
+  assert.deepEqual(uncoveredTermGroups([docs[0]], "K3s 전환 이유는"), ["k3s"]);
+  assert.deepEqual(uncoveredTermGroups(docs, "Claim 전환"), ["claim"]);
+  assert.deepEqual(uncoveredTermGroups(docs, ""), []);
 });

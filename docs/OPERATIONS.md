@@ -5,12 +5,47 @@
 | 구분 | 확인한 상태 |
 | --- | --- |
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
-| 로컬 패키지 | 0.7.3 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 |
+| 로컬 패키지 | 0.7.4 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 56 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## 재개 전 점검 · 조회 회귀 사례 · 모듈 분리 · 로컬 DB 검증
+
+2026-09-14. 사용자가 네 항목(재개 전 점검, L4 실패 사례 수집, `knowledge.ts` 분리, 로컬 DB 검증 스크립트)의 구현·검증·배포를 요청했다. **정제는 OFF·Version 56을 유지했고 enable·retry·reprocess·reassemble·초기화는 실행하지 않았다.** 재개는 이후 사용자 명령이다.
+
+### 실패 작업 3개의 원인 · 읽기 전용
+
+운영 `GET /refinements`·`/refinement-sessions`로 확인했다. 세션 3개가 각각 실패 1개로 `attention` 상태이며 모두 프롬프트 `remote-curation-13`·generation 1·attempt 1 실행이다. 당시 `retryable=false`로 남았다.
+
+| 작업 | 세션 | 청크 | 오류 | 진단 |
+| --- | --- | --- | --- | --- |
+| `445ccfff` | `01a0963a` | 0 / 5 | `AI_INVALID_OUTPUT` | `claims[].type`에 허용되지 않는 값 2개(권한 종류와 상태 혼동) |
+| `349368bd` | `01a094be` | 8 / 9, 0~7 완료 | `AI_INVALID_OUTPUT` | `claims[]`에 허용되지 않는 키 2개(Claim 안의 `relations`) |
+| `928dec4d` | `01a092a5` | 2, 1 완료 | `CLAIM_RELATION_TARGET_INVALID` | 발행 단계에서 같은 변경에 없는 관계 출발 anchor |
+
+세 원인은 이미 배포된 `remote-curation-14`가 다룬다. 두 오류 코드를 출력 재생성 목록에 넣고 필드 경로·코드를 다음 입력에 전달하며 관계 출발점을 저장 전에 검사한다. 그러나 실패 작업 자체는 `failed`로 남아 있어 재개만으로는 다시 실행되지 않는다. 재개 절차는 다음 순서다. (1) 사용자 `ai resume`. (2) 실패 작업 3개에 `POST /refinements/<job-id>/retry`(기본, 새 모델 응답)를 실행한다. `reuseOutput=true`는 저장된 출력이 잘못된 경우라 쓰지 않는다. 성공 청크 0~7과 1은 `chunk_results`에 남아 되감지 않는다. (3) 첫 실행 결과 Claim 5~10개를 원문 근거와 비교해 검토한다. 이번에는 (1)~(3)을 수행하지 않았다.
+
+이 밖에 완료 0·대기 417·미계획 400·청크 10/142이고 최신 세션은 `waiting_inputs=true`로 새 수집분 507개 기록이 다음 묶음을 기다린다. 7일 모델 통계는 시도 27·완료 16·실패 11·평균 97.8초·p95 178초다.
+
+### L4 실제 실패 사례
+
+운영 current 조회 8개를 읽기 전용으로 실행해 잘못된 후보 패턴 3종을 확인했다. 원문·Claim 본문은 저장소에 넣지 않고 합성 유사 자료로 [조회 평가 회귀 사례](../experiments/query/README.md#운영에서-관찰한-회귀-사례)에 기록했다.
+
+- `K3s 전환 이유`, `출력 상한 max_completion_tokens`, `Wiki Page Claim 분리`는 핵심 대상(K3s·max_completion_tokens·Claim)을 단독으로 조회하면 `not_found_with_unprocessed_inputs`인데, 일반 단어("전환", "상한", "분리")와 함께 조회하면 그 단어만 맞는 문서가 `found`를 채웠다. `wiki`는 `agent-wiki`의 부분 문자열로 맞았다.
+- 원인은 순위 오류가 아니라 응답이 "핵심 단어는 어디에도 없다"를 알리지 않는 것이다. 순위는 바꾸지 않고 `GET /query`·`/context`에 `unmatchedTerms`를 추가했다. 어떤 문서에도 없는 검색어 그룹의 대표형을 반환하며 조회 이력 메타데이터에는 개수만 남긴다. Skill·계약 문서에 `found`와 구분해 읽는 규칙을 적었다.
+- 포함 범위 우선 규칙의 반대 급부(r04)도 기록했다. 희귀한 한 단어 문서가 흔한 두 단어 문서보다 뒤로 밀리며 Recall@3는 통과한다. IDF 가중 포함 범위가 후보 해법이나 기존 회귀 사례와 함께 비교한 뒤 결정한다.
+- 기존 10문항은 두 정책 모두 10/10, 회귀 4건은 기록대로 실패(knownFailing)이며 `tests/query-ranking.test.ts`가 이 결과를 고정한다.
+
+### `knowledge.ts` 분리
+
+1,443행의 `knowledge.ts`를 동작 변경 없이 여섯 모듈로 나눴다. `publication-schema.ts`(입력 스키마·정규 직렬화·409), `knowledge-publish.ts`(consolidate·coalesce·publish), `article-detail.ts`(detail·search), `knowledge-context.ts`(Context 조립), `knowledge-excerpt.ts`(발췌), `source-records.ts`(원문 라우트)다. `knowledge.ts`는 라우트 연결과 `publish`·`changeInput`·`MAX_PUBLICATION_CHANGES`·`excerpt` 재수출만 남겨 Worker·automation·테스트 14곳의 import 경로를 바꾸지 않았다. 분리 전후 라우트 24개가 같다.
+
+### 로컬 DB 검증
+
+`scripts/test-local-db.sh`는 CI와 같은 `postgres:17.9-bookworm`·역할·포트 55432로 Codex와 공유하는 `wiki-test-postgres` 컨테이너를 기동·재사용하고 기존 `scripts/test-local.sh`(migrate + test)를 호출한 뒤 컨테이너를 정지한다. 삭제는 `--down`이다. 리팩터링 전 기준선 197개, 분리 후 197개, `unmatchedTerms`·회귀 검사 추가 후 **199개**(API·Worker·순수 173, Client 26)가 로컬에서 통과했다. 타입 검사도 통과했다. 운영 DB·모델은 호출하지 않았다.
 
 ## L4·L5 단계적 조회 · 배포 완료
 

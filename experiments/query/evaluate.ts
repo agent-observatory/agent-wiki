@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import {
   rankQueryDocuments,
   legacyQueryRank,
+  uncoveredTermGroups,
   QUERY_POLICY,
 } from "../../packages/core/src/query-ranking.js";
 const fixture = JSON.parse(
@@ -41,6 +42,31 @@ for (const [name, rank] of [
     cases,
   });
 }
+// Observed production failures replayed on synthetic analogs. `criterion`
+// is stricter than Recall@3: `empty` expects no candidate at all, `top1`
+// expects the distinctive document first. unmatchedTerms is the L4 signal
+// that lets L5 notice the distinctive term matched nothing.
+const byId = new Map<string, any>(
+  [...fixture.documents, ...fixture.regressionDocuments].map((d: any) => [
+    d.id,
+    d,
+  ]),
+);
+const regressions = fixture.regressions.map((r: any) => {
+  const corpus = r.corpus.map((id: string) => byId.get(id));
+  const ids = rankQueryDocuments(corpus, r.query).map((x) => x.document.id);
+  const pass =
+    r.criterion === "empty" ? ids.length === 0 : ids[0] === r.expected[0];
+  return {
+    id: r.id,
+    criterion: r.criterion,
+    ids: ids.slice(0, 5),
+    unmatchedTerms: uncoveredTermGroups(corpus, r.query),
+    pass,
+    knownFailing: !!r.knownFailing,
+    consistent: pass === !r.knownFailing,
+  };
+});
 const report = {
   fixture: fixture.version,
   modelCalls: 0,
@@ -48,10 +74,27 @@ const report = {
   scope:
     "Seed retrieval only; graph/state/API contracts are separate CI tests. Not end-to-end L5 quality.",
   results,
+  regressions: {
+    policy: QUERY_POLICY,
+    passed: regressions.filter((r: any) => r.pass).length,
+    total: regressions.length,
+    cases: regressions,
+  },
 };
 await writeFile(
   new URL("./results.json", import.meta.url),
   JSON.stringify(report, null, 2) + "\n",
 );
 console.log(JSON.stringify(results.map(({ cases, ...r }) => r)));
+console.log(
+  JSON.stringify(
+    regressions.map(({ id, pass, knownFailing, unmatchedTerms }: any) => ({
+      id,
+      pass,
+      knownFailing,
+      unmatchedTerms,
+    })),
+  ),
+);
 if (results[1].passed < results[0].passed) process.exitCode = 1;
+if (regressions.some((r: any) => !r.consistent)) process.exitCode = 1;

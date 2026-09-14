@@ -131,3 +131,22 @@ export function legacyQueryRank<T extends QueryDocument>(
         a.document.id.localeCompare(b.document.id),
     );
 }
+// Query term groups that no document in the corpus contains. Generic words
+// ("전환", "분리") alone can fill the candidate list while the entity the
+// question is about ("K3s", "Claim") has no knowledge yet. L5 reads this to
+// tell "found" from "found only the generic part"; it changes no ranking.
+export function uncoveredTermGroups<T extends QueryDocument>(
+  documents: T[],
+  query: string,
+): string[] {
+  const corpus = documents.map((d) =>
+    [d.title, ...(d.aliases ?? []), ...(d.tags ?? []), d.content]
+      .join(" ")
+      .toLowerCase(),
+  );
+  return searchTermGroups(query)
+    .filter(
+      (group) => !corpus.some((raw) => group.some((t) => raw.includes(t))),
+    )
+    .map((group) => group.at(-1)!);
+}

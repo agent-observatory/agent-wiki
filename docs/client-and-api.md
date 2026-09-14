@@ -283,12 +283,12 @@ agent-wiki query trace TRACE_ID
 
 | API · Workspace 접두사 이후 | 결과 |
 | --- | --- |
-| `GET /query?q=...&view=current\|history\|overview&traceId=...` | 짧은 후보·미반영 여부·검색 정책·잘림. limit 최대 12, scope는 정확히 일치 |
+| `GET /query?q=...&view=current\|history\|overview&traceId=...` | 짧은 후보·미반영 여부·검색 정책·잘림·`unmatchedTerms`(어떤 지식에도 없는 검색어). limit 최대 12, scope는 정확히 일치 |
 | `GET /query/claims/:id?revision=N&anchor=A&depth=1&traceId=...` | 고정 Claim·상태·검토 상태·관계·근거 위치. depth 0~3 |
 | `GET /query/sources/:id?start=N&end=N&traceId=...` | 해시를 확인한 L1 구간. 최대 80줄·8,000자 |
 | `GET /query/traces` | 최근 30일 중 최신 조회 20개 · ID·단계·반환량·서버 지연 |
 | `GET /query/traces/:id` | 조회 단계·선택 참조·반환 문자 수·지연. L5 토큰은 null |
 
-처음 받은 traceId를 후속 검색과 상세 조회에 전달한다. CLI는 최초 ID를 생성하고 오류에도 ID를 남긴다. 서버는 단계별 응답 JSON 최대 12,000자, trace당 성공 단계 최대 12개·64,000자로 제한하며 초과하면 `QUERY_BUDGET_EXHAUSTED`다. 상세 원문이 잘렸으면 줄 범위를 좁힌다. 제목·페이지 목록은 탐색용이며 현재 결정은 Claim state와 관계로 확인한다. 30일 전 성공 조회 메타데이터는 다음 조회 때 정리하고 실패는 구조화 로그로 남긴다. 조회 이력도 Workspace로 격리한다.
+처음 받은 traceId를 후속 검색과 상세 조회에 전달한다. CLI는 최초 ID를 생성하고 오류에도 ID를 남긴다. 서버는 단계별 응답 JSON 최대 12,000자, trace당 성공 단계 최대 12개·64,000자로 제한하며 초과하면 `QUERY_BUDGET_EXHAUSTED`다. 상세 원문이 잘렸으면 줄 범위를 좁힌다. 제목·페이지 목록은 탐색용이며 현재 결정은 Claim state와 관계로 확인한다. `unmatchedTerms`에 질문의 핵심 대상(제품·설정·구성 요소 이름)이 들어 있으면 후보는 일반 단어만 맞은 것이므로 `found`를 그 대상의 지식이 있다는 뜻으로 읽지 않는다. 30일 전 성공 조회 메타데이터는 다음 조회 때 정리하고 실패는 구조화 로그로 남긴다. 조회 이력도 Workspace로 격리한다.
 
 기존 `search`·`recall`은 인용 Context를 바로 받는 도구다. 새로운 질문은 단계적 query로 시작해 읽는 양을 줄인다. 조회 결과가 없거나 미반영이어도 정제를 시작하지 않으며, 원문 읽기는 Collector의 재수집이 아니다. Skill은 추가 검색 최대 2회·총 읽기 6회 정도에서 충분한 근거 여부를 판단한다.

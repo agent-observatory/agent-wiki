@@ -144,6 +144,7 @@ export async function context(
     curation: { ...coverage, hasUnprocessedInputs },
     query: q,
     queryStatus: found.queryStatus,
+    unmatchedTerms: ranked.unmatchedTerms,
     tag,
     view,
     scope,
@@ -155,6 +156,9 @@ export async function context(
         : "") +
       (hasUnprocessedInputs
         ? " 아직 정제하지 않은 입력이 있어 최신 결정이 미반영되었을 수 있습니다."
+        : "") +
+      (ranked.unmatchedTerms.length
+        ? ` 다음 검색어는 어떤 지식과도 일치하지 않았습니다: ${ranked.unmatchedTerms.join(", ")}.`
         : ""),
     startContextId: startArticle?.id ?? null,
     startContextMissing: recall && !startArticle,
