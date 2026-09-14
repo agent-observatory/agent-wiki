@@ -23,11 +23,15 @@ type Config = {
   hasKey: boolean;
   stoppedReason?: string | null;
   stoppedAt?: string | null;
+  fallbackActive?: boolean;
+  fallbackActiveSince?: string | null;
+  activeModel?: string;
   mode: Mode;
   enabled: boolean;
   provider: string;
   baseUrl: string;
   model: string;
+  fallbackModel: string | null;
   dailyCalls: number | null;
   requestsPerMinute: number;
   concurrency: number;
@@ -98,6 +102,7 @@ function AIConnection() {
   const settingsRows: [string, string | number][] = [
     ["Endpoint", config.baseUrl],
     ["model", config.model],
+    ["fallback model", config.fallbackModel ?? "없음"],
     ["maxInputTokens", config.maxInputTokens],
     config.max_completion_tokens !== undefined
       ? [
@@ -149,6 +154,16 @@ function AIConnection() {
           재개하세요.
         </p>
       )}
+      {config.fallbackActive && (
+        <p
+          role="status"
+          className="mb-4 text-sm text-amber-700 dark:text-amber-400"
+        >
+          1번 모델의 무료 한도가 소진되어 2번 모델 {config.activeModel}로 정제
+          중입니다. 2번 모델을 1번으로 올리고 새 2번 모델을 저장하면 1번부터
+          다시 사용합니다.
+        </p>
+      )}
       <dl className="divide-y border-y">
         {settingsRows.map(([key, value]) => (
           <div
@@ -186,19 +201,33 @@ function AIConnectionForm({
     setTested(undefined);
     setError(undefined);
   }
-  async function submit(action: "save" | "test") {
+  async function submit(
+    action: "save" | "test",
+    target: "primary" | "fallback" = "primary",
+  ) {
     if (busy) return;
     setBusy(action);
     setError(undefined);
     setTested(undefined);
-    const { hasKey, version, stoppedReason, stoppedAt, ...values } = draft;
+    const {
+      hasKey,
+      version,
+      stoppedReason,
+      stoppedAt,
+      fallbackActive,
+      fallbackActiveSince,
+      activeModel,
+      ...values
+    } = draft;
+    const fallbackModel = values.fallbackModel?.trim() || null;
     try {
       const result = await api(base + (action === "test" ? "/test" : ""), {
         method: action === "test" ? "POST" : "PUT",
         body: JSON.stringify({
-          config: { ...values, enabled: config.enabled },
+          config: { ...values, fallbackModel, enabled: config.enabled },
           version: config.version,
           ...(key.trim() ? { apiKey: key.trim() } : {}),
+          ...(action === "test" ? { target } : {}),
         }),
       });
       if (action === "save") {
@@ -206,7 +235,7 @@ function AIConnectionForm({
         onClose();
       } else
         setTested(
-          `Hello · 연결 성공 ${(result.durationMs / 1000).toFixed(1)}초`,
+          `Hello · ${result.model} 연결 성공 ${(result.durationMs / 1000).toFixed(1)}초`,
         );
     } catch (e) {
       setError(e);
@@ -255,6 +284,7 @@ function AIConnectionForm({
       <fieldset disabled={!!busy} className="divide-y border-y">
         {field("baseUrl", "Endpoint")}
         {field("model", "model")}
+        {field("fallbackModel", "fallback model · 비우면 없음")}
         <label className="grid grid-cols-[220px_1fr] items-center gap-6 py-3 text-sm">
           <span>API key</span>
           <Input
@@ -348,6 +378,16 @@ function AIConnectionForm({
         >
           {busy === "test" ? "연결 확인 중" : "연결 테스트"}
         </Button>
+        {draft.fallbackModel?.trim() && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!!busy}
+            onClick={() => submit("test", "fallback")}
+          >
+            2번 모델 테스트
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"

@@ -64,7 +64,7 @@ For configuration use `agent-wiki ai show`, `ai update FILE.json [--key-env ENV_
 
 ## Improve existing analysis without resetting knowledge
 
-Never resume or pause curation without this user's explicit command. Deployment, configuration saving, Hello and page reassembly do not authorize a state change. The requested quota-exhaustion safety stop remains automatic; do not auto-switch providers or resume.
+Never resume or pause curation without this user's explicit command. Deployment, configuration saving, Hello and page reassembly do not authorize a state change. The requested quota-exhaustion safety stop remains automatic, and so is the switch to the user-configured second model (`fallbackModel`, same endpoint and key); do not switch to any other model or provider, and never resume automatically.
 
 - Failed work: use its existing retry operation; preserve successful coverage.
 - Successful analysis: `agent-wiki reprocess plan RUN_ID`, then an explicitly scoped `reprocess enqueue FILE`. FILE has requestId (UUID), runId, fingerprint, mode (`analyze` or compatible-cache `revalidate`), reason. Scheduling is not completion; when curation is OFF it stays pending.

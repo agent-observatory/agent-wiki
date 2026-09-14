@@ -27,3 +27,23 @@ export async function stopForQuota(owner: string, ws: string, version: number) {
     ).rows[0];
   });
 }
+// Record that this Workspace now runs on the configured fallback model. The
+// settings version is unchanged so admitted work continues; the flag clears
+// when the user saves a different model or fallback.
+export async function activateFallback(
+  owner: string,
+  ws: string,
+  version: number,
+) {
+  return tx(owner, ws, async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+      ws + "settings",
+    ]);
+    return (
+      await c.query(
+        "UPDATE ai_settings SET fallback_active_since=COALESCE(fallback_active_since,now()),updated_at=now() WHERE workspace_id=$1 AND version=$2 RETURNING fallback_active_since",
+        [ws, version],
+      )
+    ).rows[0];
+  });
+}

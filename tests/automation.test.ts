@@ -1225,3 +1225,137 @@ test("explicit publish-only retry reuses cached output without a model call", as
     1,
   );
 });
+
+test("first-model quota exhaustion continues on the configured fallback model and stops only when that is exhausted too", async () => {
+  const fallback = "deepseek-v4-flash-0731";
+  const settings = (await request("GET", "/ai-settings")).json();
+  await configureAndControl({
+    config: {
+      ...defaults,
+      enabled: true,
+      dailyCalls: null,
+      fallbackModel: fallback,
+    },
+    version: settings.version,
+  });
+  await admin.query(
+    "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND status='pending'",
+    [ws],
+  );
+  const releaseGate = () =>
+    admin.query(
+      "UPDATE model_request_gates SET next_allowed_at=now() WHERE owner_id=$1",
+      [owner],
+    );
+  const makeJob = async () => {
+    const raw = JSON.stringify({
+      event: 1,
+      field: '["payload","content",0,"text"]',
+      text: "2번 모델로 이어간다.",
+    });
+    const sourceId = randomUUID(),
+      jobId = randomUUID(),
+      objectKey = ws + "/" + hash(raw) + ".txt.gz";
+    await putSource(objectKey, raw);
+    await tx(owner, ws, async (c) => {
+      await c.query(
+        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1,$2,'Fallback','conversation',$5,$3,$3,$4,1,$5,true)",
+        [sourceId, ws, hash(raw), objectKey, "codex:fallback-" + jobId],
+      );
+      await c.query(
+        "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+        [jobId, ws, sourceId],
+      );
+    });
+    return jobId;
+  };
+  const calls: string[] = [];
+  const model = async (config: any) => {
+    calls.push(config.model);
+    if (config.model === defaults.model)
+      throw new ModelError("AI_FREE_QUOTA_EXHAUSTED");
+    return {
+      output: { changes: [] },
+      usage: { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 },
+    };
+  };
+  const first = await makeJob();
+  await releaseGate();
+  assert.equal(await runOne(owner, new AbortController().signal, model), true);
+  assert.deepEqual(calls, [defaults.model, fallback]);
+  const state = await tx(owner, ws, async (c) => ({
+    job: (
+      await c.query(
+        "SELECT status,error_code FROM refinement_jobs WHERE id=$1",
+        [first],
+      )
+    ).rows[0],
+    run: (
+      await c.query(
+        "SELECT settings,diagnostics,status FROM refinement_runs WHERE job_id=$1 ORDER BY created_at DESC LIMIT 1",
+        [first],
+      )
+    ).rows[0],
+    settings: (
+      await c.query(
+        "SELECT config,stopped_reason,fallback_active_since FROM ai_settings WHERE workspace_id=$1",
+        [ws],
+      )
+    ).rows[0],
+  }));
+  assert.equal(state.job.status, "completed", state.job.error_code);
+  assert.equal(state.run.status, "completed");
+  assert.equal(state.run.settings.model, fallback);
+  assert.equal(state.run.settings.fallbackFrom, defaults.model);
+  assert.equal(state.run.diagnostics.fallback.from, defaults.model);
+  assert.equal(state.run.diagnostics.fallback.to, fallback);
+  assert.equal(
+    state.run.diagnostics.fallback.reason,
+    "AI_FREE_QUOTA_EXHAUSTED",
+  );
+  assert.equal(state.run.diagnostics.httpRequests, 2);
+  assert.ok(state.settings.fallback_active_since);
+  assert.equal(state.settings.config.enabled, true);
+  assert.equal(state.settings.stopped_reason, null);
+  const shown = (await request("GET", "/ai-settings")).json();
+  assert.equal(shown.fallbackActive, true);
+  assert.equal(shown.activeModel, fallback);
+  assert.equal(shown.fallbackModel, fallback);
+  // Later work starts on the fallback without spending a call on the first model.
+  await makeJob();
+  calls.length = 0;
+  await releaseGate();
+  assert.equal(await runOne(owner, new AbortController().signal, model), true);
+  assert.deepEqual(calls, [fallback]);
+  // Promoting the fallback (or naming a new one) returns to the first model.
+  const {
+    hasKey,
+    version,
+    stoppedReason,
+    stoppedAt,
+    fallbackActive,
+    fallbackActiveSince,
+    activeModel,
+    ...config
+  } = (await request("GET", "/ai-settings")).json();
+  const promoted = await request("PUT", "/ai-settings", {
+    version,
+    config: { ...config, model: fallback, fallbackModel: null },
+  });
+  assert.equal(promoted.statusCode, 200, promoted.body);
+  const after = (await request("GET", "/ai-settings")).json();
+  assert.equal(after.fallbackActive, false);
+  assert.equal(after.activeModel, fallback);
+  // Without a second model the existing safety stop applies unchanged.
+  await makeJob();
+  await releaseGate();
+  assert.equal(
+    await runOne(owner, new AbortController().signal, async () => {
+      throw new ModelError("AI_FREE_QUOTA_EXHAUSTED");
+    }),
+    true,
+  );
+  const stopped = (await request("GET", "/ai-settings")).json();
+  assert.equal(stopped.enabled, false);
+  assert.equal(stopped.stoppedReason, "AI_FREE_QUOTA_EXHAUSTED");
+});

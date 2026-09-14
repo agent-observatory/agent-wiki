@@ -10,11 +10,13 @@ import {
   aiConfig,
   decryptSecret,
   callModel,
+  effectiveModelConfig,
   ModelError,
 } from "../../../packages/core/src/ai.js";
 import {
   checkCurationControl,
   stopForQuota,
+  activateFallback,
 } from "../../../packages/core/src/curation-control.js";
 import {
   modelGateKey,
@@ -74,7 +76,10 @@ export async function runReprocess(
         )
       ).rows[0];
       if (!request) return null;
-      const config = aiConfig.parse(settings.config);
+      const baseConfig = aiConfig.parse(settings.config);
+      const fallbackActive =
+        !!settings.fallback_active_since && !!baseConfig.fallbackModel;
+      const config = effectiveModelConfig(baseConfig, fallbackActive);
       if (
         config.dailyCalls !== null &&
         (
@@ -98,7 +103,11 @@ export async function runReprocess(
           runId,
           ws,
           original.job_id,
-          JSON.stringify({ ...config, version: settings.version }),
+          JSON.stringify({
+            ...config,
+            version: settings.version,
+            fallbackActive,
+          }),
           promptVersion,
           original.chunk_index,
           JSON.stringify({
@@ -117,6 +126,8 @@ export async function runReprocess(
         request,
         original,
         config,
+        baseConfig,
+        fallbackActive,
         settingsVersion: settings.version,
         secret: decryptSecret(settings.encrypted_key),
         runId,
@@ -277,8 +288,8 @@ export async function runReprocess(
           ),
         );
         const start = performance.now();
-        try {
-          response = await modelCall(
+        const invoke = () =>
+          modelCall(
             task.config,
             task.secret,
             messages,
@@ -297,6 +308,52 @@ export async function runReprocess(
                 diag.httpRequests = Number(diag.httpRequests) + 1;
             },
           );
+        try {
+          try {
+            response = await invoke();
+          } catch (error) {
+            // Same fallback rule as normal curation: continue on the second
+            // model when the first model's free quota is exhausted.
+            if (!(
+              error instanceof ModelError &&
+              error.code === "AI_FREE_QUOTA_EXHAUSTED" &&
+              !task.fallbackActive &&
+              task.baseConfig.fallbackModel
+            ))
+              throw error;
+            await activateFallback(owner, ws, task.settingsVersion);
+            const from = task.config.model;
+            task.config = effectiveModelConfig(task.baseConfig, true);
+            task.fallbackActive = true;
+            diag.fallback = {
+              from,
+              to: task.config.model,
+              reason: error.code,
+              at: new Date().toISOString(),
+            };
+            diag.httpRequests = Number(diag.httpRequests) + 1;
+            await tx(owner, ws, (c) =>
+              c.query(
+                "UPDATE refinement_runs SET settings=settings||$3::jsonb WHERE workspace_id=$1 AND id=$2",
+                [
+                  ws,
+                  task.runId,
+                  JSON.stringify({
+                    model: task.config.model,
+                    fallbackFrom: from,
+                    fallbackActive: true,
+                  }),
+                ],
+              ),
+            );
+            await waitForModelSlot(
+              owner,
+              gate,
+              callSignal,
+              task.config.requestsPerMinute,
+            );
+            response = await invoke();
+          }
         } finally {
           diag.durationMs = Math.round(performance.now() - start);
         }

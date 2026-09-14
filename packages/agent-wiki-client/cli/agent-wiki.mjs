@@ -67,7 +67,7 @@ async function main() {
         "publish FILE.json",
         "publication status KEY",
         "pages [query] | page ID [--revision N]",
-        "ai show | update FILE.json [--key-env ENV_NAME] | test [FILE.json] [--key-env ENV_NAME] | pause | resume",
+        "ai show | update FILE.json [--key-env ENV_NAME] | test [FILE.json] [--key-env ENV_NAME] [--fallback] | pause | resume",
         "api GET|POST|PUT|PATCH|DELETE /workspace-path [--file FILE.json] [--idempotency-key KEY] [--secret-output FILE]",
         "workspace list | create NAME",
         "article ID [--revision N]",
@@ -277,7 +277,16 @@ async function main() {
     const patch = file ? await jsonFile(file) : {};
     if ("enabled" in patch)
       throw new Error("Use ai pause or ai resume separately");
-    const { hasKey, version, stoppedReason, stoppedAt, ...config } = settings;
+    const {
+      hasKey,
+      version,
+      stoppedReason,
+      stoppedAt,
+      fallbackActive,
+      fallbackActiveSince,
+      activeModel,
+      ...config
+    } = settings;
     const apiKey = keyEnv ? process.env[keyEnv] : undefined;
     if (keyEnv && !apiKey)
       throw new Error("Requested API key environment variable is empty");
@@ -288,6 +297,9 @@ async function main() {
           version,
           config: { ...config, ...patch, enabled: config.enabled },
           ...(apiKey ? { apiKey } : {}),
+          ...(action === "test" && args.includes("--fallback")
+            ? { target: "fallback" }
+            : {}),
         },
       }),
     );

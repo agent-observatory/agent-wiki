@@ -165,12 +165,14 @@ macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalM
 | 사용자 검토 확정 | `agent-wiki review confirm KNOWLEDGE_ID --revision N --snapshot HASH --client claude --reason "검토 결과"` |
 | BYOK 설정 조회 | `agent-wiki ai show` |
 | 설정 변경 | `agent-wiki ai update settings.json --key-env DASHSCOPE_API_KEY` |
-| 짧은 Hello | `agent-wiki ai test` 또는 `ai test settings.json` |
+| 짧은 Hello | `agent-wiki ai test` 또는 `ai test settings.json`, 2번 모델은 `ai test --fallback` |
 | 자동 정제 제어 | `agent-wiki ai pause` / `agent-wiki ai resume` |
 | 관리 API | `agent-wiki api GET /refinements` / `api POST /refinements/ID/retry` |
 | 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
 
 Alibaba Qwen·DeepSeek의 `max_completion_tokens`는 선택 설정이다. `{"max_completion_tokens": null}`을 `ai update`로 저장하면 `max_completion_tokens`와 대체 `max_tokens`를 모두 보내지 않는다. 웹에는 `Provider default`로 표시한다. 숫자를 지정하면 해당 상한을 보낸다. 필드가 없는 설정은 `maxTokens`를 사용하므로 생략 요청은 명시적 `null`로 구분한다. `ai test`는 이 설정과 별개로 짧은 Hello 출력 상한을 둔다.
+
+`fallbackModel`은 같은 Endpoint·키의 2번 모델이며 `null`이면 없다. 1번 모델 호출이 무료 할당량 소진(`AI_FREE_QUOTA_EXHAUSTED`)으로 실패하면 Worker는 그 호출부터 2번 모델로 이어가고 Workspace에 `fallbackActive`를 기록한다. 이후 실행은 2번 모델로 시작하며 실행 이력의 `settings.model`·`fallbackFrom`과 진단 `fallback`에 남는다. 2번 모델도 소진되거나 2번이 없으면 기존 안전 중지가 그대로 적용된다. `ai show`의 `activeModel`이 현재 호출 모델이다. `model` 또는 `fallbackModel`을 바꿔 저장하면 1번 모델부터 다시 사용하므로, 2번을 1번으로 올리고 새 2번을 지정하면 끊김 없이 이어진다. 1번과 2번이 같으면 `AI_FALLBACK_SAME_MODEL`이다. 무료 할당량 이외의 오류는 모델을 바꾸지 않는다.
 
 설정 JSON은 바꿀 필드만 담는다. `enabled`는 받지 않으며 재개 명령으로만 활성화한다. API 키는 설정된 로컬 env의 변수 이름으로 전달하고 출력하지 않는다. 신규 키 결과는 기존 파일을 덮어쓰지 않는 0600 파일에 저장한다. 일반 API 경로는 현재 Workspace 내부로 한정한다. 수정 API는 응답 유실 시 자동 재전송하지 않는다. 멱등 publication은 같은 키·내용의 결과를 먼저 조회한다.
 

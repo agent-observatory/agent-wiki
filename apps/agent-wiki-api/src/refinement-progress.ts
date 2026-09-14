@@ -96,7 +96,7 @@ export async function refinementProgress(
   ).rows[0];
   const settings = (
     await c.query(
-      "SELECT config,encrypted_key,version,stopped_reason FROM ai_settings WHERE workspace_id=$1",
+      "SELECT config,encrypted_key,version,stopped_reason,fallback_active_since FROM ai_settings WHERE workspace_id=$1",
       [ws],
     )
   ).rows[0];
@@ -153,6 +153,13 @@ export async function refinementProgress(
     control: {
       enabled: config.enabled,
       stoppedReason: settings?.stopped_reason ?? null,
+      fallbackActive:
+        !!settings?.fallback_active_since && !!config.fallbackModel,
+      activeModel:
+        settings?.fallback_active_since && config.fallbackModel
+          ? config.fallbackModel
+          : config.model,
+      fallbackModel: config.fallbackModel,
       version: settings?.version ?? 0,
       dailyCalls: config.dailyCalls,
       requestsPerMinute: config.requestsPerMinute,

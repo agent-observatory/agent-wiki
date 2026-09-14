@@ -5,7 +5,7 @@
 | 구분 | 확인한 상태 |
 | --- | --- |
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
-| 로컬 패키지 | 0.7.4 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
+| 로컬 패키지 | 0.7.5 준비(미배포·미설치) · 0.7.4 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 56 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
@@ -36,6 +36,16 @@
 - `CLAIM_REPLACEMENT_NOT_CURRENT`를 Worker 발행 전 검사와 출력 재생성 목록에 넣어 피드백과 함께 다시 생성한다.
 - 실행 진단에 `published.changes/consolidated/relations`를 남겨 청크가 기존 문서에 합쳐진 비율(통합률)을 이후 측정한다. `consolidated`는 기존 문서의 새 Version으로 반영된 변경 수다.
 - 배포 후 비교 기준: 참고 지식 선택 수(1~3 → 목표 4 이상), 청크당 변경 중앙값(4 → 감소), 새 문서 대비 통합 비율, 출력 토큰·추론 비율, 제목 겹침 쌍 증가 속도.
+
+### 2번 모델 자동 이어가기 · 미배포
+
+사용자 요청(2026-09-14): 1번 모델 `deepseek-v4-flash`의 무료 할당량(약 100K 남음)이 소진되면 손으로 바꾸지 않고 2번 모델 `deepseek-v4-flash-0731`(1M)로 이어가고, 그 사이 사용자가 2번을 1번으로 올리고 새 2번을 지정하면 끊김 없이 계속되게 한다. 2번 모델은 비워둘 수 있다.
+
+- 설정 `fallbackModel`(nullable)을 추가했다. 같은 Endpoint·키에서만 동작하며 1번과 같으면 `AI_FALLBACK_SAME_MODEL`이다. 웹 설정 화면에 `fallback model` 입력·표시, 2번 모델 Hello 버튼, CLI `ai test --fallback`을 추가했다. `ai show`에 `fallbackActive`·`activeModel`이 나온다.
+- Worker·Reprocess는 1번 모델 호출이 `AI_FREE_QUOTA_EXHAUSTED`이면 그 실행 안에서 2번 모델로 한 번 더 호출한다(호출 간격 준수, `httpRequests` +1). Workspace `ai_settings.fallback_active_since`에 기록해 이후 실행은 2번으로 시작한다. 설정 Version은 바꾸지 않아 진행 중 작업이 끊기지 않는다. 실행 이력 `settings.model`·`fallbackFrom`과 진단 `fallback{from,to,reason,at}`으로 모델별 통계가 분리된다.
+- `model` 또는 `fallbackModel`을 바꿔 저장하면 `fallback_active_since`가 지워져 1번부터 다시 쓴다. 2번도 소진되거나 2번이 없으면 기존 안전 중지(`enabled=false`·중지 이유)가 그대로다. 무료 할당량 이외의 오류는 모델을 바꾸지 않는다.
+- AGENTS.md·Skill·설계 문서의 "자동 모델 전환 없음" 규칙을 "사용자가 지정한 2번 모델로의 전환만 자동"으로 고쳤다. Client 0.7.5.
+- 검증: Worker 통합 검사(1번 소진 → 2번 완료, 다음 작업은 2번으로 시작, 승격 저장 후 해제, 2번 부재 시 중지)와 설정 API 검사(동일 모델 거부, 표시, 2번 없는 Hello 거부)를 추가했다. 스키마는 `fallback_active_since` 열 추가만이며 배포 시 migration Job이 적용한다.
 
 ### 조각 크기 · 추정기 전환 · 미배포
 

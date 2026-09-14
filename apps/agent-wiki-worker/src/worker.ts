@@ -3,6 +3,7 @@ import { prepareProposal } from "./curation-proposal.js";
 import {
   checkCurationControl,
   stopForQuota,
+  activateFallback,
 } from "../../../packages/core/src/curation-control.js";
 import {
   modelSource,
@@ -52,6 +53,7 @@ import {
   aiConfig,
   decryptSecret,
   callModel,
+  effectiveModelConfig,
   ModelError,
 } from "../../../packages/core/src/ai.js";
 import {
@@ -119,7 +121,10 @@ export async function runOne(
         await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
       ).rows[0];
       if (!settings?.config.enabled || !settings.encrypted_key) return null;
-      const config = aiConfig.parse(settings.config);
+      const baseConfig = aiConfig.parse(settings.config);
+      const fallbackActive =
+        !!settings.fallback_active_since && !!baseConfig.fallbackModel;
+      const config = effectiveModelConfig(baseConfig, fallbackActive);
       // Expired attempts remain in history; unfinished work becomes retryable.
       await c.query(
         "UPDATE refinement_runs SET status='interrupted',error_code='LEASE_EXPIRED',finished_at=now() WHERE workspace_id=$1 AND status='running' AND job_id IN (SELECT id FROM refinement_jobs WHERE workspace_id=$1 AND status='running' AND lease_until<now())",
@@ -224,7 +229,11 @@ export async function runOne(
           runId,
           ws,
           job.id,
-          JSON.stringify({ ...config, version: settings.version }),
+          JSON.stringify({
+            ...config,
+            version: settings.version,
+            fallbackActive,
+          }),
           PROMPT_VERSION,
           job.chunk_index,
           JSON.stringify(diagnostics),
@@ -238,6 +247,8 @@ export async function runOne(
         ...job,
         validationRetry,
         config,
+        baseConfig,
+        fallbackActive,
         runId,
         secret,
         gateKey,
@@ -445,42 +456,97 @@ export async function runOne(
         let response: Awaited<ReturnType<typeof callModel>>;
         let reportedUsage: Record<string, unknown> | undefined;
         try {
-          response = modelNeeded
-            ? await modelCall(
-                task.config,
-                task.secret,
-                [
-                  { role: "system", content: instruction },
-                  {
-                    role: "user",
-                    content: JSON.stringify({
-                      ...input,
-                      source: modelSource(input.source),
+          const messages = [
+            { role: "system", content: instruction },
+            {
+              role: "user",
+              content: JSON.stringify({
+                ...input,
+                source: modelSource(input.source),
+              }),
+            },
+          ];
+          const invoke = () =>
+            modelCall(
+              task.config,
+              task.secret,
+              messages,
+              callSignal,
+              () =>
+                waitForModelSlot(
+                  owner,
+                  task.gateKey,
+                  callSignal,
+                  task.config.requestsPerMinute,
+                ),
+              (event) => {
+                if (event.type === "poll")
+                  diagnostics.httpRequests =
+                    Number(diagnostics.httpRequests) + 1;
+                if (event.type === "response")
+                  diagnostics.httpStatus = event.status;
+                if (event.type === "usage") reportedUsage = event.usage;
+                if (event.type === "completion") {
+                  diagnostics.finishReason = event.finishReason;
+                  diagnostics.outputChars = event.outputChars;
+                }
+              },
+            );
+          if (!modelNeeded)
+            response = { output: { changes: [] }, usage: { total_tokens: 0 } };
+          else
+            try {
+              response = await invoke();
+            } catch (error) {
+              // The first model's free quota is gone: continue this call on the
+              // user-configured fallback model with the same key. Only the
+              // fallback's own exhaustion (or no fallback) stops curation.
+              if (!(
+                error instanceof ModelError &&
+                error.code === "AI_FREE_QUOTA_EXHAUSTED" &&
+                !task.fallbackActive &&
+                task.baseConfig.fallbackModel
+              ))
+                throw error;
+              await activateFallback(owner, ws, task.settingsVersion);
+              const from = task.config.model;
+              task.config = effectiveModelConfig(task.baseConfig, true);
+              task.fallbackActive = true;
+              diagnostics.fallback = {
+                from,
+                to: task.config.model,
+                reason: error.code,
+                at: new Date().toISOString(),
+              };
+              diagnostics.httpRequests = Number(diagnostics.httpRequests) + 1;
+              log("warn", "curation_fallback_activated", {
+                run_id: task.runId,
+                from_model: from,
+                to_model: task.config.model,
+              });
+              await tx(owner, ws, (c) =>
+                c.query(
+                  "UPDATE refinement_runs SET settings=settings||$3::jsonb,diagnostics=diagnostics||$4::jsonb WHERE workspace_id=$1 AND id=$2",
+                  [
+                    ws,
+                    task.runId,
+                    JSON.stringify({
+                      model: task.config.model,
+                      fallbackFrom: from,
+                      fallbackActive: true,
                     }),
-                  },
-                ],
+                    JSON.stringify({ fallback: diagnostics.fallback }),
+                  ],
+                ),
+              );
+              await waitForModelSlot(
+                owner,
+                task.gateKey,
                 callSignal,
-                () =>
-                  waitForModelSlot(
-                    owner,
-                    task.gateKey,
-                    callSignal,
-                    task.config.requestsPerMinute,
-                  ),
-                (event) => {
-                  if (event.type === "poll")
-                    diagnostics.httpRequests =
-                      Number(diagnostics.httpRequests) + 1;
-                  if (event.type === "response")
-                    diagnostics.httpStatus = event.status;
-                  if (event.type === "usage") reportedUsage = event.usage;
-                  if (event.type === "completion") {
-                    diagnostics.finishReason = event.finishReason;
-                    diagnostics.outputChars = event.outputChars;
-                  }
-                },
-              )
-            : { output: { changes: [] }, usage: { total_tokens: 0 } };
+                task.config.requestsPerMinute,
+              );
+              response = await invoke();
+            }
           if (modelNeeded) diagnostics.httpStatus ??= 200;
           reportedUsage = response.usage;
         } catch (error) {

@@ -9,6 +9,7 @@ import {
   decryptSecret,
   validateEndpoint,
   callModel,
+  effectiveModelConfig,
   isAlibabaThinkingModel,
   ModelError,
   type AiConfig,
@@ -29,6 +30,7 @@ type Settings = {
   version: number;
   stopped_reason?: string | null;
   stopped_at?: string | null;
+  fallback_active_since?: string | null;
 };
 const input = z
   .object({
@@ -37,6 +39,10 @@ const input = z
     version: z.number().int().nonnegative(),
   })
   .strict();
+// Hello may target the fallback model so both models are verified before use.
+const testInput = input.extend({
+  target: z.enum(["primary", "fallback"]).default("primary"),
+});
 function resolveKey(
   row: Settings | undefined,
   config: AiConfig,
@@ -62,16 +68,21 @@ export function registerAiSettings(
     return scoped(r, async (c, ws) => {
       const row = (
         await c.query(
-          "SELECT config,encrypted_key,version,stopped_reason,stopped_at FROM ai_settings WHERE workspace_id=$1",
+          "SELECT config,encrypted_key,version,stopped_reason,stopped_at,fallback_active_since FROM ai_settings WHERE workspace_id=$1",
           [ws],
         )
       ).rows[0] as Settings | undefined;
       const config = aiConfig.parse(row?.config ?? defaults);
+      const fallbackActive =
+        !!row?.fallback_active_since && !!config.fallbackModel;
       return {
         ...config,
         hasKey: !!row?.encrypted_key,
         stoppedReason: row?.stopped_reason ?? null,
         stoppedAt: row?.stopped_at ?? null,
+        fallbackActive,
+        fallbackActiveSince: fallbackActive ? row?.fallback_active_since : null,
+        activeModel: fallbackActive ? config.fallbackModel : config.model,
         version: row?.version ?? 0,
       };
     });
@@ -95,9 +106,15 @@ export function registerAiSettings(
         throw new AppError(400, "USE_CURATION_CONTROL");
       const secret = resolveKey(row, config, body.apiKey);
       if (config.enabled && !secret) throw new AppError(400, "AI_KEY_REQUIRED");
+      // Saving a different first or second model returns to the first model:
+      // this is how the user promotes the fallback and names a new one.
+      const resetFallback =
+        !row ||
+        row.config.model !== config.model ||
+        (row.config.fallbackModel ?? null) !== config.fallbackModel;
       await c.query(
-        "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,version=ai_settings.version+1,updated_at=now()",
-        [ws, JSON.stringify(config), secret ?? null],
+        "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3) ON CONFLICT(workspace_id) DO UPDATE SET config=$2,encrypted_key=$3,fallback_active_since=CASE WHEN $4 THEN NULL ELSE ai_settings.fallback_active_since END,version=ai_settings.version+1,updated_at=now()",
+        [ws, JSON.stringify(config), secret ?? null, resetFallback],
       );
       return { ok: true };
     });
@@ -107,9 +124,12 @@ export function registerAiSettings(
     { config: { rateLimit: { max: 3, timeWindow: "1 minute" } } },
     async (r) => {
       sessionOnly(r);
-      const body = input.parse(r.body),
-        config = body.config;
-      validateEndpoint(config);
+      const body = testInput.parse(r.body),
+        saved = body.config;
+      validateEndpoint(saved);
+      if (body.target === "fallback" && !saved.fallbackModel)
+        throw new AppError(400, "AI_FALLBACK_MODEL_REQUIRED");
+      const config = effectiveModelConfig(saved, body.target === "fallback");
       const encrypted = await scoped(r, async (c, ws) => {
         const row = (
           await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
@@ -163,6 +183,8 @@ export function registerAiSettings(
         return {
           ok: true,
           message: "Hello",
+          model: config.model,
+          target: body.target,
           durationMs: Math.round(performance.now() - started),
           usage: result.usage,
         };

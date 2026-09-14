@@ -321,6 +321,6 @@ BYOK 입력은 전체 입력 목표 상한 30,000이며 출력 상한은 선택 
 - 후보 반영은 에이전트가 사용자에게 차이를 설명하고 기존 articleId/baseRevision에 맞춘 발행안을 제출한다. fingerprint와 Version을 재확인한다. 기존 anchor 누락은 거부한다. 잘못된 과거 분석을 정정했다는 이유를 저장하며 사용자 결정의 `supersedes`를 임의 생성하지 않는다. 이전 Claim Revision과 사람 검토 스냅샷은 보존한다.
 - `Reassemble`: 근거 시각 메타데이터를 불변 원문에서 보충하고 기존 Claim을 제목별로 묶는다. 변경된 페이지에만 새 Version을 만든다. AI 호출·큐 되감기·검토 확정은 없다.
 
-Alibaba `AllocationQuota.FreeTierOnly`의 HTTP 403만 할당량 소진으로 분류한다. 응답 본문은 16 KiB 이내 오류 코드만 읽고 로그에 쓰지 않는다. 해당 실행이 사용한 설정 Version이 여전히 유효할 때만 중지한다. 이전 설정의 늦은 오류가 새 설정을 끄지 않는다. 자동 모델 전환·자동 재개는 없다. 이미 전송한 호출은 완료될 수 있다. [공식 무료 한도 문서](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
+Alibaba `AllocationQuota.FreeTierOnly`의 HTTP 403만 할당량 소진으로 분류한다. 응답 본문은 16 KiB 이내 오류 코드만 읽고 로그에 쓰지 않는다. 해당 실행이 사용한 설정 Version이 여전히 유효할 때만 중지한다. 이전 설정의 늦은 오류가 새 설정을 끄지 않는다. 사용자가 `fallbackModel`을 두었으면 1번 모델의 소진은 중지가 아니라 같은 키의 2번 모델로 이어가며 Workspace의 `fallback_active_since`에 기록한다. 설정 Version은 바꾸지 않아 진행 중 작업이 계속되고, 사용자가 1번·2번 모델을 바꿔 저장하면 해제된다. 2번 모델의 소진 또는 2번 부재만 중지한다. 그 밖의 자동 모델 전환·자동 재개는 없다. 이미 전송한 호출은 완료될 수 있다. [공식 무료 한도 문서](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 
 모델 전용 출력은 content 중복을 제거하고 claims[].text를 서버에서 이어 붙인다. 공개 publication 계약은 그대로 검증한다. 절감 가설은 출력 중복 제거·불필요 재시도 억제·무호출 재조립이며 추론 OFF의 품질은 [작은 비교 실험](../experiments/curation/deepseek-efficiency/README.md)과 이후 실제 실패를 분리해 평가한다.

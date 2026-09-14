@@ -286,7 +286,16 @@ test("quota stop is version fenced and settings editing cannot start curation", 
     data = response.json();
   assert.equal(data.enabled, false);
   assert.equal(data.stoppedReason, "AI_FREE_QUOTA_EXHAUSTED");
-  const { version, hasKey, stoppedReason, stoppedAt, ...config } = data;
+  const {
+    version,
+    hasKey,
+    stoppedReason,
+    stoppedAt,
+    fallbackActive,
+    fallbackActiveSince,
+    activeModel,
+    ...config
+  } = data;
   const changed = await app.inject({
     method: "PUT",
     url: `/api/workspaces/${ws}/ai-settings`,

@@ -283,3 +283,30 @@ test("progress applies defaults when saved settings predate BYOK limits", async 
   assert.equal(progress.control.concurrency, 1);
   assert.equal(progress.control.enabled, false);
 });
+
+test("fallback model must differ from the first model, is reported, and Hello can target it only when set", async () => {
+  const same = await put({ ...byok, fallbackModel: byok.model });
+  assert.equal(same.statusCode, 400);
+  assert.equal(same.json().error, "AI_FALLBACK_SAME_MODEL");
+  const saved = await put({ ...byok, fallbackModel: "qwen3.7-plus" });
+  assert.equal(saved.statusCode, 200, saved.body);
+  const shown = await get();
+  assert.equal(shown.fallbackModel, "qwen3.7-plus");
+  assert.equal(shown.fallbackActive, false);
+  assert.equal(shown.activeModel, byok.model);
+  const cleared = await put({ ...byok, fallbackModel: null });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.equal((await get()).fallbackModel, null);
+  const missing = await app.inject({
+    method: "POST",
+    url: endpoint() + "/test",
+    headers,
+    payload: {
+      config: { ...byok, fallbackModel: null },
+      version: (await get()).version,
+      target: "fallback",
+    },
+  });
+  assert.equal(missing.statusCode, 400);
+  assert.equal(missing.json().error, "AI_FALLBACK_MODEL_REQUIRED");
+});

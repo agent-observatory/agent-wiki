@@ -222,6 +222,12 @@ function SourcesContent() {
                         {waitingReasons[jobs.data.progress.schedule.reason]}
                       </p>
                     )}
+                    {jobs.data.progress.control.fallbackActive && (
+                      <p className="text-amber-700 dark:text-amber-400">
+                        1번 모델 한도 소진 · 2번 모델{" "}
+                        {jobs.data.progress.control.activeModel} 사용 중
+                      </p>
+                    )}
                     {liveControl.enabled &&
                       jobs.data.progress.schedule.nextAttemptAt && (
                         <p>

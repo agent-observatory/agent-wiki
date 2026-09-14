@@ -63,6 +63,7 @@ DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
 ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_reason text;
 ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_at timestamptz;
+ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS fallback_active_since timestamptz;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_key text NOT NULL DEFAULT '';
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_title text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS wiki_pages(workspace_id uuid NOT NULL REFERENCES workspaces(id),id uuid NOT NULL,topic_key text NOT NULL,title text NOT NULL,content text NOT NULL,revision int NOT NULL,input_hash text NOT NULL,tags text[] NOT NULL DEFAULT '{}',updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),UNIQUE(workspace_id,topic_key));

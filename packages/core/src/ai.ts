@@ -31,6 +31,10 @@ export const aiConfig = z
       .url()
       .default("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
     model: z.string().min(1).max(160).default("deepseek-v4-flash"),
+    // Second model on the same endpoint and key. When the first model's free
+    // quota is exhausted the Worker continues on this one instead of stopping;
+    // null means no fallback and the existing safety stop applies.
+    fallbackModel: z.string().trim().min(1).max(160).nullable().default(null),
     dailyCalls: z.number().int().min(1).max(1000).nullable().default(null),
     requestsPerMinute: z.number().int().min(1).max(120).default(20),
     concurrency: z.number().int().min(1).max(5).default(1),
@@ -72,7 +76,26 @@ export function isAlibabaDeepSeek(config: AiConfig) {
 export function isAlibabaThinkingModel(config: AiConfig) {
   return isAlibabaQwen(config) || isAlibabaDeepSeek(config);
 }
+// The model the Worker actually calls: the fallback once the first model's
+// free quota is exhausted for this Workspace, otherwise the configured model.
+export function effectiveModelConfig(
+  config: AiConfig,
+  fallbackActive: boolean,
+): AiConfig {
+  return fallbackActive && config.fallbackModel
+    ? { ...config, model: config.fallbackModel }
+    : config;
+}
 export function validateEndpoint(config: AiConfig) {
+  if (config.fallbackModel !== null) {
+    if (config.fallbackModel === config.model)
+      throw new AppError(400, "AI_FALLBACK_SAME_MODEL");
+    validateEndpoint({
+      ...config,
+      model: config.fallbackModel,
+      fallbackModel: null,
+    });
+  }
   if (
     !isAlibabaThinkingModel(config) &&
     (config.enable_thinking !== undefined ||
