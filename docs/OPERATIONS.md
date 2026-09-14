@@ -47,6 +47,8 @@
 
 `scripts/test-local-db.sh`는 CI와 같은 `postgres:17.9-bookworm`·역할·포트 55432로 Codex와 공유하는 `wiki-test-postgres` 컨테이너를 기동·재사용하고 기존 `scripts/test-local.sh`(migrate + test)를 호출한 뒤 컨테이너를 정지한다. 삭제는 `--down`이다. 리팩터링 전 기준선 197개, 분리 후 197개, `unmatchedTerms`·회귀 검사 추가 후 **199개**(API·Worker·순수 173, Client 26)가 로컬에서 통과했다. 타입 검사도 통과했다. 운영 DB·모델은 호출하지 않았다.
 
+배포: `512ca65`의 [CI·K3s 배포](https://github.com/agent-observatory/agent-wiki/actions/runs/34810055958)가 test·publish(api·web·worker)·deploy 모두 성공했다. `/readyz`는 ready다. 운영 조회 `K3s 전환 이유`는 `status=found`·`unmatchedTerms=["k3s"]`·후보 3개, `Alibaba` 단독은 `not_found_with_unprocessed_inputs`·`unmatchedTerms=["alibaba"]`를 반환해 Alibaba 전환 원문이 아직 지식에 없음을 확인했다. 배포 전후 정제 설정은 **OFF·Version 56**으로 같다. 로컬 Client는 fnm Node v26 전역 경로에 0.7.4로 갱신하고 Codex·Claude Skill을 재설치했으며 Collector 설정(Codex만·Claude 비활성·10분)은 그대로다.
+
 ## L4·L5 단계적 조회 · 배포 완료
 
 2026-09-14. 사용자가 조회 개발·평가셋·배포를 승인했다. 작업 전 정제는 **OFF·Version 56**이며 시작·중지는 수행하지 않는다. L1·Claim·페이지·기존 실패 작업은 유지한다.
