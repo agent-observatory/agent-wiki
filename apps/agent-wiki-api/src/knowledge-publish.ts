@@ -10,6 +10,7 @@ import {
   effectiveClaimState,
   type DeferredRelation,
 } from "./claim-relations.js";
+import { scheduleConsolidation } from "../../../packages/core/src/consolidation.js";
 import {
   uuid,
   changeInput,
@@ -556,11 +557,6 @@ async function recordDeferredRelations(
         item.errorCode,
       ],
     );
-    if (topicKey)
-      await c.query(
-        `INSERT INTO consolidation_jobs(workspace_id,topic_key,trigger) VALUES($1,$2,'deferred')
-         ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO NOTHING`,
-        [ws, topicKey],
-      );
+    if (topicKey) await scheduleConsolidation(c, ws, topicKey, "deferred");
   }
 }

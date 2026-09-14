@@ -69,6 +69,7 @@ export async function storeClaimRelations(
   relations: ResolvedClaimRelation[],
   priorInPublication: Set<string> = new Set(),
   defer = false,
+  dryRun = false,
 ): Promise<{ deferred: DeferredRelation[] }> {
   const deferred: DeferredRelation[] = [];
   for (const relation of relations) {
@@ -155,21 +156,25 @@ export async function storeClaimRelations(
         )
       )
         throw new AppError(400, "CLAIM_RELATION_EVIDENCE_REQUIRED");
-      await c.query(
-        `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
-        [
-          ws,
-          articleId,
-          revision,
-          relation.anchor,
-          relation.target.articleId,
-          relation.target.revision,
-          relation.target.anchor,
-          relation.relation,
-          JSON.stringify(relation.evidence),
-          publicationId,
-        ],
-      );
+      // Consolidation's validate Step reuses every check above without writing
+      // (docs/l2-l3-memory.md#job과-step); the surviving relations are written
+      // for real by its publish Step, which owns the publication row.
+      if (!dryRun)
+        await c.query(
+          `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
+          [
+            ws,
+            articleId,
+            revision,
+            relation.anchor,
+            relation.target.articleId,
+            relation.target.revision,
+            relation.target.anchor,
+            relation.relation,
+            JSON.stringify(relation.evidence),
+            publicationId,
+          ],
+        );
     } catch (e) {
       if (
         defer &&

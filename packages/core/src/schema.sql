@@ -87,6 +87,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS consolidation_jobs_open ON consolidation_jobs(
 -- changed an effective state, so there is no corrective Version to point at.
 CREATE TABLE IF NOT EXISTS claim_relation_rejections(workspace_id uuid NOT NULL,id uuid NOT NULL DEFAULT gen_random_uuid(),from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),reason text NOT NULL,publication_id uuid,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
 CREATE INDEX IF NOT EXISTS claim_relation_rejections_from ON claim_relation_rejections(workspace_id,from_article_id,from_anchor);
+-- Consolidation model calls share refinement_runs (call history, daily budget,
+-- diagnostics) with extraction; job_id is extraction-only, consolidation_job_id
+-- is the sibling for the other kind, never both.
+ALTER TABLE refinement_runs ALTER COLUMN job_id DROP NOT NULL;
+ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'extraction';
+ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS consolidation_job_id uuid;
+ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_check;
+ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_check CHECK(kind IN ('extraction','consolidation'));
+ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_job_check;
+ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_job_check CHECK((kind='extraction' AND job_id IS NOT NULL AND consolidation_job_id IS NULL) OR (kind='consolidation' AND consolidation_job_id IS NOT NULL AND job_id IS NULL));
+ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_consolidation_job_id_fkey;
+ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_consolidation_job_id_fkey FOREIGN KEY(workspace_id,consolidation_job_id) REFERENCES consolidation_jobs(workspace_id,id);
+CREATE INDEX IF NOT EXISTS refinement_consolidation ON refinement_runs(workspace_id,consolidation_job_id) WHERE consolidation_job_id IS NOT NULL;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);

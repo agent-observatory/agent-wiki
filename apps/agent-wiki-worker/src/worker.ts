@@ -1,4 +1,6 @@
 import { runReprocess } from "./reprocess.js";
+import { runConsolidation } from "./consolidate.js";
+import { scheduleConsolidationForCycle } from "../../../packages/core/src/consolidation.js";
 import { prepareProposal } from "./curation-proposal.js";
 import {
   checkCurationControl,
@@ -674,7 +676,7 @@ export async function runOne(
             }),
           ],
         );
-        if (done)
+        if (done) {
           await c.query(
             "UPDATE refinement_jobs SET status='completed',error_code=NULL,updated_at=now(),result=$3 WHERE workspace_id=$1 AND batch_parent=$2",
             [
@@ -683,6 +685,8 @@ export async function runOne(
               JSON.stringify({ batchId: task.id, extraction: "completed" }),
             ],
           );
+          await scheduleConsolidationForCycle(c, ws, job.cycle_id);
+        }
         await c.query(
           "UPDATE refinement_runs SET status='completed',finished_at=now(),diagnostics=diagnostics||$3::jsonb WHERE workspace_id=$1 AND id=$2",
           [
@@ -888,7 +892,8 @@ export async function workerMain(modelCall = callModel) {
                   PROMPT_VERSION,
                   modelCall,
                 )) &&
-                !(await runOne(owner, controller.signal, modelCall))
+                !(await runOne(owner, controller.signal, modelCall)) &&
+                !(await runConsolidation(owner, controller.signal, modelCall))
               )
                 await new Promise((r) => setTimeout(r, 3000));
             }
