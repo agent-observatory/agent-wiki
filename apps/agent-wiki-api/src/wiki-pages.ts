@@ -29,10 +29,24 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
     const claims = (
       await c.query(
         `SELECT cl.*,a.title,${effectiveClaimState("cl")} AS state,
-        COALESCE((SELECT jsonb_agg(DISTINCT jsonb_build_object('at',t.recorded_at,'kind',t.time_kind)) FROM evidence e JOIN source_record_times t ON t.workspace_id=e.workspace_id AND t.source_id=e.source_id AND t.line=e.line_start WHERE e.workspace_id=cl.workspace_id AND e.article_id=cl.article_id AND e.revision=cl.revision AND e.anchor=cl.anchor),'[]'::jsonb) AS evidence_times FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
+        COALESCE(et.times,'[]'::jsonb) AS evidence_times,
+        et.first_evidence_at,et.first_evidence_kind
+        FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
+        LEFT JOIN LATERAL (
+          SELECT
+            jsonb_agg(DISTINCT jsonb_build_object('at',t.recorded_at,'kind',t.time_kind)) AS times,
+            (array_agg(t.recorded_at ORDER BY t.recorded_at,s.created_at,e.line_start))[1] AS first_evidence_at,
+            (array_agg(t.time_kind ORDER BY t.recorded_at,s.created_at,e.line_start))[1] AS first_evidence_kind,
+            (array_agg(s.created_at ORDER BY t.recorded_at,s.created_at,e.line_start))[1] AS sort_source_created_at,
+            (array_agg(e.line_start ORDER BY t.recorded_at,s.created_at,e.line_start))[1] AS sort_line_start
+          FROM evidence e
+          JOIN source_record_times t ON t.workspace_id=e.workspace_id AND t.source_id=e.source_id AND t.line=e.line_start
+          JOIN sources s ON s.workspace_id=e.workspace_id AND s.id=e.source_id
+          WHERE e.workspace_id=cl.workspace_id AND e.article_id=cl.article_id AND e.revision=cl.revision AND e.anchor=cl.anchor
+        ) et ON true
       WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND a.topic_key=$2 AND
       (cl.revision=a.revision OR EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=$1 AND cr.to_article_id=cl.article_id AND cr.to_revision=cl.revision AND cr.to_anchor=cl.anchor AND cr.relation IN ('supersedes','retracts','contradicts')))
-      ORDER BY a.created_at,a.id,cl.revision,cl.anchor`,
+      ORDER BY et.first_evidence_at NULLS LAST,et.sort_source_created_at NULLS LAST,et.sort_line_start NULLS LAST,a.id,cl.revision,cl.anchor`,
         [ws, topic.topic_key],
       )
     ).rows;
@@ -75,7 +89,7 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       references,
     );
     const snapshot = {
-      assemblyVersion: "topic-sections-2",
+      assemblyVersion: "topic-sections-3",
       claims,
       relations,
       references,

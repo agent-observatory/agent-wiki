@@ -8,9 +8,19 @@
 | 로컬 패키지 | 0.7.5 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
 | 수집 | Codex·Claude 모두 Agent Wiki 프로젝트만 · 10분 · Claude는 2026-09-14 사용자 지시로 활성화 |
-| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 64 · 1번 `deepseek-v4-flash-0731` · 2번 모델 `deepseek-v4.1-flash` · `maxInputTokens` 16,000 · `timeoutSeconds` 두 슬롯 다 기본값 330초 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
+| 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 67 · 1번 `deepseek-v4-flash-0731` · 2번 모델 `deepseek-v4.1-flash` · `maxInputTokens` 16,000 · `timeoutSeconds` 두 슬롯 다 900초(사용자 지정) · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
+
+## 지식 페이지 정렬 수정 · 미배포
+
+2026-09-14. 사용자가 "인프라" Wiki Page를 열어보니 비슷한 주장이 시간순이 아니라 뒤섞여 있다고 지적했다("채팅 타임스탬프가 아니라 세션 업로드 타임스탬프 같다"). Fable과 함께 원인을 진단했다: `apps/agent-wiki-api/src/wiki-pages.ts`가 주장을 실제 대화 시각(`evidence_times`)이 아니라 **그 주장이 DB에 발행된 시각**(`a.created_at`)으로 정렬하고 있었다. 실제 프로덕션 데이터로 확인한 결과, 같은 시간대(2026-09-11 22:45~46)에 오간 대화 내용이 발행 시각 차이 때문에 하루 넘게 떨어진 위치("2026-09-13 20:23"과 "2026-09-14 05:44")에 표시되고 있었다.
+
+- `wiki-pages.ts`의 claims 조회 쿼리를 고쳐 각 주장의 가장 이른 근거 시각(`first_evidence_at`)과 그 시각의 종류(`first_evidence_kind`: `recorded`=실제 기록·`recovered`=압축 복구)를 계산하고, 그 값으로 정렬하도록 바꿨다. 같은 시각(주로 컴팩션 복구 묶음)으로 묶인 주장들은 원문의 소스 생성 시각·줄 번호로 2차 정렬해 대화에 등장한 순서를 최대한 보존한다. 두 필드는 웹이 나중에 쓸 수 있도록 스냅샷에도 남긴다.
+- `assemblyVersion`을 `topic-sections-2`→`topic-sections-3`으로 올려 다음 `reassemble` 때 모든 Wiki Page가 새 Version으로 다시 만들어지게 했다.
+- 전체 212개 주장 중 74개(35%)는 Codex 컴팩션이 원래 시각을 지운 "복구 기록"이라 시각 자체가 없다 — Collector를 다시 만들거나 원문을 재수집해도 이 부분은 복구되지 않는다는 것을 Fable이 Collector 소스 코드로 직접 확인했다. AI 호출은 0회.
+- 검증: 전체 DB 테스트(179+26건) 통과, 타입 검사 통과, 프로덕션 DB에 읽기 전용 쿼리로 새 정렬이 실제로 올바른 순서를 만드는지 직접 확인(위 예시).
+- 아직 미배포. 배포 후 `agent-wiki reassemble` 실행이 필요하다.
 
 ## 모델별 파라미터 분리 · 호출 제한 확장 · Fable 진단 · 배포 완료 · 설정 행 수동 이관
 
