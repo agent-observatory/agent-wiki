@@ -137,6 +137,11 @@ function KnowledgeArticles() {
                 </span>
                 <Badge variant="secondary">Wiki Page</Badge>
                 <Badge variant="outline">주장 기반 구성</Badge>
+                {a.consolidation && (
+                  <Badge variant={a.consolidation.state === "needs_attention" ? "destructive" : "secondary"}>
+                    {a.consolidation.state === "needs_attention" ? "확인 필요" : "통합 대기"}
+                  </Badge>
+                )}
               </div>
               <p className="mt-2 line-clamp-2 text-muted-foreground">
                 {a.content.replace(/[#*`]/g, "").slice(0, 180)}

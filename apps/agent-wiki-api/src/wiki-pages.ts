@@ -56,9 +56,16 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
           String(a.at).localeCompare(String(b.at)) ||
           String(a.kind).localeCompare(String(b.kind)),
       );
+    // The lineage panel labels each relation by how it was produced
+    // (추출·통합·수동); the producer already lives on its publication row, so
+    // this is enrichment of an existing query, not new storage.
     const relations = (
       await c.query(
-        `SELECT cr.* FROM claim_relations cr JOIN articles a ON a.workspace_id=cr.workspace_id AND a.id=cr.from_article_id WHERE cr.workspace_id=$1 AND a.topic_key=$2 AND a.deleted_at IS NULL ORDER BY cr.created_at,cr.from_article_id,cr.from_anchor,cr.from_revision,cr.to_article_id,cr.to_revision,cr.to_anchor,cr.relation`,
+        `SELECT cr.*,p.producer->>'client' AS producer_client,p.created_at AS published_at
+         FROM claim_relations cr LEFT JOIN publications p ON p.workspace_id=cr.workspace_id AND p.id=cr.publication_id
+         JOIN articles a ON a.workspace_id=cr.workspace_id AND a.id=cr.from_article_id
+         WHERE cr.workspace_id=$1 AND a.topic_key=$2 AND a.deleted_at IS NULL
+         ORDER BY cr.created_at,cr.from_article_id,cr.from_anchor,cr.from_revision,cr.to_article_id,cr.to_revision,cr.to_anchor,cr.relation`,
         [ws, topic.topic_key],
       )
     ).rows;
@@ -81,6 +88,17 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
         [ws, topic.topic_key],
       )
     ).rows.map((r) => r.tag);
+    // Rejections restore the lineage panel's cancel-line marker
+    // (docs/l2-l3-memory.md#relation-reject); the reject itself already
+    // published a corrective Version, so this is read-only context.
+    const rejections = (
+      await c.query(
+        `SELECT rr.from_article_id,rr.from_revision,rr.from_anchor,rr.to_article_id,rr.to_revision,rr.to_anchor,rr.relation,rr.reason,rr.publication_id,rr.created_at
+         FROM claim_relation_rejections rr JOIN articles fa ON fa.workspace_id=rr.workspace_id AND fa.id=rr.from_article_id
+         WHERE rr.workspace_id=$1 AND fa.topic_key=$2 ORDER BY rr.created_at`,
+        [ws, topic.topic_key],
+      )
+    ).rows;
     const content = renderWikiPage(
       title,
       claims,
@@ -89,10 +107,11 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       references,
     );
     const snapshot = {
-      assemblyVersion: "topic-sections-3",
+      assemblyVersion: "topic-sections-4",
       claims,
       relations,
       references,
+      rejections,
       tags,
     };
     const fingerprint = hash(JSON.stringify({ title, content, snapshot }));
@@ -118,19 +137,61 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
     [ws],
   );
 }
+// Live, not versioned: a Job's progress is process state, not a fact about
+// the topic's knowledge, so it never enters the immutable snapshot
+// (docs/l2-l3-memory.md#knowledge-화면--현재-주장-목록과-리니지-패널).
+// completed carries no badge — a badge absent is never "review confirmed".
+function consolidationBadge(job: {
+  id: string;
+  status: string;
+  updated_at: string;
+} | null) {
+  if (!job || job.status === "completed") return null;
+  return {
+    state: job.status === "failed" ? "needs_attention" : "waiting",
+    jobId: job.id,
+    updatedAt: job.updated_at,
+  };
+}
 export async function listWikiPages(c: PoolClient, ws: string, query: any) {
   const page = pagination(query),
     q = String(query?.q ?? "").slice(0, 200),
     tag = String(query?.tag ?? "");
   const rows = (
     await c.query(
-      `SELECT p.*,jsonb_array_length(v.snapshot->'claims') AS claim_count FROM wiki_pages p JOIN wiki_page_versions v ON v.workspace_id=p.workspace_id AND v.page_id=p.id AND v.revision=p.revision
+      `SELECT p.*,jsonb_array_length(v.snapshot->'claims') AS claim_count,
+        cj.id AS consolidation_job_id,cj.status AS consolidation_status,cj.updated_at AS consolidation_updated_at
+      FROM wiki_pages p JOIN wiki_page_versions v ON v.workspace_id=p.workspace_id AND v.page_id=p.id AND v.revision=p.revision
+      LEFT JOIN LATERAL (
+        SELECT id,status,updated_at FROM consolidation_jobs WHERE workspace_id=p.workspace_id AND topic_key=p.topic_key ORDER BY created_at DESC LIMIT 1
+      ) cj ON true
     WHERE p.workspace_id=$1 AND ($2='' OR position(lower($2) in lower(p.title||' '||p.content))>0) AND ($3='' OR $3=ANY(p.tags)) ORDER BY p.updated_at DESC,p.id LIMIT $4 OFFSET $5`,
       [ws, q, tag, page.size + 1, page.offset],
     )
   ).rows;
   return {
-    ...paged(rows, page),
+    ...paged(
+      rows.map(
+        ({
+          consolidation_job_id,
+          consolidation_status,
+          consolidation_updated_at,
+          ...row
+        }) => ({
+          ...row,
+          consolidation: consolidationBadge(
+            consolidation_job_id
+              ? {
+                  id: consolidation_job_id,
+                  status: consolidation_status,
+                  updated_at: consolidation_updated_at,
+                }
+              : null,
+          ),
+        }),
+      ),
+      page,
+    ),
     query: q,
     queryStatus: q ? "ready" : "browse",
   };
@@ -148,8 +209,15 @@ export async function wikiPageDetail(
     )
   ).rows[0];
   if (!row) throw new AppError(404, "NOT_FOUND");
+  const job = (
+    await c.query(
+      "SELECT id,status,updated_at FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2 ORDER BY created_at DESC LIMIT 1",
+      [ws, row.topic_key],
+    )
+  ).rows[0];
   return {
     ...row,
+    consolidation: consolidationBadge(job ?? null),
     hasUnprocessedSources: !!(
       await c.query(
         "SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed' LIMIT 1",

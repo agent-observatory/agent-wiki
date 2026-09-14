@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useApi } from "@/lib/api";
 import { Heading, Loading, Failure, When } from "./common";
+import { KnowledgeClaims } from "./knowledge-claims";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -33,6 +34,11 @@ export function WikiPageDetail() {
       <div className="mb-6 flex items-center gap-3">
         <Badge>Wiki Page</Badge>
         <Badge variant="outline">Claims {data.snapshot.claims.length}</Badge>
+        {data.consolidation && (
+          <Badge variant={data.consolidation.state === "needs_attention" ? "destructive" : "secondary"}>
+            {data.consolidation.state === "needs_attention" ? "확인 필요" : "통합 대기"}
+          </Badge>
+        )}
         <When value={data.created_at} />
         <Select
           value={String(data.revision)}
@@ -66,11 +72,18 @@ export function WikiPageDetail() {
           </Link>
         </p>
       )}
-      <article className="prose-wiki max-w-3xl">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {data.content}
-        </ReactMarkdown>
-      </article>
+      <KnowledgeClaims snapshot={data.snapshot} root={root} />
+      {(() => {
+        const at = data.content.indexOf("## Decision History");
+        if (at < 0) return null;
+        return (
+          <article className="prose-wiki mt-10 max-w-3xl border-t pt-8">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {data.content.slice(at)}
+            </ReactMarkdown>
+          </article>
+        );
+      })()}
     </>
   );
 }
