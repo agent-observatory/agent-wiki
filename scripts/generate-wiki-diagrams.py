@@ -305,9 +305,9 @@ text(40,792,'L1은 불변 · 입력/출력/캐시/추론 사용량을 분리 기
 end('docs/assets/wiki-reprocessing.svg')
 
 canvas(1560,850,'L4 · Query / L5 · Answers','작업 에이전트가 질문 목적을 정하고 짧은 후보에서 주장·변경 관계·원문으로 확장한다. 조회는 정제를 시작하지 않으며 서버 모델 호출이 없다.')
-card(40,190,430,235,'L5 · 작업 에이전트',['Codex · Claude + 조회 Skill','현재 / 변경 이유 / 개요 판단','근거 부족 시 검색어·깊이 조정','충분하면 고정 Version으로 인용'],'app','tabler-cpu')
-card(555,190,430,235,'L4 · 검색·근거 도구',['Wiki CLI · query','BM25 · 제목·별칭·본문','짧은 후보 → Claim → 원문','현재 / 이력 / 개요 · 상태 구분'],'web','tabler-book-2')
-card(1070,190,450,235,'L3 · Claims / Wiki Pages',['현재·과거·검토 의견·충돌','대체·철회 관계와 변경 근거','주제별 페이지는 탐색 안내','같은 Workspace에서 조회'],'data','tabler-book-2')
+card(40,190,430,235,'L5 · Answers',['Codex · Claude + 조회 Skill','현재 / 변경 이유 / 개요 판단','근거 부족 시 검색어·깊이 조정','충분하면 고정 Version으로 인용'],'app','tabler-cpu')
+card(555,190,430,235,'L4 · Query',['Wiki CLI · query','BM25 · 제목·별칭·본문','짧은 후보 → Claim → 원문','현재 / 이력 / 개요 · 상태 구분'],'web','tabler-book-2')
+card(1070,190,450,235,'L3 · Knowledge',['Claims · Wiki Pages','현재·과거·검토 의견·충돌','대체·철회 관계와 변경 근거','주제별 페이지는 탐색 안내','같은 Workspace에서 조회'],'data','tabler-book-2')
 path('M470 255 H555',flow='query');path('M985 255 H1070',flow='query')
 path('M1070 365 H985',flow='relation');path('M555 365 H470',flow='query')
 card(1070,490,450,145,'L1 · Raw Sources',['필요한 근거 구간만 읽기','불변 원문 · 해시·위치 확인'],'data','tabler-book-2')

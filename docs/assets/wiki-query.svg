@@ -3,7 +3,7 @@
 <text x="40" y="98" font-size="34" font-weight="700" fill="#172C4B">L4 · Query / L5 · Answers</text>
 <path d="M40 137 H1520" stroke="#172C4B" stroke-width="2"/>
 <rect x="40" y="190" width="430" height="235" rx="6" fill="#DBEAFE" stroke="#7EA6D8"/>
-<text x="60" y="232" font-size="20" font-weight="700" fill="#172C4B">L5 · 작업 에이전트</text>
+<text x="60" y="232" font-size="20" font-weight="700" fill="#172C4B">L5 · Answers</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="60" y="250" color="#172C4B">
   <path d="M5 5m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" />
   <path d="M9 9h6v6h-6z" />
@@ -21,7 +21,7 @@
 <text x="60" y="332" font-size="18" font-weight="400" fill="#172C4B">근거 부족 시 검색어·깊이 조정</text>
 <text x="60" y="363" font-size="18" font-weight="400" fill="#172C4B">충분하면 고정 Version으로 인용</text>
 <rect x="555" y="190" width="430" height="235" rx="6" fill="#FFFFFF" stroke="#929EAD"/>
-<text x="575" y="232" font-size="20" font-weight="700" fill="#172C4B">L4 · 검색·근거 도구</text>
+<text x="575" y="232" font-size="20" font-weight="700" fill="#172C4B">L4 · Query</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="575" y="250" color="#172C4B">
   <path d="M19 4v16h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12z" />
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
@@ -32,16 +32,17 @@
 <text x="575" y="332" font-size="18" font-weight="400" fill="#172C4B">짧은 후보 → Claim → 원문</text>
 <text x="575" y="363" font-size="18" font-weight="400" fill="#172C4B">현재 / 이력 / 개요 · 상태 구분</text>
 <rect x="1070" y="190" width="450" height="235" rx="6" fill="#D4EDE4" stroke="#74AA98"/>
-<text x="1090" y="232" font-size="20" font-weight="700" fill="#172C4B">L3 · Claims / Wiki Pages</text>
+<text x="1090" y="232" font-size="20" font-weight="700" fill="#172C4B">L3 · Knowledge</text>
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x="1090" y="250" color="#172C4B">
   <path d="M19 4v16h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12z" />
   <path d="M19 16h-12a2 2 0 0 0 -2 2" />
   <path d="M9 8h6" />
 </svg>
-<text x="1124" y="270" font-size="18" font-weight="400" fill="#172C4B">현재·과거·검토 의견·충돌</text>
-<text x="1090" y="301" font-size="18" font-weight="400" fill="#172C4B">대체·철회 관계와 변경 근거</text>
-<text x="1090" y="332" font-size="18" font-weight="400" fill="#172C4B">주제별 페이지는 탐색 안내</text>
-<text x="1090" y="363" font-size="18" font-weight="400" fill="#172C4B">같은 Workspace에서 조회</text>
+<text x="1124" y="270" font-size="18" font-weight="400" fill="#172C4B">Claims · Wiki Pages</text>
+<text x="1090" y="301" font-size="18" font-weight="400" fill="#172C4B">현재·과거·검토 의견·충돌</text>
+<text x="1090" y="332" font-size="18" font-weight="400" fill="#172C4B">대체·철회 관계와 변경 근거</text>
+<text x="1090" y="363" font-size="18" font-weight="400" fill="#172C4B">주제별 페이지는 탐색 안내</text>
+<text x="1090" y="394" font-size="18" font-weight="400" fill="#172C4B">같은 Workspace에서 조회</text>
 <path d="M470 255 H555" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <path d="M985 255 H1070" fill="none" stroke="#245CC5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-query)"/>
 <path d="M1070 365 H985" fill="none" stroke="#8054A3" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-relation)"/>
