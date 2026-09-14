@@ -74,6 +74,7 @@ async function main() {
         "skill install [--client codex|claude|all]",
         "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT]",
         "relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes|retracts|contradicts|supports --client NAME --reason TEXT",
+        "consolidate TOPIC_KEY | consolidate status [TOPIC_KEY]",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -524,6 +525,22 @@ async function main() {
         method: "POST",
         body: { from, to, relation, client, reason },
       }),
+    );
+  }
+  if (command === "consolidate") {
+    if (args[0] === "status") {
+      const topicKey = args[1];
+      return output(
+        await request(
+          "/consolidations" +
+            (topicKey ? "?topicKey=" + encodeURIComponent(topicKey) : ""),
+        ),
+      );
+    }
+    const topicKey = args[0];
+    if (!topicKey) throw new Error("Use consolidate TOPIC_KEY or consolidate status [TOPIC_KEY]");
+    return output(
+      await request("/consolidations", { method: "POST", body: { topicKey } }),
     );
   }
   if (command === "article") {

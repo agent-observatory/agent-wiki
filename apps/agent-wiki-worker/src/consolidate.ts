@@ -341,17 +341,27 @@ async function advanceJob(
   steps: Record<StepName, StepState>,
 ) {
   const done = nextPendingStep(steps) === null;
-  await c.query(
-    "UPDATE consolidation_jobs SET status=$3,steps=$4,current_step=$5,result=$6,error_code=NULL,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
-    [
-      ws,
-      jobId,
-      done ? "completed" : "pending",
-      JSON.stringify(steps),
-      done ? null : nextPendingStep(steps),
-      done ? JSON.stringify({ steps: Object.fromEntries(STEP_NAMES.map((n) => [n, steps[n].status])) }) : null,
-    ],
-  );
+  const row = (
+    await c.query(
+      "UPDATE consolidation_jobs SET status=$3,steps=$4,current_step=$5,result=$6,error_code=NULL,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running' RETURNING rerun_requested",
+      [
+        ws,
+        jobId,
+        done ? "completed" : "pending",
+        JSON.stringify(steps),
+        done ? null : nextPendingStep(steps),
+        done ? JSON.stringify({ steps: Object.fromEntries(STEP_NAMES.map((n) => [n, steps[n].status])) }) : null,
+      ],
+    )
+  ).rows[0];
+  // A trigger that arrived while this Job was open only set rerun_requested
+  // (docs/l2-l3-memory.md#job과-step); roll straight into a fresh gather
+  // instead of waiting for a separate pick.
+  if (done && row?.rerun_requested)
+    await c.query(
+      "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='gather',rerun_requested=false,result=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2",
+      [ws, jobId, JSON.stringify(freshSteps())],
+    );
 }
 async function restartJob(
   c: PoolClient,

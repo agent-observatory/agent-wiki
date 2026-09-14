@@ -19,6 +19,11 @@ import { detail, search } from "./article-detail.js";
 import { context } from "./knowledge-context.js";
 import { publish } from "./knowledge-publish.js";
 import { rejectClaimRelation } from "./claim-relation-reject.js";
+import {
+  triggerConsolidation,
+  consolidationStatus,
+  topicKeySchema,
+} from "./consolidation-control.js";
 import { uuid, keySchema, conflict } from "./publication-schema.js";
 // Public surface used by the Worker, automation and tests. Keep these stable.
 export { publish } from "./knowledge-publish.js";
@@ -167,6 +172,16 @@ export function registerKnowledge(
       rejectClaimRelation(c, ws, r.body, r.identity!),
     );
   });
+  app.post(base + "/consolidations", (r) => {
+    sessionOnly(r);
+    const topicKey = topicKeySchema.parse((r.body as { topicKey: string }).topicKey);
+    return scoped(r, (c, ws) => triggerConsolidation(c, ws, topicKey));
+  });
+  app.get(base + "/consolidations", (r) =>
+    scoped(r, (c, ws) =>
+      consolidationStatus(c, ws, (r.query as { topicKey?: string }).topicKey),
+    ),
+  );
   app.get(base + "/reviews", (r) =>
     scoped(r, (c, ws) => pendingReviews(c, ws, r.query)),
   );

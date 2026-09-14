@@ -28,8 +28,11 @@ export async function scheduleConsolidationForCycle(
   ).rows;
   for (const { topic_key } of topics) await scheduleConsolidation(c, ws, topic_key, "cycle");
 }
-// At most one open (pending/running) Job per topic; a repeat trigger while
-// one is already open is a no-op — the open Job's next gather sees everything.
+// At most one open (pending/running) Job per topic. A repeat trigger while
+// one is already open never creates a second Job; it only flags
+// rerun_requested, and advanceJob (consolidate.ts) rolls that Job straight
+// into a fresh gather once the open one finishes
+// (docs/l2-l3-memory.md#job과-step).
 export async function scheduleConsolidation(
   c: PoolClient,
   ws: string,
@@ -38,7 +41,7 @@ export async function scheduleConsolidation(
 ) {
   return c.query(
     `INSERT INTO consolidation_jobs(workspace_id,topic_key,trigger) VALUES($1,$2,$3)
-     ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO NOTHING`,
+     ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO UPDATE SET rerun_requested=true`,
     [ws, topicKey, trigger],
   );
 }

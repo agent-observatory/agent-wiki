@@ -7,6 +7,31 @@ import { putSource, hash } from "../packages/core/src/storage.js";
 import { defaults, encryptSecret } from "../packages/core/src/ai.js";
 import { publish } from "../apps/agent-wiki-api/src/knowledge.js";
 import { runConsolidation } from "../apps/agent-wiki-worker/src/consolidate.js";
+import { scheduleConsolidation } from "../packages/core/src/consolidation.js";
+import { setTimeout as sleep } from "node:timers/promises";
+// A false return can mean "nothing left to do" or "the shared model-call
+// rate gate says wait" (packages/core/src/model-gate.ts) — the gate itself
+// only sleeps once a Step actually needs the model. Retry a few times with a
+// short pause instead of treating an early false as completion.
+async function drive(
+  owner: string,
+  ws: string,
+  topicKey: string,
+  signal: AbortSignal,
+  model: any,
+) {
+  for (let i = 0; i < 40; i++) {
+    if (await runConsolidation(owner, signal, model)) continue;
+    const job = (
+      await tx(owner, ws, (c) =>
+        c.query("SELECT status FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2", [ws, topicKey]),
+      )
+    ).rows[0];
+    if (job?.status === "completed" || job?.status === "failed") return;
+    await sleep(100);
+  }
+  throw new Error("consolidation job did not finish in time");
+}
 // The engine resolves two unrelated 'current' claims left by separate
 // extractions into one current + one superseded via a mocked model call.
 // docs/l2-l3-memory.md#job과-step.
@@ -25,7 +50,12 @@ before(async () => {
     "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
     [
       ws,
-      JSON.stringify({ ...defaults, enabled: true, baseUrl: "https://api.deepseek.com/v1" }),
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+      }),
       encryptSecret("synthetic"),
     ],
   );
@@ -125,8 +155,7 @@ test("gather -> model -> validate -> publish resolves two unrelated current clai
     };
   };
   const signal = new AbortController().signal;
-  let iterations = 0;
-  while ((await runConsolidation(owner, signal, model)) && iterations < 10) iterations++;
+  await drive(owner, ws, topicKey, signal, model);
   assert.equal(modelCalls, 1, "model is called exactly once for one topic");
   const job = (
     await tx(owner, ws, (c) =>
@@ -209,8 +238,7 @@ test("a topic with nothing to consolidate skips model/validate/publish without a
     throw new Error("must not be called");
   };
   const signal = new AbortController().signal;
-  let iterations = 0;
-  while ((await runConsolidation(owner, signal, model as any)) && iterations < 10) iterations++;
+  await drive(owner, ws, idleTopic, signal, model);
   assert.equal(called, false);
   const job = (
     await tx(owner, ws, (c) =>
@@ -222,4 +250,108 @@ test("a topic with nothing to consolidate skips model/validate/publish without a
   assert.equal(job.steps.model.status, "skipped");
   assert.equal(job.steps.validate.status, "skipped");
   assert.equal(job.steps.publish.status, "skipped");
+});
+test("a trigger that arrives while a Job is still open rolls it into a fresh gather on completion, never a second Job row", async () => {
+  const rerunTopic = "consolidation-engine-rerun-topic";
+  const textA = "롤오버는 Redis를 사용한다.",
+    textB = "롤오버는 Memcached로 바꾼다.";
+  const srcA = await source(textA),
+    srcB = await source(textB);
+  const rerunChange = (clientRef: string, text: string, sourceId: string) => ({
+    topic: { key: rerunTopic, title: "재실행 롤오버" },
+    clientRef,
+    title: text,
+    content: text,
+    kind: "memory",
+    claims: [
+      {
+        anchor: "decision",
+        text,
+        type: "user_decision",
+        subject: "rerun-subject",
+        scope: "rerun-scope",
+        state: "current",
+        evidence: [{ sourceId, revision: 1, lines: [1, 1], quote: text }],
+      },
+    ],
+    claimRelations: [] as any[],
+  });
+  const a = await publishManual({
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes: [rerunChange("a", textA, srcA)],
+  });
+  const b = await publishManual({
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes: [rerunChange("b", textB, srcB)],
+  });
+  await tx(owner, ws, (c) =>
+    c.query(
+      "INSERT INTO consolidation_jobs(workspace_id,topic_key,trigger) VALUES($1,$2,'manual')",
+      [ws, rerunTopic],
+    ),
+  );
+  let modelCalls = 0;
+  const model = async (_config: any, _secret: any, messages: any[]) => {
+    modelCalls++;
+    const input = JSON.parse(messages[1].content);
+    const group = input.groups[0];
+    const from = group.claims.find((c: any) => c.text === textB);
+    const target = group.claims.find((c: any) => c.text === textA);
+    return {
+      output: {
+        relations: [
+          {
+            subject: "rerun-subject",
+            scope: "rerun-scope",
+            from: { articleId: from.articleId, revision: from.revision, anchor: from.anchor },
+            relation: "supersedes",
+            target: { articleId: target.articleId, revision: target.revision, anchor: target.anchor },
+            evidence: [{ recordId: from.evidence[0].recordId }],
+          },
+        ],
+        leaveUnresolved: [],
+      },
+      usage: { total_tokens: 1 },
+    };
+  };
+  const signal = new AbortController().signal;
+  // Advance exactly one Step (gather): the Job stays open (status 'pending',
+  // not yet 'completed') with 'model' next.
+  assert.equal(await runConsolidation(owner, signal, model), true);
+  let job = (
+    await tx(owner, ws, (c) =>
+      c.query("SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2", [ws, rerunTopic]),
+    )
+  ).rows[0];
+  assert.equal(job.status, "pending");
+  assert.equal(job.current_step, "model");
+  const firstGatherHash = job.steps.gather.input_hash;
+  // A second trigger while the Job is still open only flags rerun_requested
+  // (docs/l2-l3-memory.md#job과-step) — never a second row for this topic.
+  await tx(owner, ws, (c) => scheduleConsolidation(c, ws, rerunTopic, "manual"));
+  await drive(owner, ws, rerunTopic, signal, model);
+  const rows = (
+    await tx(owner, ws, (c) =>
+      c.query("SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2", [ws, rerunTopic]),
+    )
+  ).rows;
+  assert.equal(rows.length, 1, "no second Job row was created");
+  job = rows[0];
+  assert.equal(job.status, "completed");
+  assert.equal(job.rerun_requested, false);
+  // freshSteps() resets attempts to 0, so a bare count can't tell "ran once"
+  // from "rolled over and ran again" — a changed input_hash can: the rolled-
+  // over gather sees the resolved topic (one live claim, not two) and
+  // necessarily freezes a different snapshot.
+  assert.notEqual(
+    job.steps.gather.input_hash,
+    firstGatherHash,
+    "gather re-ran for the rolled-over pass and froze a new snapshot",
+  );
+  // The rolled-over gather finds the ambiguity already resolved by the first
+  // pass, so the second pass makes no further model call.
+  assert.equal(modelCalls, 1);
+  assert.equal(job.steps.model.status, "skipped");
 });
