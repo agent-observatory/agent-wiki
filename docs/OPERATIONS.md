@@ -7,7 +7,7 @@
 | 원격 앱 | 단일 OCI VM · K3s, main → Actions → GHCR → SSH → Kubernetes |
 | 로컬 패키지 | 0.7.5 설치 완료 · 단계적 조회·검토·관리 CLI·Skill·Collector 통합 · 조회 응답 `unmatchedTerms` |
 | 웹 | Knowledge → Sources → 설정. 정제 중지·재개는 웹/CLI, 수정·검토 확정은 CLI, AI 연결은 웹/CLI |
-| 수집 | Codex Agent Wiki 프로젝트만 · 10분 · Claude 전체 비활성 |
+| 수집 | Codex·Claude 모두 Agent Wiki 프로젝트만 · 10분 · Claude는 2026-09-14 사용자 지시로 활성화 |
 | 정제 | BYOK Alibaba DeepSeek Flash · 사용자 중지 Version 58 · 2번 모델 미설정 · 출력 상한 제공자 기본값 · 시작·중지는 사용자 명령 |
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
@@ -36,6 +36,10 @@
 - `CLAIM_REPLACEMENT_NOT_CURRENT`를 Worker 발행 전 검사와 출력 재생성 목록에 넣어 피드백과 함께 다시 생성한다.
 - 실행 진단에 `published.changes/consolidated/relations`를 남겨 청크가 기존 문서에 합쳐진 비율(통합률)을 이후 측정한다. `consolidated`는 기존 문서의 새 Version으로 반영된 변경 수다.
 - 배포 후 비교 기준: 참고 지식 선택 수(1~3 → 목표 4 이상), 청크당 변경 중앙값(4 → 감소), 새 문서 대비 통합 비율, 출력 토큰·추론 비율, 제목 겹침 쌍 증가 속도.
+
+### Claude 수집 활성화
+
+2026-09-14. 사용자가 Claude Code로 개발을 옮기며 이 저장소 범위의 Claude 세션 수집을 지시했다. `agent-wiki collector enable --client claude`로 `~/.claude/projects` root를 추가·활성화했고 프로젝트 범위는 기존 `agent-wiki` 저장소 하나다. 즉시 실행한 수집에서 감시 파일 4→11개, Claude 세션 7개가 모두 업로드 완료(대기·오류 0)됐고 Raw Sources에 `Agent Wiki · claude · <세션>`으로 보인다. 원문은 Codex와 같은 기록 형식(`provenance.client=claude`, 역할·시각·마스킹)으로 변환됐다. 가장 큰 세션은 15,266행이며 정제 재개 후 청킹 대상이다. 작은 세션들은 슬래시 명령 결과만 담고 있어 정제에서 `changes:[]`가 기대된다.
 
 ### 2번 모델 자동 이어가기
 
