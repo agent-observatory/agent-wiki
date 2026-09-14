@@ -73,6 +73,9 @@ import {
 } from "../../../packages/core/src/model-gate.js";
 export const PROMPT_VERSION = "remote-curation-15";
 // Regenerate invalid model proposals; storage/authentication failures stay terminal.
+// CLAIM_TARGET_VERSION_CHANGED/CLAIM_TARGET_ALREADY_RETIRED are deliberately
+// absent: storeClaimRelations defers those two (the world moved, not a model
+// mistake) into consolidation_inbox instead of failing the whole extraction.
 export const OUTPUT_RETRY_CODES = [
   "AI_INVALID_OUTPUT",
   "CLAIM_RELATION_TARGET_INVALID",
@@ -80,8 +83,6 @@ export const OUTPUT_RETRY_CODES = [
   "AI_TOPIC_REQUIRED",
   "AI_UNKNOWN_CLAIM_TARGET",
   "CURATION_CONTEXT_CHANGED",
-  "CLAIM_TARGET_VERSION_CHANGED",
-  "CLAIM_TARGET_ALREADY_RETIRED",
   "CLAIM_REPLACEMENT_NOT_CURRENT",
   "EVIDENCE_MISMATCH",
   "AI_INVALID_JSON",
@@ -780,9 +781,7 @@ export async function runOne(
         diagnostics.retryable = retry;
         if (regenerateOutput) {
           diagnostics.retryKind =
-            code === "CURATION_CONTEXT_CHANGED" ||
-            code === "CLAIM_TARGET_VERSION_CHANGED" ||
-            code === "CLAIM_TARGET_ALREADY_RETIRED"
+            code === "CURATION_CONTEXT_CHANGED"
               ? "context_refresh"
               : code === "EVIDENCE_MISMATCH"
                 ? "evidence_regeneration"

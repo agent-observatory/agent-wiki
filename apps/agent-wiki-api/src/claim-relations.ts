@@ -44,6 +44,22 @@ export type ClaimRelation = z.infer<typeof claimRelationInput>;
 export type ResolvedClaimRelation = Omit<ClaimRelation, "target"> & {
   target: { articleId: string; revision: number; anchor: string };
 };
+// Relation-only failures that mean "the world moved", not "the model is
+// wrong" — the extraction stays valid, only this one relation is deferred to
+// consolidation instead of discarding everything and re-calling the model.
+export const DEFERRABLE_RELATION_CODES = [
+  "CLAIM_TARGET_VERSION_CHANGED",
+  "CLAIM_TARGET_ALREADY_RETIRED",
+] as const;
+export type DeferredRelation = {
+  fromArticleId: string;
+  fromRevision: number;
+  fromAnchor: string;
+  target: { articleId: string; revision: number; anchor: string };
+  relation: ClaimRelation["relation"];
+  evidence: ClaimRelation["evidence"];
+  errorCode: (typeof DEFERRABLE_RELATION_CODES)[number];
+};
 export async function storeClaimRelations(
   c: PoolClient,
   ws: string,
@@ -52,102 +68,129 @@ export async function storeClaimRelations(
   publicationId: string,
   relations: ResolvedClaimRelation[],
   priorInPublication: Set<string> = new Set(),
-) {
+  defer = false,
+): Promise<{ deferred: DeferredRelation[] }> {
+  const deferred: DeferredRelation[] = [];
   for (const relation of relations) {
-    const from = (
-      await c.query(
-        "SELECT * FROM claims WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4",
-        [ws, articleId, revision, relation.anchor],
+    try {
+      const from = (
+        await c.query(
+          "SELECT * FROM claims WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4",
+          [ws, articleId, revision, relation.anchor],
+        )
+      ).rows[0];
+      const target = (
+        await c.query(
+          `SELECT cl.*,${effectiveClaimState("cl")} AS effective_state,r.publication_id,a.deleted_at,a.revision AS current_revision FROM claims cl JOIN revisions r USING(workspace_id,article_id,revision) JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id WHERE cl.workspace_id=$1 AND cl.article_id=$2 AND cl.revision=$3 AND cl.anchor=$4`,
+          [
+            ws,
+            relation.target.articleId,
+            relation.target.revision,
+            relation.target.anchor,
+          ],
+        )
+      ).rows[0];
+      if (!from || !target || target.deleted_at)
+        throw new AppError(400, "CLAIM_RELATION_TARGET_INVALID");
+      if (
+        ["supersedes", "retracts", "contradicts"].includes(
+          relation.relation,
+        ) &&
+        target.revision !== target.current_revision &&
+        !(
+          relation.target.articleId === articleId &&
+          target.revision === revision - 1
+        )
       )
-    ).rows[0];
-    const target = (
+        throw new AppError(409, "CLAIM_TARGET_VERSION_CHANGED");
+      // Same-batch references resolve only to an earlier change. Combined with
+      // prior-publication references, this retains an acyclic version graph.
+      if (
+        target.publication_id === publicationId &&
+        (!priorInPublication.has(relation.target.articleId) ||
+          relation.target.articleId === articleId)
+      )
+        throw new AppError(400, "CLAIM_TARGET_NOT_PRIOR");
+      if (
+        !from.subject ||
+        !from.scope ||
+        from.subject !== target.subject ||
+        from.scope !== target.scope
+      )
+        throw new AppError(400, "CLAIM_SCOPE_MISMATCH");
+      if (
+        ["supersedes", "retracts", "contradicts"].includes(
+          relation.relation,
+        ) &&
+        target.type === "user_decision" &&
+        from.type !== "user_decision"
+      )
+        throw new AppError(400, "DECISION_AUTHORITY_MISMATCH");
+      if (
+        ["supersedes", "retracts"].includes(relation.relation) &&
+        from.state !== "current"
+      )
+        throw new AppError(400, "CLAIM_REPLACEMENT_NOT_CURRENT");
+      if (
+        ["supersedes", "retracts"].includes(relation.relation) &&
+        ["superseded", "retracted"].includes(target.effective_state)
+      )
+        throw new AppError(409, "CLAIM_TARGET_ALREADY_RETIRED");
+      const citations = (
+        await c.query(
+          "SELECT source_id,source_revision,line_start,line_end,quote FROM evidence WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4",
+          [ws, articleId, revision, relation.anchor],
+        )
+      ).rows;
+      if (
+        !relation.evidence.every((e) =>
+          citations.some(
+            (v) =>
+              v.source_id === e.sourceId &&
+              v.source_revision === e.revision &&
+              v.line_start === e.lines[0] &&
+              v.line_end === e.lines[1] &&
+              v.quote === e.quote,
+          ),
+        )
+      )
+        throw new AppError(400, "CLAIM_RELATION_EVIDENCE_REQUIRED");
       await c.query(
-        `SELECT cl.*,${effectiveClaimState("cl")} AS effective_state,r.publication_id,a.deleted_at,a.revision AS current_revision FROM claims cl JOIN revisions r USING(workspace_id,article_id,revision) JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id WHERE cl.workspace_id=$1 AND cl.article_id=$2 AND cl.revision=$3 AND cl.anchor=$4`,
+        `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
         [
           ws,
+          articleId,
+          revision,
+          relation.anchor,
           relation.target.articleId,
           relation.target.revision,
           relation.target.anchor,
+          relation.relation,
+          JSON.stringify(relation.evidence),
+          publicationId,
         ],
-      )
-    ).rows[0];
-    if (!from || !target || target.deleted_at)
-      throw new AppError(400, "CLAIM_RELATION_TARGET_INVALID");
-    if (
-      ["supersedes", "retracts", "contradicts"].includes(relation.relation) &&
-      target.revision !== target.current_revision &&
-      !(
-        relation.target.articleId === articleId &&
-        target.revision === revision - 1
-      )
-    )
-      throw new AppError(409, "CLAIM_TARGET_VERSION_CHANGED");
-    // Same-batch references resolve only to an earlier change. Combined with
-    // prior-publication references, this retains an acyclic version graph.
-    if (
-      target.publication_id === publicationId &&
-      (!priorInPublication.has(relation.target.articleId) ||
-        relation.target.articleId === articleId)
-    )
-      throw new AppError(400, "CLAIM_TARGET_NOT_PRIOR");
-    if (
-      !from.subject ||
-      !from.scope ||
-      from.subject !== target.subject ||
-      from.scope !== target.scope
-    )
-      throw new AppError(400, "CLAIM_SCOPE_MISMATCH");
-    if (
-      ["supersedes", "retracts", "contradicts"].includes(relation.relation) &&
-      target.type === "user_decision" &&
-      from.type !== "user_decision"
-    )
-      throw new AppError(400, "DECISION_AUTHORITY_MISMATCH");
-    if (
-      ["supersedes", "retracts"].includes(relation.relation) &&
-      from.state !== "current"
-    )
-      throw new AppError(400, "CLAIM_REPLACEMENT_NOT_CURRENT");
-    if (
-      ["supersedes", "retracts"].includes(relation.relation) &&
-      ["superseded", "retracted"].includes(target.effective_state)
-    )
-      throw new AppError(409, "CLAIM_TARGET_ALREADY_RETIRED");
-    const citations = (
-      await c.query(
-        "SELECT source_id,source_revision,line_start,line_end,quote FROM evidence WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4",
-        [ws, articleId, revision, relation.anchor],
-      )
-    ).rows;
-    if (
-      !relation.evidence.every((e) =>
-        citations.some(
-          (v) =>
-            v.source_id === e.sourceId &&
-            v.source_revision === e.revision &&
-            v.line_start === e.lines[0] &&
-            v.line_end === e.lines[1] &&
-            v.quote === e.quote,
-        ),
-      )
-    )
-      throw new AppError(400, "CLAIM_RELATION_EVIDENCE_REQUIRED");
-    await c.query(
-      `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
-      [
-        ws,
-        articleId,
-        revision,
-        relation.anchor,
-        relation.target.articleId,
-        relation.target.revision,
-        relation.target.anchor,
-        relation.relation,
-        JSON.stringify(relation.evidence),
-        publicationId,
-      ],
-    );
+      );
+    } catch (e) {
+      if (
+        defer &&
+        e instanceof AppError &&
+        (DEFERRABLE_RELATION_CODES as readonly string[]).includes(e.code)
+      ) {
+        deferred.push({
+          fromArticleId: articleId,
+          fromRevision: revision,
+          fromAnchor: relation.anchor,
+          target: relation.target,
+          relation: relation.relation,
+          evidence: relation.evidence,
+          errorCode: e.code as (typeof DEFERRABLE_RELATION_CODES)[number],
+        });
+        continue;
+      }
+      throw e;
+    }
   }
+  return { deferred };
 }
 export const effectiveClaimState = (alias: string) => `CASE
  WHEN EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=${alias}.workspace_id AND cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor AND cr.relation='retracts') THEN 'retracted'

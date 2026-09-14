@@ -5,7 +5,11 @@ import { AppError, requireRow } from "../../../packages/core/src/db.js";
 import { hash, getSource } from "../../../packages/core/src/storage.js";
 import { cacheSourceTimes } from "./evidence-time.js";
 import { refreshWikiPages } from "./wiki-pages.js";
-import { storeClaimRelations, effectiveClaimState } from "./claim-relations.js";
+import {
+  storeClaimRelations,
+  effectiveClaimState,
+  type DeferredRelation,
+} from "./claim-relations.js";
 import {
   uuid,
   changeInput,
@@ -254,6 +258,7 @@ export async function publish(
   );
   const sources = new Map<string, { text: string; row: any }>();
   const results: { clientRef: string; id: string; revision: number }[] = [];
+  const deferredRelations: DeferredRelation[] = [];
   for (let i = 0; i < input.changes.length; i++) {
     const change = automatic
       ? await consolidateClaim(c, ws, input.changes[i], publicationId)
@@ -428,7 +433,7 @@ export async function publish(
         },
       };
     });
-    await storeClaimRelations(
+    const { deferred } = await storeClaimRelations(
       c,
       ws,
       id,
@@ -436,7 +441,9 @@ export async function publish(
       publicationId,
       resolvedRelations,
       localTargets,
+      automatic,
     );
+    deferredRelations.push(...deferred);
     results.push({ clientRef: change.clientRef, id, revision });
   }
   for (const change of input.changes) {
@@ -476,6 +483,8 @@ export async function publish(
     [ws],
   );
   if (cycle.rowCount) throw new AppError(400, "SUPERSESSION_CYCLE");
+  if (deferredRelations.length)
+    await recordDeferredRelations(c, ws, publicationId, deferredRelations);
   await refreshWikiPages(c, ws);
   if (input.startContext) {
     const id =
@@ -498,10 +507,60 @@ export async function publish(
     id: publicationId,
     idempotencyKey: input.idempotencyKey,
     items: results,
+    ...(deferredRelations.length
+      ? { deferredRelations: deferredRelations.length }
+      : {}),
   };
   await c.query(
     "UPDATE publications SET result=$3 WHERE workspace_id=$1 AND id=$2",
     [ws, publicationId, JSON.stringify(result)],
   );
   return result;
+}
+// A relation-only failure keeps the extraction's claims/evidence; the
+// relation itself waits here for the topic's next Consolidation Job
+// (docs/l2-l3-memory.md#관계-지연--대기함). Never silently dropped, never
+// stuck waiting on a person.
+async function recordDeferredRelations(
+  c: PoolClient,
+  ws: string,
+  publicationId: string,
+  deferred: DeferredRelation[],
+) {
+  const topics = new Map<string, string>();
+  for (const item of deferred) {
+    if (!topics.has(item.fromArticleId)) {
+      const row = (
+        await c.query(
+          "SELECT topic_key FROM articles WHERE workspace_id=$1 AND id=$2",
+          [ws, item.fromArticleId],
+        )
+      ).rows[0];
+      topics.set(item.fromArticleId, (row?.topic_key as string) ?? "");
+    }
+    const topicKey = topics.get(item.fromArticleId)!;
+    await c.query(
+      `INSERT INTO consolidation_inbox(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,source_run_id,error_code)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        ws,
+        item.fromArticleId,
+        item.fromRevision,
+        item.fromAnchor,
+        item.target.articleId,
+        item.target.revision,
+        item.target.anchor,
+        item.relation,
+        JSON.stringify(item.evidence),
+        publicationId,
+        item.errorCode,
+      ],
+    );
+    if (topicKey)
+      await c.query(
+        `INSERT INTO consolidation_jobs(workspace_id,topic_key,trigger) VALUES($1,$2,'deferred')
+         ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO NOTHING`,
+        [ws, topicKey],
+      );
+  }
 }
