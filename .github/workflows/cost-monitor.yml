@@ -1,7 +1,7 @@
 name: Cost and usage monitor
 on:
   schedule:
-    - cron: '13 0 * * *'
+    - cron: '13 1 * * *'
     - cron: '13 6,12,18 * * *'
   workflow_dispatch:
     inputs:
@@ -33,6 +33,6 @@ jobs:
           OCI_COST_BUCKET: ${{ vars.OCI_COST_BUCKET }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           # GitHub can delay or omit scheduled runs. The reporter turns a later
-          # scheduled check into the day's summary when the 09:13 KST run was missed.
+          # scheduled check into the day's summary when the 10:00 KST run was missed.
           REPORT_MODE: ${{ inputs.mode || 'auto' }}
         run: python scripts/monitoring/cost_report.py --mode "$REPORT_MODE"

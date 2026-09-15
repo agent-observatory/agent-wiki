@@ -12,6 +12,12 @@
 | 지식 | 초기화 후 Wiki Page 4개 생성·Version 증가 확인. 원문·성공 처리 범위 유지 |
 | 비용·오류 알림 | [OCI 기본 오류 알림](#oci-기본-오류-알림) · 비용 요약은 Actions |
 
+## 비용 정기 요약 시각을 09:13 → 10:00 한국 시각으로 변경
+
+2026-09-15. 09:13 KST 예약이 9/13·9/14·9/15 사흘 연속 GitHub에서 발동 자체가 안 됐다(스킵). 어제 고친 "늦게라도 하루 한 번 보완" 로직은 정상 동작했지만, 스킵 이후 다음 점검 기회(15:13 KST)가 오기 전까지는 그날 요약이 안 오는 것도 사실이었다. 사용자 요청으로 목표 시각을 10:00 KST로 옮겼다: `.github/workflows/cost-monitor.yml`의 정기 요약 cron을 `13 1 * * *`(01:13 UTC)로, `scripts/monitoring/cost_report.py`의 `daily_due` 기준을 10:00으로 바꿨다. 분 단위를 정각(`:00`)이 아니라 `:13`으로 유지한 이유는 그대로다 — GitHub 자체가 매시 정각 직후는 지연 가능성이 더 크다고 안내한다. 이상 점검 cron(03:13·09:13·15:13·21:13 KST)은 그대로 둔다.
+
+같은 날, 9/15 09:13 요약도 스킵된 것을 확인하고 `workflow_dispatch`(mode=daily)로 즉시 수동 발송해 43초 만에 `daily_summary=delivered`로 Slack 전달을 확인했다([실행 34925290312](https://github.com/agent-observatory/agent-wiki/actions/runs/34925290312)).
+
 ## 통합(Consolidation) 구현·배포 · Knowledge 리니지 패널 구현·배포
 
 2026-09-15. 아래 설계 기록의 방향대로 순서대로 구현해 배포했다: 관계 지연·대기함(`consolidation_inbox`) → `relation reject`·거절 기억(`claim_relation_rejections`) → Job과 네 Step(`consolidation_jobs`) → Knowledge 화면(구조화된 현재 주장 목록·리니지 패널). 커밋 `3de16fb`·`4914573`·`1895483`·`5c39d11`·`1e4ad75`. GitHub Actions `34878920175`·`34880213433`에서 각각 성공적으로 배포했다.

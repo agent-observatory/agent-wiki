@@ -278,7 +278,7 @@ NetworkPolicy는 기본 거부 후 Traefik→Web/API, Web→API, API/Worker→DB
 | 인프라 | Terraform(기존 VM·볼륨·버킷) → cloud-init·systemd(디스크 마운트·K3s 기동) → K3s(Traefik·Web·API·PostgreSQL·Worker) | VM 사양·데이터 경로 유지. OS·K3s 업데이트는 직접 관리 |
 | 앱 배포 | 외부 ARM64 빌드 → GHCR 게시 → Pod 이미지 확보 → migration Job → 앱 교체 → 정상 종료(진행 요청·정제 작업 마무리) → 기동·반영·조회 확인 | 미완료 정제는 재시도. DB·Traefik 유지. 쓰기 결과는 멱등 키로 확인 |
 | 오류 로그 | 앱 stdout(OTel JSON) → containerd CRI → rsyslog → OCI Unified Monitoring Agent → OCI Logging → Connector Hub(ERROR 이상) → Monitoring 경보(5분 집계) → Notifications → Slack | OCI 기성 에이전트·기본 경보 형식. 오류 감지·경보 해제 알림, 주기 반복 없음 |
-| 비용·사용량 | OCI Usage API(비용·CPU·메모리·저장소) → GitHub Actions 6시간마다 조회 → 09:13 한국 시각 정기 요약 → Slack Webhook | 미집계와 0을 구분. 누적·일 사용량·전일 비교. 기존 모니터링 경로 유지 |
+| 비용·사용량 | OCI Usage API(비용·CPU·메모리·저장소) → GitHub Actions 6시간마다 조회 → 10:00 한국 시각 정기 요약 → Slack Webhook | 미집계와 0을 구분. 누적·일 사용량·전일 비교. 기존 모니터링 경로 유지 |
 
 GitHub main → Actions 검증 → ARM64 이미지 GHCR 게시 → SSH → Kubernetes migration Job → Deployment 교체 → HTTPS 확인으로 이어진다. `.github/workflows/ci.yml`과 `scripts/deploy-k3s.sh`가 실제 배포 경로다. 이미지를 임시 Pod로 먼저 가져오며 짧은 수명의 GHCR 토큰은 Secret으로 전달한다. 값은 출력하지 않는다. 같은 노드의 재기동에는 캐시한 이미지를 사용한다.
 

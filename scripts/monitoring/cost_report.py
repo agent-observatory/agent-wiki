@@ -296,7 +296,7 @@ def fetch_snapshot(client, tenancy, now):
     local_now = now.astimezone(KST)
     return {'month': month.strftime('%Y-%m'), 'checked_at': local_now.strftime('%m/%d %H:%M KST'),
             'daily_key': local_now.date().isoformat(),
-            'daily_due': local_now.time() >= datetime.strptime('09:13', '%H:%M').time(),
+            'daily_due': local_now.time() >= datetime.strptime('10:00', '%H:%M').time(),
             'comparison_date': comparison.date().isoformat(), 'baseline_date': baseline.date().isoformat(),
             'yesterday_date': yesterday.date().isoformat(),
             'cost_month': fetch('COST', month, end, 'DAILY'),
