@@ -702,3 +702,36 @@ test("the effective fallback config passes endpoint validation as a single model
     (e: any) => e.code === "AI_FALLBACK_REASONING_NOT_SUPPORTED",
   );
 });
+
+// enable_thinking could be turned on but never off: a JSON patch cannot send
+// undefined and an omitted key keeps the stored value, so a workspace pinned to
+// a thinking model could not move to one without reasoning support — which is
+// exactly what a quota running out forces you to do. null now clears it.
+test("enable_thinking can be cleared with null so a non-thinking model is accepted", () => {
+  process.env.AI_ALLOWED_HOSTS = "dashscope-intl.aliyuncs.com";
+  const base = {
+    ...baseDefaults,
+    provider: "openai-compatible" as const,
+    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  };
+  const stillSet = modelParams.parse({
+    model: "glm-5.2",
+    reasoning: "default",
+    enable_thinking: true,
+  });
+  assert.throws(
+    () => validateEffectiveEndpoint({ ...base, ...stillSet }),
+    /AI_REASONING_NOT_SUPPORTED/,
+    "leaving enable_thinking set rejects a model that cannot use it",
+  );
+  const cleared = modelParams.parse({
+    model: "glm-5.2",
+    reasoning: "default",
+    enable_thinking: null,
+  });
+  assert.equal(cleared.enable_thinking, null);
+  assert.doesNotThrow(
+    () => validateEffectiveEndpoint({ ...base, ...cleared }),
+    "clearing enable_thinking lets a model without reasoning support validate",
+  );
+});

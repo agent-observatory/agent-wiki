@@ -33,7 +33,11 @@ function modelTransport(timeoutSeconds: number) {
 export const modelParams = z
   .object({
     model: z.string().min(1).max(160),
-    enable_thinking: z.boolean().optional(),
+    // Nullable so a patch can clear it: a JSON body cannot express undefined,
+    // and an omitted key keeps the stored value, so without null there was no
+    // way to turn thinking off — which blocked switching to any model that
+    // does not support it, exactly when a quota runs out.
+    enable_thinking: z.boolean().nullable().optional(),
     thinking_budget: z.number().int().min(1).max(32768).nullable().optional(),
     // Alibaba: null deliberately omits both output-cap fields; absent uses maxTokens.
     max_completion_tokens: z
@@ -145,7 +149,7 @@ function validateModelParams(
   const effective = { ...config, ...params };
   if (
     !isAlibabaThinkingModel(effective) &&
-    (params.enable_thinking !== undefined ||
+    (params.enable_thinking != null ||
       params.thinking_budget != null ||
       params.max_completion_tokens != null)
   )
@@ -302,7 +306,7 @@ export async function callModel(
             ? { max_completion_tokens: config.max_completion_tokens }
             : { max_tokens: config.maxTokens }),
         ...(isAlibabaThinkingModel(config) &&
-        config.enable_thinking !== undefined
+        config.enable_thinking != null
           ? { enable_thinking: config.enable_thinking }
           : {}),
         ...(isAlibabaThinkingModel(config) &&
@@ -311,7 +315,7 @@ export async function callModel(
           ? { thinking_budget: config.thinking_budget }
           : {}),
         ...(config.reasoning === "default" ||
-        (isAlibabaThinkingModel(config) && config.enable_thinking !== undefined)
+        (isAlibabaThinkingModel(config) && config.enable_thinking != null)
           ? {}
           : isAlibabaThinkingModel(config) && config.reasoning === "none"
             ? { enable_thinking: false }
