@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { callModel, defaults } from "../packages/core/src/ai.js";
 import { sourceRecordTimes } from "../packages/core/src/evidence-time.js";
-import { expandProposalContent } from "../apps/agent-wiki-worker/src/curation-proposal.js";
+import {
+  expandProposalContent,
+  prepareProposal,
+} from "../apps/agent-wiki-worker/src/curation-proposal.js";
 import { changeInput } from "../apps/agent-wiki-api/src/knowledge.js";
 import {
   renderWikiPage,
@@ -204,4 +207,64 @@ test("model emits claim text once; server composes content and retains strict fi
     ],
   });
   assert.equal(changeInput.safeParse(invalid.changes[0]).success, false);
+});
+
+// "assistant proposal = ai_inference/proposed" was stated in the prompt and
+// enforced nowhere, so a model interpretation reached the wiki as current and
+// read as settled fact beside the user's own decisions. Seen in production on
+// the curation-harness subject.
+test("an ai_inference claim cannot be published as current", () => {
+  const text = "정제 하네스는 결정적 게이트와 모델 판단을 분리한다.";
+  const claim = (state: string) => ({
+    anchor: "inference",
+    text,
+    type: "ai_inference",
+    subject: "curation-harness",
+    scope: "general",
+    state,
+    evidence: [{ recordId: "record-1" }],
+  });
+  const input = {
+    source: {
+      id: "00000000-0000-4000-8000-000000000001",
+      revision: 1,
+      start: 1,
+      end: 1,
+      text,
+      roles: [],
+      omittedLines: [],
+      spans: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          start: 1,
+          end: 1,
+          offset: 0,
+        },
+      ],
+    },
+    related: [],
+  };
+  const result = prepareProposal(
+    {
+      changes: [
+        {
+          clientRef: "a",
+          topic: { key: "harness", title: "하네스" },
+          title: "제목",
+          kind: "memory",
+          tags: [],
+          claims: [claim("current")],
+          claimRelations: [],
+        },
+      ],
+    },
+    input,
+    {},
+  );
+  assert.equal(result.changes[0].claims[0].type, "ai_inference");
+  assert.equal(
+    result.changes[0].claims[0].state,
+    "proposed",
+    "an interpretation is a proposal until someone adopts it",
+  );
 });

@@ -61,8 +61,16 @@ export function prepareProposal(
   // remains in its execution history, never as publish-only recovery.
   if (evidenceValidation.mismatched) throw new ModelError("EVIDENCE_MISMATCH");
   for (const change of result.changes) {
-    for (const claim of change.claims)
+    for (const claim of change.claims) {
       if (claim.type === "agent_statement") claim.state = "unconfirmed";
+      // The prompt says an assistant proposal is ai_inference/proposed, but
+      // nothing enforced it, so a model's own interpretation could sit in the
+      // wiki as a current fact beside the user's decisions. Downgrade rather
+      // than reject: the assertion is worth keeping, its adoption is not ours
+      // to claim.
+      if (claim.type === "ai_inference" && claim.state === "current")
+        claim.state = "proposed";
+    }
     if (
       !change.claims.length ||
       change.claims.some(
