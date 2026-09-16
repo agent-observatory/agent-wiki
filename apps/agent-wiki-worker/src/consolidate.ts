@@ -637,6 +637,7 @@ async function runValidateStep(owner: string, ws: string, task: any) {
           new Set(),
           false,
           true,
+          true, // automaticProducer: consolidation-worker, subject to FEEDBACK_REQUIRES_HUMAN
         );
         passed.push(r);
       } catch (e) {
@@ -719,6 +720,7 @@ async function runPublishStep(owner: string, ws: string, task: any) {
           new Set(),
           false,
           false,
+          true, // automaticProducer: consolidation-worker, subject to FEEDBACK_REQUIRES_HUMAN
         );
       }
     } catch (e) {

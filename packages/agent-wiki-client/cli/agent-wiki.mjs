@@ -55,6 +55,67 @@ async function installSkill(force, client) {
 function ref(r) {
   return r.articleId + "/" + r.revision + "/" + r.anchor;
 }
+// Shared by `relation reject`/`relation add`/`claim retire`/`claim assert`:
+// ARTICLE_ID/REVISION/ANCHOR is how every command in this file names one
+// claim Version, matching the query/article-detail JSON shape {articleId,
+// revision, anchor}.
+function parseClaimRef(name, raw) {
+  if (!raw) throw new Error("--" + name + " is required");
+  const [id, revision, anchor] = raw.split("/");
+  if (!id || !revision || !/^\d+$/.test(revision) || !anchor)
+    throw new Error("--" + name + " must be ID/REVISION/ANCHOR");
+  return { articleId: id, revision: Number(revision), anchor };
+}
+// Same shape as parseClaimRef, for the one positional ARTICLE_ID/REVISION/
+// ANCHOR argument `claim retire` takes instead of a --flag.
+function parsePositionalRef(raw) {
+  if (!raw) throw new Error("ARTICLE_ID/REVISION/ANCHOR required");
+  const [id, revision, anchor] = raw.split("/");
+  if (!id || !revision || !/^\d+$/.test(revision) || !anchor)
+    throw new Error("Use ARTICLE_ID/REVISION/ANCHOR");
+  return { articleId: id, revision: Number(revision), anchor };
+}
+// A one-line, size-bounded article title derived from free-form reason/text:
+// used only as a display label, never compared against claim.text.
+function noteTitle(text) {
+  const line = String(text).split("\n")[0].trim();
+  return (line.length > 197 ? line.slice(0, 197) + "..." : line) || "메모";
+}
+function printConflictsReview(topicKey, result) {
+  const lines = ["주제: " + (topicKey || "전체")];
+  lines.push("", "충돌 (" + result.conflicts.length + "):");
+  for (const cf of result.conflicts) {
+    lines.push("  " + cf.subject + "/" + cf.scope);
+    for (const side of [cf.from, cf.to]) {
+      lines.push("    " + ref(side) + " [" + side.state + "] " + side.text);
+      for (const t of side.evidenceTimes)
+        lines.push(
+          "      evidence: " + t.recorded_at + " (" + t.time_kind + ")",
+        );
+    }
+  }
+  lines.push("", "통합 대기함 (" + result.inbox.length + "):");
+  for (const item of result.inbox)
+    lines.push(
+      "  " +
+        ref(item.from) +
+        " --" +
+        item.relation +
+        "--> " +
+        ref(item.to) +
+        " [" +
+        item.errorCode +
+        "] " +
+        item.createdAt,
+    );
+  lines.push("", "미해결 (" + result.leaveUnresolved.length + "):");
+  for (const job of result.leaveUnresolved)
+    for (const r of job.reasons)
+      lines.push(
+        "  Job " + job.jobId + " · " + r.subject + "/" + r.scope + ": " + r.reason,
+      );
+  process.stdout.write(lines.join("\n") + "\n");
+}
 function printConsolidationStatus(topicKey, result) {
   const job = result.job;
   const lines = ["주제: " + topicKey];
@@ -139,8 +200,11 @@ async function main() {
         "workspace list | create NAME",
         "article ID [--revision N]",
         "skill install [--client codex|claude|all]",
-        "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT]",
+        "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT] | conflicts [--topic KEY]",
         "relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes|retracts|contradicts|supports --client NAME --reason TEXT",
+        "relation add --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes|retracts|contradicts|supports --client NAME --reason TEXT",
+        "claim retire ID/REVISION/ANCHOR --reason TEXT",
+        "claim assert --topic KEY --subject SLUG --scope SCOPE --text TEXT [--supersedes ID/REVISION/ANCHOR]",
         "consolidate TOPIC_KEY | consolidate --all | consolidate plan [TOPIC_KEY|--all] | consolidate status [TOPIC_KEY]",
       ],
       configuration:
@@ -274,6 +338,33 @@ async function main() {
       await delay(300 * 2 ** attempt + Math.random() * 150);
     }
     throw failure;
+  }
+  // Shared by `claim retire`/`claim assert`: the user's own words become a
+  // tiny, immutable L1 source (kind=note, origin=feedback:<login>) before any
+  // claim can cite them — every claim must be grounded in real evidence, and
+  // this is the user's evidence. docs/l2-l3-memory.md.
+  async function registerNote(name, text) {
+    const me = await request("/me", { root: connection.server + "/api" });
+    const origin = "feedback:" + me.user.login;
+    const noted = text + "\n" + new Date().toISOString();
+    const src = await request("/source-records", {
+      method: "POST",
+      body: { name, kind: "note", origin, text: noted },
+      key: createHash("sha256")
+        .update(JSON.stringify({ origin, text: noted }))
+        .digest("hex"),
+    });
+    return {
+      text: src.text,
+      evidence: [
+        {
+          sourceId: src.id,
+          revision: 1,
+          lines: [1, src.lineCount],
+          quote: src.text,
+        },
+      ],
+    };
   }
   if (command === "workspace") {
     const action = args.shift();
@@ -522,6 +613,14 @@ async function main() {
             }),
         ),
       );
+    if (action === "conflicts") {
+      const topic = option("topic");
+      const result = await request(
+        "/review/conflicts" +
+          (topic ? "?" + new URLSearchParams({ topic }) : ""),
+      );
+      return printConflictsReview(topic, result);
+    }
     if (!id) throw new Error("Knowledge ID required");
     if (action === "diff") {
       const revision = option("revision");
@@ -559,21 +658,137 @@ async function main() {
         }),
       );
     }
-    throw new Error("Use review queue|diff|confirm");
+    throw new Error("Use review queue|diff|confirm|conflicts");
+  }
+  if (command === "claim") {
+    const action = args.shift();
+    if (action !== "retire" && action !== "assert")
+      throw new Error("Use claim retire|assert");
+    if (action === "retire") {
+      const target = parsePositionalRef(args[0]);
+      const reason = option("reason");
+      if (!reason) throw new Error("--reason is required");
+      const targetArticle = await request(
+        "/articles/" +
+          encodeURIComponent(target.articleId) +
+          "/revisions/" +
+          target.revision,
+      );
+      const targetClaim = targetArticle.claims.find(
+        (cl) => cl.anchor === target.anchor,
+      );
+      if (!targetClaim)
+        throw new Error("Claim anchor not found on that revision");
+      const note = await registerNote("철회 근거", reason);
+      const idempotencyKey = randomUUID();
+      return output(
+        await request("/publications", {
+          method: "POST",
+          key: idempotencyKey,
+          body: {
+            idempotencyKey,
+            producer: { type: "agent", client: "agent-wiki-cli" },
+            reason: "사용자 철회 · " + reason,
+            inputs: [
+              { articleId: target.articleId, revision: target.revision },
+            ],
+            changes: [
+              {
+                clientRef: "retire",
+                kind: "memory",
+                title: noteTitle(reason),
+                content: note.text,
+                claims: [
+                  {
+                    anchor: "decision",
+                    text: note.text,
+                    type: "user_decision",
+                    subject: targetClaim.subject,
+                    scope: targetClaim.scope,
+                    state: "current",
+                    evidence: note.evidence,
+                  },
+                ],
+                claimRelations: [
+                  {
+                    anchor: "decision",
+                    relation: "retracts",
+                    target,
+                    evidence: note.evidence,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+    }
+    // action === "assert"
+    const topicKey = option("topic"),
+      subject = option("subject"),
+      scope = option("scope"),
+      text = option("text"),
+      supersedesRaw = option("supersedes");
+    if (!topicKey || !subject || !scope || !text)
+      throw new Error(
+        "--topic, --subject, --scope and --text are required",
+      );
+    const supersedes = supersedesRaw
+      ? parseClaimRef("supersedes", supersedesRaw)
+      : null;
+    const note = await registerNote("사용자 결정 근거", text);
+    const idempotencyKey = randomUUID();
+    return output(
+      await request("/publications", {
+        method: "POST",
+        key: idempotencyKey,
+        body: {
+          idempotencyKey,
+          producer: { type: "agent", client: "agent-wiki-cli" },
+          reason: "사용자 결정 · " + text,
+          inputs: supersedes
+            ? [{ articleId: supersedes.articleId, revision: supersedes.revision }]
+            : [],
+          changes: [
+            {
+              clientRef: "assert",
+              kind: "memory",
+              topic: { key: topicKey, title: topicKey },
+              title: noteTitle(text),
+              content: note.text,
+              claims: [
+                {
+                  anchor: "decision",
+                  text: note.text,
+                  type: "user_decision",
+                  subject,
+                  scope,
+                  state: "current",
+                  evidence: note.evidence,
+                },
+              ],
+              claimRelations: supersedes
+                ? [
+                    {
+                      anchor: "decision",
+                      relation: "supersedes",
+                      target: supersedes,
+                      evidence: note.evidence,
+                    },
+                  ]
+                : [],
+            },
+          ],
+        },
+      }),
+    );
   }
   if (command === "relation") {
     const action = args.shift();
-    if (action !== "reject") throw new Error("Use relation reject");
-    const parseRef = (name) => {
-      const raw = option(name);
-      if (!raw) throw new Error("--" + name + " is required");
-      const [id, revision, anchor] = raw.split("/");
-      if (!id || !revision || !/^\d+$/.test(revision) || !anchor)
-        throw new Error("--" + name + " must be ID/REVISION/ANCHOR");
-      return { articleId: id, revision: Number(revision), anchor };
-    };
-    const from = parseRef("from"),
-      to = parseRef("to"),
+    if (action !== "reject" && action !== "add")
+      throw new Error("Use relation reject|add");
+    const from = parseClaimRef("from", option("from")),
+      to = parseClaimRef("to", option("to")),
       relation = option("relation"),
       client = option("client"),
       reason = option("reason");
@@ -588,7 +803,7 @@ async function main() {
     if (!client || !reason)
       throw new Error("--client and --reason are required");
     return output(
-      await request("/claim-relations/reject", {
+      await request("/claim-relations/" + action, {
         method: "POST",
         body: { from, to, relation, client, reason },
       }),

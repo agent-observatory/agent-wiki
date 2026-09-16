@@ -71,6 +71,14 @@ export async function storeClaimRelations(
   priorInPublication: Set<string> = new Set(),
   defer = false,
   dryRun = false,
+  // Independent of `defer` (which only controls relation-only-failure
+  // deferral): true whenever the caller is a machine producer (remote-worker
+  // or consolidation-worker), never a user-initiated publish. Defaults to
+  // `defer` because at the one call site where `defer` already means exactly
+  // "this is the remote-worker automatic path" (knowledge-publish.ts), no
+  // second argument is needed; consolidate.ts's two call sites pass this
+  // explicitly since they always pass defer=false for unrelated reasons.
+  automaticProducer = defer,
 ): Promise<{ deferred: DeferredRelation[] }> {
   const deferred: DeferredRelation[] = [];
   for (const relation of relations) {
@@ -138,6 +146,30 @@ export async function storeClaimRelations(
         ["superseded", "retracted"].includes(target.effective_state)
       )
         throw new AppError(409, "CLAIM_TARGET_ALREADY_RETIRED");
+      // The machine must not silently overturn the user's own correction: an
+      // automatic producer (remote-worker extraction, consolidation-worker)
+      // may never supersede/retract a claim whose evidence traces back to a
+      // feedback:* note source (registered by `claim retire`/`claim assert`).
+      // A user-initiated publish (CLI `relation add`, `relation reject`, web
+      // edit) is exempt — only the user may override their own decision.
+      if (
+        automaticProducer &&
+        ["supersedes", "retracts"].includes(relation.relation)
+      ) {
+        const feedbackSourced = (
+          await c.query(
+            `SELECT 1 FROM evidence e JOIN sources s ON s.workspace_id=e.workspace_id AND s.id=e.source_id
+             WHERE e.workspace_id=$1 AND e.article_id=$2 AND e.revision=$3 AND e.anchor=$4 AND s.origin LIKE 'feedback:%'`,
+            [
+              ws,
+              relation.target.articleId,
+              relation.target.revision,
+              relation.target.anchor,
+            ],
+          )
+        ).rowCount;
+        if (feedbackSourced) throw new AppError(400, "FEEDBACK_REQUIRES_HUMAN");
+      }
       // A replacement recorded earlier in time than what it replaces is
       // backward: something can only supersede what already existed. Only
       // 'recorded' times are trustworthy for ordering (docs/l2-l3-memory.md);

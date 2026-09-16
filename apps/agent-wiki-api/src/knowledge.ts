@@ -19,6 +19,8 @@ import { detail, search } from "./article-detail.js";
 import { context } from "./knowledge-context.js";
 import { publish } from "./knowledge-publish.js";
 import { rejectClaimRelation } from "./claim-relation-reject.js";
+import { addClaimRelation } from "./claim-relation-add.js";
+import { conflictsReview } from "./review-conflicts.js";
 import {
   triggerConsolidation,
   triggerAllConsolidations,
@@ -174,6 +176,15 @@ export function registerKnowledge(
       rejectClaimRelation(c, ws, r.body, r.identity!),
     );
   });
+  app.post(base + "/claim-relations/add", (r) => {
+    sessionOnly(r);
+    return scoped(r, (c, ws) => addClaimRelation(c, ws, r.body, r.identity!));
+  });
+  app.get(base + "/review/conflicts", (r) =>
+    scoped(r, (c, ws) =>
+      conflictsReview(c, ws, (r.query as { topic?: string }).topic),
+    ),
+  );
   app.post(base + "/consolidations", (r) => {
     sessionOnly(r);
     const body = z

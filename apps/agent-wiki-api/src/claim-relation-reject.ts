@@ -26,7 +26,10 @@ export const rejectRelationInput = z
   .strict();
 export type RejectRelationInput = z.infer<typeof rejectRelationInput>;
 
-async function republishChange(
+// Exported for claim-relation-add.ts, which reuses this exact "republish the
+// article's current claims verbatim" step to attach a brand-new relation to
+// an existing claim (no relation-authoring endpoint existed before either).
+export async function republishChange(
   c: PoolClient,
   ws: string,
   articleId: string,
