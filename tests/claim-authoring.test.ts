@@ -9,6 +9,7 @@ import {
   effectiveClaimState,
   storeClaimRelations,
 } from "../apps/agent-wiki-api/src/claim-relations.js";
+import { republishChange } from "../apps/agent-wiki-api/src/claim-relation-reject.js";
 import { conflictsReview } from "../apps/agent-wiki-api/src/review-conflicts.js";
 // Covers the four new manual-authoring commands (docs stay in AGENTS.md /
 // l2-l3-memory.md, out of scope here): `claim retire`, `claim assert`,
@@ -609,4 +610,52 @@ test("retiring one end of a contradiction settles it; the survivor leaves the co
     "current",
     "the survivor is no longer flagged by a settled contradiction",
   );
+});
+
+// A corrective Version copied each claim's stored state. Relations point at a
+// fixed (article, revision, anchor) and are not carried forward, so a sibling
+// that a relation had superseded came back as current on the new Version —
+// relation add or reject would silently resurrect what was already retired.
+test("republishChange carries effective state, not the stored column", async () => {
+  const article = randomUUID(),
+    pub = randomUUID(),
+    src = randomUUID();
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'resurrect','note','synthetic','h','p','k',1,$3,true)`,
+    [src, ws, src],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','seed')`,
+    [pub, ws, pub],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'되살아남','본문','memory',1,'resurrect-topic')",
+    [article, ws],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'되살아남','본문','{}',$3)",
+    [ws, article, pub],
+  );
+  for (const anchor of ["keep", "sibling", "newer"])
+    await admin.query(
+      "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$3,'user_decision','resurrect-check','production','current')",
+      [ws, article, anchor],
+    );
+  await admin.query(
+    `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id)
+     VALUES($1,$2,1,'newer',$2,1,'sibling','supersedes','[]',$3)`,
+    [ws, article, pub],
+  );
+  const change = await tx(owner, ws, (c) => republishChange(c, ws, article));
+  const stateOf = (anchor: string) =>
+    change.claims.find((cl: any) => cl.anchor === anchor)?.state;
+  assert.equal(
+    stateOf("sibling"),
+    "superseded",
+    "a superseded sibling must not come back as current on the new Version",
+  );
+  assert.equal(stateOf("keep"), "current");
+  assert.equal(stateOf("newer"), "current");
 });

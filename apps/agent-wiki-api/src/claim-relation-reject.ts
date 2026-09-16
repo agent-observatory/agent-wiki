@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AppError, requireRow } from "../../../packages/core/src/db.js";
 import { publish } from "./knowledge-publish.js";
+import { effectiveClaimState } from "./claim-relations.js";
 import { refreshWikiPages } from "./wiki-pages.js";
 import { small, type ChangeInput } from "./publication-schema.js";
 // Reverses an auto-applied (or any) relation via a corrective Version of
@@ -42,9 +43,15 @@ export async function republishChange(
       )
     ).rows[0],
   );
+  // Carry the effective state, not the stored one. Relations point at a fixed
+  // (article, revision, anchor) and are not copied onto the new Version, so a
+  // sibling that a relation had superseded would come back as raw 'current'
+  // here — a corrective Version would silently resurrect what the user or
+  // Consolidation had already retired. knowledge-publish's consolidateClaim
+  // already reads effective_state for the same reason.
   const claims = (
     await c.query(
-      "SELECT * FROM claims WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 ORDER BY anchor",
+      `SELECT cl.*,${effectiveClaimState("cl")} AS effective_state FROM claims cl WHERE cl.workspace_id=$1 AND cl.article_id=$2 AND cl.revision=$3 ORDER BY cl.anchor`,
       [ws, articleId, article.revision],
     )
   ).rows;
@@ -73,7 +80,7 @@ export async function republishChange(
       type: claim.type,
       subject: claim.subject,
       scope: claim.scope,
-      state: claim.state,
+      state: claim.effective_state,
       evidence: evidence
         .filter((e) => e.anchor === claim.anchor)
         .map((e) => ({
