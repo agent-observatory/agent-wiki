@@ -18,29 +18,99 @@ CREATE INDEX IF NOT EXISTS source_workspace ON sources(workspace_id,created_at D
 CREATE INDEX IF NOT EXISTS source_session_order ON sources(workspace_id,origin,created_at,id) WHERE deleted_at IS NULL;
 CREATE TABLE IF NOT EXISTS collection_streams(workspace_id uuid NOT NULL REFERENCES workspaces(id),id text NOT NULL,client text NOT NULL,session_id text NOT NULL,name text NOT NULL,last_position int NOT NULL DEFAULT -1,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE TABLE IF NOT EXISTS collection_events(workspace_id uuid NOT NULL,stream_id text NOT NULL,position int NOT NULL,content_hash text NOT NULL,source_id uuid NOT NULL,PRIMARY KEY(workspace_id,stream_id,position,content_hash),FOREIGN KEY(workspace_id,stream_id) REFERENCES collection_streams(workspace_id,id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
-ALTER TABLE collection_events ADD COLUMN IF NOT EXISTS native_id text;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='collection_events' AND column_name='native_id') THEN
+    ALTER TABLE collection_events ADD COLUMN native_id text;
+  END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS collection_native_event ON collection_events(workspace_id,stream_id,native_id,content_hash) WHERE native_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS collection_origins(workspace_id uuid NOT NULL,stream_id text NOT NULL,id text NOT NULL,machine text NOT NULL,file_id text NOT NULL,generation uuid NOT NULL,byte_end bigint NOT NULL DEFAULT 0,record_end int NOT NULL DEFAULT 0,prefix_hash text NOT NULL DEFAULT '',updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),FOREIGN KEY(workspace_id,stream_id) REFERENCES collection_streams(workspace_id,id));
 CREATE TABLE IF NOT EXISTS collection_uploads(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,stream_id text NOT NULL,origin_id text NOT NULL,fingerprint text NOT NULL,manifest jsonb NOT NULL,compressed_bytes bigint NOT NULL,status text NOT NULL DEFAULT 'uploading' CHECK(status IN ('uploading','queued','verifying','completed','failed','expired')),grants jsonb NOT NULL DEFAULT '{}',result jsonb,error_code text,lease_until timestamptz,expires_at timestamptz NOT NULL DEFAULT now()+interval '24 hours',created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,fingerprint),FOREIGN KEY(workspace_id,origin_id) REFERENCES collection_origins(workspace_id,id));
-ALTER TABLE sources ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='sources' AND column_name='metadata') THEN
+    ALTER TABLE sources ADD COLUMN metadata jsonb NOT NULL DEFAULT '{}';
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS ai_settings(workspace_id uuid PRIMARY KEY REFERENCES workspaces(id),config jsonb NOT NULL,encrypted_key text,version int NOT NULL DEFAULT 1,updated_at timestamptz NOT NULL DEFAULT now());
 -- Free mode is retired; preserve explicit BYOK settings and erase unused profiles.
 UPDATE ai_settings SET config='{"mode":"byok","enabled":false}'::jsonb, encrypted_key=NULL,version=version+1 WHERE config->>'mode'='free';
 ALTER TABLE ai_settings DROP COLUMN IF EXISTS profiles;
 CREATE TABLE IF NOT EXISTS refinement_jobs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,source_id uuid NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed')),attempts int NOT NULL DEFAULT 0,available_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,run_id uuid,output jsonb,result jsonb,error_code text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(workspace_id,source_id),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
 CREATE TABLE IF NOT EXISTS refinement_runs(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,job_id uuid NOT NULL REFERENCES refinement_jobs(id),settings jsonb NOT NULL,prompt_version text NOT NULL,input jsonb NOT NULL DEFAULT '{}',output jsonb,usage jsonb,status text NOT NULL DEFAULT 'running',error_code text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz);
-ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS output jsonb;
-ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS chunk_index int;
-ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS diagnostics jsonb NOT NULL DEFAULT '{}';
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_plan jsonb;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_index int NOT NULL DEFAULT 0;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_count int NOT NULL DEFAULT 0;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS chunk_results jsonb NOT NULL DEFAULT '[]';
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS generation int NOT NULL DEFAULT 0;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS batch_parent uuid REFERENCES refinement_jobs(id);
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS input_sources jsonb;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS cycle_id uuid;
-ALTER TABLE refinement_jobs ADD COLUMN IF NOT EXISTS cycle_started_at timestamptz;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_runs' AND column_name='output') THEN
+    ALTER TABLE refinement_runs ADD COLUMN output jsonb;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_runs' AND column_name='chunk_index') THEN
+    ALTER TABLE refinement_runs ADD COLUMN chunk_index int;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_runs' AND column_name='diagnostics') THEN
+    ALTER TABLE refinement_runs ADD COLUMN diagnostics jsonb NOT NULL DEFAULT '{}';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='chunk_plan') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN chunk_plan jsonb;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='chunk_index') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN chunk_index int NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='chunk_count') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN chunk_count int NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='chunk_results') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN chunk_results jsonb NOT NULL DEFAULT '[]';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='generation') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN generation int NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='batch_parent') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN batch_parent uuid REFERENCES refinement_jobs(id);
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='input_sources') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN input_sources jsonb;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='cycle_id') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN cycle_id uuid;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_jobs' AND column_name='cycle_started_at') THEN
+    ALTER TABLE refinement_jobs ADD COLUMN cycle_started_at timestamptz;
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS refinement_batch_parent ON refinement_jobs(workspace_id,batch_parent);
 CREATE TABLE IF NOT EXISTS curation_rebuilds(id uuid NOT NULL,workspace_id uuid NOT NULL REFERENCES workspaces(id),result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
@@ -51,9 +121,24 @@ CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,crea
 -- the migration Job timed out (2026-09-16). Constraint rewrites below are
 -- therefore guarded: they run once, when the constraint is absent. Changing an
 -- existing constraint's definition needs its own one-off DROP in this file.
-ALTER TABLE claims ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
-ALTER TABLE claims ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT '';
-ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='claims' AND column_name='subject') THEN
+    ALTER TABLE claims ADD COLUMN subject text NOT NULL DEFAULT '';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='claims' AND column_name='scope') THEN
+    ALTER TABLE claims ADD COLUMN scope text NOT NULL DEFAULT '';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='claims' AND column_name='state') THEN
+    ALTER TABLE claims ADD COLUMN state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
+  END IF;
+END $$;
 -- claims.type is authority (who asserted it); claims.state is adoption (is it
 -- live). They shared the value 'unconfirmed', and the extraction model treated
 -- the pair as one field: 59 of 212 claims on one page came back as
@@ -62,7 +147,6 @@ ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current
 -- for a content-only change, and no prompt can emit it.
 -- Drop first: the inline CHECK from CREATE TABLE still forbids the new value
 -- while the rename runs.
-UPDATE claims SET type='agent_statement' WHERE type='unconfirmed';
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='claims_type_check'
                  AND pg_get_constraintdef(oid) LIKE '%agent_statement%') THEN
@@ -70,24 +154,58 @@ DO $$ BEGIN
     ALTER TABLE claims ADD CONSTRAINT claims_type_check CHECK(type IN ('user_decision','observation','ai_inference','agent_statement','author_statement'));
   END IF;
 END $$;
+UPDATE claims SET type='agent_statement' WHERE type='unconfirmed';
 CREATE TABLE IF NOT EXISTS claim_relations(workspace_id uuid NOT NULL,from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,publication_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,to_article_id,to_revision,to_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
 CREATE INDEX IF NOT EXISTS claim_relation_target ON claim_relations(workspace_id,to_article_id,to_revision,to_anchor);
 CREATE TABLE IF NOT EXISTS knowledge_reviews(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,article_id uuid NOT NULL,revision int NOT NULL,snapshot jsonb NOT NULL,snapshot_hash text NOT NULL,reviewer jsonb NOT NULL,reason text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),FOREIGN KEY(workspace_id,article_id,revision) REFERENCES revisions(workspace_id,article_id,revision) ON DELETE CASCADE,UNIQUE(workspace_id,article_id,revision,snapshot_hash));
 CREATE INDEX IF NOT EXISTS knowledge_review_baseline ON knowledge_reviews(workspace_id,article_id,revision DESC,created_at DESC);
 CREATE TABLE IF NOT EXISTS model_request_gates(owner_id text NOT NULL REFERENCES users(id),key_hash text NOT NULL,next_allowed_at timestamptz NOT NULL DEFAULT now(),failures int NOT NULL DEFAULT 0,PRIMARY KEY(owner_id,key_hash));
-ALTER TABLE model_request_gates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE model_request_gates FORCE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='model_request_gates'::regclass) THEN
+    ALTER TABLE model_request_gates ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE model_request_gates FORCE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 DROP POLICY IF EXISTS gate_owner ON model_request_gates;
 CREATE POLICY gate_owner ON model_request_gates USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
-ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='workspaces'::regclass) THEN
+    ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 DROP POLICY IF EXISTS workspace_owner ON workspaces;
 CREATE POLICY workspace_owner ON workspaces USING(owner_id=current_setting('app.user_id',true)) WITH CHECK(owner_id=current_setting('app.user_id',true));
-ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_reason text;
-ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS stopped_at timestamptz;
-ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS fallback_active_since timestamptz;
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_key text NOT NULL DEFAULT '';
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS topic_title text NOT NULL DEFAULT '';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='ai_settings' AND column_name='stopped_reason') THEN
+    ALTER TABLE ai_settings ADD COLUMN stopped_reason text;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='ai_settings' AND column_name='stopped_at') THEN
+    ALTER TABLE ai_settings ADD COLUMN stopped_at timestamptz;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='ai_settings' AND column_name='fallback_active_since') THEN
+    ALTER TABLE ai_settings ADD COLUMN fallback_active_since timestamptz;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='articles' AND column_name='topic_key') THEN
+    ALTER TABLE articles ADD COLUMN topic_key text NOT NULL DEFAULT '';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='articles' AND column_name='topic_title') THEN
+    ALTER TABLE articles ADD COLUMN topic_title text NOT NULL DEFAULT '';
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS wiki_pages(workspace_id uuid NOT NULL REFERENCES workspaces(id),id uuid NOT NULL,topic_key text NOT NULL,title text NOT NULL,content text NOT NULL,revision int NOT NULL,input_hash text NOT NULL,tags text[] NOT NULL DEFAULT '{}',updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id),UNIQUE(workspace_id,topic_key));
 CREATE TABLE IF NOT EXISTS wiki_page_versions(workspace_id uuid NOT NULL,page_id uuid NOT NULL,revision int NOT NULL,title text NOT NULL,content text NOT NULL,snapshot jsonb NOT NULL,input_hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,page_id,revision),FOREIGN KEY(workspace_id,page_id) REFERENCES wiki_pages(workspace_id,id));
 CREATE TABLE IF NOT EXISTS source_record_times(workspace_id uuid NOT NULL,source_id uuid NOT NULL,line int NOT NULL,recorded_at timestamptz NOT NULL,time_kind text NOT NULL,PRIMARY KEY(workspace_id,source_id,line),FOREIGN KEY(workspace_id,source_id) REFERENCES sources(workspace_id,id));
@@ -112,9 +230,24 @@ CREATE INDEX IF NOT EXISTS claim_relation_rejections_from ON claim_relation_reje
 -- Consolidation model calls share refinement_runs (call history, daily budget,
 -- diagnostics) with extraction; job_id is extraction-only, consolidation_job_id
 -- is the sibling for the other kind, never both.
-ALTER TABLE refinement_runs ALTER COLUMN job_id DROP NOT NULL;
-ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'extraction';
-ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS consolidation_job_id uuid;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name='refinement_runs' AND column_name='job_id' AND is_nullable='NO') THEN
+    ALTER TABLE refinement_runs ALTER COLUMN job_id DROP NOT NULL;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_runs' AND column_name='kind') THEN
+    ALTER TABLE refinement_runs ADD COLUMN kind text NOT NULL DEFAULT 'extraction';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='refinement_runs' AND column_name='consolidation_job_id') THEN
+    ALTER TABLE refinement_runs ADD COLUMN consolidation_job_id uuid;
+  END IF;
+END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='refinement_runs_kind_check'
                  AND pg_get_constraintdef(oid) LIKE '%consolidation%') THEN
@@ -153,10 +286,20 @@ DO $$ BEGIN
 END $$;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections'] LOOP
- EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
- EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
- EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);
- EXECUTE format('CREATE POLICY workspace_scope ON %I USING (workspace_id::text=current_setting(''app.workspace_id'',true) AND EXISTS(SELECT 1 FROM workspaces w WHERE w.id=workspace_id)) WITH CHECK (workspace_id::text=current_setting(''app.workspace_id'',true) AND EXISTS(SELECT 1 FROM workspaces w WHERE w.id=workspace_id))',t);
+ IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=t::regclass) THEN
+   EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
+   EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
+ END IF;
+ -- DROP/CREATE POLICY take ACCESS EXCLUSIVE. Re-running them on 26 tables was
+ -- the one statement in this file still blocking a deploy behind an active
+ -- Worker write; recreate a policy only when it is missing or its definition
+ -- changed.
+ IF NOT EXISTS (SELECT 1 FROM pg_policies
+                WHERE tablename=t AND policyname='workspace_scope'
+                  AND qual LIKE '%app.workspace_id%' AND with_check LIKE '%app.workspace_id%') THEN
+   EXECUTE format('DROP POLICY IF EXISTS workspace_scope ON %I',t);
+   EXECUTE format('CREATE POLICY workspace_scope ON %I USING (workspace_id::text=current_setting(''app.workspace_id'',true) AND EXISTS(SELECT 1 FROM workspaces w WHERE w.id=workspace_id)) WITH CHECK (workspace_id::text=current_setting(''app.workspace_id'',true) AND EXISTS(SELECT 1 FROM workspaces w WHERE w.id=workspace_id))',t);
+ END IF;
  END LOOP;
 END $$;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO wiki_app;
