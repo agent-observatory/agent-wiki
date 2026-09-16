@@ -355,3 +355,263 @@ test("a trigger that arrives while a Job is still open rolls it into a fresh gat
   assert.equal(modelCalls, 1);
   assert.equal(job.steps.model.status, "skipped");
 });
+test("a long extraction only vetoes an automatic Job for 10 minutes; manual ignores the veto entirely", async () => {
+  // A concurrent 'running' refinement_jobs row is both the busy signal the
+  // veto reads and part of the separate concurrency count; raise concurrency
+  // so this test isolates the veto instead of tripping that other gate too.
+  await tx(owner, ws, (c) =>
+    c.query(
+      "UPDATE ai_settings SET config=jsonb_set(config,'{concurrency}','2') WHERE workspace_id=$1",
+      [ws],
+    ),
+  );
+  const vetoTopic = "consolidation-engine-veto-topic";
+  const textA = "베토는 A 값을 사용한다.",
+    textB = "베토는 B 값으로 바꾼다.";
+  const srcA = await source(textA),
+    srcB = await source(textB);
+  const vetoChange = (clientRef: string, text: string, sourceId: string) => ({
+    topic: { key: vetoTopic, title: "10분 veto 검증" },
+    clientRef,
+    title: text,
+    content: text,
+    kind: "memory",
+    claims: [
+      {
+        anchor: "decision",
+        text,
+        type: "user_decision",
+        subject: "veto-subject",
+        scope: "production",
+        state: "current",
+        evidence: [{ sourceId, revision: 1, lines: [1, 1], quote: text }],
+      },
+    ],
+    claimRelations: [] as any[],
+  });
+  await publishManual({
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes: [vetoChange("a", textA, srcA)],
+  });
+  await publishManual({
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "synthetic" },
+    changes: [vetoChange("b", textB, srcB)],
+  });
+  await tx(owner, ws, (c) => scheduleConsolidation(c, ws, vetoTopic, "cycle"));
+  const busySource = randomUUID();
+  await tx(owner, ws, (c) =>
+    c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'busy','conversation','veto-busy','veto-busy-hash','veto-busy-hash','unused',1,$1::text,true)",
+      [busySource, ws],
+    ),
+  );
+  const busyJob = randomUUID();
+  await tx(owner, ws, (c) =>
+    c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id,status) VALUES($1,$2,$3,'running')",
+      [busyJob, ws, busySource],
+    ),
+  );
+  const signal = new AbortController().signal;
+  const noModel = async () => {
+    throw new Error("must not be called while vetoed");
+  };
+  assert.equal(
+    await runConsolidation(owner, signal, noModel),
+    false,
+    "a freshly scheduled automatic Job is vetoed by the busy extraction lane",
+  );
+  let job = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2",
+        [ws, vetoTopic],
+      ),
+    )
+  ).rows[0];
+  assert.equal(job.status, "pending");
+  assert.deepEqual(job.steps, {}, "gather never ran while vetoed");
+  // Backdate it past the 10-minute bound: the veto no longer applies.
+  await tx(owner, ws, (c) =>
+    c.query(
+      "UPDATE consolidation_jobs SET created_at=now()-interval '11 minutes' WHERE workspace_id=$1 AND id=$2",
+      [ws, job.id],
+    ),
+  );
+  assert.equal(
+    await runConsolidation(owner, signal, noModel),
+    true,
+    "a 10-minute-old automatic Job is admitted despite the still-busy lane",
+  );
+  job = (
+    await tx(owner, ws, (c) =>
+      c.query(
+        "SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND id=$2",
+        [ws, job.id],
+      ),
+    )
+  ).rows[0];
+  assert.equal(job.steps.gather.status, "done");
+  await tx(owner, ws, (c) =>
+    c.query("UPDATE refinement_jobs SET status='completed' WHERE id=$1", [
+      busyJob,
+    ]),
+  );
+  // This Job is left mid-flight (at 'model') on purpose — the point of this
+  // test is admission, not resolution. Close it out so it cannot be picked up
+  // by, and skew the model-call count of, a later test in this file.
+  await tx(owner, ws, (c) =>
+    c.query(
+      "UPDATE consolidation_jobs SET status='completed' WHERE workspace_id=$1 AND id=$2",
+      [ws, job.id],
+    ),
+  );
+});
+test("consolidation.auto=false still creates an automatic Job but never admits it; a manual Job on the same topic still runs", async () => {
+  const autoOffWs = randomUUID();
+  await admin.query(
+    "INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)",
+    [autoOffWs, owner, "Consolidation auto off"],
+  );
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      autoOffWs,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        consolidation: { auto: false },
+      }),
+      encryptSecret("synthetic-auto-off"),
+    ],
+  );
+  async function sourceIn(text: string) {
+    const id = randomUUID(),
+      key = autoOffWs + "/" + hash(text) + ".txt.gz";
+    await putSource(key, text);
+    await tx(owner, autoOffWs, (c) =>
+      c.query(
+        "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'test','conversation','synthetic',$3,$3,$4,1,$1::text,true)",
+        [id, autoOffWs, hash(text), key],
+      ),
+    );
+    return id;
+  }
+  const autoOffTopic = "consolidation-engine-auto-off-topic";
+  const textA = "자동 통합 끔 A",
+    textB = "자동 통합 끔 B";
+  const srcA = await sourceIn(textA),
+    srcB = await sourceIn(textB);
+  const autoOffChange = (clientRef: string, text: string, sourceId: string) => ({
+    topic: { key: autoOffTopic, title: "자동 통합 끔 검증" },
+    clientRef,
+    title: text,
+    content: text,
+    kind: "memory",
+    claims: [
+      {
+        anchor: "decision",
+        text,
+        type: "user_decision",
+        subject: "auto-off-subject",
+        scope: "production",
+        state: "current",
+        evidence: [{ sourceId, revision: 1, lines: [1, 1], quote: text }],
+      },
+    ],
+    claimRelations: [] as any[],
+  });
+  await tx(owner, autoOffWs, (c) =>
+    publish(
+      c,
+      autoOffWs,
+      {
+        idempotencyKey: randomUUID(),
+        producer: { type: "agent", client: "synthetic" },
+        changes: [autoOffChange("a", textA, srcA)],
+      },
+      { userId: owner, scope: "manage" },
+    ),
+  );
+  await tx(owner, autoOffWs, (c) =>
+    publish(
+      c,
+      autoOffWs,
+      {
+        idempotencyKey: randomUUID(),
+        producer: { type: "agent", client: "synthetic" },
+        changes: [autoOffChange("b", textB, srcB)],
+      },
+      { userId: owner, scope: "manage" },
+    ),
+  );
+  await tx(owner, autoOffWs, (c) =>
+    scheduleConsolidation(c, autoOffWs, autoOffTopic, "cycle"),
+  );
+  const noModel = async () => {
+    throw new Error("must not be called: consolidation.auto is false");
+  };
+  const signal = new AbortController().signal;
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      await runConsolidation(owner, signal, noModel),
+      false,
+      "an automatic Job is created but never admitted while consolidation.auto is false",
+    );
+  const created = (
+    await admin.query(
+      "SELECT status,steps,trigger FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2",
+      [autoOffWs, autoOffTopic],
+    )
+  ).rows[0];
+  assert.equal(created.status, "pending");
+  assert.equal(created.trigger, "cycle");
+  assert.deepEqual(
+    created.steps,
+    {},
+    "the Job was created (visible in the UI) but never picked up",
+  );
+  // A manual trigger on the same topic ignores consolidation.auto, same as it
+  // already ignores the enabled/pause flag.
+  await tx(owner, autoOffWs, (c) =>
+    scheduleConsolidation(c, autoOffWs, autoOffTopic, "manual"),
+  );
+  let modelCalls = 0;
+  const model = async (_config: any, _secret: any, messages: any[]) => {
+    modelCalls++;
+    const input = JSON.parse(messages[1].content);
+    const group = input.groups[0];
+    const from = group.claims.find((c: any) => c.text === textB);
+    const target = group.claims.find((c: any) => c.text === textA);
+    return {
+      output: {
+        relations: [
+          {
+            subject: "auto-off-subject",
+            scope: "production",
+            from: { articleId: from.articleId, revision: from.revision, anchor: from.anchor },
+            relation: "supersedes",
+            target: { articleId: target.articleId, revision: target.revision, anchor: target.anchor },
+            evidence: [{ recordId: from.evidence[0].recordId }],
+          },
+        ],
+        leaveUnresolved: [],
+      },
+      usage: { total_tokens: 1 },
+    };
+  };
+  await drive(owner, autoOffWs, autoOffTopic, signal, model);
+  assert.equal(modelCalls, 1, "a manual Job runs despite consolidation.auto=false");
+  const finished = (
+    await admin.query(
+      "SELECT status,trigger FROM consolidation_jobs WHERE workspace_id=$1 AND topic_key=$2",
+      [autoOffWs, autoOffTopic],
+    )
+  ).rows[0];
+  assert.equal(finished.status, "completed");
+  assert.equal(finished.trigger, "manual");
+});

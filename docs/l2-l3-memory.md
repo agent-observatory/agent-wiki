@@ -8,9 +8,9 @@
 
 **주장은 근거·변경 관계를 관리하는 단위이고, 페이지는 같은 주제의 지식을 읽는 단위다.** 한 주장마다 페이지를 만들거나, 세션·수집 청크마다 페이지를 나누지 않는다.
 
-아래 그림은 아키텍처 문서와 같은 **L1 → L3 정제 한 장**이다. 위에서 아래로 **01 기존 청크 추출(요약) → 02 추출이 L3에 남기는 통합 전 주장 → 03 관계만 정하는 Consolidation Job → 04 그 결과인 Wiki Page 새 Version과 Knowledge 화면·검토**다. 03·04는 [통합](#통합--consolidation--구현-완료--운영-검증-전)의 구현 완료 범위이며 그림의 점선 테두리는 설계 시점 표기로 아직 갱신 전이다. 조회는 [아키텍처의 L4 → L5 그림](architecture.md#l4--query--l5--answers)에 있다.
+아래 그림은 아키텍처 문서와 같은 **L1 → L3 정제 한 장**이다. 위에서 아래로 **01 기존 청크 추출(요약) → 02 추출이 L3에 남기는 통합 전 주장 → 03 관계만 정하는 Consolidation Job → 04 그 결과인 Wiki Page 새 Version과 Knowledge 화면·검토**다. 03·04는 [통합](#통합--consolidation--구현-완료--운영-검증-전)의 구현·배포 범위이며 실제 세션 자료의 운영 검증은 [운영 현황](OPERATIONS.md)을 따른다. 검증 카드는 게이트의 부류만 적고 코드 이름은 아래 [검증 게이트](#검증-게이트) 표에 있다. 조회는 [아키텍처의 L4 → L5 그림](architecture.md#l4--query--l5--answers)에 있다.
 
-![L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제하고, L3 현재 주장의 BM25 후보를 입력 조립에 되돌리며, 출력 오류는 같은 청크를 다시 보내고, 관계만 실패한 반영은 주장을 반영한 뒤 관계를 통합 대기함에 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job이 gather → model → validate → publish 네 Step으로 관계만 판단해 자동 반영하며 Step별 상태를 따로 기록한다. 04 Wiki Page 새 Version은 현재 주장만 나열하고 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억한다. 점선 테두리는 설계·미구현](assets/wiki-l1-l3-curation.svg)
+![L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제하고, L3 현재 주장의 BM25 후보를 입력 조립에 되돌리며, 출력 오류는 같은 청크를 다시 보내고, 관계만 실패한 반영은 주장을 반영한 뒤 관계를 통합 대기함에 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job은 cycle 완료·대기함 관계·수동 consolidate로 만들어지고 주제당 열린 Job은 1개이며, gather가 subject·scope별로 묶어 current가 둘 이상인 묶음만 후보로 삼고 model → validate → publish가 관계만 판단해 자동 반영하며 Step별 상태를 따로 기록한다. 04 Wiki Page 새 Version은 현재 주장만 subject별로 나열하고 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억한다. 카드 아래의 데이터베이스 기호 줄은 읽거나 쓰는 테이블이다](assets/wiki-l1-l3-curation.svg)
 
 ### 용어
 
@@ -24,6 +24,8 @@
 | L3 의미 단위 | Claim / Claims | 근거와 상태를 추적할 수 있는 개별 주장. 참으로 검증됐다는 뜻이 아님 |
 | Claim의 유형 | Decision / Decisions | 사용자가 채택한 결정. 제안과 구분하며 이후 대체·철회될 수 있음 |
 | L3 읽기 단위 | Wiki Page / Wiki Pages | 같은 주제의 여러 주장을 설명과 이력으로 구성한 페이지 |
+| 주장의 대상 | Subject | 주장이 **결정한 속성**의 소문자 slug이며 고른 값이나 소속이 아니다. "RDS 같은 관리형 DB를 쓰자"와 그 번복 "PostgreSQL을 K3s 안에서 돌리자"는 둘 다 `database-hosting`이다. 값·소속으로 `oci-managed-database`·`oci-infrastructure`처럼 갈리면 같은 묶음이 되지 못해 통합이 둘을 비교할 수 없다. 주제 key와 같을 수 없고 모델은 그 주제가 이미 쓰는 목록에서 고른다(프롬프트 `remote-curation-18`) |
+| 적용 범위 | Scope | 주장이 유효한 환경. 닫힌 목록에서 고른다. 관계·통합의 묶음 기준이지만 Knowledge 화면에서는 묶음 제목이 아니라 행의 배지다 |
 | 원문과의 연결 | Evidence | 주장을 뒷받침하는 원문 근거 |
 | 페이지 구성 기준 | Topic | 같은 대상·주제를 묶는 기준. 세션이나 청크와 다름 |
 | AI 처리 단위 | Chunk | 입력 예산에 맞춰 원문을 나눈 단위. 지식의 의미 단위가 아님 |
@@ -47,9 +49,9 @@ Worker는 같은 주제의 독립된 주장들을 한 변경에 담을 수 있�
 
 ## 통합 · Consolidation · 구현 완료 · 운영 검증 전
 
-**추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다.** 청크 추출은 여전히 관계까지 한 번에 내고 같은 Worker 시도 안에서 바로 반영한다. 관계 하나가 검증에 실패하면 추출 전체를 버리고 모델을 다시 부르며, 관계를 놓친 추출은 같은 subject·scope에 `current` 주장을 둘 남긴다(그림 02) — 아래 설계는 이 둘을 나눠 푼다. 순서대로 구현했다: 대기함·관계 지연 → `relation reject`·거절 기억 → Job과 네 Step → Knowledge 화면. 로컬 검증(합성 자료·mock 모델 응답)과 배포는 마쳤다. 실제 세션 자료로 Job이 relation을 만들거나 거절하는 모습을 확인하는 운영 검증은 아직이며, 자동 트리거(사이클 완료·관계 지연)가 실제로 몇 번 발동했는지는 `docs/OPERATIONS.md`를 따른다. 그림 03·04의 점선 테두리는 이 구현 시점 이전의 표기이며 갱신 전이다.
+**추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다.** 청크 추출은 여전히 관계까지 한 번에 내고 같은 Worker 시도 안에서 바로 반영한다. 관계 하나가 검증에 실패하면 추출 전체를 버리고 모델을 다시 부르며, 관계를 놓친 추출은 같은 subject·scope에 `current` 주장을 둘 남긴다(그림 02) — 아래 설계는 이 둘을 나눠 푼다. 순서대로 구현했다: 대기함·관계 지연 → `relation reject`·거절 기억 → Job과 네 Step → Knowledge 화면. 로컬 검증(합성 자료·mock 모델 응답)과 배포는 마쳤다. 이어서 수동 통합 배치(`consolidate --all`·`consolidate plan`·대기 중인 자동 Job 인수·`consolidation.auto`)와 두 결정적 게이트(`DECISION_EVIDENCE_NOT_USER`·`SUPERSEDES_BACKWARD_IN_TIME`), subject를 속성으로 좁힌 프롬프트 `remote-curation-18`, `sourceIds`로 범위를 좁힌 재생성을 추가했다. 실제 세션 자료로 Job이 relation을 만들거나 거절하는 모습을 확인하는 운영 검증은 아직이며, 자동 트리거(사이클 완료·관계 지연)가 실제로 몇 번 발동했는지는 `docs/OPERATIONS.md`를 따른다.
 
-| 구분 | 추출 · 기존 | 통합 · 설계 |
+| 구분 | 추출 · 기존 | 통합 |
 | --- | --- | --- |
 | 단위 | 청크 | 주제 · Topic key |
 | 입력 | 새 원문 + 세션 맥락 + 참고 주장 최대 6개 | 주제의 `current`·`proposed`·`unconfirmed`·`conflicted` 주장 전체 + 대기함의 관계 + 거절 기억 |
@@ -60,10 +62,16 @@ Worker는 같은 주제의 독립된 주장들을 한 변경에 담을 수 있�
 
 ### 언제 실행하나
 
-- 자동: 세션의 고정 처리 범위(`cycle_id`)의 모든 청크가 반영을 마치면, 그 범위의 반영이 닿은 주제마다 Job 1개를 만든다. 청크마다 만들지 않는다. 이것이 "모든 청크 이중 호출 금지"의 경계선이다.
-- 대기함에 관계가 남은 주제는 새 청크가 오지 않아도 Job을 만든다. 관계를 대기함에 넣는 시점에 그 주제의 Job을 예약하므로 사람이나 다음 수집을 기다리다 멈추지 않는다.
-- 수동: `agent-wiki consolidate TOPIC_KEY`가 "지금 통합"이다. `consolidate status [TOPIC_KEY]`는 열린 Job과 Step 상태를 보여준다. 사용자 명령이므로 자동 정제 중지 중에도 그 1회는 실행하고 실행 이력에 남긴다. 자동 트리거는 중지 상태·일일 한도·RPM·동시성을 추출과 같은 키로 지킨다.
+| 트리거 | 언제 Job을 만드나 | 실행 조건 |
+| --- | --- | --- |
+| `cycle` | 세션의 고정 처리 범위(`cycle_id`)의 모든 청크가 반영을 마치면 그 범위의 반영이 닿은 주제마다 1개. 청크마다 만들지 않는다 — "모든 청크 이중 호출 금지"의 경계선 | 자동 Job 공통: 정제 중지·일일 한도·RPM·동시성을 추출과 같은 키로 지킨다. `consolidation.auto`가 꺼져 있으면 Job은 만들되 실행(admit)하지 않는다 |
+| `deferred` | 추출의 publish가 관계를 대기함에 넣는 시점에 그 주제의 Job을 예약한다. 새 청크가 오지 않아도 실행되므로 사람이나 다음 수집을 기다리다 멈추지 않는다 | 자동 Job 공통과 같다 |
+| `manual` | `agent-wiki consolidate TOPIC_KEY`가 "지금 통합"이다. `consolidate --all`은 current가 둘 이상인 묶음이나 대기함 관계가 있는 주제 전부에 Job을 만들고, 웹 Curation의 "지금 통합 실행" 버튼은 같은 API다. `consolidate plan`은 모델 호출 없이 gather의 후보 묶음만 보여주고 Job을 만들지 않는다. `consolidate status [TOPIC_KEY]`는 열린 Job과 Step 상태다 | 사용자 명령이므로 자동 정제 중지·일일 한도 소진 중에도 그 1회는 실행하고 실행 이력에 남긴다. 그 주제에 대기 중(pending)인 자동 Job이 있으면 새 Job 대신 그 Job을 `manual`로 인수한다 |
+| `sweep` · 설계 | Worker 내부에서 하루 1회 통합 대상이 남은 주제를 훑는 트리거 | 설계만 있다. 구현·트리거 값·그림 반영은 없으며 위 세 트리거가 놓치는 사례가 실제로 관찰될 때 판단한다 |
+
 - 주제당 열린 Job(pending·running·재시도 대기)은 1개다. 열린 동안 들어온 트리거는 `rerun_requested`만 표시하고, Job이 끝나면 다음 Job을 만든다. 같은 세션의 추출과 그 주제의 통합은 순차이며 서로 다른 주제의 통합은 추출과 같은 동시성 한도 안에서 병렬이다.
+- 같은 Workspace에 실행 중인 추출이나 Reprocess가 있으면 Job을 시작하지 않는다. 자동 Job은 이 대기를 최대 10분까지만 지키고 그 뒤에는 시작한다. 수동 Job은 대기 중인 자동 Job을 인수하므로 추출이 막혀 굳은 `cycle` Job이 사람을 기다리게 하지 않는다.
+- 재생성(`rebuild`)은 `sourceIds`로 다시 대기시킬 L1을 일부로 좁힐 수 있다. 어느 범위든 `consolidation_jobs`·`consolidation_inbox`·`claim_relation_rejections`를 함께 비운다. 거절 기억도 비우므로 재생성 뒤 같은 관계가 다시 제안될 수 있다.
 
 ### Job과 Step
 
@@ -73,14 +81,34 @@ Job은 `consolidation_jobs` 한 행이고 Step은 그 안의 네 항목이다. S
 | --- | --- | --- | --- |
 | `gather` | 주제의 주장을 (subject, scope)별로 묶고 상태·고정 Version·근거 ID·기존 관계·대기함 관계·거절 기억을 읽어 입력을 고정한다. 입력 해시를 저장한다 | 없음 | DB 일시 오류만 내부 조회 규칙(deadline·backoff+jitter·최대 2회 추가)으로 재시도. 묶음마다 `current`가 1개 이하이고 대기함·미해결 `contradicts`가 없으면 나머지 Step을 `skipped`로 끝낸다 |
 | `model` | gather 결과 하나로 BYOK 1회. 묶음마다 `supersedes`·`retracts`·`supports`·`contradicts`·`leave_unresolved(이유)` 중에서 제안한다. 새 주장·본문·상태 필드 변경은 출력 계약 위반이다. 관계 근거는 출발 주장의 기존 근거 ID 중에서 고른다. 대기함의 관계와 거절된 관계는 참고 정보로 함께 전달한다 | BYOK 1회. 입력 예산을 넘으면 묶음을 나눠 각각 1회 | 일시 제공자 오류(`429`·5xx·연결·시간 초과)는 추출과 같은 키 대기·`Retry-After`+5초 규칙. 출력 오류(잘못된 JSON·알 수 없는 주장 ID·허용 외 관계·근거 ID 불일치)는 캐시를 비우고 새 응답, 같은 Job·세대에서 3회 연속이면 확인 필요. 어느 경우도 gather를 다시 하지 않는다 |
-| `validate` | `storeClaimRelations`와 같은 규칙을 모델 제안에 적용한다: 대상 존재·삭제 여부, subject·scope 일치, 결정 권한(`user_decision`은 `user_decision`만 대체), 출발 상태 `current`(`supersedes`·`retracts`), 대상이 이미 대체·철회되지 않음, 순환 없음, 근거가 출발 주장의 근거 안에 있음, 거절 기억에 없음 | 없음 | 규칙 위반은 관계별로 `rejected_by_rule`과 코드로 Step 출력에 남기고 Step은 `done`이다. 모델에 되돌리지 않는다. 남은 관계가 없으면 publish는 `skipped` |
-| `publish` | 통과한 관계를 consolidation publication으로 `claim_relations`에 저장한다. 출발·대상 모두 이미 있는 고정 Version이며 새 Revision을 만들지 않는다. 같은 트랜잭션에서 주제 페이지 입력 해시를 비교해 바뀐 페이지만 새 Version을 만들고 대기함 항목을 `resolved`로 표시한다 | 없음 | 대상 Version이 gather 뒤 바뀌었으면(`CLAIM_TARGET_VERSION_CHANGED`) 같은 anchor·text·type·subject·scope의 현재 Version으로 재대상해 반영한다. 다르면 Job `attempt`+1로 gather부터 다시 하며 이때만 모델을 다시 부른다. Job 재시작은 최대 3회. DB 일시 오류는 publish만 재시도하며 멱등 키는 Job ID·attempt다 |
+| `validate` | `storeClaimRelations`를 쓰기 없이(dry run) 모델 제안에 적용한다: 대상 존재·삭제 여부, subject·scope 일치, 결정 권한(`user_decision`은 `user_decision`만 대체), 출발 상태 `current`(`supersedes`·`retracts`), 대상이 이미 대체·철회되지 않음, 대상이 현재 Version, 근거가 출발 주장의 근거 안에 있음, 시간 순서(`supersedes`의 출발이 대상보다 앞서지 않음), 그리고 `storeClaimRelations`가 모르는 거절 기억. 순환은 별도 질의가 아니라 출발 `current`·대상 미대체 규칙이 막는다 | 없음 | 규칙 위반은 관계별로 코드와 함께 Step 출력 `rejected`에 남기고 Step은 `done`이다. 모델에 되돌리지 않는다. 코드별 뜻은 [검증 게이트](#검증-게이트). 통과한 관계가 없고 대기함 항목도 없으면 publish는 `skipped` |
+| `publish` | 통과한 관계를 consolidation publication으로 `claim_relations`에 저장한다. 출발·대상 모두 이미 있는 고정 Version이며 새 Revision을 만들지 않는다. 같은 트랜잭션에서 주제 페이지 입력 해시를 비교해 바뀐 페이지만 새 Version을 만들고 대기함 항목을 `resolved`로 표시한다 | 없음 | validate 뒤에 세상이 바뀌어 저장이 규칙 오류(`CLAIM_TARGET_VERSION_CHANGED` 등)로 실패하면 재대상하지 않고 Job `attempt`+1로 gather부터 다시 하며 이때만 모델을 다시 부른다(`restartJob`). Job 재시작은 최대 3회(`MAX_JOB_RESTARTS`)이고 넘으면 `failed`다. DB 일시 오류는 publish만 재시도하며 멱등 키는 Job ID·attempt다 |
 
 실행 이력·토큰·진단은 `refinement_runs`에 `kind=consolidation`으로 남기고 호출 목록·오늘 호출 수에 넣는다. `skipped`는 호출이 아니다. Step 결과는 Job 행에 보존하고 다음 Job이 앞 Job의 출력을 입력으로 쓰지 않는다. 종료 신호에서는 실행 중인 Step을 마치고 다음 Step을 남긴다.
 
 ### 관계 지연 · 대기함
 
-추출의 publish에서 **관계만** 실패하는 두 코드 `CLAIM_TARGET_VERSION_CHANGED`·`CLAIM_TARGET_ALREADY_RETIRED`는 추출을 버리지 않는다. 주장·근거·통과한 관계는 그 트랜잭션에서 반영하고, 실패한 관계는 출발 주장의 확정 ID·Version·anchor, 의도한 대상, 관계 종류, 근거, 실행 ID, 오류 코드와 함께 그 주제의 대기함(`consolidation_inbox`)에 넣는다. 다음 Consolidation Job의 gather가 읽어 model 입력에 "이전 추출이 제안했던 관계"로 전달하고, validate·publish를 거쳐 반영되거나 규칙 거절로 끝난다. 조용히 버리지 않고 사람을 기다리게 하지도 않는다. `CLAIM_SCOPE_MISMATCH`·`CLAIM_RELATION_TARGET_INVALID`·`DECISION_AUTHORITY_MISMATCH`·`CLAIM_REPLACEMENT_NOT_CURRENT`·`CLAIM_RELATION_EVIDENCE_REQUIRED`·`CLAIM_TARGET_NOT_PRIOR`는 모델 출력 오류이므로 기존대로 새 응답 재시도다. 호출 전 참고 맥락 변경(`CURATION_CONTEXT_CHANGED`)도 기존대로 두며 대기함으로 옮길지는 실제 실패 사례를 본 뒤 정한다.
+추출의 publish에서 **관계만** 실패하는 두 코드 `CLAIM_TARGET_VERSION_CHANGED`·`CLAIM_TARGET_ALREADY_RETIRED`는 추출을 버리지 않는다. 주장·근거·통과한 관계는 그 트랜잭션에서 반영하고, 실패한 관계는 출발 주장의 확정 ID·Version·anchor, 의도한 대상, 관계 종류, 근거, 실행 ID, 오류 코드와 함께 그 주제의 대기함(`consolidation_inbox`)에 넣는다. 다음 Consolidation Job의 gather가 읽어 model 입력에 "이전 추출이 제안했던 관계"로 전달하고, validate·publish를 거쳐 반영되거나 규칙 거절로 끝난다. 조용히 버리지 않고 사람을 기다리게 하지도 않는다. 그 밖의 게이트가 추출·통합 어디에서 무엇을 거절하고 어떤 결과로 끝나는지는 아래 [검증 게이트](#검증-게이트) 표다. 호출 전 참고 맥락 변경(`CURATION_CONTEXT_CHANGED`)은 기존대로 새 응답이며 대기함으로 옮길지는 실제 실패 사례를 본 뒤 정한다.
+
+### 검증 게이트
+
+그림의 서버 검증(01)·validate(03) 카드는 게이트의 부류만 적는다. 코드는 여기에 둔다. 추출의 주장 단위 게이트는 `knowledge-publish.ts`, 관계 게이트는 `storeClaimRelations`(`claim-relations.ts`)이며 Consolidation의 validate는 같은 함수를 쓰기 없이 부른다. 결과의 뜻: **새 응답** = 추출 Worker가 해당 청크의 출력 캐시를 비우고 새 응답을 받으며 같은 청크·세대에서 3회 연속이면 확인 필요(`OUTPUT_RETRY_CODES`). **대기함** = 추출을 버리지 않고 그 관계만 `consolidation_inbox`로(`DEFERRABLE_RELATION_CODES`). **규칙 거절** = validate가 관계별 코드로 `rejected`에 남기고 모델에 되돌리지 않음. **확인 필요** = 재시도 목록에 없어 청크가 `failed`로 남고 사람이 본다. 코드가 아직 병합 전인 두 게이트는 "이번 변경"으로 표시한다.
+
+| 코드 | 부류 | 적용 위치 | 거절하는 것 | 추출 | 통합 validate |
+| --- | --- | --- | --- | --- | --- |
+| `CLAIM_SUBJECT_IS_TOPIC` | 어휘 | 추출 · 주장 단위 | `subject`가 주제 key와 같음. "subject 없음"을 답한 것처럼 보이는 출력이며 그 주장은 통합이 비교할 수 없는 한 덩어리가 된다 | 새 응답 | 해당 없음(주장을 만들지 않음) |
+| `DECISION_EVIDENCE_NOT_USER` · 이번 변경 | 발화 권한 | 추출 · 주장 단위 | `user_decision` 주장이 사용자 역할(`user`) 기록을 하나도 인용하지 않음 | 새 응답 | 해당 없음 |
+| `CLAIM_SCOPE_MISMATCH` | 범위 | 둘 다 | 출발 주장에 `subject`·`scope`가 없거나 대상과 다름 | 새 응답 | 규칙 거절 |
+| `DECISION_AUTHORITY_MISMATCH` | 발화 권한 | 둘 다 | `user_decision` 대상을 `user_decision`이 아닌 주장이 `supersedes`·`retracts`·`contradicts` | 새 응답 | 규칙 거절 |
+| `CLAIM_REPLACEMENT_NOT_CURRENT` | 출발 상태 | 둘 다 · 추출은 Worker가 publish 전에 먼저 검사 | `current`가 아닌 출발 주장의 `supersedes`·`retracts` | 새 응답 | 규칙 거절 |
+| `SUPERSEDES_BACKWARD_IN_TIME` · 이번 변경 | 시간 순서 | 둘 다 | 출발 주장의 근거 시각이 대상 주장보다 앞선 `supersedes`. 어느 한쪽 근거의 시각이 `recovered`만이면 검사를 건너뛴다(`recorded`가 있을 때만 판정) | 새 응답 | 규칙 거절 |
+| `CLAIM_TARGET_VERSION_CHANGED` | Version | 둘 다 · 409 | `supersedes`·`retracts`·`contradicts`의 대상이 그 문서의 현재 Version이 아님(자기 문서의 직전 Version은 예외) | 대기함 | 규칙 거절. publish 단계에서 나면 gather부터 Job 재시작 |
+| `CLAIM_TARGET_ALREADY_RETIRED` | Version | 둘 다 · 409 | 이미 대체·철회된 대상에 `supersedes`·`retracts` | 대기함 | 규칙 거절 |
+| `CLAIM_TARGET_NOT_PRIOR` | Version | 추출 · 같은 publication 안 참조 | 같은 응답 안에서 앞선 변경이 아닌 것이나 자기 자신을 대상으로 지정 | Worker의 사전 검사 `AI_UNKNOWN_CLAIM_TARGET`이 먼저 새 응답으로 걸러낸다. 서버까지 닿으면 재시도 목록에 없어 확인 필요 | 발생하지 않음(새 publication ID로 부른다) |
+| `CLAIM_RELATION_EVIDENCE_REQUIRED` | 인용 | 둘 다 | 관계 근거가 출발 주장의 근거 안에 없음 | 확인 필요(재시도 목록에 없음). Worker는 근거를 `recordId`에서 복원하므로 실제로는 드물다 | 규칙 거절. model Step은 존재하지 않는 `recordId`만 `AI_EVIDENCE_REFERENCE_INVALID`로 새 응답 |
+| `CLAIM_RELATION_TARGET_INVALID` | Version | 둘 다 | 출발·대상 주장이 없거나 대상 문서가 삭제됨 | 새 응답 | 규칙 거절 |
+| `CLAIM_RELATION_REJECTED` | 거절 기억 | 통합 validate만 | 거절 기억에 있는 같은 from·to·relation | — | 규칙 거절 |
+| `SUPERSESSION_CYCLE` | 순환 | 추출 · publication 단위 | 저장 뒤 `supersedes` 사슬에 순환이 생김 | 반영 거부 · 새 응답 대상이 아님 | 별도 질의 없음. 출발 `current`·대상 미대체 규칙이 순환을 막는다 |
 
 ### `relation reject` · 자동 반영을 되돌리는 명령
 
@@ -103,7 +131,7 @@ Job은 `consolidation_jobs` 한 행이고 Step은 그 안의 네 항목이다. S
 
 청크 추출을 Job/Step으로 바꾸지 않는다(이미 청크·세대·출력 캐시로 같은 성질을 가진다). 모든 청크 이중 호출, Git/Gitea 저장, 이벤트 소싱, 주장 상태 필드의 자동 승격(`proposed` → `current`는 사용자 결정), 임베딩은 하지 않는다.
 
-| 테이블 · 설계 | 내용 |
+| 테이블 | 내용 |
 | --- | --- |
 | `consolidation_jobs` | workspace·topic_key·status·attempt·rerun_requested·trigger(`cycle`·`deferred`·`manual`)·steps(JSONB: Step별 status·attempts·error_code·retry_at·input_hash·output)·run IDs |
 | `consolidation_inbox` | 지연된 관계: 출발 주장 ID/Version/anchor·의도한 대상·관계·근거·원 실행 ID·오류 코드·resolved_job_id |
@@ -283,7 +311,7 @@ L4 일반 조회는 검색어별 **일치 개수 → 필드 점수 → 갱신 �
 
 ## 초기화와 재정제
 
-- 초기 단위는 **Workspace 전체**다. 공간 관리 → 데이터 관리의 `L2·L3 초기화`에서 수동 지식을 포함한 L3 전체와 정제 결과를 비운다. 부분 재생성은 지금 만들지 않는다.
+- 초기 단위는 **Workspace 전체**다. 공간 관리 → 데이터 관리의 `L2·L3 초기화`에서 수동 지식을 포함한 L3 전체와 정제 결과를 비운다. 재생성(`rebuild`)은 `sourceIds`로 다시 대기시킬 L1을 일부로 좁힐 수 있고, 어느 범위든 통합 상태(`consolidation_jobs`·`consolidation_inbox`·`claim_relation_rejections`)를 함께 비운다.
 - 먼저 자동 정제를 중지하고 진행 작업을 마친다. 서버도 활성·진행 상태를 검사한다. L1 객체·원문 ID·수집 위치·Workspace·인증·AI 설정은 유지한다.
 - 짧은 DB 트랜잭션 하나로 지식·주장 관계·근거·시작 Context를 삭제하고 보존 원문의 작업을 처음으로 되돌린다. 실패하면 전체를 롤백한다. 새 수집은 계속 받는다.
 - 작업의 실행 세대를 올리고 이전 실행 ID·출력·청크 위치를 비운다. 늦은 응답은 현재 실행 ID가 일치해야 반영할 수 있다. 새 반영에는 세대별 멱등 키를 사용한다.
@@ -397,7 +425,7 @@ BYOK 입력은 전체 입력 목표 상한 30,000이며 출력 상한은 선택 
 - `Reprocess/revalidate`: 같은 프롬프트·입력 버전·텍스트의 저장 출력을 공통 검증기로 다시 검사한다. 모델 호출은 없다. 호환되지 않는 캐시는 거부한다.
 - 후보 반영은 에이전트가 사용자에게 차이를 설명하고 기존 articleId/baseRevision에 맞춘 발행안을 제출한다. fingerprint와 Version을 재확인한다. 기존 anchor 누락은 거부한다. 잘못된 과거 분석을 정정했다는 이유를 저장하며 사용자 결정의 `supersedes`를 임의 생성하지 않는다. 이전 Claim Revision과 사람 검토 스냅샷은 보존한다.
 - `Reassemble`: 근거 시각 메타데이터를 불변 원문에서 보충하고 기존 Claim을 제목별로 묶는다. 변경된 페이지에만 새 Version을 만든다. AI 호출·큐 되감기·검토 확정은 없다.
-- `Consolidate`: 주제 하나의 기존 주장 사이 관계만 다시 판단한다. 새 주장·원문 재읽기는 없고 모델 호출은 주제당 1회다. `agent-wiki consolidate TOPIC_KEY`로 수동 실행한다. [통합](#통합--consolidation--구현-완료--운영-검증-전).
+- `Consolidate`: 주제 하나의 기존 주장 사이 관계만 다시 판단한다. 새 주장·원문 재읽기는 없고 모델 호출은 주제당 1회다. `agent-wiki consolidate TOPIC_KEY`·`consolidate --all`(웹 "지금 통합 실행"과 같은 API)로 수동 실행하고 `consolidate plan`은 모델 호출 없이 후보만 본다. [통합](#통합--consolidation--구현-완료--운영-검증-전).
 
 Alibaba HTTP 403 응답의 `error.code`가 `AllocationQuota.FreeTierOnly` 또는 `insufficient_quota`이거나 `error.type`이 `insufficient_quota`인 경우만 할당량 소진으로 분류한다(호환 모드 엔드포인트는 후자를 쓴다는 걸 실제 소진 계정으로 확인). 403·429 응답 본문은 16 KiB 이내에서 `code`·`type` 두 필드만 읽고 영문자·숫자·`.`·`-`·`_` 64자 이내로 검증한 값만 실행 진단 `providerError`와 실패 로그에 남긴다. `message`·`id`는 읽지 않는다. 429는 분류하지 않고 진단만 남긴다(같은 코드라도 429는 요청·토큰 속도 제한이지 소진이 아니다). 해당 실행이 사용한 설정 Version이 여전히 유효할 때만 중지한다. 이전 설정의 늦은 오류가 새 설정을 끄지 않는다. 사용자가 `fallback` 슬롯(최대 1개, 1·2번 합쳐 총 2개 모델까지)을 두었으면 1번 모델의 소진은 중지가 아니라 같은 키의 2번 모델로 이어가며 Workspace의 `fallback_active_since`에 기록한다. 각 슬롯은 model·reasoning·enable_thinking·thinking_budget·max_completion_tokens·maxTokens·maxInputTokens·maxInputChars·timeoutSeconds를 독립적으로 가지며 requestsPerMinute·concurrency·retryDelaySeconds·dailyCalls·baseUrl·API 키만 두 모델이 공유한다. 설정 Version은 바꾸지 않아 진행 중 작업이 계속되고, 사용자가 1번·2번 모델을 바꿔 저장하면 해제된다. 2번 모델의 소진 또는 2번 부재만 중지한다. 그 밖의 자동 모델 전환·자동 재개는 없다. 이미 전송한 호출은 완료될 수 있다. [공식 무료 한도 문서](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 

@@ -3,10 +3,15 @@ import { AppError } from "../../../packages/core/src/db.js";
 
 // Small, workspace-wide reset: retain source records, collection cursors and
 // model call history. The caller wraps this in the existing scoped transaction.
+// An optional sourceIds scopes which sources get re-queued: everything else
+// keeps its raw source but loses its refinement_jobs row, so it is honestly
+// "not yet curated" rather than silently marked done (refinement-sessions.ts,
+// knowledge-context.ts, query.ts read that absence).
 export async function rebuildCuration(
   c: PoolClient,
   ws: string,
   requestId: string,
+  sourceIds?: string[],
 ) {
   await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
     ws + "settings",
@@ -53,15 +58,26 @@ export async function rebuildCuration(
       [ws],
     )
   ).rows.map((s) => s.id);
+  const scopeSet = sourceIds ? new Set(sourceIds) : null;
+  const scoped = scopeSet ? sources.filter((id) => scopeSet.has(id)) : sources;
+  const unscoped = scopeSet ? sources.filter((id) => !scopeSet.has(id)) : [];
   const removed = (
     await c.query(
       "SELECT count(*)::int AS n FROM articles WHERE workspace_id=$1",
       [ws],
     )
   ).rows[0].n;
+  // Consolidation's tables are workspace-wide L3 state too: an inbox row FKs
+  // to claims, a rejection FKs to publications, and refinement_runs.job_id/
+  // consolidation_job_id must be cleared before their parents disappear.
+  await c.query(
+    "UPDATE refinement_runs SET consolidation_job_id=NULL WHERE workspace_id=$1 AND kind='consolidation'",
+    [ws],
+  );
   for (const table of [
     "wiki_page_versions",
     "wiki_pages",
+    "consolidation_inbox",
     "claim_relations",
     "evidence",
     "claims",
@@ -69,7 +85,9 @@ export async function rebuildCuration(
     "project_contexts",
     "revisions",
     "articles",
+    "claim_relation_rejections",
     "publications",
+    "consolidation_jobs",
   ]) {
     await c.query(`DELETE FROM ${table} WHERE workspace_id=$1`, [ws]);
   }
@@ -80,17 +98,26 @@ export async function rebuildCuration(
     available_at=now(),lease_until=NULL,run_id=NULL,output=NULL,result=NULL,error_code=NULL,
     batch_parent=NULL,input_sources=NULL,cycle_id=NULL,cycle_started_at=NULL,chunk_plan=NULL,chunk_index=0,chunk_count=0,chunk_results='[]',updated_at=now()
     WHERE workspace_id=$1 AND source_id=ANY($2::uuid[])`,
-    [ws, sources],
+    [ws, scoped],
   );
   await c.query(
     `INSERT INTO refinement_jobs(id,workspace_id,source_id,generation)
     SELECT gen_random_uuid(),$1,id,1 FROM sources WHERE workspace_id=$1 AND id=ANY($2::uuid[])
     ON CONFLICT(workspace_id,source_id) DO NOTHING`,
-    [ws, sources],
+    [ws, scoped],
   );
+  // Every other source keeps its immutable L1 object but loses its job row: it
+  // is honestly "not yet curated" rather than reset-and-implicitly-current.
+  if (unscoped.length)
+    await c.query(
+      "DELETE FROM refinement_jobs WHERE workspace_id=$1 AND source_id=ANY($2::uuid[])",
+      [ws, unscoped],
+    );
   const result = {
     id: requestId,
     sources: sources.length,
+    queued: scoped.length,
+    unqueued: unscoped.length,
     removedArticles: removed,
     enabled: false,
   };

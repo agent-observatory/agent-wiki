@@ -315,6 +315,8 @@ function SourcesContent() {
                 items={consolidations.data?.items}
                 error={consolidations.error}
                 root={`/workspaces/${workspaceId}/knowledge`}
+                base={base}
+                onScheduled={consolidations.reload}
               />
               <RefinementHealth data={jobs.data.health} />
               {!!jobs.data.runs.length && (

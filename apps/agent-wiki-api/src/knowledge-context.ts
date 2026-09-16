@@ -120,16 +120,27 @@ export async function context(
     });
     if (budget <= 0 || citations.length >= 6) break;
   }
+  // A conversation-kind source with no refinement_jobs row at all (a scoped
+  // curation rebuild unqueues it, docs/OPERATIONS.md) counts as pending too,
+  // so recall/query never reports the corpus as fully read when it is not. A
+  // source-record source (kind<>'conversation') never gets a job by design
+  // and stays excluded, unchanged from before.
   const coverage = (
     await c.query(
       `SELECT
-    count(*) FILTER(WHERE j.status='pending')::int AS pending,
-    count(*) FILTER(WHERE j.status='running')::int AS running,
-    count(*) FILTER(WHERE j.status='failed')::int AS failed,
-    count(*) FILTER(WHERE j.status='completed')::int AS completed,
+    count(*) FILTER(WHERE status='pending')::int AS pending,
+    count(*) FILTER(WHERE status='running')::int AS running,
+    count(*) FILTER(WHERE status='failed')::int AS failed,
+    count(*) FILTER(WHERE status='completed')::int AS completed,
     (SELECT count(*)::int FROM collection_uploads WHERE workspace_id=$1 AND status IN ('uploading','queued','verifying')) AS pending_uploads
-    FROM refinement_jobs j JOIN sources s ON s.workspace_id=j.workspace_id AND s.id=j.source_id
-    WHERE j.workspace_id=$1 AND s.deleted_at IS NULL`,
+    FROM (
+      SELECT j.status FROM refinement_jobs j JOIN sources s ON s.workspace_id=j.workspace_id AND s.id=j.source_id
+      WHERE j.workspace_id=$1 AND s.deleted_at IS NULL
+      UNION ALL
+      SELECT 'pending' FROM sources s
+      WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND s.kind='conversation'
+        AND NOT EXISTS(SELECT 1 FROM refinement_jobs j WHERE j.workspace_id=s.workspace_id AND j.source_id=s.id)
+    ) coverage_rows`,
       [ws],
     )
   ).rows[0];

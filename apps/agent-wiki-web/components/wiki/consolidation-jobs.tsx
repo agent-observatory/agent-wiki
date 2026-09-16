@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
-import { Check, Minus, X, Circle } from "lucide-react";
+import { Check, Minus, X, Circle, Play, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,6 +15,7 @@ import {
 import { StatusBadge } from "./status-badge";
 import { Empty, Failure, Loading, Section, When } from "./common";
 import { reasons } from "./refinement-progress";
+import { api, errorText } from "@/lib/api";
 // Per-topic view of the latest Consolidation Job (docs/l2-l3-memory.md#job과-step).
 // Reads GET /consolidations, which returns Step statuses and counts only; the
 // topic's own Knowledge page shows the resulting relations.
@@ -141,12 +144,38 @@ export function ConsolidationJobs({
   items,
   error,
   root,
+  base,
+  onScheduled,
 }: {
   items?: ConsolidationJob[];
   error?: unknown;
   root: string;
+  base: string;
+  onScheduled?: () => void;
 }) {
   const summary = items ? summarizeConsolidations(items) : null;
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<unknown>();
+  const [runResult, setRunResult] = useState<string>();
+  const busy = !!items && (summary?.open ?? 0) > 0;
+  async function runNow() {
+    if (running || busy) return;
+    setRunning(true);
+    setRunError(undefined);
+    setRunResult(undefined);
+    try {
+      const result = await api<{ scheduled: string[] }>(
+        base + "/consolidations",
+        { method: "POST", body: JSON.stringify({ all: true }) },
+      );
+      setRunResult(`${result.scheduled.length}개 주제 예약`);
+    } catch (e) {
+      setRunError(e);
+    } finally {
+      setRunning(false);
+      onScheduled?.();
+    }
+  }
   return (
     <Section
       id="curation-consolidations"
@@ -156,6 +185,27 @@ export function ConsolidationJobs({
               summary!.open ? ` · 열림 ${summary!.open}개` : ""
             }`
           : "통합 Job"
+      }
+      action={
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={running || busy || !items}
+            onClick={runNow}
+          >
+            {running ? <RefreshCw className="animate-spin" /> : <Play />}
+            지금 통합 실행
+          </Button>
+          {runResult && (
+            <p className="text-xs text-muted-foreground">{runResult}</p>
+          )}
+          {runError != null && (
+            <p role="alert" className="text-xs text-destructive">
+              {errorText(runError)}
+            </p>
+          )}
+        </div>
       }
     >
       {error ? (

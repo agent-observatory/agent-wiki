@@ -46,6 +46,8 @@ export const reasons: Record<string, string> = {
     "대상 주장의 Version이 바뀌어 gather부터 다시 시작했습니다.",
   CLAIM_TARGET_ALREADY_RETIRED: "대상 주장이 이미 대체·철회됐습니다.",
   CONSOLIDATION_STEP_FAILED: "통합 Step이 예기치 않게 실패했습니다.",
+  DECISION_EVIDENCE_NOT_USER: "결정 주장에 사용자 발화 근거가 없어 재시도합니다.",
+  SUPERSEDES_BACKWARD_IN_TIME: "대체 근거 시점이 대상보다 앞서 재시도합니다.",
 };
 export const waitingReasons: Record<string, string> = {
   paused: "자동 정제 일시 중지",

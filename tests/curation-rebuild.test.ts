@@ -145,6 +145,8 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
   assert.deepEqual(r.json(), {
     id: requestId,
     sources: 1,
+    queued: 1,
+    unqueued: 0,
     removedArticles: 1,
     enabled: false,
   });
@@ -235,6 +237,124 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
     (await collect(ws, 0)).accepted,
     0,
     "collector retries remain duplicates",
+  );
+});
+test("a scoped rebuild only re-queues the given sources, reports queued/unqueued, and wipes the Consolidation tables too", async () => {
+  const ws = await space();
+  const a = await collect(ws, 0),
+    b = await collect(ws, 1);
+  const source = (
+    await admin.query("SELECT object_key FROM sources WHERE id=$1", [
+      a.sourceId,
+    ])
+  ).rows[0];
+  const text = await getSource(source.object_key),
+    line = text.split("\n")[0];
+  const publication = await call(ws, "/publications", {
+    idempotencyKey: randomUUID(),
+    producer: { type: "agent", client: "fixture" },
+    changes: [
+      {
+        topic: { key: "scoped-rebuild-topic", title: "Scoped rebuild" },
+        clientRef: "test",
+        title: "Scoped rebuild claim",
+        content: "격리 재정제 검증용 주장",
+        claims: [
+          {
+            anchor: "a",
+            text: "격리 재정제 검증용 주장",
+            type: "agent_statement",
+            evidence: [
+              { sourceId: a.sourceId, revision: 1, lines: [1, 1], quote: line },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(publication.statusCode, 200, publication.body);
+  const articleId = publication.json().items[0].id as string,
+    publicationId = publication.json().id as string;
+  // Seed every Consolidation table a rebuild must wipe, plus a
+  // refinement_runs row that dangles a reference to the doomed Job.
+  const consolidationJob = randomUUID();
+  await admin.query(
+    "INSERT INTO consolidation_jobs(id,workspace_id,topic_key,trigger) VALUES($1,$2,'scoped-rebuild-topic','manual')",
+    [consolidationJob, ws],
+  );
+  const run = randomUUID();
+  await admin.query(
+    "INSERT INTO refinement_runs(id,workspace_id,kind,consolidation_job_id,settings,prompt_version,status) VALUES($1,$2,'consolidation',$3,'{}','consolidation-1','completed')",
+    [run, ws, consolidationJob],
+  );
+  await admin.query(
+    "INSERT INTO consolidation_inbox(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,error_code) VALUES($1,$2,1,'a',$2,1,'a','supports','[]','CLAIM_TARGET_VERSION_CHANGED')",
+    [ws, articleId],
+  );
+  await admin.query(
+    "INSERT INTO claim_relation_rejections(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,reason,publication_id) VALUES($1,$2,1,'a',$2,1,'a','supports','test',$3)",
+    [ws, articleId, publicationId],
+  );
+  const requestId = randomUUID();
+  const r = await call(ws, "/curation/rebuild", {
+    requestId,
+    sourceIds: [a.sourceId],
+  });
+  assert.equal(r.statusCode, 200, r.body);
+  assert.deepEqual(r.json(), {
+    id: requestId,
+    sources: 2,
+    queued: 1,
+    unqueued: 1,
+    removedArticles: 1,
+    enabled: false,
+  });
+  const jobA = (
+    await admin.query("SELECT * FROM refinement_jobs WHERE source_id=$1", [
+      a.sourceId,
+    ])
+  ).rows[0];
+  assert.equal(jobA.status, "pending");
+  assert.equal(jobA.generation, 1);
+  assert.equal(
+    (
+      await admin.query("SELECT * FROM refinement_jobs WHERE source_id=$1", [
+        b.sourceId,
+      ])
+    ).rowCount,
+    0,
+    "the unscoped source loses its job row",
+  );
+  assert.equal(
+    (await admin.query("SELECT 1 FROM sources WHERE id=$1", [b.sourceId]))
+      .rowCount,
+    1,
+    "the unscoped source keeps its immutable L1 object",
+  );
+  for (const table of [
+    "consolidation_jobs",
+    "consolidation_inbox",
+    "claim_relation_rejections",
+  ])
+    assert.equal(
+      (
+        await admin.query(
+          `SELECT count(*)::int AS n FROM ${table} WHERE workspace_id=$1`,
+          [ws],
+        )
+      ).rows[0].n,
+      0,
+      table + " is wiped by a rebuild",
+    );
+  assert.equal(
+    (
+      await admin.query(
+        "SELECT consolidation_job_id FROM refinement_runs WHERE id=$1",
+        [run],
+      )
+    ).rows[0].consolidation_job_id,
+    null,
+    "call history for the consolidation Job is kept, but its dangling reference is cleared",
   );
 });
 test("active or finishing curation is rejected; failed resets roll back and access is session scoped", async () => {

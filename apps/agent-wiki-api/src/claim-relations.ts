@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { AppError } from "../../../packages/core/src/db.js";
+import { claimEvidenceTimes } from "./evidence-time.js";
 
 export const evidenceInput = z
   .object({
@@ -137,6 +138,34 @@ export async function storeClaimRelations(
         ["superseded", "retracted"].includes(target.effective_state)
       )
         throw new AppError(409, "CLAIM_TARGET_ALREADY_RETIRED");
+      // A replacement recorded earlier in time than what it replaces is
+      // backward: something can only supersede what already existed. Only
+      // 'recorded' times are trustworthy for ordering (docs/l2-l3-memory.md);
+      // if either side has nothing but 'recovered' compaction times, skip.
+      if (["supersedes", "retracts"].includes(relation.relation)) {
+        const fromRecorded = (
+          await claimEvidenceTimes(c, ws, articleId, revision, relation.anchor)
+        ).filter((t) => t.time_kind === "recorded");
+        const targetRecorded = (
+          await claimEvidenceTimes(
+            c,
+            ws,
+            relation.target.articleId,
+            relation.target.revision,
+            relation.target.anchor,
+          )
+        ).filter((t) => t.time_kind === "recorded");
+        if (fromRecorded.length && targetRecorded.length) {
+          const fromEarliest = Math.min(
+            ...fromRecorded.map((t) => new Date(t.recorded_at).getTime()),
+          );
+          const targetLatest = Math.max(
+            ...targetRecorded.map((t) => new Date(t.recorded_at).getTime()),
+          );
+          if (fromEarliest < targetLatest)
+            throw new AppError(400, "SUPERSEDES_BACKWARD_IN_TIME");
+        }
+      }
       const citations = (
         await c.query(
           "SELECT source_id,source_revision,line_start,line_end,quote FROM evidence WHERE workspace_id=$1 AND article_id=$2 AND revision=$3 AND anchor=$4",

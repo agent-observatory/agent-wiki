@@ -334,10 +334,15 @@ export function registerAutomation(
   app.post(base + "/curation/rebuild", (r) => {
     sessionOnly(r);
     const body = z
-      .object({ requestId: z.string().uuid() })
+      .object({
+        requestId: z.string().uuid(),
+        sourceIds: z.array(z.string().uuid()).max(5000).optional(),
+      })
       .strict()
       .parse(r.body);
-    return scoped(r, (c, ws) => rebuildCuration(c, ws, body.requestId));
+    return scoped(r, (c, ws) =>
+      rebuildCuration(c, ws, body.requestId, body.sourceIds),
+    );
   });
   app.get(base + "/refinement-sessions", (r) => {
     sessionOnly(r);

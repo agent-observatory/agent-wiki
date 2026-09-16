@@ -361,3 +361,53 @@ test("query distinguishes processed knowledge from pending curation", async () =
   assert.equal(result.curation.pending, 1);
   assert.ok(result.notice.includes("최신 결정이 미반영"));
 });
+test("a jobless conversation-kind source counts as unprocessed for recall and query, but a jobless source-record does not", async () => {
+  const created = await app.inject({
+    method: "POST",
+    url: "/api/workspaces",
+    headers,
+    payload: { name: "Jobless coverage" },
+  });
+  const freshWs = created.json().id as string;
+  const freshCall = (path: string) =>
+    app.inject({
+      method: "GET",
+      url: "/api/workspaces/" + freshWs + path,
+      headers,
+    });
+  // A source-record (kind<>'conversation') never gets a refinement_jobs row
+  // by design; being jobless must not flip hasUnprocessedInputs.
+  const noteSource = randomUUID();
+  await admin.query(
+    "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'note','note','',$1::text,$1::text,'unused',1,$1::text,true)",
+    [noteSource, freshWs],
+  );
+  assert.equal(
+    (await freshCall("/context?q=nonexistent")).json().curation
+      .hasUnprocessedInputs,
+    false,
+    "a jobless source-record is not counted",
+  );
+  assert.equal(
+    (await freshCall("/query?q=nonexistent&view=overview")).json().status,
+    "not_found",
+    "the query API agrees",
+  );
+  // A scoped curation rebuild (curation-rebuild.ts) deletes a conversation-
+  // kind source's job row while keeping the source: it must be honestly
+  // reported as unprocessed, not silently treated as fully curated.
+  const conversationSource = randomUUID();
+  await admin.query(
+    "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'jobless','conversation','codex:jobless',$1::text,$1::text,'unused',1,$1::text,true)",
+    [conversationSource, freshWs],
+  );
+  const recall = (await freshCall("/context?q=nonexistent")).json();
+  assert.equal(
+    recall.curation.hasUnprocessedInputs,
+    true,
+    "a jobless conversation-kind source is honestly reported as unprocessed",
+  );
+  const overview = (await freshCall("/query?q=nonexistent&view=overview")).json();
+  assert.equal(overview.status, "not_found_with_unprocessed_inputs");
+  assert.equal(overview.hasUnprocessedInputs, true);
+});

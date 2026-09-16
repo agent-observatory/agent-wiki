@@ -172,6 +172,47 @@ test("session scope stays fixed across increments, retries and model batches; co
   assert.equal(view.records, 5, "reset keeps immutable input records");
 });
 
+test("a scoped rebuild leaves a source jobless; it still lists as a waiting session, not silently as done", async () => {
+  const otherWs = randomUUID();
+  await admin.query(
+    "INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$2)",
+    [otherWs, owner],
+  );
+  const withJob = randomUUID(),
+    jobless = randomUUID(),
+    note = randomUUID();
+  await tx(owner, otherWs, async (c) => {
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'has-job','conversation','codex:jobless-a','hash','hash','not-read',10,$1::text,true)",
+      [withJob, otherWs],
+    );
+    await c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id,status) VALUES($1,$2,$3,'completed')",
+      [randomUUID(), otherWs, withJob],
+    );
+    // A scoped rebuild deletes the job row for an unqueued source but keeps
+    // the immutable source itself (curation-rebuild.ts).
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'jobless','conversation','codex:jobless-b','hash','hash','not-read',10,$1::text,true)",
+      [jobless, otherWs],
+    );
+    // A manually-added, non-conversation source-record never gets a job by
+    // design and must stay excluded even though it is also jobless.
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'note','note','','hash','hash','not-read',1,$1::text,true)",
+      [note, otherWs],
+    );
+  });
+  const sessions = await tx(owner, otherWs, (c) => sessionProgress(c, otherWs));
+  assert.equal(sessions.length, 2, "the note-kind source-record is excluded");
+  const joblessSession = sessions.find((s) => s.id === jobless);
+  assert.ok(joblessSession, "the jobless conversation source still appears");
+  assert.equal(joblessSession!.state, "waiting");
+  assert.equal(joblessSession!.percent, null);
+  const withJobSession = sessions.find((s) => s.id === withJob);
+  assert.equal(withJobSession!.state, "current");
+});
+
 test("one session pass spans bounded model batches without absorbing later arrivals", async () => {
   const otherWs = randomUUID();
   await admin.query(

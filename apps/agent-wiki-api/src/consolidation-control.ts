@@ -2,6 +2,8 @@ import type { PoolClient } from "pg";
 import { z } from "zod";
 import { AppError } from "../../../packages/core/src/db.js";
 import { scheduleConsolidation } from "../../../packages/core/src/consolidation.js";
+import { gatherTopic, type Group } from "../../agent-wiki-worker/src/consolidate.js";
+import { claimEvidenceTimes } from "./evidence-time.js";
 // Manual trigger and status for `agent-wiki consolidate` / `consolidate status`
 // (docs/l2-l3-memory.md#언제-실행하나). Runs even while automatic curation is
 // stopped; the automatic triggers alone respect that stop.
@@ -21,6 +23,79 @@ export async function triggerConsolidation(
   if (!exists) throw new AppError(404, "TOPIC_NOT_FOUND");
   await scheduleConsolidation(c, ws, topicKey, "manual");
   return { ok: true };
+}
+
+async function workspaceTopics(c: PoolClient, ws: string) {
+  return (
+    await c.query(
+      "SELECT DISTINCT topic_key FROM articles WHERE workspace_id=$1 AND deleted_at IS NULL AND topic_key<>''",
+      [ws],
+    )
+  ).rows.map((r) => r.topic_key as string);
+}
+
+// {all:true}: schedules a manual Job for every topic gatherTopic finds
+// eligible (a (subject,scope) group with 2+ current claims, a pending inbox
+// row, or a live contradicts) and skips the rest, so a batch trigger never
+// creates a Job that would immediately no-op through to 'skipped'.
+export async function triggerAllConsolidations(c: PoolClient, ws: string) {
+  const scheduled: string[] = [];
+  for (const topicKey of await workspaceTopics(c, ws)) {
+    const gathered = await gatherTopic(c, ws, topicKey);
+    if (!gathered.groups.length) continue;
+    await scheduleConsolidation(c, ws, topicKey, "manual");
+    scheduled.push(topicKey);
+  }
+  return { scheduled };
+}
+
+// Read-only dry run: the exact gather a Job would freeze, with no model call
+// and nothing written. ?topic= narrows to one topic (shown even if empty);
+// omitted, only topics gatherTopic finds eligible are returned.
+export async function consolidationPlan(
+  c: PoolClient,
+  ws: string,
+  topicKey?: string,
+) {
+  const topics = topicKey ? [topicKey] : await workspaceTopics(c, ws);
+  const topicPlans: { topicKey: string; groups: unknown[] }[] = [];
+  for (const key of topics) {
+    const gathered = await gatherTopic(c, ws, key);
+    if (!topicKey && !gathered.groups.length) continue;
+    topicPlans.push({
+      topicKey: key,
+      groups: await Promise.all(gathered.groups.map((g) => summarizeGroup(c, ws, g))),
+    });
+  }
+  return topicKey ? (topicPlans[0] ?? { topicKey, groups: [] }) : { topics: topicPlans };
+}
+
+async function summarizeGroup(c: PoolClient, ws: string, g: Group) {
+  return {
+    subject: g.subject,
+    scope: g.scope,
+    claims: await Promise.all(
+      g.claims.map(async (claim) => {
+        const recorded = (
+          await claimEvidenceTimes(c, ws, claim.articleId, claim.revision, claim.anchor)
+        ).filter((t) => t.time_kind === "recorded");
+        return {
+          articleId: claim.articleId,
+          revision: claim.revision,
+          anchor: claim.anchor,
+          type: claim.type,
+          state: claim.effectiveState,
+          time: recorded.length
+            ? new Date(
+                Math.min(...recorded.map((t) => new Date(t.recorded_at).getTime())),
+              ).toISOString()
+            : null,
+        };
+      }),
+    ),
+    inboxRelations: g.inboxRelations.map(({ inboxId, ...r }) => r),
+    rejectedRelations: g.rejectedRelations,
+  };
 }
 
 export async function consolidationStatus(

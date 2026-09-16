@@ -50,6 +50,73 @@ async function installSkill(force, client) {
   }
   return targets;
 }
+// `consolidate status TOPIC` renders the single-topic Job (full steps, not
+// the counts-only list form) as text instead of a raw JSON dump.
+function ref(r) {
+  return r.articleId + "/" + r.revision + "/" + r.anchor;
+}
+function printConsolidationStatus(topicKey, result) {
+  const job = result.job;
+  const lines = ["주제: " + topicKey];
+  if (!job) {
+    lines.push("통합 Job 없음");
+    process.stdout.write(lines.join("\n") + "\n");
+    return;
+  }
+  lines.push(
+    "Job " +
+      job.id +
+      " · " +
+      job.status +
+      " · trigger=" +
+      job.trigger +
+      (job.attempt ? " · attempt=" + job.attempt : "") +
+      (job.error_code ? " · error=" + job.error_code : ""),
+  );
+  const steps = job.steps ?? {};
+  const modelOut = steps.model?.output;
+  if (modelOut) {
+    lines.push("", "model relations (" + (modelOut.relations?.length ?? 0) + "):");
+    for (const r of modelOut.relations ?? [])
+      lines.push("  " + ref(r.from) + " --" + r.relation + "--> " + ref(r.target));
+    for (const u of modelOut.leaveUnresolved ?? [])
+      lines.push("  leaveUnresolved " + u.subject + "/" + u.scope + ": " + u.reason);
+  }
+  const validateOut = steps.validate?.output;
+  if (validateOut) {
+    lines.push(
+      "",
+      "validate: passed=" +
+        (validateOut.passed?.length ?? 0) +
+        " rejected=" +
+        (validateOut.rejected?.length ?? 0),
+    );
+    for (const rej of validateOut.rejected ?? [])
+      lines.push(
+        "  [" +
+          rej.code +
+          "] " +
+          ref(rej.relation.from) +
+          " --" +
+          rej.relation.relation +
+          "--> " +
+          ref(rej.relation.target),
+      );
+  }
+  const publishOut = steps.publish?.output;
+  if (publishOut)
+    lines.push(
+      "",
+      "publish: published=" +
+        publishOut.published +
+        " rejected=" +
+        publishOut.rejected +
+        " inboxResolved=" +
+        publishOut.inboxResolved +
+        (publishOut.publicationId ? " publicationId=" + publishOut.publicationId : ""),
+    );
+  process.stdout.write(lines.join("\n") + "\n");
+}
 async function main() {
   if (!command || command === "help" || command === "--help") {
     output({
@@ -74,7 +141,7 @@ async function main() {
         "skill install [--client codex|claude|all]",
         "review queue [--page N] | diff ID [--revision N] | confirm ID --revision N --snapshot HASH --client codex|claude [--reason TEXT]",
         "relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes|retracts|contradicts|supports --client NAME --reason TEXT",
-        "consolidate TOPIC_KEY | consolidate status [TOPIC_KEY]",
+        "consolidate TOPIC_KEY | consolidate --all | consolidate plan [TOPIC_KEY|--all] | consolidate status [TOPIC_KEY]",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -530,15 +597,34 @@ async function main() {
   if (command === "consolidate") {
     if (args[0] === "status") {
       const topicKey = args[1];
+      const result = await request(
+        "/consolidations" +
+          (topicKey ? "?topicKey=" + encodeURIComponent(topicKey) : ""),
+      );
+      if (topicKey) return printConsolidationStatus(topicKey, result);
+      return output(result);
+    }
+    if (args[0] === "plan") {
+      const all = args.includes("--all");
+      const topicKey = !all ? args[1] : undefined;
+      if (!all && !topicKey)
+        throw new Error("Use consolidate plan TOPIC_KEY or consolidate plan --all");
       return output(
         await request(
-          "/consolidations" +
-            (topicKey ? "?topicKey=" + encodeURIComponent(topicKey) : ""),
+          "/consolidations/plan" +
+            (topicKey ? "?topic=" + encodeURIComponent(topicKey) : ""),
         ),
       );
     }
+    if (args.includes("--all"))
+      return output(
+        await request("/consolidations", { method: "POST", body: { all: true } }),
+      );
     const topicKey = args[0];
-    if (!topicKey) throw new Error("Use consolidate TOPIC_KEY or consolidate status [TOPIC_KEY]");
+    if (!topicKey)
+      throw new Error(
+        "Use consolidate TOPIC_KEY | consolidate --all | consolidate plan ... | consolidate status ...",
+      );
     return output(
       await request("/consolidations", { method: "POST", body: { topicKey } }),
     );

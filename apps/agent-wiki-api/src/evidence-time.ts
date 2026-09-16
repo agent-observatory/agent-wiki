@@ -15,6 +15,26 @@ export async function cacheSourceTimes(
       [ws, id, JSON.stringify(rows)],
     );
 }
+// Every line an evidence record spans, joined against the recorded/recovered
+// times cached at publish time (cacheSourceTimes below). Shared by the
+// SUPERSEDES_BACKWARD_IN_TIME gate (claim-relations.ts) and the consolidation
+// plan dry run (consolidation-control.ts).
+export async function claimEvidenceTimes(
+  c: PoolClient,
+  ws: string,
+  articleId: string,
+  revision: number,
+  anchor: string,
+): Promise<{ time_kind: string; recorded_at: string }[]> {
+  return (
+    await c.query(
+      `SELECT srt.time_kind,srt.recorded_at FROM evidence e
+       JOIN source_record_times srt ON srt.workspace_id=e.workspace_id AND srt.source_id=e.source_id AND srt.line BETWEEN e.line_start AND e.line_end
+       WHERE e.workspace_id=$1 AND e.article_id=$2 AND e.revision=$3 AND e.anchor=$4`,
+      [ws, articleId, revision, anchor],
+    )
+  ).rows;
+}
 export async function backfillEvidenceTimes(c: PoolClient, ws: string) {
   const sources = (
     await c.query(

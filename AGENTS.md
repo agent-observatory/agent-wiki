@@ -36,6 +36,7 @@
 
 - L1 Raw Sources → L2 Curation → L3 Knowledge → L4 Query → L5 Answers는 우리 제품 설계이며 외부 공식 표준이 아니다.
 - 세션은 여러 원천 자료 중 하나다. 주 용례는 에이전트가 질답·작업 중 근거 자료를 조회하는 것이다. 웹 위키는 지식·근거·검토 결과·진행 상태를 읽는 뷰어다. 제품 변경·검토 확정은 CLI에서 실행한다. AI 연결 설정·Hello 테스트는 CLI와 웹에서 같은 API로 제공한다. 자동 정제 중지·재개는 CLI와 웹 Curation에서 같은 API로 실행한다. 검색 API와 인용 가능한 Context를 우선 설계하며 웹 방문량을 제품 가치의 기준으로 삼지 않는다.
+- Claim의 `subject`는 결정된 **속성**이며 고른 값·소속이 아니다(`database-hosting`이지 `oci-managed-database`·`oci-infrastructure`가 아니다). 같은 속성의 결정과 번복이 같은 subject·scope 묶음에 들어가야 통합이 비교할 수 있다.
 - L3의 Claim은 근거·상태·적용 범위 단위이며 Decision은 사용자 결정 Claim이다. Wiki Page는 세션과 독립된 주제별 Claim·Decision History를 모은 불변 Version이다. 웹 목록은 Wiki Page, 조회·검토는 근거가 연결된 Claim을 기준으로 한다. 자동 조립을 검토 완료로 확정하지 않는다.
 - Workspace는 자료·지식·권한·검색·AI 맥락의 격리 단위다. Folder·Tag는 Workspace 내부 분류이며 권한 경계를 대신하지 않는다.
 - L4 단계적 조회는 `query search/claim/source/trace`를 사용한다. 필드별 BM25 후보 → Claim의 고정 Version·상태·관계 → 원문 구간 순으로 필요한 만큼 읽는다. 같은 질문은 traceId를 유지하고 최대 12단계·64,000자 한도를 새 ID로 우회하지 않는다. 서버 반환량과 L5 토큰을 구분하며 조회로 정제·검토 확정을 시작하지 않는다.
@@ -83,4 +84,5 @@
 - 현재 사용자 제약: Claude Collector는 전체 비활성화, Codex는 Agent Wiki 프로젝트만 수집한다. 자동 정제는 명시적인 재개 요청까지 중지한다. 검토는 Skill·CLI에서 수행하며 사용자 승인 없이 검토 완료로 확정하지 않는다.
 
 - 분석 개선은 전체 초기화보다 선택 Reprocess 후보·검토·정정을 우선한다. Retry·Reprocess·Reassemble의 계약은 architecture.md와 client-and-api.md를 따른다. 후보 생성은 지식 반영·검토 완료가 아니며 분석 정정과 사용자 결정 변경을 구분한다.
+- 통합은 수동 배치로도 실행한다. `consolidate TOPIC|--all`은 중지 중에도 그 1회를 실행하고 대기 중인 자동 Job을 인수하며, `consolidate plan`은 모델 호출 없이 후보만 본다. `consolidation.auto`가 꺼져 있으면 자동 Job은 만들되 실행하지 않는다. 웹 "지금 통합 실행"은 `--all`과 같은 API다.
 - 사용자 명령 없이 정제 시작·중지하지 않는다. 사용자 요청한 Alibaba 무료 할당량 소진 안전 중지는 예외이며, 사용자가 설정한 2번 모델(`fallback` 슬롯, 최대 1개, 즉 1·2번 합쳐 총 2개 모델까지)로의 전환만 자동이다. 그 밖의 모델·제공자 전환과 자동 재개는 하지 않는다. 배포·설정 저장·Hello·페이지 재조립은 enabled를 변경하지 않는다.

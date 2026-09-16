@@ -107,10 +107,19 @@ ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS consolidation_job_id uuid;
 ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_check;
 ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_check CHECK(kind IN ('extraction','consolidation'));
 ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_job_check;
-ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_job_check CHECK((kind='extraction' AND job_id IS NOT NULL AND consolidation_job_id IS NULL) OR (kind='consolidation' AND consolidation_job_id IS NOT NULL AND job_id IS NULL));
+-- A rebuild (docs/OPERATIONS.md) can delete a refinement_jobs row (scoped:
+-- for a source it does not re-queue) or a consolidation_jobs row (always, on
+-- every rebuild). Call history for either kind must survive (모델 호출 이력
+-- 보존), so this no longer requires either job id to be set — only that the
+-- kind currently in use is the one populated, never both.
+ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_job_check CHECK((kind='extraction' AND consolidation_job_id IS NULL) OR (kind='consolidation' AND job_id IS NULL));
 ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_consolidation_job_id_fkey;
 ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_consolidation_job_id_fkey FOREIGN KEY(workspace_id,consolidation_job_id) REFERENCES consolidation_jobs(workspace_id,id);
 CREATE INDEX IF NOT EXISTS refinement_consolidation ON refinement_runs(workspace_id,consolidation_job_id) WHERE consolidation_job_id IS NOT NULL;
+-- The FK nulls job_id on delete instead of blocking it, matching the relaxed
+-- check above, so a rebuild can drop the referenced refinement_jobs row.
+ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_job_id_fkey;
+ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_job_id_fkey FOREIGN KEY(job_id) REFERENCES refinement_jobs(id) ON DELETE SET NULL;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);

@@ -116,7 +116,7 @@ type RelationRef = {
   relation: string;
   inboxId?: string;
 };
-type Group = {
+export type Group = {
   subject: string;
   scope: string;
   claims: ClaimRow[];
@@ -152,7 +152,11 @@ function claimKey(articleId: string, revision: number, anchor: string) {
 // Deterministic, no model call: freezes the topic's current claims, existing
 // relations, pending inbox and rejection memory into one input for `model`.
 // docs/l2-l3-memory.md#job과-step.
-async function gatherTopic(
+// Exported for the API's dry-run plan (GET /consolidations/plan) and its
+// {all:true} eligibility scan (POST /consolidations) — both reuse this exact
+// function so "would this Job do anything" never drifts from "what did gather
+// actually see" (consolidation-control.ts).
+export async function gatherTopic(
   c: PoolClient,
   ws: string,
   topicKey: string,
@@ -773,17 +777,6 @@ export async function runConsolidation(
         await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
       ).rows[0];
       if (!settings?.encrypted_key) return null;
-      // Extraction and reprocess take priority in this workspace this tick;
-      // consolidation is the lowest-priority lane (docs/l2-l3-memory.md).
-      if (
-        (
-          await c.query(
-            "SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status='running' UNION ALL SELECT 1 FROM curation_reprocesses WHERE workspace_id=$1 AND status IN ('pending','running') LIMIT 1",
-            [ws],
-          )
-        ).rowCount
-      )
-        return null;
       const job = (
         await c.query(
           "SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND status='pending' AND available_at<=now() ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED",
@@ -792,7 +785,29 @@ export async function runConsolidation(
       ).rows[0];
       if (!job) return null;
       const baseConfig = aiConfig.parse(settings.config);
-      if (!baseConfig.enabled && job.trigger !== "manual") return null;
+      // consolidation.auto=false still lets cycle/deferred Jobs get created
+      // (the UI shows what a batch would do) but never admits them; manual
+      // ignores this the same way it already ignores the stop/pause flag.
+      const autoAllowed = baseConfig.consolidation?.auto ?? true;
+      if (job.trigger !== "manual" && (!baseConfig.enabled || !autoAllowed))
+        return null;
+      // Extraction and reprocess take priority in this workspace this tick;
+      // consolidation is the lowest-priority lane (docs/l2-l3-memory.md). A
+      // long extraction must not starve consolidation forever though: an
+      // automatic (cycle/deferred) Job is admitted anyway once it has waited
+      // 10 minutes or more. manual already ignores this veto, same as it
+      // already ignores the enabled/auto gate above.
+      if (job.trigger !== "manual") {
+        const busy = (
+          await c.query(
+            "SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status='running' UNION ALL SELECT 1 FROM curation_reprocesses WHERE workspace_id=$1 AND status IN ('pending','running') LIMIT 1",
+            [ws],
+          )
+        ).rowCount;
+        const waitedLongEnough =
+          Date.now() - new Date(job.created_at).getTime() >= 10 * 60 * 1000;
+        if (busy && !waitedLongEnough) return null;
+      }
       const fallbackActive = !!settings.fallback_active_since && !!baseConfig.fallback;
       const config = effectiveModelConfig(baseConfig, fallbackActive);
       const active = (

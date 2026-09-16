@@ -56,13 +56,58 @@
 - 재추출 중 발견해 고친 결함(`remote-curation-17`): 서버는 `user_decision`을 `user_decision`으로만 대체할 수 있게 강제하는데(`DECISION_AUTHORITY_MISMATCH`) **프롬프트에 그 규칙이 없었고**, 이 코드는 출력 오류 재시도 목록에도 없었다. 모델이 관찰·추론으로 결정을 대체하려 하면 청크 추출 전체가 버려지고 확인 필요로 죽은 채 끝났다. 규칙을 프롬프트에 적고(이견은 `contradicts`이지 대체가 아니다) 재시도 목록에 넣었다. 실제로 작업 1개가 이 코드로 죽은 것을 보고 찾았다.
 - 남은 것: `topic_key`는 여전히 모델이 짓는다(최근 40개 재사용 힌트만 있음). 그림의 AI 추출 카드가 이 사실을 그대로 적고 있다.
 
+## 정제 하네스 · 슬라이스 재추출 · 예측과 결과
+
+2026-09-17. 사용자가 "하네스를 만들라"고 했다. Alibaba `open-code-review`·OpenMetadata처럼 **엔지니어링이 단위·후보군·열거형·게이트·재시도를 소유하고 모델은 그 안에서 판단하며 사람 검수가 최후 방어선**인 구조다. 전체 재추출 대신 **슬라이스로 검증**한다.
+
+### 왜 (측정한 사실)
+
+재추출을 64/144 청크에서 멈춘 시점의 L3: 현재 주장 313개(`user_decision` 177 = 57%, `observation` 136), **관계 17개**(`supersedes` 7 · `supports` 9 · `contradicts` 1).
+
+- Decision 177개는 **과분류가 아니다.** 표본을 읽어보니 전부 진짜 결정이고, 문제는 **대체(supersession)의 부재**다. `oci-managed-database`의 "PostgreSQL 설치형이 아니라 AWS RDS처럼 관리형 DB를 쓰기로 한다"가 `current`로 살아 있는데 우리는 K3s 안에서 PostgreSQL을 직접 돌린다. 위키가 운영 현실과 모순되는 결정을 "현재 유효"라고 주장하는 **정확성 결함**이다.
+- 그런데 그 후속 결정은 subject가 `oci-infrastructure`다. 관계 게이트는 양끝의 subject·scope 일치를 요구하므로 **둘은 영원히 비교될 수 없다.** 원인은 `oci-managed-database`가 *결정된 속성*이 아니라 *선택된 값*을 subject로 삼은 것. 올바른 이름은 `database-hosting`이다.
+- Consolidation은 실패한 게 아니라 **굶었다.** `consolidate.ts`가 (a) 워크스페이스에 추출 작업이 하나라도 `running`이면 무조건 `return null`, (b) `enabled=false`면 `cycle` Job을 건너뛴다. 게다가 수동으로 호출해도 이미 열린 Job에는 `rerun_requested`만 붙고 트리거가 `cycle`로 남아 여전히 안 돈다. 실제로 Job 7개가 영구 대기 상태였다.
+
+### 무엇을 고쳤나 (`remote-curation-18`)
+
+| 항목 | 내용 |
+| --- | --- |
+| subject 정의 | **선택된 값이 아니라 결정되는 속성.** RDS/K3s 대비를 프롬프트에 예시로 넣었다 |
+| `DECISION_EVIDENCE_NOT_USER` | `user_decision`은 role=user 기록을 1개 이상 인용해야 한다. 자동 발행에만 적용하고, 역할을 판정할 수 없는 원문은 건너뛴다 |
+| `SUPERSEDES_BACKWARD_IN_TIME` | 출발이 대상보다 이르면 거절. **`recorded` 시각이 없는 쪽이 있으면 검사 생략** — `recovered` 추정 시각으로 순서를 단정하지 않는다 |
+| 범위 지정 rebuild | `sourceIds`로 일부 원문만 큐에 넣는다. 나머지는 원문은 두고 작업 행만 지워 **미정제로 정직하게 표시**된다 |
+| rebuild 정리 | `consolidation_jobs`·`consolidation_inbox`·`claim_relation_rejections`를 함께 지운다. 기존에는 빠져 있어 고아 Job이 남았다 |
+| 호출 이력 보존 | 위 삭제가 `refinement_runs`를 깨뜨려서, FK를 `ON DELETE SET NULL`로 바꾸고 CHECK을 "둘 다 설정되지는 않음"으로 완화했다. 이력 보존이 우선이다 |
+| 수동 배치 | 수동 트리거가 대기 중인 자동 Job을 **인수**한다. 자동 Job의 veto는 10분으로 제한한다. `consolidation.auto=false`면 자동 Job을 만들되 실행하지 않는다 |
+| 새 명령 | `consolidate --all`, `consolidate plan`(모델 호출 0회 예행), `consolidate status TOPIC` 렌더링. 웹 Curation에 "지금 통합 실행" 버튼 하나 |
+
+테스트 189+26 → **201+27** 통과. 그림 `wiki-l1-l3-curation.svg`는 점선을 전부 실선으로 바꾸고(구현·배포 반영, 운영 검증과는 무관) 트리거·후보 좁힘·게이트 분류를 넣었다. 게이트 코드 13개는 `l2-l3-memory.md`의 표로 옮겼다.
+
+### 슬라이스 예측 (실행 전에 적는다)
+
+원문 **2개 · 20청크**. 세션이 아니라 원문 단위로 자른다.
+
+| 원문 | 세션 | 줄 | 청크 | 역할 |
+| --- | --- | --- | --- | --- |
+| `cfb00306` | codex `01a094be` | 1,271 | 19 | 옛 결정 · RDS 관리형 DB (2026-09-12 08:31, `recovered`) |
+| `97815f60` | codex `01a09eba` | 61 | 1 | 후속 결정 · K3s PostgreSQL (2026-09-14 07:04, `recorded`) |
+
+합격 기준:
+
+1. **두 결정이 같은 `subject`로 묶인다** — 하네스가 작동했는지의 단일 판정 기준
+2. 페이지 2~4개, subject 묶음 5개 이상, `current`가 2개 이상인 묶음 2개 이상
+3. `consolidate --all` 후 옛 RDS 결정이 `current`가 아니게 되거나, 납득할 이유가 붙은 `leaveUnresolved`로 남는다
+4. 미큐 세션은 Sources에서 미정제로 보이고 `hasUnprocessedInputs=true`다
+
+결과는 아래에 이어 적는다.
+
 ## 통합(Consolidation) 구현·배포 · Knowledge 리니지 패널 구현·배포
 
 2026-09-15. 아래 설계 기록의 방향대로 순서대로 구현해 배포했다: 관계 지연·대기함(`consolidation_inbox`) → `relation reject`·거절 기억(`claim_relation_rejections`) → Job과 네 Step(`consolidation_jobs`) → Knowledge 화면(구조화된 현재 주장 목록·리니지 패널). 커밋 `3de16fb`·`4914573`·`1895483`·`5c39d11`·`1e4ad75`. GitHub Actions `34878920175`·`34880213433`에서 각각 성공적으로 배포했다.
 
 - 로컬 검증: 합성 자료·mock 모델 응답으로 gather→model→validate→publish 전체 경로(관계 통과·거절 둘 다), 사이클 완료 자동 트리거, 열린 Job에 재요청이 오면 완료 시 바로 재실행하는 `rerun_requested` 롤오버, `relation reject`의 정정 Version 발행을 확인했다. 209 → 215개 테스트 통과, typecheck·build 통과.
 - 실행 중 발견해 함께 고친 버그: pick 단계가 gather·validate·publish(모델을 안 부르는 Step)까지 모델 호출 rate gate에 걸어 그다음 Step을 영영 못 집어가던 문제. `rerun_requested` 컬럼이 있지만 아무도 쓰지 않던 문제.
-- 운영 검증은 아직이다. 실제 세션 자료로 자동 트리거가 발동해 관계를 만들거나 거절하는 모습, 웹 Knowledge 화면의 리니지 패널·"통합 대기" 배지 표시는 배포 후 실사용에서 확인해야 한다. `docs/assets/wiki-l1-l3-curation.svg`의 점선 테두리·"설계·미구현" 라벨은 아직 이 구현을 반영해 갱신하지 않았다.
+- 운영 검증은 아직이다. 실제 세션 자료로 자동 트리거가 발동해 관계를 만들거나 거절하는 모습, 웹 Knowledge 화면의 리니지 패널·"통합 대기" 배지 표시는 배포 후 실사용에서 확인해야 한다. `docs/assets/wiki-l1-l3-curation.svg`의 점선 테두리·"설계·미구현" 라벨은 2026-09-17에 실선으로 바꿨다(아래 하네스 기록). 실선은 구현·배포를 뜻하며 운영 검증을 뜻하지 않는다.
 
 ## 통합(Consolidation) 설계 · Knowledge 리니지 패널 설계 · 그림 L1–L5 한 장 → L1–L3·L4–L5 두 장 · 설계 단계 · 미구현
 

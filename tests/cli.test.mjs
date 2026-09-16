@@ -244,3 +244,97 @@ test("CLI shares one Client credential, preserves pause and does not retry write
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("consolidate --all schedules a batch, plan is a JSON dry run, and status TOPIC renders text instead of raw JSON", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wiki-consolidate-")),
+    requests = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    const parsed = body ? JSON.parse(body) : null;
+    requests.push({ method: req.method, url: req.url, body: parsed });
+    res.setHeader("content-type", "application/json");
+    if (req.method === "POST" && parsed?.all)
+      return res.end(JSON.stringify({ scheduled: ["topic-a", "topic-b"] }));
+    if (req.method === "GET" && req.url.includes("/consolidations/plan"))
+      return res.end(JSON.stringify({ topicKey: "topic-a", groups: [] }));
+    if (req.method === "GET" && req.url.includes("topicKey=topic-a"))
+      return res.end(
+        JSON.stringify({
+          topicKey: "topic-a",
+          job: {
+            id: "job-1",
+            status: "completed",
+            trigger: "manual",
+            attempt: 0,
+            error_code: null,
+            steps: {
+              model: {
+                output: {
+                  relations: [
+                    {
+                      from: { articleId: "a", revision: 1, anchor: "decision" },
+                      relation: "supersedes",
+                      target: { articleId: "b", revision: 1, anchor: "decision" },
+                    },
+                  ],
+                  leaveUnresolved: [],
+                },
+              },
+              validate: { output: { passed: [1], rejected: [] } },
+              publish: {
+                output: {
+                  published: 1,
+                  rejected: 0,
+                  inboxResolved: 0,
+                  publicationId: "pub-1",
+                },
+              },
+            },
+          },
+        }),
+      );
+    res.end(JSON.stringify({ ok: true }));
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const config = join(dir, "config.json");
+  await writeFile(
+    config,
+    JSON.stringify({
+      version: 1,
+      defaultProject: "work",
+      projects: {
+        work: {
+          workspace: uuid,
+          server: `http://127.0.0.1:${server.address().port}`,
+          tag: "wiki",
+        },
+      },
+    }),
+  );
+  const run = (...args) =>
+    exec(process.execPath, [cli, ...args, "--config", config], {
+      cwd: dir,
+      env: { ...process.env, WIKI_TOKEN: "client-secret" },
+    });
+  try {
+    const all = JSON.parse((await run("consolidate", "--all")).stdout);
+    assert.deepEqual(all, { scheduled: ["topic-a", "topic-b"] });
+    assert.equal(requests.at(-1).body.all, true);
+    const plan = JSON.parse(
+      (await run("consolidate", "plan", "topic-a")).stdout,
+    );
+    assert.equal(plan.topicKey, "topic-a");
+    assert.ok(requests.at(-1).url.includes("/consolidations/plan?topic=topic-a"));
+    await assert.rejects(run("consolidate", "plan"), /TOPIC_KEY|--all/);
+    const status = (await run("consolidate", "status", "topic-a")).stdout;
+    assert.doesNotMatch(status, /^\{/, "renders text, not a raw JSON dump");
+    assert.match(status, /Job job-1/);
+    assert.match(status, /a\/1\/decision --supersedes--> b\/1\/decision/);
+    assert.match(status, /passed=1 rejected=0/);
+    assert.match(status, /published=1.*publicationId=pub-1/s);
+  } finally {
+    await new Promise((r) => server.close(r));
+    await rm(dir, { recursive: true, force: true });
+  }
+});

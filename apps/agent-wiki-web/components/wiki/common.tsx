@@ -13,11 +13,15 @@ export function Section({
   id,
   title,
   defaultOpen = false,
+  action,
   children,
 }: {
   id: string;
   title: React.ReactNode;
   defaultOpen?: boolean;
+  // Rendered next to the title, inside the clickable <summary>; the wrapper
+  // stops click propagation so pressing it does not also toggle the section.
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const storageKey = `agent-wiki:section:${id}`;
@@ -44,9 +48,14 @@ export function Section({
         }
       }}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
-        <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
-        {title}
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold">
+        <span className="flex items-center gap-2">
+          <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
+          {title}
+        </span>
+        {action && (
+          <span onClick={(e) => e.stopPropagation()}>{action}</span>
+        )}
       </summary>
       <div className="mt-4">{children}</div>
     </details>

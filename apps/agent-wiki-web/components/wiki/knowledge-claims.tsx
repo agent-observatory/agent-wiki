@@ -258,8 +258,8 @@ export function KnowledgeClaims({
     <div className="space-y-6">
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          현재 주장 {current.length.toLocaleString()}개 · 주제 {groups.length}개
-          · 관계가 연결된 주장 {linkedTotal}개.
+          현재 주장 {current.length.toLocaleString()}개 · Subject{" "}
+          {groups.length}개 · 관계가 연결된 주장 {linkedTotal}개.
           {linkedTotal > 0
             ? " 주장을 누르면 근거 원문과 리니지를 봅니다."
             : " 아직 통합이 연결한 관계가 없습니다."}
@@ -278,7 +278,7 @@ export function KnowledgeClaims({
             printed it twice. */}
         {needle && shown > 0 && (
           <p className="text-sm text-muted-foreground">
-            {`${shown.toLocaleString()}개 일치 · 주제 ${groups.length}개`}
+            {`${shown.toLocaleString()}개 일치 · Subject ${groups.length}개`}
           </p>
         )}
       </div>
@@ -288,7 +288,7 @@ export function KnowledgeClaims({
           className="sticky top-6 hidden self-start xl:block"
         >
           <p className="mb-2 px-2 text-xs font-bold text-muted-foreground">
-            목차
+            Subjects
           </p>
           <ul className="max-h-[70vh] space-y-0.5 overflow-y-auto">
             {groups.map((g) => (

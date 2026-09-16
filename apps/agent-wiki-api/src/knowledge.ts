@@ -21,7 +21,9 @@ import { publish } from "./knowledge-publish.js";
 import { rejectClaimRelation } from "./claim-relation-reject.js";
 import {
   triggerConsolidation,
+  triggerAllConsolidations,
   consolidationStatus,
+  consolidationPlan,
   topicKeySchema,
 } from "./consolidation-control.js";
 import { uuid, keySchema, conflict } from "./publication-schema.js";
@@ -174,14 +176,27 @@ export function registerKnowledge(
   });
   app.post(base + "/consolidations", (r) => {
     sessionOnly(r);
-    const topicKey = topicKeySchema.parse((r.body as { topicKey: string }).topicKey);
-    return scoped(r, (c, ws) => triggerConsolidation(c, ws, topicKey));
+    const body = z
+      .union([
+        z.object({ all: z.literal(true) }).strict(),
+        z.object({ topicKey: topicKeySchema }).strict(),
+      ])
+      .parse(r.body);
+    return scoped(r, async (c, ws) =>
+      "all" in body
+        ? triggerAllConsolidations(c, ws)
+        : triggerConsolidation(c, ws, body.topicKey),
+    );
   });
   app.get(base + "/consolidations", (r) =>
     scoped(r, (c, ws) =>
       consolidationStatus(c, ws, (r.query as { topicKey?: string }).topicKey),
     ),
   );
+  app.get(base + "/consolidations/plan", (r) => {
+    const q = z.object({ topic: topicKeySchema.optional() }).parse(r.query);
+    return scoped(r, (c, ws) => consolidationPlan(c, ws, q.topic));
+  });
   app.get(base + "/reviews", (r) =>
     scoped(r, (c, ws) => pendingReviews(c, ws, r.query)),
   );

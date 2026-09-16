@@ -22,24 +22,33 @@ type Job = {
 };
 
 // Counts and coverage use DB metadata only; this path never opens raw objects.
+// A conversation-kind source with no refinement_jobs row at all (a scoped
+// curation rebuild unqueues it, docs/OPERATIONS.md) still surfaces here as a
+// waiting session instead of silently disappearing. A source-record source
+// (kind<>'conversation') never gets a job by design and is excluded, same as
+// before: it was never part of the curated corpus this view describes.
 export async function sessionProgress(c: PoolClient, ws: string) {
   const { rows } = await c.query<Job>(
     `WITH records AS (
        SELECT source_id,count(*)::int AS n FROM collection_events
        WHERE workspace_id=$1 GROUP BY source_id
      )
-     SELECT j.id,j.source_id,j.status,j.error_code,j.batch_parent,j.cycle_id,
-       j.cycle_started_at,j.created_at,j.updated_at,j.chunk_index,j.chunk_count,
+     SELECT COALESCE(j.id,s.id) AS id,s.id AS source_id,COALESCE(j.status,'pending') AS status,
+       j.error_code,j.batch_parent,j.cycle_id,
+       j.cycle_started_at,COALESCE(j.created_at,s.created_at) AS created_at,
+       COALESCE(j.updated_at,s.created_at) AS updated_at,
+       COALESCE(j.chunk_index,0) AS chunk_index,COALESCE(j.chunk_count,0) AS chunk_count,
        s.name,s.line_count,s.created_at AS source_created_at,
        CASE WHEN s.kind='conversation' AND s.origin<>'' THEN 'conversation:'||s.origin
          ELSE 'source:'||s.id::text END AS session_key,
        COALESCE(records.n,0)::int AS records,
-       CASE WHEN j.chunk_index>0 THEN COALESCE((j.chunk_plan->'chunks'->(j.chunk_index-1)->>'end')::int,0)
+       CASE WHEN j.id IS NOT NULL AND j.chunk_index>0 THEN COALESCE((j.chunk_plan->'chunks'->(j.chunk_index-1)->>'end')::int,0)
          ELSE 0 END AS applied_lines,
        (j.output IS NOT NULL AND j.status='running') AS applying
-     FROM refinement_jobs j JOIN sources s ON s.id=j.source_id AND s.workspace_id=j.workspace_id
+     FROM sources s
+     LEFT JOIN refinement_jobs j ON j.source_id=s.id AND j.workspace_id=s.workspace_id
      LEFT JOIN records ON records.source_id=s.id
-     WHERE j.workspace_id=$1 AND s.deleted_at IS NULL
+     WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND (j.id IS NOT NULL OR s.kind='conversation')
      ORDER BY s.created_at,s.id`,
     [ws],
   );

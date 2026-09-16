@@ -88,6 +88,13 @@ export const aiConfig = z
     // this one instead of stopping; null means no fallback and the existing
     // safety stop applies.
     fallback: modelParams.nullable().default(null),
+    // Automatic (cycle/deferred) Consolidation Jobs are still created when
+    // false, so the UI can show what a batch would do, but never admitted;
+    // a manual Job always runs regardless (docs/l2-l3-memory.md).
+    consolidation: z
+      .object({ auto: z.boolean().default(true) })
+      .strict()
+      .default({ auto: true }),
   })
   .strict();
 export type AiConfig = z.infer<typeof aiConfig>;

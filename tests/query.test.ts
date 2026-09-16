@@ -40,6 +40,13 @@ async function add(
     "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'synthetic','conversation',$1::text,$3,$3,$4,2,$1::text,true)",
     [src, ws, hash(raw), key],
   );
+  // A real conversation-kind source always pairs with a refinement_jobs row
+  // (collection/ingest insert both atomically); mark this fixture 'completed'
+  // so it reads as already-curated, not as an unprocessed input.
+  await read(
+    "INSERT INTO refinement_jobs(id,workspace_id,source_id,status) VALUES($1,$2,$3,'completed')",
+    [randomUUID(), ws, src],
+  );
   const e = {
     sourceId: src,
     revision: 1,
@@ -233,9 +240,16 @@ test("no match and unprocessed input are different; lookup never changes curatio
     await read("SELECT count(*) FROM publications WHERE workspace_id=$1", [ws])
   ).rows[0].count;
   assert.equal((await api("/query?q=nonexistent")).json().status, "not_found");
+  // A brand-new pending source, not sourceId (already 'completed' above): the
+  // point is a fresh unprocessed input, not re-queuing an already-published one.
+  const pendingSource = randomUUID();
+  await read(
+    "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'pending-fixture','conversation',$1::text,$1::text,$1::text,'unused',1,$1::text,true)",
+    [pendingSource, ws],
+  );
   await read(
     "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
-    [randomUUID(), ws, sourceId],
+    [randomUUID(), ws, pendingSource],
   );
   assert.equal(
     (await api("/query?q=nonexistent")).json().status,

@@ -228,9 +228,14 @@ export async function wikiPageDetail(
   return {
     ...row,
     consolidation: consolidationBadge(job ?? null),
+    // Same honesty rule as knowledge-context.ts/query.ts: a conversation-kind
+    // source left jobless by a scoped curation rebuild still counts.
     hasUnprocessedSources: !!(
       await c.query(
-        "SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed' LIMIT 1",
+        `SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed'
+         UNION ALL SELECT 1 FROM sources s WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND s.kind='conversation'
+           AND NOT EXISTS(SELECT 1 FROM refinement_jobs j WHERE j.workspace_id=s.workspace_id AND j.source_id=s.id)
+         LIMIT 1`,
         [ws],
       )
     ).rowCount,

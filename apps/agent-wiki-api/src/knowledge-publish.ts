@@ -4,6 +4,11 @@ import { z } from "zod";
 import { AppError, requireRow } from "../../../packages/core/src/db.js";
 import { hash, getSource } from "../../../packages/core/src/storage.js";
 import { cacheSourceTimes } from "./evidence-time.js";
+import {
+  sourceRoles,
+  roleRanges,
+  evidenceHasRole,
+} from "../../../packages/core/src/source-roles.js";
 import { refreshWikiPages } from "./wiki-pages.js";
 import {
   storeClaimRelations,
@@ -258,6 +263,18 @@ export async function publish(
     input.changes.map((x) => [x.clientRef, x.articleId ?? randomUUID()]),
   );
   const sources = new Map<string, { text: string; row: any }>();
+  // Lazily computed per sourceId: which lines are user/assistant/tool/unknown
+  // authority, for the DECISION_EVIDENCE_NOT_USER gate below. Read transport
+  // structure only, same rule the extraction chunk already applies.
+  const roleCache = new Map<string, ReturnType<typeof roleRanges>>();
+  const rolesFor = (sourceId: string, lineCount: number) => {
+    let ranges = roleCache.get(sourceId);
+    if (!ranges) {
+      ranges = roleRanges(sourceRoles(sources.get(sourceId)!.text), 1, lineCount);
+      roleCache.set(sourceId, ranges);
+    }
+    return ranges;
+  };
   const results: { clientRef: string; id: string; revision: number }[] = [];
   const deferredRelations: DeferredRelation[] = [];
   for (let i = 0; i < input.changes.length; i++) {
@@ -338,6 +355,32 @@ export async function publish(
         )
           throw new AppError(400, "EVIDENCE_MISMATCH");
       }
+      // A decision claim must be traceable to something the user actually
+      // said, not just an agent's summary of one. Role-tagged transport
+      // structure only exists for collected conversation sources, which is
+      // exactly what the automatic (worker) pipeline reads; a manual/human
+      // publish has no such structure to check and is left alone. Checked
+      // here, not only in the worker's own proposal validation, because
+      // consolidateClaim (above) can attach fresh, unchecked evidence to an
+      // already-existing user_decision claim during automatic consolidation.
+      // Skipped when none of the cited evidence resolves to any known role at
+      // all (plain, non-transport text): role data is genuinely unavailable
+      // there, not evidence of a non-user author.
+      const claimRoleRanges = claim.evidence.map((ev) =>
+        rolesFor(ev.sourceId, sources.get(ev.sourceId)!.row.line_count),
+      );
+      const roleDataAvailable = claimRoleRanges.some((ranges) =>
+        ranges.some((r) => r.role !== "unknown"),
+      );
+      if (
+        automatic &&
+        claim.type === "user_decision" &&
+        roleDataAvailable &&
+        !claim.evidence.some((ev, i) =>
+          evidenceHasRole([ev], claimRoleRanges[i], ["user"]),
+        )
+      )
+        throw new AppError(400, "DECISION_EVIDENCE_NOT_USER");
     }
     if (change.articleId)
       await c.query(

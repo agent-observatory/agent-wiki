@@ -212,9 +212,16 @@ export function registerQuery(
         for (const g of groups.values())
           if (g.length) interleaved.push(g.shift());
       }
+      // A conversation-kind source with no refinement_jobs row at all (a
+      // scoped curation rebuild unqueues it, docs/OPERATIONS.md) counts as
+      // unprocessed too. A source-record source (kind<>'conversation') never
+      // gets a job by design and stays excluded, unchanged from before.
       const coverage = (
         await c.query(
-          "SELECT EXISTS(SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed') OR EXISTS(SELECT 1 FROM collection_uploads WHERE workspace_id=$1 AND status IN ('uploading','queued','verifying')) AS pending",
+          `SELECT EXISTS(SELECT 1 FROM refinement_jobs WHERE workspace_id=$1 AND status<>'completed')
+           OR EXISTS(SELECT 1 FROM sources s WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND s.kind='conversation'
+             AND NOT EXISTS(SELECT 1 FROM refinement_jobs j WHERE j.workspace_id=s.workspace_id AND j.source_id=s.id))
+           OR EXISTS(SELECT 1 FROM collection_uploads WHERE workspace_id=$1 AND status IN ('uploading','queued','verifying')) AS pending`,
           [ws],
         )
       ).rows[0].pending;

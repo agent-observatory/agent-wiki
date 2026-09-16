@@ -29,10 +29,17 @@ export async function scheduleConsolidationForCycle(
   for (const { topic_key } of topics) await scheduleConsolidation(c, ws, topic_key, "cycle");
 }
 // At most one open (pending/running) Job per topic. A repeat trigger while
-// one is already open never creates a second Job; it only flags
-// rerun_requested, and advanceJob (consolidate.ts) rolls that Job straight
-// into a fresh gather once the open one finishes
-// (docs/l2-l3-memory.md#job과-step).
+// one is already open never creates a second Job. A manual trigger arriving
+// while the open Job is still 'pending' AND automatic (cycle/deferred) takes
+// it over instead of merely flagging a rerun: SET trigger='manual',
+// available_at=now() so it is admitted immediately, without a wasted round
+// trip through the automatic Job it displaces. rerun_requested is left
+// untouched in that case. Anything else — the open Job is already 'running',
+// the open Job is already 'manual' (a second manual request against a Job
+// already mid-flight is a rerun, not a takeover), or the incoming trigger is
+// not manual — keeps today's behavior: only flag rerun_requested, and
+// advanceJob (consolidate.ts) rolls that Job straight into a fresh gather
+// once the open one finishes (docs/l2-l3-memory.md#job과-step).
 export async function scheduleConsolidation(
   c: PoolClient,
   ws: string,
@@ -41,7 +48,11 @@ export async function scheduleConsolidation(
 ) {
   return c.query(
     `INSERT INTO consolidation_jobs(workspace_id,topic_key,trigger) VALUES($1,$2,$3)
-     ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO UPDATE SET rerun_requested=true`,
+     ON CONFLICT (workspace_id,topic_key) WHERE status IN ('pending','running') DO UPDATE SET
+       trigger=CASE WHEN consolidation_jobs.status='pending' AND consolidation_jobs.trigger<>'manual' AND EXCLUDED.trigger='manual' THEN 'manual' ELSE consolidation_jobs.trigger END,
+       available_at=CASE WHEN consolidation_jobs.status='pending' AND consolidation_jobs.trigger<>'manual' AND EXCLUDED.trigger='manual' THEN now() ELSE consolidation_jobs.available_at END,
+       rerun_requested=CASE WHEN consolidation_jobs.status='pending' AND consolidation_jobs.trigger<>'manual' AND EXCLUDED.trigger='manual' THEN consolidation_jobs.rerun_requested ELSE true END,
+       updated_at=now()`,
     [ws, topicKey, trigger],
   );
 }
