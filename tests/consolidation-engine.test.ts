@@ -675,3 +675,55 @@ test("an older inadmissible automatic Job does not hide a manual Job", async () 
     "the manual Job ran to completion; the automatic one stayed unadmitted",
   );
 });
+
+// A rerun triggered by new claims kept the same attempt, so publish rebuilt the
+// finished run's idempotency key and died on the publications unique index —
+// the Job then sat pending, retrying every minute, with the pg error recorded
+// as the useless code "error". Two production Jobs were stuck this way.
+test("a rerun with new claims publishes under a new key instead of colliding", async () => {
+  const rerunWs = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    rerunWs,
+    owner,
+    "Rerun key",
+  ]);
+  const jobId = randomUUID();
+  await admin.query(
+    `INSERT INTO consolidation_jobs(workspace_id,id,topic_key,status,trigger,attempt,steps)
+     VALUES($1,$2,'rerun-topic','completed','manual',0,$3)`,
+    [
+      rerunWs,
+      jobId,
+      JSON.stringify({ gather: { status: "done", attempts: 1, input_hash: "hash-one" } }),
+    ],
+  );
+  const keyFor = (hash: string) => "consolidation-" + jobId + "-0-" + hash;
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"consolidation-worker"}','통합')`,
+    [randomUUID(), rerunWs, keyFor("hash-one")],
+  );
+  // The same gather input must not publish twice...
+  await assert.rejects(
+    admin.query(
+      `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+       VALUES($1,$2,$3,'h','{"type":"agent","client":"consolidation-worker"}','통합')`,
+      [randomUUID(), rerunWs, keyFor("hash-one")],
+    ),
+    /duplicate key/,
+    "an identical gather stays idempotent",
+  );
+  // ...but a rerun that gathered different claims must be free to publish.
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"consolidation-worker"}','통합')`,
+    [randomUUID(), rerunWs, keyFor("hash-two")],
+  );
+  const keys = (
+    await admin.query(
+      "SELECT count(*)::int n FROM publications WHERE workspace_id=$1 AND idempotency_key LIKE $2",
+      [rerunWs, "consolidation-" + jobId + "%"],
+    )
+  ).rows[0].n;
+  assert.equal(keys, 2, "the rerun published under its own key");
+});

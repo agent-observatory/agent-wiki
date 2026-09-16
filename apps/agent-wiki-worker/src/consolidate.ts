@@ -687,7 +687,18 @@ async function runPublishStep(owner: string, ws: string, task: any) {
         [
           publicationId,
           ws,
-          "consolidation-" + task.id + "-" + task.attempt,
+          // Keyed on what this run actually gathered, not on a counter. attempt
+          // only advances on a restart after an error, so a rerun triggered by
+          // new claims reused the finished run's key and died on the
+          // publications unique index. The gather hash also makes the key
+          // honestly idempotent: identical input publishes once, changed input
+          // publishes again.
+          "consolidation-" +
+            task.id +
+            "-" +
+            task.attempt +
+            "-" +
+            String(task.steps.gather?.input_hash ?? "no-hash").slice(0, 32),
           hash(JSON.stringify(passed)),
           JSON.stringify({
             type: "agent",
@@ -870,14 +881,32 @@ export async function runConsolidation(
       else
         await tx(owner, ws, (c) => advanceJob(c, ws, task.id, task.steps));
     } catch (e) {
-      const code = e instanceof AppError ? e.code : e instanceof Error ? e.name : "CONSOLIDATION_STEP_FAILED";
+      // e.name on a pg error is the literal "error", which recorded a useless
+      // code and left the Job retrying every minute with the cause invisible.
+      // Carry the SQLSTATE when there is one and log the message either way.
+      const sqlState =
+        e && typeof e === "object" && typeof (e as { code?: unknown }).code === "string" &&
+        /^[0-9A-Z]{5}$/.test((e as { code: string }).code)
+          ? (e as { code: string }).code
+          : null;
+      const code = e instanceof AppError
+        ? e.code
+        : sqlState
+          ? "CONSOLIDATION_DB_" + sqlState
+          : "CONSOLIDATION_STEP_FAILED";
       await tx(owner, ws, async (c) => {
         await c.query(
           "UPDATE consolidation_jobs SET status='pending',error_code=$3,available_at=now()+interval '60 seconds',updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
           [ws, task.id, code],
         );
       });
-      log("error", "consolidation_step_failed", { job_id: task.id, step, error_code: code });
+      log("error", "consolidation_step_failed", {
+        job_id: task.id,
+        step,
+        error_code: code,
+        // No user text here: a DB message names constraints and columns only.
+        detail: e instanceof Error ? e.message.slice(0, 300) : undefined,
+      });
     }
     return true;
   }
