@@ -121,7 +121,7 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 - 웹 개정 배지는 `Version 1`로 쓰며 `r1` 같은 약어를 노출하지 않는다.
 - 예시 식별자는 원문 A·지식 A처럼 대상을 드러내고, 개정·행 번호·정제 기록은 약자나 기호 조합 대신 풀어 쓴다.
 - SVG는 편집 가능한 text/tspan을 유지하고 고정 굵기 Noto Sans KR Regular(400)·Bold(700)를 사용한다.
-- 글자 크기는 생성기의 `FONT` 상수로 통일한다. 그림 제목 34px, 그룹 제목 24px, 컴포넌트 제목 20px, 본문 18px, 범례·배지·연결선 라벨 16px, L1–L5 계층 번호 32px다. 제목은 700, 본문은 400이다.
+- 글자 크기는 생성기의 `FONT` 상수로 통일한다. 그림 제목 34px, 그룹 제목 24px, 컴포넌트 제목 20px, 본문 18px, 범례·배지·연결선 라벨 16px, L1–L5 계층 번호 32px다. 제목은 700, 본문은 400이다. 카드의 저장 테이블 토큰은 범례 크기 16px·700이다.
 - 이름 접두사·문자 길이에 따라 글자를 줄이지 않는다. 긴 제목은 상자 폭·배치·문구를 조정한다. 컴포넌트의 아이콘과 본문 위치도 공통 `card` 함수를 따른다.
 - 계층 배지는 해당 컴포넌트의 오른쪽 상단에 붙인다. 아래쪽이나 상위 설치 그룹에 따로 두지 않는다.
 - 설치 패키지 그룹 안에 CLI·Collector를 개별 카드로 배치한다. client와 내부 구성을 같은 수준의 앱으로 나열하지 않는다. 설치된 조회 Skill은 작업 에이전트 안에 둔다.
@@ -158,17 +158,32 @@ Button은 공식 `default`·`secondary`·`outline`·`ghost`·`destructive` varia
 
 그림은 세 장이다. **아키텍처 한 장(`wiki-architecture.svg`), L1 → L3 정제 한 장(`wiki-l1-l3-curation.svg`), L4 → L5 조회 한 장(`wiki-l4-l5-query.svg`)**이며 사용자가 정한 상한(최대 3장)이다. 관계·흐름이 아닌 사실 목록(포트·자원 한도·변경 의도의 경우·실험 순서·재생성 단계·운영 경로·Retry/Reprocess/Reassemble 비교·질문 목적별 반환)은 그림에 넣지 않고 문서의 표로 둔다. 새 그림을 추가하는 대신 세 장 중 하나를 고친다. 같은 내용을 두 그림에 그리지 않으며, 한 그림 안에서도 같은 계층을 두 번 설명하지 않는다. L3가 정제 그림에 두 번 나오는 것은 통합 전·후의 같은 주제이며 반복이 아니다.
 
-- `wiki-architecture.svg`: 사용자 기기의 작업 에이전트와 단일 설치 패키지를 구분한다. 로컬 배포 묶음은 `agent-wiki-client`, 실행 구성은 `agent-wiki-cli`·`agent-wiki-collector`로 표시한다. 배포도는 실행 시 위치를 보여주므로 설치된 조회 Skill은 Codex·Claude Code 안에 둔다. Skill 원본의 패키지 포함·복사 과정은 설치 안내에만 설명한다. 모든 자체 운영 앱·저장소는 아키텍처의 고유 이름을 제목에 쓴다. `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`가 기본이며 Traefik·Next.js·Fastify·PostgreSQL은 본문과 아이콘으로 구분한다. 같은 프레임워크를 쓰는 앱이 추가되어도 고유 이름으로 구분한다. L2 정제는 원격 VM 내부 Worker, 외부 AI API는 VM 밖에 표시한다. 원격 VM의 K3s와 앱 Pod, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 · Raw Sources부터 L5 · Answers까지 계층 라벨을 붙인다.
-- `wiki-l1-l3-curation.svg`: 아키텍처 문서와 L2·L3 기억 설계 문서가 같은 파일을 삽입한다. 하나의 줄거리를 네 띠로 쌓는다. 01은 L1 카드 하나(두 발언을 줄로 나열)와 Worker 그룹의 청킹 → 입력 조립 → AI 추출 → 서버 검증 → 반영이다. 기존 구현이므로 요약하며 L3 참고는 카드 하나, 출력 오류 재시도는 정제 색 점선 루프 하나다. 반영에서 L3로 내려가는 실선과 관계만 지연하는 점선은 서로 다른 x에 둔다. 02는 통합 전 L3 그룹이다. 같은 subject·scope의 current 두 장을 흰 상자로 묶어 통합 대상임을 보이고, 별도 묶음 C와 제안 D, 그리고 점선 테두리의 통합 대기함을 둔다. 관계 화살표는 아직 없다. 03은 점선 테두리 그룹의 Consolidation Job이다. 트리거 카드 → gather → model → validate → publish 네 Step과 Step 공통 규칙 세 줄, 거절 관계 기억 카드다. 위 띠의 두 입력은 gather 위의 그룹 경계에 닿고, 재시도 루프는 선 대신 규칙 줄로 적어 선을 줄인다. 04는 통합 후 Wiki Page 새 Version이다. 검토·relation reject 카드, 현재 주장만 나열한 Knowledge 페이지 카드, 클릭한 주장의 리니지 패널(대체 관계 색의 supersedes 화살표 한 개)이다. publish → 페이지는 실선, 거절 저장은 기록 색 점선으로 그룹 경계 사이만 잇는다. 리니지 패널·Consolidation·reject·대기함은 설계·미구현이라 점선 테두리다.
-- `wiki-l4-l5-query.svg`: 왼쪽 열은 L5(사용자의 질문 → 작업 에이전트 → 인용 답변), 오른쪽은 L4 그룹의 query search → claim → source 세 단계와 traceId 조회 이력이다. 요청·반환은 에이전트와 그룹 사이의 화살표 두 개다. claim이 읽는 L3 PostgreSQL과 source가 읽는 L1 원문 저장소는 각 단계 바로 아래에 두고 양방향 조회 선으로 잇는다. 에이전트가 저장소를 직접 읽는 선은 그리지 않는다. 질문 목적별 반환은 아키텍처의 표에 둔다.
+- `wiki-architecture.svg`: 사용자 기기의 작업 에이전트와 단일 설치 패키지를 구분한다. Codex·Claude Code는 모델 판단 연보라이고 안의 설치된 Skill은 지침 파일이라 흰 칩이다. `agent-wiki-db`는 `claims · evidence · claim_relations · wiki_pages`, `agent-wiki-sources`는 `sources · object_key` 토큰을 단다. 배포도라서 결정적·비결정적 단계 구분은 이 두 카드의 색으로 끝내고 단계별 표시는 정제·조회 그림에 둔다. 로컬 배포 묶음은 `agent-wiki-client`, 실행 구성은 `agent-wiki-cli`·`agent-wiki-collector`로 표시한다. 배포도는 실행 시 위치를 보여주므로 설치된 조회 Skill은 Codex·Claude Code 안에 둔다. Skill 원본의 패키지 포함·복사 과정은 설치 안내에만 설명한다. 모든 자체 운영 앱·저장소는 아키텍처의 고유 이름을 제목에 쓴다. `agent-wiki-gateway`·`agent-wiki-web`·`agent-wiki-api`·`agent-wiki-worker`·`agent-wiki-db`가 기본이며 Traefik·Next.js·Fastify·PostgreSQL은 본문과 아이콘으로 구분한다. 같은 프레임워크를 쓰는 앱이 추가되어도 고유 이름으로 구분한다. L2 정제는 원격 VM 내부 Worker, 외부 AI API는 VM 밖에 표시한다. 원격 VM의 K3s와 앱 Pod, 원문 저장소, 연결 볼륨과 DNS·인증서 발급·갱신을 표시한다. 호스트 로그 상자는 전체 배포도에서 생략한다. 전체 배포도 컴포넌트에 L1 · Raw Sources부터 L5 · Answers까지 계층 라벨을 붙인다.
+- `wiki-l1-l3-curation.svg`: 아키텍처 문서와 L2·L3 기억 설계 문서가 같은 파일을 삽입한다. 하나의 줄거리를 네 띠로 쌓는다. 01은 L1 카드 하나(두 발언을 줄로 나열, `sources` 토큰)와 Worker 그룹의 청킹 → 입력 조립 → AI 추출 → 서버 검증 → 반영이다. 기존 구현이므로 요약하며 L3 참고는 카드 하나(`읽기 claims` 토큰), 출력 오류 재시도는 정제 색 점선 루프 하나다. 반영 카드만 `쓰기 claims · evidence · claim_relations · wiki_pages` 토큰을 달고 청킹·입력 조립·검증에는 토큰을 달지 않는다. AI 추출 카드는 유일한 연보라이며 주어진 목록에서 고르는 것(subject·scope·근거 recordId)과 아직 모델이 짓는 것(topic 키)을 본문 줄로 구분한다. 반영에서 L3로 내려가는 실선과 관계만 지연하는 점선은 서로 다른 x에 둔다. 02는 통합 전 L3 그룹이다. 같은 subject·scope의 current 두 장을 흰 상자로 묶어 통합 대상임을 보이고, 별도 묶음 C와 제안 D, 그리고 점선 테두리의 통합 대기함(`consolidation_inbox` 토큰)을 둔다. Claim 카드는 `type …`·`state …` 두 줄로 한 행의 두 열을 그대로 보이고, D·C 아래 두 줄의 각주가 Decision은 테이블이 아니라 `claims.type = user_decision`이며 type은 발화 권한·state는 채택·표시 상태는 `claim_relations`로 계산함을 적는다. 관계 화살표는 아직 없다. 03은 점선 테두리 그룹의 Consolidation Job이다. 트리거 카드(`consolidation_jobs`) → gather(`읽기 claims · claim_relations`) → model(연보라) → validate → publish(`쓰기 claim_relations · wiki_pages`) 네 Step과 Step 공통 규칙 세 줄, 거절 관계 기억 카드(`claim_relation_rejections`)다. 위 띠의 두 입력은 gather 위의 그룹 경계에 닿고, 재시도 루프는 선 대신 규칙 줄로 적어 선을 줄인다. 04는 통합 후 Wiki Page 새 Version이다. 검토·relation reject 카드(`쓰기 revisions · claim_relation_rejections`), 현재 주장만 나열한 Knowledge 페이지 카드(`wiki_page_versions · snapshot`), 클릭한 주장의 리니지 패널(대체 관계 색의 supersedes 화살표 한 개)이다. publish → 페이지는 실선, 거절 저장은 기록 색 점선으로 그룹 경계 사이만 잇는다. 리니지 패널·Consolidation·reject·대기함은 설계·미구현이라 점선 테두리다.
+- `wiki-l4-l5-query.svg`: 왼쪽 열은 L5(사용자의 질문 → 작업 에이전트 → 인용 답변), 오른쪽은 L4 그룹의 query search → claim → source 세 단계와 traceId 조회 이력이다. 작업 에이전트·인용 답변 두 카드가 연보라이고 L4 그룹 전체는 코드다(그룹 제목의 서버 AI 호출 0회). 토큰은 조회 이력(`retrieval_events`)과 아래 두 저장소(`claims · claim_relations · wiki_pages`, `sources · object_key`)에만 단다. 요청·반환은 에이전트와 그룹 사이의 화살표 두 개다. claim이 읽는 L3 PostgreSQL과 source가 읽는 L1 원문 저장소는 각 단계 바로 아래에 두고 양방향 조회 선으로 잇는다. 에이전트가 저장소를 직접 읽는 선은 그리지 않는다. 질문 목적별 반환은 아키텍처의 표에 둔다.
 
-그룹은 중성 회색 `#F1F2F4`와 진한 테두리 `#596679`, 제목 띠는 `#344256`·흰 글씨로 구분한다. 컴포넌트는 조회/API 파랑 `#DBEAFE`, Collector·백그라운드 정제 살구 `#FDE7C2`, 데이터 민트 `#D4EDE4`, 근거 연보라 `#EBDFFA`, 운영 회색 `#E3E7ED`, 웹 흰색을 사용한다. 설계·미구현은 같은 색에 `10 6` 점선 테두리다.
+그룹은 중성 회색 `#F1F2F4`와 진한 테두리 `#596679`, 제목 띠는 `#344256`·흰 글씨로 구분한다. 컴포넌트는 조회/API 파랑 `#DBEAFE`, Collector·백그라운드 정제 살구 `#FDE7C2`, 데이터 민트 `#D4EDE4`, 모델 판단 연보라 `#EBDFFA`, 운영 회색 `#E3E7ED`, 웹 흰색을 사용한다. 연보라만 역할이 아니라 판단 주체를 뜻하는 색이다. 설계·미구현은 같은 색에 `10 6` 점선 테두리다.
 
 화살표는 원문·지식 반영 `#AC5800`, 조회·응답 `#245CC5`, 인증·운영·기록·기준 `#627083`, 대체 관계 `#8054A3`로 구분한다. 같은 색의 점선은 그 흐름의 보조 경로(정제 색 점선 = 재시도, 회색 점선 = 설정·인증·기록·비교 기준)다. 범례는 제목 옆에 둔다. 반복하는 회색 부제는 넣지 않는다. 요청·응답은 양방향, 저장·반영은 단방향이며 긴 왕복 경로 대신 나란한 직교선을 쓴다.
 
 컴포넌트 간에는 최소 32px, 그룹 경계 안쪽에는 최소 32px 여백을 둔다. 카드 높이는 내용에 맞추고 그룹 제목과 내용을 분리한다. Traefik → API → PostgreSQL은 같은 높이의 직선, Web → API는 세로선으로 둔다. 볼륨과 원문 저장소는 연결선이 다른 컴포넌트를 관통하지 않는 위치에 배치한다. K3s 상태와 PostgreSQL 데이터는 같은 연결 볼륨의 별도 경로임을 표시한다. DuckDNS 도메인은 웹에 표시하고 VM IP로 연결됨을 명시한다. DNS·인증서 발급 기관을 HTTP 요청이 통과하는 중계 서버처럼 그리지 않는다. 작업 에이전트의 조회와 Collector의 수집 선을 분리한다. Collector → Traefik/API는 위치 확인·업로드 허가·완료 통지, Collector → Object Storage는 압축 증분 본문의 직접 전송으로 구분한다.
 
 현재 그림은 `python3 scripts/generate-wiki-diagrams.py`로 함께 재생성한다. XML·상대 링크·재생성 일치와 실제 렌더링의 글자·겹침·잘림을 각각 확인한다. Codex 오른쪽 미리보기는 자동으로 열지 않는다.
+
+### 자료구조와 판단 주체 표시
+
+흐름도 위에 두 가지를 겹쳐 표시한다. 자료구조만 따로 그린 네 번째 그림은 만들지 않는다. 두 표시는 새 색·새 테두리를 쓰지 않고 남아 있던 채널 두 개, 즉 카드 안의 글자 토큰과 이미 모델 호출에만 쓰던 연보라 채움을 쓴다.
+
+| 표시 | 채널 | 뜻 | 범례 |
+| --- | --- | --- | --- |
+| 저장 테이블 토큰 | 카드 마지막 줄 · Tabler `database` 20px 기호 + 16px Bold 남색 | 그 단계가 읽거나 쓰는 지식 테이블. `읽기`·`쓰기`를 앞에 두고 실제 테이블 이름을 그대로 쓴다 | `저장 테이블` |
+| 모델 판단 | 연보라 채움 `#EBDFFA` | 결과가 모델의 판단인 비결정적 단계. 그 외 색의 카드는 모두 코드가 정한다 | `모델 판단 · 그 외 코드` |
+
+- 토큰은 지식 구조에만 단다. `sources`·`claims`·`evidence`·`claim_relations`·`revisions`·`wiki_pages`·`wiki_page_versions`·`consolidation_inbox`·`consolidation_jobs`·`claim_relation_rejections`·`retrieval_events`가 대상이다. 장부 테이블(`refinement_jobs`·`refinement_runs`·`model_request_gates`·`collection_*`)과 모델이 낸 JSON 제안(저장 전)은 토큰을 달지 않는다. 읽는 곳이 화살표 끝의 저장소 카드로 이미 보이면 읽는 단계에는 달지 않고 저장소 카드에 단다.
+- Decision은 테이블이 아니다. Claim 카드에 `type user_decision`·`state current`처럼 열 이름과 값을 본문 줄로 적어 한 `claims` 행의 두 축(type = 발화 권한, state = 채택)임을 보인다. 열거값 전체(type·state·scope)와 열 목록은 사실 목록이므로 그림이 아니라 아키텍처의 표에 둔다.
+- 모델 판단 카드는 세 장에 다섯 개다: 아키텍처의 Codex·Claude Code와 AI Provider, 정제 그림의 AI 추출과 model Step, 조회 그림의 작업 에이전트와 인용 답변(두 카드가 한 열). 모델이 코드가 정한 목록 안에서 고르는 것(recordId·subject·scope·관계 종류)과 아직 이름을 짓는 것(topic 키)이 섞인 단계는 한쪽으로 몰지 않고 본문 줄로 나눠 적는다. 사람의 승인이 끼는 검토 카드는 운영 회색을 유지하고 `승인은 사용자` 줄로 구분한다.
+- 범례는 두 항목이 늘어 정제 그림이 8개(4열 × 2줄)다. 기준의 6개를 넘는 값이며 두 표시의 대가다. 03·04의 점선 테두리를 구현 완료로 바꾸면 `설계 · 미구현` 항목이 빠져 7개가 된다.
+- 토큰 줄 때문에 카드가 커지면 그 아래 띠를 함께 내린다. 생성기는 띠의 기준 y를 변수로 두고 카드 높이 검사(`92 + 32 × (줄 수 − 1)`)를 assertion으로 강제한다. 글자의 오른쪽 여백은 PIL로 실제 글꼴 폭을 재어 8px 이상을 확인한다.
 
 ### Knowledge의 읽기 단위
 

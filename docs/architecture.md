@@ -155,7 +155,36 @@ L1–L5는 우리 제품의 논리 모델이며 공식 표준이나 실행 순�
 | L4 · Query | 키워드 검색·시작 문서·인용 자료 구성 | 지식 개정과 근거를 고정해 반환 |
 | L5 · Answers | 조회한 근거로 답변·작업 | 사용자 요청에 필요한 조회만 수행 |
 
-Claim은 근거·범위·상태를 가진 주장이고 Decision은 사용자 결정 Claim이다. Wiki Page는 여러 Claim의 설명과 결정 변경 이력을 주제로 모은다. 세션 수·Claim 수·페이지 수는 서로 독립적이다.
+### 지식 모델 한눈에
+
+저장 순서는 `원문 → 근거 → 주장 ⇄ 관계 → 페이지`다. 주장이 중심이고 Article은 그것을 담는 불변 상자다. **Decision은 별도 테이블이 아니라 `type`이 `user_decision`인 Claim이다.**
+
+| 이름 | 테이블 | 무엇을 담나 | 식별 |
+| --- | --- | --- | --- |
+| 원문 Source | `sources` | 검증·등록한 대화·문서 보관본 | 불변. 개정은 1로 고정 |
+| 근거 Evidence | `evidence` | 주장이 가리키는 원문의 행 구간과 인용문 | 주장 하나가 여러 구간을 가리킬 수 있다 |
+| 주장 Claim | `claims` | 독립적으로 바뀔 수 있는 진술 하나 | (Article, Version, anchor) |
+| 관계 Relation | `claim_relations` | 주장과 주장 사이의 `supersedes`·`retracts`·`contradicts`·`supports` | 상태를 바꾸는 유일한 수단 |
+| 컨테이너 Article | `articles`·`revisions` | 주장이 올라가는 불변 Version | 새 Version으로만 갱신 |
+| 읽기 페이지 Wiki Page | `wiki_pages`·`wiki_page_versions` | 주제(`topic_key`)별로 조립한 스냅샷 | 파생물. 언제든 다시 만들 수 있다 |
+
+주장에는 서로 독립적인 두 축이 있다. 하나를 다른 하나로 대신 쓰지 않는다.
+
+| 축 | 묻는 것 | 값 |
+| --- | --- | --- |
+| `type` · 권한 | 누가 말했나 | `user_decision` 사용자 결정 · `observation` 관찰 · `ai_inference` AI 해석 · `agent_statement` 에이전트 진술 |
+| `state` · 채택 | 지금 유효한가 | `current` · `proposed` · `superseded` · `retracted` · `conflicted` · `unconfirmed` |
+
+화면과 조회가 쓰는 상태는 저장된 `state` 컬럼이 아니다. 관계를 먼저 읽어 `retracted > superseded > conflicted` 순으로 덮어쓰고, 걸린 관계가 없을 때만 저장된 값을 쓴다. 그래서 주장을 고쳐 쓰지 않고도 이력이 남는다.
+
+주장을 묶는 두 값도 표시용이 아니라 **관계를 맺을 수 있는지 판정하는 기준**이다. 양끝의 `subject`와 `scope`가 정확히 같아야 관계를 저장하며, Consolidation도 같은 쌍으로 묶어 판단한다.
+
+| 값 | 묻는 것 | 규칙 |
+| --- | --- | --- |
+| `subject` | 무엇에 대한 주장인가 | 구체적인 대상 하나의 소문자 slug(`k3s`, `tls-certificate`). 주제 키와 같을 수 없고, 모델은 그 주제가 이미 쓰는 목록에서 고른다 |
+| `scope` | 어디에 적용되는가 | 닫힌 다섯 값: `general` · `local` · `production` · `dev-mode` · `experiment` |
+
+Wiki Page는 여러 Claim의 설명과 결정 변경 이력을 주제로 모은다. 세션 수·Claim 수·페이지 수는 서로 독립적이다.
 
 Schema·Index·Log·Lint는 구조 규칙·목차·실행 이력·점검을 뜻한다. LLM Wiki·OpenMetadata의 용례를 참고하며 제품 전체를 설치하거나 우리 확장을 표준으로 부르지 않는다. 구조 검증과 해석의 타당성을 구분한다.
 

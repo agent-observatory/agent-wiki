@@ -35,6 +35,14 @@
 | `tabler-device-laptop.svg` | Local device | [Tabler device-laptop](https://github.com/tabler/tabler-icons/blob/v3.34.1/icons/outline/device-laptop.svg) |
 | `tabler-cloud.svg` | Remote service | [Tabler cloud](https://github.com/tabler/tabler-icons/blob/v3.34.1/icons/outline/cloud.svg) |
 
+## Wiki 그림의 저장 테이블 토큰
+
+2026-09-16: 세 장의 Wiki 그림에서 카드가 읽거나 쓰는 테이블 줄 앞에 붙이는 기호다. 위와 같은 Tabler Icons `v3.34.1` 원본을 SVG 내부에 포함하며 라이선스는 [MIT](TABLER-LICENSE.md)다.
+
+| 파일 | 의미 | 공식 원본 |
+| --- | --- | --- |
+| `tabler-database.svg` | 저장 테이블 토큰 · 범례 | [Tabler database](https://github.com/tabler/tabler-icons/blob/v3.34.1/icons/outline/database.svg) |
+
 ## 포털 탐색
 
 Wiki 아이콘은 [Tabler book-2 v3.34.1](https://github.com/tabler/tabler-icons/blob/v3.34.1/icons/outline/book-2.svg)의 원본 경로를 사용한다. 원본은 `tabler-book-2.svg`, 라이선스는 [MIT](TABLER-LICENSE.md)다. 제품의 공통 선 굵기로 표시한다.

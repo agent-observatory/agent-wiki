@@ -94,7 +94,8 @@ Job은 `consolidation_jobs` 한 행이고 Step은 그 안의 네 항목이다. S
 
 웹은 이미 받는 Wiki Page Version 스냅샷(`claims`·`relations`·`references`)을 마크다운 대신 구조로 그린다. 새 API·새 저장은 없다. 마크다운의 `## Decision History` 절과 반영 이력 페이지(발행 이벤트의 시간순 목록)는 그대로 둔다.
 
-- 기본 목록은 `current` 주장만 (subject, scope)별로 묶어 보여준다. subject·scope가 없는 주장은 마지막 '미분류' 묶음이다. `proposed`·`unconfirmed`·`conflicted`는 묶음마다 접힌 개수로 표시한다.
+- 기본 목록은 `current` 주장만 **`subject`별로** 묶어 보여준다. `scope`는 묶는 기준이 아니라 행의 배지다 — 적용 범위가 다르다고 같은 대상의 주장을 다른 제목 아래로 흩지 않는다. subject가 없는 주장은 마지막 '미분류' 묶음이다. `proposed`·`unconfirmed`·`conflicted`는 묶음마다 접힌 개수로 표시한다.
+- 주제가 많은 페이지는 왼쪽에 고정된 목차(subject와 개수)와 페이지 내 텍스트 찾기를 함께 둔다. 목차는 현재 보고 있는 묶음을 표시하고, 찾기는 주장 본문과 subject를 거른다.
 - 주장을 클릭하면 오른쪽 패널(데스크톱 전용)이 리니지를 계산한다. 스냅샷 안에서 `supersedes`·`retracts`를 뒤(이 주장이 대체한 것)와 앞(이 주장을 대체한 것)으로 따라간다. 후속이 둘이면 분기로 둘 다 표시하고 오류로 보지 않는다. `contradicts`는 배지, `supports`는 근거 추가 사슬이다. 관계마다 근거·publication 종류(추출·통합·수동)·시각을 보여주고, 거절된 관계는 취소선과 정정 Version 링크로 표시한다. 선형 이력을 강제하지 않는다.
 - 스냅샷에 `rejections`를 추가한다(`refreshWikiPages`). 주제 목록의 `consolidation: {state, jobId, updatedAt}`는 라이브 상태이며 불변 Version에 넣지 않는다. 열린 Job이 있으면 **통합 대기**, 확인 필요면 **확인 필요** 배지다. 배지가 없어도 검토 완료는 아니다.
 
