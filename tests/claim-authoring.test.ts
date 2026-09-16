@@ -117,15 +117,18 @@ function claimByAnchor(d: any, anchor: string) {
 test("claim retire: registers a feedback note, publishes a user_decision claim citing it, and retracts the target", async () => {
   const note0 = await registerNote("target seed");
   const target = await publishOne(
-    article({
-      anchor: "decision",
-      text: "백업은 A안을 쓴다.",
-      type: "user_decision",
-      subject: "backup-approach",
-      scope: "production",
-      state: "current",
-      evidence: note0.evidence,
-    }),
+    article(
+      {
+        anchor: "decision",
+        text: "백업은 A안을 쓴다.",
+        type: "user_decision",
+        subject: "backup-approach",
+        scope: "production",
+        state: "current",
+        evidence: note0.evidence,
+      },
+      { topic: { key: "backup-topic", title: "백업" } },
+    ),
   );
   const note = await registerNote(
     "A안은 잘못된 결정이었다. 되돌린다.",
@@ -142,6 +145,7 @@ test("claim retire: registers a feedback note, publishes a user_decision claim c
         evidence: note.evidence,
       },
       {
+        topic: { key: "backup-topic", title: "백업" },
         claimRelations: [
           {
             anchor: "decision",
@@ -164,6 +168,16 @@ test("claim retire: registers a feedback note, publishes a user_decision claim c
     "the retire claim itself keeps at least one evidence row",
   );
   assert.equal(retireClaim.evidence[0].origin, "feedback:" + owner);
+  // Published without the target's topic the correction lands on topic_key='',
+  // which no wiki page assembles and no consolidation gathers — the user's fix
+  // is then invisible exactly where the claim it replaces is read. The CLI
+  // reads topic_key off the target article for this reason.
+  assert.equal(targetDetail.topic_key, "backup-topic");
+  assert.equal(
+    retireDetail.topic_key,
+    targetDetail.topic_key,
+    "the correction carries the target's topic",
+  );
 });
 
 test("claim assert without --supersedes creates a standalone current claim under a topic, grounded in evidence", async () => {

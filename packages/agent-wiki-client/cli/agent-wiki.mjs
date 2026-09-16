@@ -696,6 +696,18 @@ async function main() {
               {
                 clientRef: "retire",
                 kind: "memory",
+                // Without the target's topic the correction lands on
+                // topic_key='', which no wiki page assembles and no
+                // consolidation gathers: the user's fix would be invisible
+                // exactly where the claim it replaces is read.
+                ...(targetArticle.topic_key
+                  ? {
+                      topic: {
+                        key: targetArticle.topic_key,
+                        title: targetArticle.topic_title || targetArticle.title,
+                      },
+                    }
+                  : {}),
                 title: noteTitle(reason),
                 content: note.text,
                 claims: [

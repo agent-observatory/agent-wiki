@@ -81,7 +81,7 @@
 - 그림 수정은 `scripts/generate-wiki-diagrams.py`에도 반영한다. 저장소 루트에서 재생성하고 XML·상대 링크 검사와 실제 렌더링의 겹침·잘림 확인을 구분한다.
 - Codex 오른쪽 미리보기는 자동으로 열지 않는다.
 
-- 현재 사용자 제약: Claude Collector는 전체 비활성화, Codex는 Agent Wiki 프로젝트만 수집한다. 자동 정제는 명시적인 재개 요청까지 중지한다. 검토는 Skill·CLI에서 수행하며 사용자 승인 없이 검토 완료로 확정하지 않는다.
+- 현재 사용자 제약: Claude Collector는 전체 비활성화, Codex는 Agent Wiki 프로젝트만 수집한다. 2026-09-14에 Claude 수집을 켰다가 2026-09-17에 다시 껐다 — 위키를 만드는 대화 자체가 수집되면 에이전트의 보고문과 도구 출력(위키 내용을 화면에 뿌린 것 포함)이 다시 L1이 되어 지식으로 올라온다. 하네스 검증 중 current 주장의 91%가 그 한 세션에서 나왔다. 제품 작업 세션을 수집하려면 이 순환을 먼저 끊는다. 자동 정제는 명시적인 재개 요청까지 중지한다. 검토는 Skill·CLI에서 수행하며 사용자 승인 없이 검토 완료로 확정하지 않는다.
 
 - 분석 개선은 전체 초기화보다 선택 Reprocess 후보·검토·정정을 우선한다. Retry·Reprocess·Reassemble의 계약은 architecture.md와 client-and-api.md를 따른다. 후보 생성은 지식 반영·검토 완료가 아니며 분석 정정과 사용자 결정 변경을 구분한다.
 - 통합은 수동 배치로도 실행한다. `consolidate TOPIC|--all`은 중지 중에도 그 1회를 실행하고 대기 중인 자동 Job을 인수하며, `consolidate plan`은 모델 호출 없이 후보만 본다. `consolidation.auto`가 꺼져 있으면 자동 Job은 만들되 실행하지 않는다. 웹 "지금 통합 실행"은 `--all`과 같은 API다.
