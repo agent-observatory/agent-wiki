@@ -29,8 +29,12 @@ done
 
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 
+# -i matters: without it docker exec leaves stdin closed, psql reads EOF, runs
+# nothing and still exits 0 — so the role bootstrap below silently did nothing
+# on a freshly created container and only "worked" when a previous run had
+# already created the roles.
 psql_owner() {
-  docker exec -e PGPASSWORD=local-test-password "$NAME" \
+  docker exec -i -e PGPASSWORD=local-test-password "$NAME" \
     psql -U wiki_owner -d agent_wiki -v ON_ERROR_STOP=1 -q "$@"
 }
 

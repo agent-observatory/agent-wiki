@@ -45,6 +45,12 @@ CREATE INDEX IF NOT EXISTS refinement_batch_parent ON refinement_jobs(workspace_
 CREATE TABLE IF NOT EXISTS curation_rebuilds(id uuid NOT NULL,workspace_id uuid NOT NULL REFERENCES workspaces(id),result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE INDEX IF NOT EXISTS refinement_ready ON refinement_jobs(workspace_id,status,available_at);
 CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,created_at);
+-- migrate.ts re-runs this whole file on every deploy. An unconditional
+-- DROP CONSTRAINT + ADD CONSTRAINT takes ACCESS EXCLUSIVE on tables the Worker
+-- writes continuously, so a deploy during active curation waited on a lock and
+-- the migration Job timed out (2026-09-16). Constraint rewrites below are
+-- therefore guarded: they run once, when the constraint is absent. Changing an
+-- existing constraint's definition needs its own one-off DROP in this file.
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT '';
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
@@ -56,9 +62,14 @@ ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current
 -- for a content-only change, and no prompt can emit it.
 -- Drop first: the inline CHECK from CREATE TABLE still forbids the new value
 -- while the rename runs.
-ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_type_check;
 UPDATE claims SET type='agent_statement' WHERE type='unconfirmed';
-ALTER TABLE claims ADD CONSTRAINT claims_type_check CHECK(type IN ('user_decision','observation','ai_inference','agent_statement','author_statement'));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='claims_type_check'
+                 AND pg_get_constraintdef(oid) LIKE '%agent_statement%') THEN
+    ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_type_check;
+    ALTER TABLE claims ADD CONSTRAINT claims_type_check CHECK(type IN ('user_decision','observation','ai_inference','agent_statement','author_statement'));
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS claim_relations(workspace_id uuid NOT NULL,from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,publication_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,to_article_id,to_revision,to_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
 CREATE INDEX IF NOT EXISTS claim_relation_target ON claim_relations(workspace_id,to_article_id,to_revision,to_anchor);
 CREATE TABLE IF NOT EXISTS knowledge_reviews(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,article_id uuid NOT NULL,revision int NOT NULL,snapshot jsonb NOT NULL,snapshot_hash text NOT NULL,reviewer jsonb NOT NULL,reason text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),FOREIGN KEY(workspace_id,article_id,revision) REFERENCES revisions(workspace_id,article_id,revision) ON DELETE CASCADE,UNIQUE(workspace_id,article_id,revision,snapshot_hash));
@@ -104,22 +115,42 @@ CREATE INDEX IF NOT EXISTS claim_relation_rejections_from ON claim_relation_reje
 ALTER TABLE refinement_runs ALTER COLUMN job_id DROP NOT NULL;
 ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'extraction';
 ALTER TABLE refinement_runs ADD COLUMN IF NOT EXISTS consolidation_job_id uuid;
-ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_check;
-ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_check CHECK(kind IN ('extraction','consolidation'));
-ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_job_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='refinement_runs_kind_check'
+                 AND pg_get_constraintdef(oid) LIKE '%consolidation%') THEN
+    ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_check;
+    ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_check CHECK(kind IN ('extraction','consolidation'));
+  END IF;
+END $$;
 -- A rebuild (docs/OPERATIONS.md) can delete a refinement_jobs row (scoped:
 -- for a source it does not re-queue) or a consolidation_jobs row (always, on
 -- every rebuild). Call history for either kind must survive (모델 호출 이력
 -- 보존), so this no longer requires either job id to be set — only that the
 -- kind currently in use is the one populated, never both.
-ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_job_check CHECK((kind='extraction' AND consolidation_job_id IS NULL) OR (kind='consolidation' AND job_id IS NULL));
-ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_consolidation_job_id_fkey;
-ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_consolidation_job_id_fkey FOREIGN KEY(workspace_id,consolidation_job_id) REFERENCES consolidation_jobs(workspace_id,id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='refinement_runs_kind_job_check'
+                 AND pg_get_constraintdef(oid) NOT LIKE '%job_id IS NOT NULL%') THEN
+    ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_kind_job_check;
+    ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_kind_job_check CHECK((kind='extraction' AND consolidation_job_id IS NULL) OR (kind='consolidation' AND job_id IS NULL));
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='refinement_runs_consolidation_job_id_fkey'
+                 AND pg_get_constraintdef(oid) NOT LIKE '%job_id IS NOT NULL%') THEN
+    ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_consolidation_job_id_fkey;
+    ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_consolidation_job_id_fkey FOREIGN KEY(workspace_id,consolidation_job_id) REFERENCES consolidation_jobs(workspace_id,id);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS refinement_consolidation ON refinement_runs(workspace_id,consolidation_job_id) WHERE consolidation_job_id IS NOT NULL;
 -- The FK nulls job_id on delete instead of blocking it, matching the relaxed
 -- check above, so a rebuild can drop the referenced refinement_jobs row.
-ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_job_id_fkey;
-ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_job_id_fkey FOREIGN KEY(job_id) REFERENCES refinement_jobs(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='refinement_runs_job_id_fkey'
+                 AND pg_get_constraintdef(oid) LIKE '%ON DELETE SET NULL%') THEN
+    ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_job_id_fkey;
+    ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_job_id_fkey FOREIGN KEY(job_id) REFERENCES refinement_jobs(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections'] LOOP
  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
@@ -133,5 +164,10 @@ GRANT USAGE ON SCHEMA public TO wiki_app;
 GRANT CONNECT ON DATABASE agent_wiki TO wiki_app;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO wiki_admin;
 
-ALTER TABLE api_keys DROP CONSTRAINT IF EXISTS api_keys_scope_check;
-ALTER TABLE api_keys ADD CONSTRAINT api_keys_scope_check CHECK(scope IN ('read','source:write','publish','manage'));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='api_keys_scope_check'
+                 AND pg_get_constraintdef(oid) LIKE '%source:write%') THEN
+    ALTER TABLE api_keys DROP CONSTRAINT IF EXISTS api_keys_scope_check;
+    ALTER TABLE api_keys ADD CONSTRAINT api_keys_scope_check CHECK(scope IN ('read','source:write','publish','manage'));
+  END IF;
+END $$;
