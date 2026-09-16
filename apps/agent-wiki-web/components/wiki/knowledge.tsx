@@ -30,11 +30,11 @@ const kinds: Record<string, string> = {
   glossary: "용어",
 };
 const types: Record<string, string> = {
-  user_decision: "사용자 결정",
-  observation: "관찰",
-  ai_inference: "AI 해석",
-  agent_statement: "에이전트 진술",
-  author_statement: "작성자 진술",
+  user_decision: "Decision",
+  observation: "Observation",
+  ai_inference: "AI Inference",
+  agent_statement: "Agent Statement",
+  author_statement: "Author Statement",
 };
 export function KnowledgeList() {
   const query = useSearchParams();
@@ -138,8 +138,16 @@ function KnowledgeArticles() {
                 <Badge variant="secondary">Wiki Page</Badge>
                 <Badge variant="outline">주장 기반 구성</Badge>
                 {a.consolidation && (
-                  <Badge variant={a.consolidation.state === "needs_attention" ? "destructive" : "secondary"}>
-                    {a.consolidation.state === "needs_attention" ? "확인 필요" : "통합 대기"}
+                  <Badge
+                    variant={
+                      a.consolidation.state === "needs_attention"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {a.consolidation.state === "needs_attention"
+                      ? "확인 필요"
+                      : "통합 대기"}
                   </Badge>
                 )}
               </div>
@@ -343,11 +351,11 @@ function ClaimDetail() {
                   <Badge variant="secondary">
                     {(
                       {
-                        proposed: "검토 의견",
-                        superseded: "대체됨",
-                        retracted: "철회됨",
-                        conflicted: "미해결 충돌",
-                        unconfirmed: "미확인",
+                        proposed: "Proposed",
+                        superseded: "Superseded",
+                        retracted: "Retracted",
+                        conflicted: "Conflicted",
+                        unconfirmed: "Unconfirmed",
                       } as Record<string, string>
                     )[c.state] ?? c.state}
                   </Badge>

@@ -20,19 +20,19 @@ export type PageRelation = {
   relation: string;
 };
 const states: Record<string, string> = {
-  current: "현재",
-  proposed: "검토 의견",
-  unconfirmed: "미확인",
-  conflicted: "미해결 충돌",
-  superseded: "대체됨",
-  retracted: "철회됨",
+  current: "Current",
+  proposed: "Proposed",
+  unconfirmed: "Unconfirmed",
+  conflicted: "Conflicted",
+  superseded: "Superseded",
+  retracted: "Retracted",
 };
 const types: Record<string, string> = {
   user_decision: "Decision",
   observation: "Observation",
-  ai_inference: "AI 해석",
-  agent_statement: "에이전트 진술",
-  author_statement: "작성자 진술",
+  ai_inference: "AI Inference",
+  agent_statement: "Agent Statement",
+  author_statement: "Author Statement",
 };
 export function renderWikiPage(
   title: string,
@@ -77,7 +77,7 @@ export function renderWikiPage(
   const sections: string[] = [];
   for (const [heading, items] of [
     ["현재 상태와 설명", current],
-    ["미해결 사항과 검토 의견", unresolved],
+    ["미해결 사항 · Proposed · Unconfirmed · Conflicted", unresolved],
     ["과거 결정과 주장", history],
   ] as const) {
     if (items.length)

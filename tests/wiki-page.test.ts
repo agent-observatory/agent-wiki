@@ -49,7 +49,7 @@ test("topic page keeps current explanations, uncertainty and explicit decision h
     "/knowledge",
   );
   assert.ok(page.indexOf(b.text) < page.indexOf(a.text));
-  assert.match(page, /미해결 사항과 검토 의견/);
+  assert.match(page, /미해결 사항 · Proposed · Unconfirmed · Conflicted/);
   assert.match(page, /Decision History/);
   assert.match(page, /revision=1&tab=evidence#provider/);
   assert.match(page, /호출 지연 때문에/);

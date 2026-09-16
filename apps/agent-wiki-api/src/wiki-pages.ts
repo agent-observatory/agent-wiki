@@ -30,7 +30,8 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       await c.query(
         `SELECT cl.*,a.title,${effectiveClaimState("cl")} AS state,
         COALESCE(et.times,'[]'::jsonb) AS evidence_times,
-        et.first_evidence_at,et.first_evidence_kind
+        et.first_evidence_at,et.first_evidence_kind,
+        COALESCE(ev.refs,'[]'::jsonb) AS evidence
         FROM claims cl JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
         LEFT JOIN LATERAL (
           SELECT
@@ -44,6 +45,15 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
           JOIN sources s ON s.workspace_id=e.workspace_id AND s.id=e.source_id
           WHERE e.workspace_id=cl.workspace_id AND e.article_id=cl.article_id AND e.revision=cl.revision AND e.anchor=cl.anchor
         ) et ON true
+        -- Separate from the time lateral above: that one inner-joins
+        -- source_record_times, so a claim whose evidence has no recorded time
+        -- would show zero. The count on screen must be the real one.
+        LEFT JOIN LATERAL (
+          SELECT jsonb_agg(jsonb_build_object('sourceId',e.source_id,'lines',jsonb_build_array(e.line_start,e.line_end))
+                           ORDER BY e.source_id,e.line_start) AS refs
+          FROM evidence e
+          WHERE e.workspace_id=cl.workspace_id AND e.article_id=cl.article_id AND e.revision=cl.revision AND e.anchor=cl.anchor
+        ) ev ON true
       WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND a.topic_key=$2 AND
       (cl.revision=a.revision OR EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=$1 AND cr.to_article_id=cl.article_id AND cr.to_revision=cl.revision AND cr.to_anchor=cl.anchor AND cr.relation IN ('supersedes','retracts','contradicts')))
       ORDER BY et.first_evidence_at NULLS LAST,et.sort_source_created_at NULLS LAST,et.sort_line_start NULLS LAST,a.id,cl.revision,cl.anchor`,
@@ -107,7 +117,7 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       references,
     );
     const snapshot = {
-      assemblyVersion: "topic-sections-4",
+      assemblyVersion: "topic-sections-5",
       claims,
       relations,
       references,

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, GitBranch, Search } from "lucide-react";
+import { ChevronRight, FileText, GitBranch, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,25 +36,28 @@ const GROUP_PREVIEW = 10;
 const typeLabels: Record<string, string> = {
   user_decision: "Decision",
   observation: "Observation",
-  ai_inference: "AI 해석",
-  agent_statement: "에이전트 진술",
-  author_statement: "작성자 진술",
+  ai_inference: "AI Inference",
+  agent_statement: "Agent Statement",
+  author_statement: "Author Statement",
 };
+// Schema values keep their English names on screen; only the prose around
+// them is Korean. Mixing the two inside one badge row (Decision next to
+// "에이전트 진술") made the same axis look like two different things.
 const unresolvedLabels: Record<string, string> = {
-  proposed: "검토 의견",
-  unconfirmed: "미확인",
-  conflicted: "미해결 충돌",
+  proposed: "Proposed",
+  unconfirmed: "Unconfirmed",
+  conflicted: "Conflicted",
 };
 const relationLabels: Record<string, string> = {
-  supersedes: "대체",
-  retracts: "철회",
-  contradicts: "충돌",
-  supports: "근거 추가",
+  supersedes: "Supersedes",
+  retracts: "Retracts",
+  contradicts: "Contradicts",
+  supports: "Supports",
 };
 function producerLabel(client?: string | null) {
-  if (client === "remote-worker") return "추출";
-  if (client === "consolidation-worker") return "통합";
-  return "수동";
+  if (client === "remote-worker") return "Extraction";
+  if (client === "consolidation-worker") return "Consolidation";
+  return "Manual";
 }
 type ClaimRef = { article_id: string; revision: number; anchor: string };
 type Relation = {
@@ -131,9 +134,9 @@ function lineageOf(key: string, relations: Relation[]): Lineage {
 function lineageSummary(l: Lineage) {
   const parts: string[] = [];
   const replaced = l.backward.length + l.forward.length;
-  if (replaced) parts.push(`대체 ${replaced}`);
-  if (l.contradicts.length) parts.push(`충돌 ${l.contradicts.length}`);
-  if (l.supports.length) parts.push(`근거 ${l.supports.length}`);
+  if (replaced) parts.push(`Supersedes ${replaced}`);
+  if (l.contradicts.length) parts.push(`Contradicts ${l.contradicts.length}`);
+  if (l.supports.length) parts.push(`Supports ${l.supports.length}`);
   return parts.join(" · ");
 }
 type Group = {
@@ -258,7 +261,7 @@ export function KnowledgeClaims({
           현재 주장 {current.length.toLocaleString()}개 · 주제 {groups.length}개
           · 관계가 연결된 주장 {linkedTotal}개.
           {linkedTotal > 0
-            ? " 관계 배지가 있는 주장을 누르면 리니지를 봅니다."
+            ? " 주장을 누르면 근거 원문과 리니지를 봅니다."
             : " 아직 통합이 연결한 관계가 없습니다."}
         </p>
         <div className="relative max-w-sm">
@@ -365,20 +368,26 @@ export function KnowledgeClaims({
                                 {lineageSummary(lineage)}
                               </Badge>
                             )}
+                            <Badge variant="outline">
+                              <FileText />
+                              Evidence {(c.evidence ?? []).length}
+                            </Badge>
                           </div>
                           <p className="whitespace-pre-wrap leading-7">
                             {c.text}
                           </p>
                         </div>
-                        {lineage.total > 0 && (
-                          <ChevronRight
-                            className="mt-1 size-4 shrink-0 text-muted-foreground"
-                            aria-hidden
-                          />
-                        )}
+                        <ChevronRight
+                          className="mt-1 size-4 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
                       </>
                     );
-                    return lineage.total > 0 ? (
+                    // Every claim opens: the chevron means "open this claim",
+                    // not "has a relation". Reserving it for linked claims read
+                    // as "this one has no evidence", which was never true —
+                    // evidence and lineage are different things.
+                    return (
                       <button
                         key={key}
                         type="button"
@@ -393,13 +402,6 @@ export function KnowledgeClaims({
                       >
                         {body}
                       </button>
-                    ) : (
-                      <div
-                        key={key}
-                        className="flex w-full items-start gap-4 px-4 py-3"
-                      >
-                        {body}
-                      </div>
                     );
                   })}
                 </div>
@@ -422,7 +424,7 @@ export function KnowledgeClaims({
       <Sheet open={open && !!selectedClaim} onOpenChange={setOpen}>
         <SheetContent side="right" className="gap-0 p-0 sm:max-w-md">
           <SheetHeader className="border-b p-6 pr-12">
-            <SheetTitle>리니지</SheetTitle>
+            <SheetTitle>Claim</SheetTitle>
             {selectedClaim && (
               <>
                 <div className="flex flex-wrap gap-2">
@@ -529,11 +531,42 @@ function LineagePanel({
     !forward.length &&
     !contradicts.length &&
     !supports.length;
+  const evidence: { sourceId: string; lines: [number, number] }[] =
+    claim.evidence ?? [];
   return (
     <div className="space-y-5 text-sm">
+      <div>
+        <h4 className="mb-2 font-semibold">Evidence · 근거 원문</h4>
+        {evidence.length ? (
+          <ul className="space-y-1">
+            {evidence.map((e, i) => (
+              <li key={`${e.sourceId}-${e.lines[0]}-${i}`}>
+                <Link
+                  href={`${root}/${claim.article_id}?revision=${claim.revision}&tab=evidence#${claim.anchor}`}
+                  className="underline underline-offset-4"
+                >
+                  {e.lines[0] === e.lines[1]
+                    ? `${e.lines[0]}행`
+                    : `${e.lines[0]}–${e.lines[1]}행`}
+                </Link>
+                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  {e.sourceId.slice(0, 8)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            연결된 원문 구간이 없습니다. 사용자가 직접 남긴 진술이거나 본문만
+            발행된 항목입니다.
+          </p>
+        )}
+      </div>
       {backward.length > 0 && (
         <div>
-          <h4 className="mb-2 font-semibold">이 주장이 대체한 것</h4>
+          <h4 className="mb-2 font-semibold">
+            이 주장이 대체한 것 · Supersedes
+          </h4>
           <ul>
             {backward.map((r) => row(r, "to", relationLabels[r.relation]))}
           </ul>
@@ -541,7 +574,9 @@ function LineagePanel({
       )}
       {forward.length > 0 && (
         <div>
-          <h4 className="mb-2 font-semibold">이 주장을 대체한 것</h4>
+          <h4 className="mb-2 font-semibold">
+            이 주장을 대체한 것 · Superseded by
+          </h4>
           <ul>
             {forward.map((r) => row(r, "from", relationLabels[r.relation]))}
           </ul>
@@ -549,22 +584,25 @@ function LineagePanel({
       )}
       {contradicts.length > 0 && (
         <div>
-          <h4 className="mb-2 font-semibold">충돌</h4>
+          <h4 className="mb-2 font-semibold">Contradicts</h4>
           <ul>
             {contradicts.map((r) =>
-              row(r, isEnd(r, "from") ? "to" : "from", "충돌"),
+              row(r, isEnd(r, "from") ? "to" : "from", "Contradicts"),
             )}
           </ul>
         </div>
       )}
       {supports.length > 0 && (
         <div>
-          <h4 className="mb-2 font-semibold">근거 추가</h4>
-          <ul>{supports.map((r) => row(r, "from", "근거 추가"))}</ul>
+          <h4 className="mb-2 font-semibold">Supports</h4>
+          <ul>{supports.map((r) => row(r, "from", "Supports"))}</ul>
         </div>
       )}
       {empty && (
-        <p className="text-muted-foreground">연결된 관계가 없습니다.</p>
+        <p className="text-muted-foreground">
+          연결된 관계가 없습니다. 이 주장은 아직 아무것도 대체하지 않았고 아무
+          것도 이 주장을 대체하지 않았습니다.
+        </p>
       )}
     </div>
   );
