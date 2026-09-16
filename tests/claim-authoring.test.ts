@@ -5,7 +5,10 @@ import pg from "pg";
 import { buildApp } from "../apps/agent-wiki-api/src/app.js";
 import { pool, tx } from "../packages/core/src/db.js";
 import { hash } from "../packages/core/src/storage.js";
-import { storeClaimRelations } from "../apps/agent-wiki-api/src/claim-relations.js";
+import {
+  effectiveClaimState,
+  storeClaimRelations,
+} from "../apps/agent-wiki-api/src/claim-relations.js";
 import { conflictsReview } from "../apps/agent-wiki-api/src/review-conflicts.js";
 // Covers the four new manual-authoring commands (docs stay in AGENTS.md /
 // l2-l3-memory.md, out of scope here): `claim retire`, `claim assert`,
@@ -530,4 +533,66 @@ test("review conflicts lists a live contradicts pair with evidence times, pendin
   );
   assert.equal(httpResult.statusCode, 200, httpResult.body);
   assert.equal(httpResult.json().conflicts.length, 1);
+});
+
+// A contradiction is open only while both ends are live. Retiring one end used
+// to leave the survivor flagged conflicted forever, so `review conflicts` never
+// emptied. Found by resolving a real conflict in production with `claim retire`.
+test("retiring one end of a contradiction settles it; the survivor leaves the conflict queue", async () => {
+  const article = randomUUID(),
+    pub = randomUUID(),
+    src = randomUUID();
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'settle','note','synthetic','h','p','k',1,$3,true)`,
+    [src, ws, src],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','settle')`,
+    [pub, ws, pub],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'설정','본문','memory',1,'settle-topic')",
+    [article, ws],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'설정','본문','{}',$3)",
+    [ws, article, pub],
+  );
+  for (const [anchor, text] of [
+    ["settle-a", "백업을 매일 1회 수행한다"],
+    ["settle-b", "백업은 후속 과제로 미룬다"],
+  ])
+    await admin.query(
+      "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$4,'user_decision','backup-policy','general','current')",
+      [ws, article, anchor, text],
+    );
+  const relate = (from: string, to: string, relation: string) =>
+    admin.query(
+      `INSERT INTO claim_relations(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation,evidence,publication_id)
+       VALUES($1,$2,1,$3,$2,1,$4,$5,'[]',$6)`,
+      [ws, article, from, to, relation, pub],
+    );
+  const stateOf = async (anchor: string) =>
+    (
+      await admin.query(
+        `SELECT ${effectiveClaimState("cl")} AS s FROM claims cl WHERE cl.workspace_id=$1 AND cl.article_id=$2 AND cl.anchor=$3`,
+        [ws, article, anchor],
+      )
+    ).rows[0].s;
+  await relate("settle-a", "settle-b", "contradicts");
+  assert.equal(await stateOf("settle-a"), "conflicted");
+  assert.equal(await stateOf("settle-b"), "conflicted");
+  await relate("settle-b", "settle-a", "retracts");
+  assert.equal(
+    await stateOf("settle-a"),
+    "retracted",
+    "the retired end is retracted, not conflicted",
+  );
+  assert.equal(
+    await stateOf("settle-b"),
+    "current",
+    "the survivor is no longer flagged by a settled contradiction",
+  );
 });

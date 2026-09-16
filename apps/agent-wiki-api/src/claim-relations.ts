@@ -261,7 +261,18 @@ export async function storeClaimRelations(
 export const effectiveClaimState = (alias: string) => `CASE
  WHEN EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=${alias}.workspace_id AND cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor AND cr.relation='retracts') THEN 'retracted'
  WHEN EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=${alias}.workspace_id AND cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor AND cr.relation='supersedes') THEN 'superseded'
- WHEN EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=${alias}.workspace_id AND ((cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor) OR (cr.from_article_id=${alias}.article_id AND cr.from_revision=${alias}.revision AND cr.from_anchor=${alias}.anchor)) AND cr.relation='contradicts') THEN 'conflicted'
+ WHEN EXISTS(SELECT 1 FROM claim_relations cr WHERE cr.workspace_id=${alias}.workspace_id AND ((cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor) OR (cr.from_article_id=${alias}.article_id AND cr.from_revision=${alias}.revision AND cr.from_anchor=${alias}.anchor)) AND cr.relation='contradicts'
+   -- A contradiction whose other end the user already retired or replaced is
+   -- settled, not open: the survivor must leave the conflict queue instead of
+   -- staying flagged forever. Retired/replaced is decided by a relation on the
+   -- other end, the same way this CASE decides it for the claim itself.
+   AND NOT EXISTS(SELECT 1 FROM claim_relations done
+     WHERE done.workspace_id=cr.workspace_id AND done.relation IN ('retracts','supersedes')
+       AND ((done.to_article_id=cr.from_article_id AND done.to_revision=cr.from_revision AND done.to_anchor=cr.from_anchor
+             AND NOT (cr.from_article_id=${alias}.article_id AND cr.from_revision=${alias}.revision AND cr.from_anchor=${alias}.anchor))
+         OR (done.to_article_id=cr.to_article_id AND done.to_revision=cr.to_revision AND done.to_anchor=cr.to_anchor
+             AND NOT (cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor))))
+   ) THEN 'conflicted'
  ELSE ${alias}.state END`;
 
 // Retrieval follows explicit relations, never a similarity score, to find the
