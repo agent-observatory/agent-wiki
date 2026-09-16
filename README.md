@@ -24,4 +24,4 @@ npm run build
 
 `scripts/test-local-db.sh` starts a disposable PostgreSQL container with the same image, roles and port as CI, then runs migration and the full test suite. Run `scripts/test-local.sh` directly only when you manage the database yourself. Test credentials are synthetic and restricted to localhost / CI.
 
-[Agent workflow](docs/client-and-api.md) · [Architecture](docs/architecture.md) · [Operations](docs/OPERATIONS.md)
+[Agent workflow](docs/client-and-api.md) · [Architecture](docs/architecture.md) · [Operations](docs/OPERATIONS.md) · [References](docs/README.md#레퍼런스)

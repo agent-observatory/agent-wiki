@@ -10,6 +10,7 @@
 | [client-and-api.md](client-and-api.md) | Client 설치·연결, 접힌 수집·API 계약 |
 | [DESIGN.md](DESIGN.md) | UI·문서·SVG 디자인 규칙 |
 | [AGENTS.md](../AGENTS.md) | 에이전트 작업 원칙 |
+| [레퍼런스](#레퍼런스) | 참고한 외부 자료와 무엇을 가져왔는지 |
 
 ## 읽는 순서
 
@@ -24,3 +25,33 @@
 - 설계는 아키텍처에, 명령·계약은 사용법에, 실제 구현·배포·검증은 운영 현황에 기록한다. 과거 설계는 `archive/`에 보존하며 현재 지침으로 읽지 않는다.
 
 현재는 개발 모드다. 사용자 요청 범위에서 데이터를 재구성할 수 있으며 운영 모드 선언 후 보존 정책을 다시 정한다. 프로젝트 역사와 리니지는 원격 Wiki에 쌓고 로컬 문서에 중복 관리하지 않는다.
+
+## 레퍼런스
+
+사용자가 제공한 외부 자료와 메모를 한곳에 모은다. 자료별로 **무엇을 참고하고 무엇은 참고하지 않는지**는 [아키텍처의 가져올 요소 표](architecture.md#레퍼런스에서-가져올-요소)에 정리한다. 여기 있는 자료의 채택을 뜻하지 않으며, 확인 시점을 함께 남긴다.
+
+### 지식 위키·SSOT
+
+1. [Andrej Karpathy의 LLM Wiki 제안 — Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). 원본·정리된 위키·운영 규칙의 분리.
+2. [LY Corporation — LLM Wiki: 코드 기준으로 자동 최신화되는 도메인 지식 SSOT 만들기](https://techblog.lycorp.co.jp/ko/llm-wiki-code-driven-knowledge-ssot). 윤석범(LINE Plus). 2026-09-17 확인. **Raw 층(원본 맥락·변경 이력)과 Knowledge 층(현재 유효한 문서)의 2층 구조**가 우리 L1/L3와 같은 모양이다. 추출 Skill → ingest·lint Workflow → PR 머지 시 GitHub Actions 자동 실행이고, 서비스 간 추적을 위해 **식별자를 바꾸지 않는다**. 모호한 지점은 기준 문서를 만들 때 사람이 확인하고 명세 PR을 사람이 리뷰한다. 우리와 다른 점: 그쪽 SSOT는 **코드**여서 자동 최신화의 기준이 결정적이지만, 우리 SSOT는 대화 기록이라 기준이 비결정적이다. 그래서 우리는 lint에 해당하는 자리를 검증 게이트와 사람 검수로 채운다.
+3. [여기어때 — AI가 내 하루를 기억하게 하는 법 (1/2) · 개인 LLM 위키](https://medium.com/p/dd6a3158d9a0) · [(2/2) 데일리 루프](https://medium.com/p/595f8a2a7c3a). 사람이 탐색할 목차·문서 연결, 일별 기록이 위키로 들어오는 반복 흐름.
+4. [sdyckjq-lab/llm-wiki-skill](https://github.com/sdyckjq-lab/llm-wiki-skill). 커뮤니티 LLM Wiki Skill 구현. 추출·추론·미확인의 구분.
+5. [Obsidian 커뮤니티 Karpathy Wiki 플러그인](https://community.obsidian.md/plugins/karpathywiki) · [GeekNews 소개](https://news.hada.io/topic?id=28208). 사용자 메모: 그래프 방식을 위해 Obsidian을 차용한 사례.
+6. [무신사 — AI Native 조직은 도메인 지식을 어떻게 공유하는가](https://techblog.musinsa.com/ai-native-%EC%A1%B0%EC%A7%81%EC%9D%80-%EB%8F%84%EB%A9%94%EC%9D%B8-%EC%A7%80%EC%8B%9D%EC%9D%84-%EC%96%B4%EB%96%BB%EA%B2%8C-%EA%B3%B5%EC%9C%A0%ED%95%98%EB%8A%94%EA%B0%80-f2e3de607df3). Kyungjae Lee, 2026-08-25. 2026-09-12 확인. 표준 Core + 조직 Overlay의 ID 참조, 코드 검증과 사람 리뷰. **150개 질문의 ON/OFF 비교이며 평면 문서 대비 2층 구조의 우월성을 입증한 실험은 아니다.**
+
+### 메타데이터·맥락 제공
+
+7. [OpenMetadata](https://github.com/open-metadata/OpenMetadata). 제품 전체 도입과 별개로 Memory·Semantics·Lineage 등 지식 구조를 참고.
+8. [NAVER D2 발표 소개](https://d2.naver.com/helloworld/7056385) · [영상](https://tv.naver.com/v/101632926). 사용자 메모: Context Provider라는 이름으로 구축하며 OpenMetadata를 활용한 사례. 표에 적은 범위는 공식 발표 소개에서 확인한 것까지다.
+
+### 결정적 파이프라인과 모델 판단의 분리
+
+9. [alibaba/open-code-review](https://github.com/alibaba/open-code-review). 2026-09-16 확인. 파일 선별·묶음·룰 매칭·위치 보정을 **결정적 엔지니어링**이 소유하고 LLM은 그 안에서 판단만 한다. "언어로 지시하는 것보다 안정적이고 예측 가능하다"는 것이 그쪽 주장이다. 우리 정제 하네스(어휘를 코드가 정하고 모델은 고른다)의 직접적인 근거다. 다만 그쪽은 **한 항목을 고정 분류체계에 넣는** 문제고, 우리의 미해결 문제인 대체 판정은 **시간을 가로지르는 쌍 관계**라 그대로 옮겨오지는 않는다.
+
+### 문서 그림
+
+10. [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design). 2026-09-15 확인. 삭제 우선·밀도 상한·4px 그리드·직교 연결선·라벨 간격 규칙을 [DESIGN.md](DESIGN.md#밀도와-연결선)에 옮겼다. 흰 배경 금지·전용 글꼴(한글 미지원)·단일 코랄 강조는 채택하지 않았다.
+
+### 공식 기술 문서
+
+- [W3C PROV-DM](https://www.w3.org/TR/prov-dm/) · [SKOS](https://www.w3.org/TR/skos-primer/). 구체적인 비교·적용 범위는 아키텍처에 기록한다.
