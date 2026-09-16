@@ -6,6 +6,7 @@ import {
   expandProposalContent,
   prepareProposal,
 } from "../apps/agent-wiki-worker/src/curation-proposal.js";
+import { OUTPUT_RETRY_CODES } from "../apps/agent-wiki-worker/src/worker.js";
 import { changeInput } from "../apps/agent-wiki-api/src/knowledge.js";
 import {
   renderWikiPage,
@@ -267,4 +268,16 @@ test("an ai_inference claim cannot be published as current", () => {
     "proposed",
     "an interpretation is a proposal until someone adopts it",
   );
+});
+
+// A truncated response used to send the chunk straight to needs-attention
+// while every other malformed-output error regenerated. It surfaced the moment
+// a fallback model with a different output length took over in production.
+test("a truncated response regenerates instead of parking the chunk", () => {
+  assert.ok(
+    OUTPUT_RETRY_CODES.includes("AI_OUTPUT_LIMIT"),
+    "AI_OUTPUT_LIMIT is retried like AI_INVALID_JSON and AI_EMPTY_RESPONSE",
+  );
+  for (const code of ["AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"])
+    assert.ok(OUTPUT_RETRY_CODES.includes(code), code + " stays retried");
 });
