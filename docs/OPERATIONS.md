@@ -40,7 +40,7 @@
 
 고친 것(`f9c0e4c`, [실행 35104437129](https://github.com/agent-observatory/agent-wiki/actions/runs/35104437129)):
 
-- 프롬프트 `remote-curation-16`. `subject`는 대상 하나의 소문자 slug이며 topic_key와 같을 수 없다(`CLAIM_SUBJECT_IS_TOPIC`, 출력 오류 재시도 대상). `scope`는 닫힌 다섯 값 `general`·`local`·`production`·`dev-mode`·`experiment`로 zod가 강제한다. 예시값은 `SUBJECT-SLUG`·`TOPIC-KEY` 같은 자리표시자로 바꿔 다시 새지 않게 했다.
+- 프롬프트 `remote-curation-16`(이후 재추출 중 `-17`로 한 번 더 올렸다, 아래). `subject`는 대상 하나의 소문자 slug이며 topic_key와 같을 수 없다(`CLAIM_SUBJECT_IS_TOPIC`, 출력 오류 재시도 대상). `scope`는 닫힌 다섯 값 `general`·`local`·`production`·`dev-mode`·`experiment`로 zod가 강제한다. 예시값은 `SUBJECT-SLUG`·`TOPIC-KEY` 같은 자리표시자로 바꿔 다시 새지 않게 했다.
 - 모델에 **그 주제가 이미 쓰는 subject 목록**을 준다(주제당 최대 24개, 직렬화 1,200바이트 예산을 넘으면 최근 주제부터 유지하고 나머지는 목록 없이 key·title만). 어휘는 코드가 정하고 모델은 고른다.
 - `type`의 `unconfirmed` → `agent_statement`. `state`의 `unconfirmed`는 그대로 두어 두 축을 분리했다. DB 제약은 `DROP` → `UPDATE` → `ADD` 순으로 바꿔야 기존 행이 통과한다(한 번 순서를 틀려 마이그레이션이 실패했다).
 - 입력 예산 하한을 올렸다. 지시문만 4.8KB인데 기존 최소 3,000·기본 8,000은 정작 읽어야 할 원문에 300토큰도 안 남겼다. 최소 12,000·기본 16,000으로 바꿨다. 운영은 이미 16,000이라 영향이 없다.
@@ -53,6 +53,7 @@
 - Knowledge는 이제 **`subject`별로** 묶는다. `scope`는 "어디에 적용되는가"라는 다른 질문이라 묶는 기준에서 빼고 행 배지로 내렸다. 왼쪽에 고정 목차(subject·개수, 현재 위치 표시)와 페이지 내 텍스트 찾기를 넣었다.
 - 그림 세 장에 겹쳐 쓰는 두 축을 넣었다. 카드 아래 **저장 테이블 토큰**(데이터베이스 기호 + 실제 테이블 이름)이 그 단계가 읽고 쓰는 곳을 보여주고, 원래 모델 호출 카드에만 쓰이던 **연보라를 "모델 판단"으로 정의**해 결정적/비결정적 경계를 드러냈다. 연보라가 아니면 코드다. 섞인 단계는 한쪽으로 몰지 않고 본문 줄로 나눠 적는다.
 - `architecture.md`에 지식 모델 표를 넣었다. 저장 순서는 `원문 → 근거 → 주장 ⇄ 관계 → 페이지`이고, **Decision은 테이블이 아니라 `type=user_decision`인 Claim**이며, `type`(권한)과 `state`(채택)는 독립 축이고 표시되는 상태는 `claim_relations`로 계산한다.
+- 재추출 중 발견해 고친 결함(`remote-curation-17`): 서버는 `user_decision`을 `user_decision`으로만 대체할 수 있게 강제하는데(`DECISION_AUTHORITY_MISMATCH`) **프롬프트에 그 규칙이 없었고**, 이 코드는 출력 오류 재시도 목록에도 없었다. 모델이 관찰·추론으로 결정을 대체하려 하면 청크 추출 전체가 버려지고 확인 필요로 죽은 채 끝났다. 규칙을 프롬프트에 적고(이견은 `contradicts`이지 대체가 아니다) 재시도 목록에 넣었다. 실제로 작업 1개가 이 코드로 죽은 것을 보고 찾았다.
 - 남은 것: `topic_key`는 여전히 모델이 짓는다(최근 40개 재사용 힌트만 있음). 그림의 AI 추출 카드가 이 사실을 그대로 적고 있다.
 
 ## 통합(Consolidation) 구현·배포 · Knowledge 리니지 패널 구현·배포
