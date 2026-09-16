@@ -49,7 +49,7 @@ Worker는 같은 주제의 독립된 주장들을 한 변경에 담을 수 있�
 
 ## 통합 · Consolidation · 구현 완료 · 운영 검증 전
 
-**추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다.** 청크 추출은 여전히 관계까지 한 번에 내고 같은 Worker 시도 안에서 바로 반영한다. 관계 하나가 검증에 실패하면 추출 전체를 버리고 모델을 다시 부르며, 관계를 놓친 추출은 같은 subject·scope에 `current` 주장을 둘 남긴다(그림 02) — 아래 설계는 이 둘을 나눠 푼다. 순서대로 구현했다: 대기함·관계 지연 → `relation reject`·거절 기억 → Job과 네 Step → Knowledge 화면. 로컬 검증(합성 자료·mock 모델 응답)과 배포는 마쳤다. 이어서 수동 통합 배치(`consolidate --all`·`consolidate plan`·대기 중인 자동 Job 인수·`consolidation.auto`)와 두 결정적 게이트(`DECISION_EVIDENCE_NOT_USER`·`SUPERSEDES_BACKWARD_IN_TIME`), subject를 속성으로 좁힌 프롬프트 `remote-curation-18`, `sourceIds`로 범위를 좁힌 재생성을 추가했다. 실제 세션 자료로 Job이 relation을 만들거나 거절하는 모습을 확인하는 운영 검증은 아직이며, 자동 트리거(사이클 완료·관계 지연)가 실제로 몇 번 발동했는지는 `docs/OPERATIONS.md`를 따른다.
+**추출은 청크마다 주장을 만들고, 통합은 주제마다 그 주장들 사이의 현재·이력 관계를 정한다.** 청크 추출은 여전히 관계까지 한 번에 내고 같은 Worker 시도 안에서 바로 반영한다. 관계 하나가 검증에 실패하면 추출 전체를 버리고 모델을 다시 부르며, 관계를 놓친 추출은 같은 subject·scope에 `current` 주장을 둘 남긴다(그림 02) — 아래 설계는 이 둘을 나눠 푼다. 순서대로 구현했다: 대기함·관계 지연 → `relation reject`·거절 기억 → Job과 네 Step → Knowledge 화면. 로컬 검증(합성 자료·mock 모델 응답)과 배포는 마쳤다. 이어서 수동 통합 배치(`consolidate --all`·`consolidate plan`·대기 중인 자동 Job 인수·`consolidation.auto`)와 두 결정적 게이트(`DECISION_EVIDENCE_NOT_USER`·`SUPERSEDES_BACKWARD_IN_TIME`), subject를 속성으로 좁힌 프롬프트 `remote-curation-18`, `sourceIds`로 범위를 좁힌 재생성을 추가했다. 2026-09-17 실제 자료 슬라이스로 수동 Job 하나가 gather→model→validate→publish를 통과해 `contradicts` 관계를 반영했다. 세션을 가로지르는 대체 판정과 자동 트리거의 실제 발동은 아직 검증하지 않았으며 `docs/OPERATIONS.md`를 따른다.
 
 | 구분 | 추출 · 기존 | 통합 |
 | --- | --- | --- |

@@ -99,7 +99,48 @@
 3. `consolidate --all` 후 옛 RDS 결정이 `current`가 아니게 되거나, 납득할 이유가 붙은 `leaveUnresolved`로 남는다
 4. 미큐 세션은 Sources에서 미정제로 보이고 `hasUnprocessedInputs=true`다
 
-결과는 아래에 이어 적는다.
+### 슬라이스 결과
+
+원문은 예측한 2개가 아니라 **3개**가 됐다. Collector가 이 대화를 계속 수집해 새 원문이 정상 경로로 작업을 만든다. 슬라이스 규율이 깨진 건 아니지만 범위 지정 rebuild는 "그 시점의 원문"만 고정한다는 뜻이며, 재현 실험을 할 때는 수집을 먼저 멈춰야 한다.
+
+청크는 예측 20개가 아니라 **7개**였다. 이전 19청크 계획은 입력 예산이 더 작던 시절 값이다. 모델 호출 6회.
+
+| 기준 | 예측 | 실제 | |
+| --- | --- | --- | --- |
+| `subject` == 주제 키 | 0 | **0 / 23** | 통과 |
+| subject 묶음 | 5개 이상 | 20개 | 통과 |
+| `current` 2+ 묶음 | 2개 이상 | 2개 | 통과 |
+| 페이지 | 2~4개 | 6개 | 초과 |
+| 미큐 세션 정직 표시 | true | 세션 11개 전부 `waiting`, 조회는 `not_found_with_unprocessed_inputs` | 통과 |
+
+**옛 RDS/관리형 DB 결정이 `Superseded`가 됐다.** 고치려던 정확성 결함이 사라졌고 페이지에 "과거 결정과 주장"·"Decision History" 절이 생겼다. 단서: 이 대체 사슬은 **Consolidation이 아니라 추출이** 만들었다. 61줄짜리 원문 `97815f60`이 역사 전체를 한 청크에 담고 있어 모델이 같은 청크 안에서 A→B→C를 이었다. **세션을 가로지르는 대체는 여전히 미검증이다.**
+
+주장 28개 중 27개가 `user_decision`이다(이전 57%보다 심하다). 이 원문이 결정 요약본이라 그럴 수 있고 분류 쏠림일 수도 있다. 판단하려면 요약본이 아닌 원문으로 한 번 더 봐야 한다.
+
+### 실행하다 찾은 버그: 수동 배치가 통째로 막혀 있었다
+
+`consolidate --all`이 Job을 예약하고 인수(trigger `cycle` → `manual`)도 정상 작동했는데 워커가 집어가지 않았다. 추출은 비어 있고 정제는 켜져 있고 rate gate도 열려 있었다.
+
+원인: Job 선택이 `ORDER BY created_at LIMIT 1`로 **한 건만 뽑은 뒤** 적격성을 검사하고, 거절되면 그 자리에서 레인 전체가 `return null`이었다. 가장 오래된 게 `cycle` Job인데 `consolidation.auto=false`라 거절되어, 뒤에 있는 manual Job에 영원히 도달하지 못했다. **오늘 만든 기능이 오늘 만든 플래그 때문에 동작하지 않았다.**
+
+적격성 검사를 `WHERE` 절로 옮기고 manual을 먼저 정렬하도록 고쳤다(`5a636c6`). 회귀 테스트를 넣었다(202+27 통과). 기존 테스트는 "같은 주제에 manual"만 검증했고 실제 상황인 "다른 주제의 더 오래된 cycle Job이 앞을 막음"은 없었다. **로컬 검증으로는 나오지 않았고 끝까지 돌려서 나왔다.**
+
+### 통합 판정 결과
+
+```
+Job 74874d3c · completed · trigger=manual
+model     : backup-daily --contradicts--> backup-policy
+validate  : passed=1 rejected=0
+publish   : published=1 · 페이지 Version 4 → 5
+```
+
+두 결정은 "백업을 매일 1회 수행한다"와 "백업은 현재 고려하지 않고 추후 검토한다"였다. 모델은 `supersedes`가 아니라 **`contradicts`**를 골랐다. 두 원문의 시각이 전부 `recovered`(복구 추정)라 어느 쪽이 나중인지 알 수 없기 때문이다. **모르는 순서를 지어내지 않았다.** `consolidate plan`이 넘긴 입력의 `time`도 전부 `null`이었고, 이는 버그가 아니라 `recorded` 시각만 신뢰한다는 설계가 그대로 드러난 것이다.
+
+### 남은 것
+
+- **세션 간 대체 미검증.** 요약본이 아닌 두 세션의 원문으로 다시 봐야 한다.
+- **사람이 충돌을 해소할 경로가 없다.** 방금 올라온 `contradicts`를 지금은 아무것도 할 수 없다. `claim retire`·`claim assert`·`relation add`·`review conflicts`가 다음 작업이다.
+- `consolidation.auto`는 `false`로 두었다. 배치 모드 선언 전까지 자동 Job은 생성만 되고 실행되지 않는다.
 
 ## 통합(Consolidation) 구현·배포 · Knowledge 리니지 패널 구현·배포
 
