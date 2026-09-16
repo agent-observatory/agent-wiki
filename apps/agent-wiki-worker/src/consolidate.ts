@@ -777,20 +777,24 @@ export async function runConsolidation(
         await c.query("SELECT * FROM ai_settings WHERE workspace_id=$1", [ws])
       ).rows[0];
       if (!settings?.encrypted_key) return null;
-      const job = (
-        await c.query(
-          "SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND status='pending' AND available_at<=now() ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED",
-          [ws],
-        )
-      ).rows[0];
-      if (!job) return null;
       const baseConfig = aiConfig.parse(settings.config);
       // consolidation.auto=false still lets cycle/deferred Jobs get created
       // (the UI shows what a batch would do) but never admits them; manual
       // ignores this the same way it already ignores the stop/pause flag.
+      // The admission test belongs in the WHERE clause, not after the pick:
+      // selecting the oldest row and then rejecting it returned null for the
+      // whole lane, so one inadmissible cycle Job hid every manual Job behind
+      // it and a manual run never started.
       const autoAllowed = baseConfig.consolidation?.auto ?? true;
-      if (job.trigger !== "manual" && (!baseConfig.enabled || !autoAllowed))
-        return null;
+      const job = (
+        await c.query(
+          `SELECT * FROM consolidation_jobs WHERE workspace_id=$1 AND status='pending' AND available_at<=now()
+             AND (trigger='manual' OR $2::boolean)
+           ORDER BY (trigger='manual') DESC,created_at LIMIT 1 FOR UPDATE SKIP LOCKED`,
+          [ws, baseConfig.enabled && autoAllowed],
+        )
+      ).rows[0];
+      if (!job) return null;
       // Extraction and reprocess take priority in this workspace this tick;
       // consolidation is the lowest-priority lane (docs/l2-l3-memory.md). A
       // long extraction must not starve consolidation forever though: an

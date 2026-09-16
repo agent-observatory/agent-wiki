@@ -615,3 +615,63 @@ test("consolidation.auto=false still creates an automatic Job but never admits i
   assert.equal(finished.status, "completed");
   assert.equal(finished.trigger, "manual");
 });
+
+// Admission has to be part of the pick, not a test applied after it. The query
+// took the oldest pending row and returned null for the whole lane if that row
+// was inadmissible, so one older cycle Job hid every manual Job behind it and
+// `consolidate --all` never started while consolidation.auto was false. Found
+// in production: six cycle Jobs sat ahead of the manual one.
+test("an older inadmissible automatic Job does not hide a manual Job", async () => {
+  const blockedWs = randomUUID();
+  await admin.query(
+    "INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)",
+    [blockedWs, owner, "Manual behind automatic"],
+  );
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      blockedWs,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        consolidation: { auto: false },
+      }),
+      encryptSecret("synthetic-blocked"),
+    ],
+  );
+  await tx(owner, blockedWs, (c) =>
+    scheduleConsolidation(c, blockedWs, "older-automatic-topic", "cycle"),
+  );
+  await admin.query(
+    "UPDATE consolidation_jobs SET created_at=now()-interval '1 hour' WHERE workspace_id=$1",
+    [blockedWs],
+  );
+  await tx(owner, blockedWs, (c) =>
+    scheduleConsolidation(c, blockedWs, "manual-topic", "manual"),
+  );
+  const noModel = async () => {
+    throw new Error("must not be called: nothing to consolidate");
+  };
+  const signal = new AbortController().signal;
+  assert.equal(
+    await runConsolidation(owner, signal, noModel),
+    true,
+    "the manual Job is admitted despite an older automatic Job ahead of it",
+  );
+  const rows = (
+    await admin.query(
+      "SELECT topic_key,status FROM consolidation_jobs WHERE workspace_id=$1 ORDER BY topic_key",
+      [blockedWs],
+    )
+  ).rows;
+  assert.deepEqual(
+    rows.map((r: any) => [r.topic_key, r.status]),
+    [
+      ["manual-topic", "completed"],
+      ["older-automatic-topic", "pending"],
+    ],
+    "the manual Job ran to completion; the automatic one stayed unadmitted",
+  );
+});
