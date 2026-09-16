@@ -98,7 +98,7 @@ test("small increments of one session share a model call and keep separate immut
                 text: line.text,
                 type: "user_decision",
                 subject: "server",
-                scope: "personal",
+                scope: "local",
                 state: "current",
                 evidence: [{ recordId: line.recordId }],
               },

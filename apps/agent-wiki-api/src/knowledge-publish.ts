@@ -299,9 +299,15 @@ export async function publish(
     for (const claim of claims) {
       if (!change.content.includes(claim.text))
         throw new AppError(400, "CLAIM_NOT_IN_CONTENT");
+      // subject must name the specific thing, not restate the page it sits on.
+      // "subject = topic key" is how an extraction says "no subject" while
+      // looking like it answered, and it splits nothing: every such claim lands
+      // in one bucket that Consolidation can never reason about.
+      if (change.topic && claim.subject === change.topic.key)
+        throw new AppError(400, "CLAIM_SUBJECT_IS_TOPIC");
       if (
         !claim.evidence.length &&
-        !["author_statement", "unconfirmed"].includes(claim.type)
+        !["author_statement", "agent_statement"].includes(claim.type)
       )
         throw new AppError(400, "EVIDENCE_REQUIRED");
       for (const ev of claim.evidence) {

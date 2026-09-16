@@ -107,7 +107,7 @@ test("rebuild keeps L1, collection position, settings, rate gates and attempt hi
           {
             anchor: "a",
             text: "테스트 지식",
-            type: "unconfirmed",
+            type: "agent_statement",
             evidence: [
               {
                 sourceId: first.sourceId,

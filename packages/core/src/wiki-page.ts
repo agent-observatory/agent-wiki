@@ -31,7 +31,7 @@ const types: Record<string, string> = {
   user_decision: "Decision",
   observation: "Observation",
   ai_inference: "AI 해석",
-  unconfirmed: "미확인",
+  agent_statement: "에이전트 진술",
   author_statement: "작성자 진술",
 };
 export function renderWikiPage(

@@ -437,7 +437,7 @@ test("incremental curation sees prior claim context and adds a grounded replacem
     ).rows[0].diagnostics,
   }));
   assert.deepEqual(guarded.claims, [
-    { type: "unconfirmed", state: "unconfirmed" },
+    { type: "agent_statement", state: "unconfirmed" },
   ]);
   assert.equal(guarded.relations, 0);
   assert.equal(guarded.diagnostics.unconfirmedClaims, 1);

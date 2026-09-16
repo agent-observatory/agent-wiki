@@ -62,7 +62,7 @@ export function prepareProposal(
   if (evidenceValidation.mismatched) throw new ModelError("EVIDENCE_MISMATCH");
   for (const change of result.changes) {
     for (const claim of change.claims)
-      if (claim.type === "unconfirmed") claim.state = "unconfirmed";
+      if (claim.type === "agent_statement") claim.state = "unconfirmed";
     if (
       !change.claims.length ||
       change.claims.some(
@@ -91,7 +91,7 @@ export function prepareProposal(
             "tool",
           ]))
       ) {
-        claim.type = "unconfirmed";
+        claim.type = "agent_statement";
         claim.state = "unconfirmed";
         downgraded.add(claim.anchor);
       }

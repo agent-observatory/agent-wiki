@@ -33,7 +33,7 @@ const types: Record<string, string> = {
   user_decision: "사용자 결정",
   observation: "관찰",
   ai_inference: "AI 해석",
-  unconfirmed: "미확인",
+  agent_statement: "에이전트 진술",
   author_statement: "작성자 진술",
 };
 export function KnowledgeList() {

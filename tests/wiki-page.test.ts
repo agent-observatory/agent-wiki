@@ -10,7 +10,7 @@ const a: PageClaim = {
   anchor: "provider",
   text: "이전 제공자는 NVIDIA다.",
   type: "user_decision",
-  scope: "curation",
+  scope: "general",
   subject: "provider",
   state: "superseded",
   title: "이전 제공자",

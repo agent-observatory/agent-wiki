@@ -302,8 +302,8 @@ test("repeated claims inside one response do not create duplicate articles or se
   const text = "로그는 JSON 형식으로 기록한다.",
     a = await source("codex", text),
     b = await source("claude", text);
-  const payload = proposal(a, "logging", text),
-    second = proposal(b, "logging", text).changes[0];
+  const payload = proposal(a, "production", text),
+    second = proposal(b, "production", text).changes[0];
   second.clientRef = "other";
   payload.changes.push(second);
   const saved = await save(payload);
@@ -367,7 +367,7 @@ test("Worker keeps decisions first found in one chunk as a lineage rather than l
                   text: phrase,
                   type: "user_decision",
                   subject: "ai-provider",
-                  scope: "curation",
+                  scope: "general",
                   state: "current",
                   evidence,
                 },

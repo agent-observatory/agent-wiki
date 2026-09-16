@@ -48,6 +48,17 @@ CREATE INDEX IF NOT EXISTS refinement_daily ON refinement_runs(workspace_id,crea
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT '';
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'current' CHECK(state IN ('current','proposed','superseded','retracted','conflicted','unconfirmed'));
+-- claims.type is authority (who asserted it); claims.state is adoption (is it
+-- live). They shared the value 'unconfirmed', and the extraction model treated
+-- the pair as one field: 59 of 212 claims on one page came back as
+-- type=unconfirmed AND state=unconfirmed together. Renaming the type value
+-- separates the two axes. 'author_statement' stays: the server synthesizes it
+-- for a content-only change, and no prompt can emit it.
+-- Drop first: the inline CHECK from CREATE TABLE still forbids the new value
+-- while the rename runs.
+ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_type_check;
+UPDATE claims SET type='agent_statement' WHERE type='unconfirmed';
+ALTER TABLE claims ADD CONSTRAINT claims_type_check CHECK(type IN ('user_decision','observation','ai_inference','agent_statement','author_statement'));
 CREATE TABLE IF NOT EXISTS claim_relations(workspace_id uuid NOT NULL,from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,publication_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,from_article_id,from_revision,from_anchor,to_article_id,to_revision,to_anchor,relation),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,to_article_id,to_revision,to_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor),FOREIGN KEY(workspace_id,publication_id) REFERENCES publications(workspace_id,id));
 CREATE INDEX IF NOT EXISTS claim_relation_target ON claim_relations(workspace_id,to_article_id,to_revision,to_anchor);
 CREATE TABLE IF NOT EXISTS knowledge_reviews(id uuid PRIMARY KEY,workspace_id uuid NOT NULL,article_id uuid NOT NULL,revision int NOT NULL,snapshot jsonb NOT NULL,snapshot_hash text NOT NULL,reviewer jsonb NOT NULL,reason text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),FOREIGN KEY(workspace_id,article_id,revision) REFERENCES revisions(workspace_id,article_id,revision) ON DELETE CASCADE,UNIQUE(workspace_id,article_id,revision,snapshot_hash));

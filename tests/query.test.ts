@@ -118,7 +118,7 @@ before(async () => {
   await add(
     "제공자 검토 의견",
     "다른 제공자도 검토해보자.",
-    "proposal",
+    "experiment",
     undefined,
     "proposed",
   );

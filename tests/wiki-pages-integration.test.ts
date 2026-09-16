@@ -53,7 +53,7 @@ test("cross-session claims form one versioned topic page; history and idempotenc
               text,
               type: "user_decision",
               subject: "provider",
-              scope: "curation",
+              scope: "general",
               evidence,
             },
           ],

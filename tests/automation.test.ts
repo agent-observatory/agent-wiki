@@ -743,7 +743,7 @@ test("Worker anchors a quotation across consecutive transport fragments while pr
                   {
                     anchor: "decision",
                     text: quote,
-                    type: "unconfirmed",
+                    type: "agent_statement",
                     evidence: [{ sourceId, revision: 1, lines: [10], quote }],
                   },
                 ],
@@ -843,7 +843,7 @@ test("Worker assigns distinct internal identifiers to unreferenced model duplica
                   {
                     anchor: "decision",
                     text: quote,
-                    type: "unconfirmed",
+                    type: "agent_statement",
                     evidence: [{ sourceId, revision: 1, lines: [10], quote }],
                   },
                 ],
@@ -999,9 +999,9 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
               {
                 anchor: "decision",
                 text: quote,
-                type: "unconfirmed",
+                type: "agent_statement",
                 subject: "different-subject",
-                scope: "different-scope",
+                scope: "production",
                 evidence: [
                   {
                     sourceId,
@@ -1172,7 +1172,7 @@ test("explicit publish-only retry reuses cached output without a model call", as
           {
             anchor: "claim",
             text: "Synthetic claim",
-            type: "unconfirmed",
+            type: "agent_statement",
             evidence: [
               {
                 sourceId,

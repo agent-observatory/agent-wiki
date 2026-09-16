@@ -51,7 +51,7 @@ test("a resumed chunk retrieves its own topic instead of the source beginning", 
                   {
                     anchor: "topic",
                     text: topic,
-                    type: "unconfirmed",
+                    type: "agent_statement",
                     state: "unconfirmed",
                     evidence: [
                       {

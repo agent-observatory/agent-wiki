@@ -84,7 +84,7 @@ test("actual Worker fits metadata-heavy inputs before invoking the provider", as
               {
                 anchor: "claim",
                 text: `Claim ${i}`,
-                type: "unconfirmed",
+                type: "agent_statement",
                 evidence: [{ recordId: input.source.records[0].recordId }],
               },
             ],

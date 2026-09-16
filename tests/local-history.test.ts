@@ -9,7 +9,7 @@ const change = (ref: string, state: string, prior?: string) => ({
       state,
       type: "user_decision",
       subject: "provider",
-      scope: "curation",
+      scope: "general",
     },
   ],
   claimRelations: prior

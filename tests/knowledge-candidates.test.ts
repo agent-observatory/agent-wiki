@@ -42,7 +42,7 @@ test("Korean particles, punctuation and registered aliases connect cross-session
     doc("provider", "엔비디아로 호출한다", {
       aliases: ["NVIDIA"],
       subject: "AI Provider",
-      scope: "curation",
+      scope: "general",
     }),
     doc("unrelated", "화면 여백", { same_session: true }),
   ];

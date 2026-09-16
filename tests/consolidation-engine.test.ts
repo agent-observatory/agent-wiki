@@ -217,7 +217,7 @@ test("a topic with nothing to consolidate skips model/validate/publish without a
             text: "한 번만 등장하는 주장이다.",
             type: "user_decision",
             subject: "solo-subject",
-            scope: "solo-scope",
+            scope: "local",
             state: "current",
             evidence: [{ sourceId: src, revision: 1, lines: [1, 1], quote: "한 번만 등장하는 주장이다." }],
           },
@@ -269,7 +269,7 @@ test("a trigger that arrives while a Job is still open rolls it into a fresh gat
         text,
         type: "user_decision",
         subject: "rerun-subject",
-        scope: "rerun-scope",
+        scope: "production",
         state: "current",
         evidence: [{ sourceId, revision: 1, lines: [1, 1], quote: text }],
       },
@@ -304,7 +304,7 @@ test("a trigger that arrives while a Job is still open rolls it into a fresh gat
         relations: [
           {
             subject: "rerun-subject",
-            scope: "rerun-scope",
+            scope: "production",
             from: { articleId: from.articleId, revision: from.revision, anchor: from.anchor },
             relation: "supersedes",
             target: { articleId: target.articleId, revision: target.revision, anchor: target.anchor },

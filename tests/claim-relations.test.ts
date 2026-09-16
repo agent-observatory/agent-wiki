@@ -161,7 +161,7 @@ test("one publication preserves a four-decision provider lineage and defaults to
   for (let i = 0; i < phrases.length; i++) {
     const p = await proposal(phrases[i], {
       subject: "ai-provider",
-      scope: "curation",
+      scope: "general",
     });
     const change = p.changes[0];
     change.clientRef = "provider-" + i;
@@ -217,7 +217,7 @@ test("local decision references reject forward links, missing targets and self c
     const first = (
       await proposal("합성 이전 결정", {
         subject: "provider",
-        scope: "curation",
+        scope: "general",
       })
     ).changes[0];
     first.clientRef = "first";
@@ -232,7 +232,7 @@ test("local decision references reject forward links, missing targets and self c
     const later = (
       await proposal("합성 다음 결정", {
         subject: "provider",
-        scope: "curation",
+        scope: "general",
       })
     ).changes[0];
     later.clientRef = "later";

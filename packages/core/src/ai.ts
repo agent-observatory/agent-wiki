@@ -44,7 +44,11 @@ export const modelParams = z
       .nullable()
       .optional(),
     maxTokens: z.number().int().min(512).max(16384).default(2048),
-    maxInputTokens: z.number().int().min(3000).max(32000).default(8000),
+    // The extraction instruction alone is ~4.8KB, and the context reserve and
+    // envelope take ~3.4K more, so a 3,000 or 8,000 budget leaves almost
+    // nothing for the source chunk the call exists to read. The floor and the
+    // default are set where a real chunk still fits.
+    maxInputTokens: z.number().int().min(12000).max(32000).default(16000),
     maxInputChars: z.number().int().min(2000).max(60000).default(24000),
     reasoning: z
       .enum(["default", "none", "low", "high", "max"])
@@ -74,7 +78,7 @@ export const aiConfig = z
     primary: modelParams.default({
       model: "deepseek-v4-flash",
       maxTokens: 2048,
-      maxInputTokens: 8000,
+      maxInputTokens: 16000,
       maxInputChars: 24000,
       reasoning: "none",
       timeoutSeconds: 330,

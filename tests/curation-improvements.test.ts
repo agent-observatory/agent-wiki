@@ -160,7 +160,7 @@ test("evidence dates use event structure; recovery time and absent dates are nev
     title: "같은 제목",
     type: "user_decision",
     subject: "provider",
-    scope: "curation",
+    scope: "general",
     state: "current",
   };
   const page = renderWikiPage(
@@ -188,7 +188,7 @@ test("model emits claim text once; server composes content and retains strict fi
         title: "설명",
         claims: [
           { anchor: "one", text: "첫 설명", type: "ai_inference" },
-          { anchor: "two", text: "둘째 설명", type: "unconfirmed" },
+          { anchor: "two", text: "둘째 설명", type: "agent_statement" },
         ],
       },
     ],

@@ -12,20 +12,40 @@ export const keySchema = z
   .min(8)
   .max(128)
   .regex(/^[\w-]+$/);
+// subject and scope are not display metadata: storeClaimRelations refuses any
+// relation whose ends differ on either string, and Consolidation groups by the
+// exact pair. Free text made them a relation barrier — one page held 15
+// subjects that all meant "infrastructure", so those claims could never be
+// compared. subject stays open (the vocabulary is the workspace's own, supplied
+// to the model per topic) but must be a slug; scope is closed, because it
+// answers one fixed question: where does this claim apply?
+export const CLAIM_SCOPES = [
+  "general",
+  "local",
+  "production",
+  "dev-mode",
+  "experiment",
+] as const;
+export const claimScope = z.enum(CLAIM_SCOPES);
+export const CLAIM_TYPES = [
+  "user_decision",
+  "observation",
+  "ai_inference",
+  "agent_statement",
+] as const;
 const claimInput = z
   .object({
     anchor: z.string().regex(/^[\w-]{1,80}$/),
     text: z.string().min(1).max(10000),
-    type: z.enum([
-      "user_decision",
-      "observation",
-      "ai_inference",
-      "unconfirmed",
-      "author_statement",
-    ]),
+    type: z.enum(CLAIM_TYPES),
     evidence: z.array(evidenceInput).max(20).default([]),
-    subject: z.string().trim().max(200).default(""),
-    scope: z.string().trim().max(200).default(""),
+    subject: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9-]{0,79}$/)
+      .or(z.literal(""))
+      .default(""),
+    scope: claimScope.default("general"),
     state: claimState.default("current"),
   })
   .strict();

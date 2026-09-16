@@ -24,6 +24,17 @@ for (const variant of ["off", "high", "record-reference"])
         "utf8",
       ),
     );
+    // These are real provider responses captured before remote-curation-16,
+    // when scope was free text. They are historical evidence of what the model
+    // actually returned, so the files stay byte-identical and the pre-16
+    // vocabulary is mapped here instead. Replace the shim, not the captures,
+    // once a response recorded under the current prompt exists.
+    const PRE_16_SCOPES: Record<string, string> = {
+      curation: "general",
+      "remote-refinement": "production",
+      "remote-refining": "production",
+      "local-experiment": "experiment",
+    };
     const captured = JSON.parse(
       await readFile(
         variant === "record-reference"
@@ -34,6 +45,9 @@ for (const variant of ["off", "high", "record-reference"])
         "utf8",
       ),
     );
+    for (const change of captured.output?.changes ?? [])
+      for (const claim of change.claims ?? [])
+        claim.scope = PRE_16_SCOPES[claim.scope] ?? claim.scope;
     const owner = "lineage-replay-" + randomUUID(),
       ws = randomUUID(),
       id = randomUUID();
@@ -144,7 +158,7 @@ for (const variant of ["off", "high", "record-reference"])
     if (variant !== "record-reference")
       assert.ok(
         claims.some(
-          (c) => c.scope === "local-experiment" && c.text.includes("NVIDIA"),
+          (c) => c.scope === "experiment" && c.text.includes("NVIDIA"),
         ),
       );
     const pages = (
