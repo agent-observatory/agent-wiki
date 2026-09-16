@@ -271,11 +271,11 @@ export function KnowledgeClaims({
             className="pl-9"
           />
         </div>
-        {needle && (
+        {/* The empty case is the list's own message; saying it here too
+            printed it twice. */}
+        {needle && shown > 0 && (
           <p className="text-sm text-muted-foreground">
-            {shown
-              ? `${shown.toLocaleString()}개 일치 · 주제 ${groups.length}개`
-              : "일치하는 주장이 없습니다."}
+            {`${shown.toLocaleString()}개 일치 · 주제 ${groups.length}개`}
           </p>
         )}
       </div>
