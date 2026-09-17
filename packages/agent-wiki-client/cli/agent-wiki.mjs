@@ -206,6 +206,7 @@ async function main() {
         "claim retire ID/REVISION/ANCHOR --reason TEXT",
         "claim assert --topic KEY --subject SLUG --scope SCOPE --text TEXT [--supersedes ID/REVISION/ANCHOR]",
         "consolidate TOPIC_KEY | consolidate --all | consolidate plan [TOPIC_KEY|--all] | consolidate status [TOPIC_KEY]",
+        "curation queue [--source ID ...]",
       ],
       configuration:
         "~/.agent-wiki/config.json; credentials in the configured env file",
@@ -818,6 +819,22 @@ async function main() {
       await request("/claim-relations/" + action, {
         method: "POST",
         body: { from, to, relation, client, reason },
+      }),
+    );
+  }
+  if (command === "curation") {
+    const action = args.shift();
+    if (action !== "queue") throw new Error("Use curation queue");
+    // Re-enters raw sources that a scoped rebuild left uncurated, without
+    // touching L3. rebuild is the only other way in and it wipes knowledge,
+    // including the user's own feedback claims.
+    const sourceIds = [];
+    for (let i = 0; i < args.length; i++)
+      if (args[i] === "--source" && args[i + 1]) sourceIds.push(args[++i]);
+    return output(
+      await request("/curation/queue", {
+        method: "POST",
+        body: sourceIds.length ? { sourceIds } : {},
       }),
     );
   }

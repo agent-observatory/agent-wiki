@@ -4,7 +4,7 @@ import { backfillEvidenceTimes } from "./evidence-time.js";
 import { publish } from "./knowledge.js";
 import { registerAiSettings } from "./ai-settings.js";
 import { modelCallPredicate } from "../../../packages/core/src/model-call-history.js";
-import { rebuildCuration } from "./curation-rebuild.js";
+import { queueCuration, rebuildCuration } from "./curation-rebuild.js";
 import {
   refinementSessions,
   retryRefinementSession,
@@ -330,6 +330,14 @@ export function registerAutomation(
       ).rows[0];
       return { enabled: body.enabled, version: row.version };
     });
+  });
+  app.post(base + "/curation/queue", (r) => {
+    sessionOnly(r);
+    const body = z
+      .object({ sourceIds: z.array(z.string().uuid()).max(5000).optional() })
+      .strict()
+      .parse(r.body ?? {});
+    return scoped(r, (c, ws) => queueCuration(c, ws, body.sourceIds));
   });
   app.post(base + "/curation/rebuild", (r) => {
     sessionOnly(r);

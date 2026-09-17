@@ -127,3 +127,44 @@ export async function rebuildCuration(
   );
   return result;
 }
+
+// A scoped rebuild leaves every source it did not queue with its raw L1 intact
+// and no refinement_jobs row, which four coverage queries correctly report as
+// "not yet curated". Without a way back in, that honesty is a dead end: the
+// only path was another rebuild, which wipes all of L3 including the user's
+// own feedback claims. Queue adds the jobs without touching knowledge.
+export async function queueCuration(
+  c: PoolClient,
+  ws: string,
+  sourceIds?: string[],
+) {
+  await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+    ws + "settings",
+  ]);
+  const rows = (
+    await c.query(
+      `SELECT s.id FROM sources s
+       LEFT JOIN refinement_jobs j ON j.workspace_id=s.workspace_id AND j.source_id=s.id
+       WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND s.kind='conversation'
+         AND j.id IS NULL AND ($2::uuid[] IS NULL OR s.id=ANY($2::uuid[]))
+       ORDER BY s.created_at`,
+      [ws, sourceIds ?? null],
+    )
+  ).rows.map((r) => r.id as string);
+  if (rows.length)
+    await c.query(
+      `INSERT INTO refinement_jobs(id,workspace_id,source_id,generation)
+       SELECT gen_random_uuid(),$1,id,1 FROM unnest($2::uuid[]) AS id
+       ON CONFLICT(workspace_id,source_id) DO NOTHING`,
+      [ws, rows],
+    );
+  const remaining = (
+    await c.query(
+      `SELECT count(*)::int AS n FROM sources s
+       LEFT JOIN refinement_jobs j ON j.workspace_id=s.workspace_id AND j.source_id=s.id
+       WHERE s.workspace_id=$1 AND s.deleted_at IS NULL AND s.kind='conversation' AND j.id IS NULL`,
+      [ws],
+    )
+  ).rows[0].n;
+  return { queued: rows.length, stillUnqueued: remaining };
+}

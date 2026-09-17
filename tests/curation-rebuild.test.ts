@@ -8,7 +8,10 @@ import { hash, getSource } from "../packages/core/src/storage.js";
 import { runOne } from "../apps/agent-wiki-worker/src/worker.js";
 import { defaults, encryptSecret } from "../packages/core/src/ai.js";
 import { refinementProgress } from "../apps/agent-wiki-api/src/refinement-progress.js";
-import { rebuildCuration } from "../apps/agent-wiki-api/src/curation-rebuild.js";
+import {
+  queueCuration,
+  rebuildCuration,
+} from "../apps/agent-wiki-api/src/curation-rebuild.js";
 const owner = "rebuild-" + randomUUID(),
   token = randomUUID();
 const admin = new pg.Pool({
@@ -483,4 +486,43 @@ test("a late response from an expired execution cannot publish after rebuild", a
   ).rows[0];
   assert.equal(run.error_code, "LEASE_LOST");
   assert.equal(run.usage.total_tokens, 7);
+});
+
+// A scoped rebuild leaves sources with raw L1 and no job, honestly reported as
+// uncurated. Without a way back in that honesty is a dead end: the only other
+// path was another rebuild, which wipes L3 including the user's feedback.
+test("curation queue re-enters uncurated sources without touching knowledge", async () => {
+  const qWs = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    qWs,
+    owner,
+    "Queue back in",
+  ]);
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const id = randomUUID();
+    ids.push(id);
+    await admin.query(
+      `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+       VALUES($1,$2,$3,'conversation','synthetic','h','p','k',1,$4,true)`,
+      [id, qWs, "s" + i, id],
+    );
+  }
+  // One already curated, two left behind by a scoped rebuild.
+  await admin.query(
+    "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+    [randomUUID(), qWs, ids[0]],
+  );
+  const first = await tx(owner, qWs, (c) => queueCuration(c, qWs));
+  assert.deepEqual(first, { queued: 2, stillUnqueued: 0 });
+  // Idempotent: a second call queues nothing and creates no duplicate row.
+  const second = await tx(owner, qWs, (c) => queueCuration(c, qWs));
+  assert.deepEqual(second, { queued: 0, stillUnqueued: 0 });
+  const jobs = (
+    await admin.query(
+      "SELECT count(*)::int n FROM refinement_jobs WHERE workspace_id=$1",
+      [qWs],
+    )
+  ).rows[0].n;
+  assert.equal(jobs, 3, "one job per source, no duplicates");
 });
