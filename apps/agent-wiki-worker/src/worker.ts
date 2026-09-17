@@ -66,6 +66,10 @@ import {
 } from "../../agent-wiki-api/src/knowledge.js";
 import { log } from "../../../packages/core/src/log.js";
 import {
+  loadSubjectAliases,
+  canonicalSubject,
+} from "../../../packages/core/src/subject-aliases.js";
+import {
   gateReady,
   modelGateKey,
   waitForModelSlot,
@@ -302,6 +306,10 @@ export async function runOne(
       if (!payload) {
         const tokenCounter = await inputTokenCounter(task.config);
         const countInputTokens = tokenCounter.count;
+        // Loaded inside the transaction that builds the input, used again
+        // after the model answers: the same map must judge both the vocabulary
+        // hint we sent and the relations that come back.
+        let subjectAliases = new Map<string, string>();
         const input = await tx(owner, ws, async (c) => {
           const batch = await readBatch(c, ws, task);
           const source = {
@@ -407,6 +415,16 @@ export async function runOne(
             title: row.title,
             subjects: row.subjects as string[],
           }));
+          // Show the canonical name only. A slug a person has already folded
+          // into another one must not be offered back to the model, or the
+          // split reopens on the next chunk.
+          subjectAliases = await loadSubjectAliases(c, ws);
+          for (const topic of topics)
+            topic.subjects = [
+              ...new Set(
+                topic.subjects.map((s) => canonicalSubject(subjectAliases, s)),
+              ),
+            ];
           const vocabulary = fitTopicVocabulary(topics);
           const buildInput = (candidate: Chunk) => {
             const referenceLines: string[] = [];
@@ -651,7 +669,12 @@ export async function runOne(
         );
         diagnostics.stage = "validate";
         diagnostics.evidencePolicy = "record-reference-1";
-        const result = prepareProposal(response.output, input, diagnostics);
+        const result = prepareProposal(
+          response.output,
+          input,
+          diagnostics,
+          subjectAliases,
+        );
         payload = {
           changes: result.changes,
           inputs: [

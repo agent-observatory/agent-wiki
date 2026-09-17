@@ -29,6 +29,13 @@ import {
   topicKeySchema,
 } from "./consolidation-control.js";
 import { uuid, keySchema, conflict } from "./publication-schema.js";
+import {
+  aliasInput,
+  addSubjectAlias,
+  listSubjectAliases,
+  removeSubjectAlias,
+  subjectSplitCandidates,
+} from "./subject-aliases.js";
 // Public surface used by the Worker, automation and tests. Keep these stable.
 export { publish } from "./knowledge-publish.js";
 export { changeInput, MAX_PUBLICATION_CHANGES } from "./publication-schema.js";
@@ -204,6 +211,29 @@ export function registerKnowledge(
       consolidationStatus(c, ws, (r.query as { topicKey?: string }).topicKey),
     ),
   );
+  app.get(base + "/subject-aliases", (r) =>
+    scoped(r, (c, ws) => listSubjectAliases(c, ws)),
+  );
+  app.post(base + "/subject-aliases", (r) => {
+    sessionOnly(r);
+    const body = aliasInput.parse(r.body);
+    return scoped(r, (c, ws) =>
+      addSubjectAlias(c, ws, body, r.identity!.userId),
+    );
+  });
+  // POST, not DELETE: every write on this API carries a JSON body so the
+  // origin and content-type guards apply uniformly (app.ts).
+  app.post(base + "/subject-aliases/remove", (r) => {
+    sessionOnly(r);
+    const body = z.object({ alias: topicKeySchema }).strict().parse(r.body);
+    return scoped(r, (c, ws) => removeSubjectAlias(c, ws, body.alias));
+  });
+  app.get(base + "/subject-aliases/candidates", (r) => {
+    const q = z
+      .object({ min: z.coerce.number().min(0.1).max(1).optional() })
+      .parse(r.query);
+    return scoped(r, (c, ws) => subjectSplitCandidates(c, ws, q.min));
+  });
   app.get(base + "/consolidations/plan", (r) => {
     const q = z.object({ topic: topicKeySchema.optional() }).parse(r.query);
     return scoped(r, (c, ws) => consolidationPlan(c, ws, q.topic));

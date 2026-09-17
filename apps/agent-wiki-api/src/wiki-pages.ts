@@ -8,11 +8,16 @@ import {
 } from "../../../packages/core/src/wiki-page.js";
 import { effectiveClaimState } from "./claim-relations.js";
 import { AppError } from "../../../packages/core/src/db.js";
+import {
+  loadSubjectAliases,
+  canonicalSubject,
+} from "../../../packages/core/src/subject-aliases.js";
 import { pagination, paged } from "./pagination.js";
 
 // Caller holds the workspace publication lock. Rebuild only changed snapshots;
 // no source downloads and no second model call. Claims remain the source of truth.
 export async function refreshWikiPages(c: PoolClient, ws: string) {
+  const subjectAliases = await loadSubjectAliases(c, ws);
   const topics = (
     await c.query(
       "SELECT DISTINCT topic_key,topic_title FROM articles WHERE workspace_id=$1 AND deleted_at IS NULL AND topic_key<>'' ORDER BY topic_key,topic_title",
@@ -113,6 +118,15 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
         [ws, topic.topic_key],
       )
     ).rows;
+    // Subjects a person joined read as one property on the page and in the
+    // list; the slug each claim was published with stays in `subjectRaw`.
+    for (const claim of claims) {
+      const canonical = canonicalSubject(subjectAliases, claim.subject);
+      if (canonical !== claim.subject) {
+        claim.subjectRaw = claim.subject;
+        claim.subject = canonical;
+      }
+    }
     const content = renderWikiPage(
       title,
       claims,

@@ -416,3 +416,49 @@ test("a jobless conversation-kind source counts as unprocessed for recall and qu
 });
 
 
+
+// Consolidation only compares claims that share subject and scope, so one
+// property under two slugs was never compared at all. A person joins the two
+// here; the claims keep the slug they were published with.
+test("a subject alias lets two split slugs relate, and chains are refused", async () => {
+  const old = await publish(await proposal("이전 저장소 결정", { subject: "graph-storage-visualization" }));
+  const next: any = await proposal("새 저장소 결정", {
+    subject: "graph-storage-and-visualization",
+  });
+  relate(next, old);
+  assert.equal(
+    (await call("POST", "/publications", next)).json().error,
+    "CLAIM_SCOPE_MISMATCH",
+    "split slugs cannot relate before anyone says they are the same",
+  );
+  const added = await call("POST", "/subject-aliases", {
+    alias: "graph-storage-and-visualization",
+    canonical: "graph-storage-visualization",
+    reason: "테스트: 불용어만 다른 같은 속성",
+  });
+  assert.equal(added.statusCode, 200, added.body);
+  const joined: any = await proposal("별칭 확정 뒤의 새 결정", {
+    subject: "graph-storage-and-visualization",
+  });
+  relate(joined, old);
+  const ok = await call("POST", "/publications", joined);
+  assert.equal(ok.statusCode, 200, ok.body);
+  // A chain would make the answer depend on how many times canonical() runs.
+  const chain = await call("POST", "/subject-aliases", {
+    alias: "graph-storage-visualization",
+    canonical: "something-else",
+    reason: "테스트: 사슬",
+  });
+  assert.equal(chain.statusCode, 400, chain.body);
+  assert.equal(chain.json().error, "SUBJECT_ALIAS_IS_CANONICAL");
+  const reverse = await call("POST", "/subject-aliases", {
+    alias: "yet-another",
+    canonical: "graph-storage-and-visualization",
+    reason: "테스트: 반대 방향 사슬",
+  });
+  assert.equal(reverse.json().error, "SUBJECT_ALIAS_CHAIN");
+  const removed = await call("POST", "/subject-aliases/remove", {
+    alias: "graph-storage-and-visualization",
+  });
+  assert.equal(removed.statusCode, 200, removed.body);
+});

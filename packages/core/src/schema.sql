@@ -219,6 +219,13 @@ CREATE TABLE IF NOT EXISTS consolidation_inbox(workspace_id uuid NOT NULL,id uui
 CREATE INDEX IF NOT EXISTS consolidation_inbox_pending ON consolidation_inbox(workspace_id,from_article_id) WHERE status='pending';
 -- One open Job (pending/running) per topic at a time; a Job is 4 Steps
 -- (gather/model/validate/publish) each independently tracked in `steps`.
+-- The definition layer for `subject`. A claim's own subject is immutable — it
+-- is what the model said at that moment and part of the Revision — so two
+-- slugs for one property are joined here instead, and every place that
+-- COMPARES subjects resolves through this table. Workspace configuration, not
+-- knowledge: it is added and removed without a publication, and a rebuild does
+-- not clear it. Chains are refused so canonical() is one lookup.
+CREATE TABLE IF NOT EXISTS subject_aliases(workspace_id uuid NOT NULL REFERENCES workspaces(id),alias text NOT NULL,canonical text NOT NULL,reason text NOT NULL,created_by text NOT NULL REFERENCES users(id),created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,alias),CHECK(alias<>canonical));
 CREATE TABLE IF NOT EXISTS consolidation_jobs(workspace_id uuid NOT NULL,id uuid NOT NULL DEFAULT gen_random_uuid(),topic_key text NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed')),trigger text NOT NULL CHECK(trigger IN ('cycle','deferred','manual')),attempt int NOT NULL DEFAULT 0,rerun_requested boolean NOT NULL DEFAULT false,step_names text[] NOT NULL DEFAULT ARRAY['gather','model','validate','publish'],steps jsonb NOT NULL DEFAULT '{}',current_step text,run_ids uuid[] NOT NULL DEFAULT '{}',result jsonb,available_at timestamptz NOT NULL DEFAULT now(),lease_until timestamptz,error_code text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace_id,id));
 CREATE UNIQUE INDEX IF NOT EXISTS consolidation_jobs_open ON consolidation_jobs(workspace_id,topic_key) WHERE status IN ('pending','running');
 -- Reverses an auto-applied relation via a corrective Version (no deletes);
@@ -285,7 +292,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections'] LOOP
+ FOREACH t IN ARRAY ARRAY['retrieval_events','curation_reprocesses','source_record_times','wiki_pages','wiki_page_versions','articles','revisions','sources','links','publications','claims','evidence','project_contexts','collection_streams','collection_events','collection_origins','collection_uploads','ai_settings','refinement_jobs','refinement_runs','claim_relations','curation_rebuilds','knowledge_reviews','consolidation_inbox','consolidation_jobs','claim_relation_rejections','subject_aliases'] LOOP
  IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=t::regclass) THEN
    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);

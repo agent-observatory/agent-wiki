@@ -11,6 +11,7 @@ import {
   fitTopicVocabulary,
 } from "../apps/agent-wiki-worker/src/worker.js";
 import { changeInput } from "../apps/agent-wiki-api/src/knowledge.js";
+import { splitCandidates } from "../apps/agent-wiki-api/src/subject-aliases.js";
 import {
   renderWikiPage,
   type PageClaim,
@@ -558,4 +559,39 @@ test("the vocabulary hint keeps the most used subjects, not the alphabetically f
   );
   assert.deepEqual(tight[0].subjects, ["one", "two"]);
   assert.equal(tight[1].subjects, undefined);
+});
+
+// A property that ended up with two slugs is still one property. The
+// candidate rule finds surface splits without a model; plain token overlap
+// buried them under namespace prefixes (`oci` is in dozens of slugs), so
+// tokens are weighted by how rare they are in the workspace's own vocabulary.
+test("split candidates rank rare-token overlap, not shared namespaces", () => {
+  const subjects = [
+    "graph-storage-and-visualization",
+    "graph-storage-visualization",
+    "oci-compute-billing",
+    "oci-gpu-billing",
+    "oci-network-billing",
+    "oci-storage-billing",
+    "oci-always-free",
+    "oci-always-free-instances",
+    "database-hosting",
+  ];
+  const pairs = splitCandidates(subjects, 0.6).map((p) => [p.a, p.b]);
+  assert.deepEqual(pairs[0], [
+    "graph-storage-and-visualization",
+    "graph-storage-visualization",
+  ]);
+  assert.ok(
+    pairs.some(
+      ([a, b]) => a === "oci-always-free" && b === "oci-always-free-instances",
+    ),
+  );
+  // Same namespace, different property: `billing` and `oci` are common here,
+  // so the one token that differs carries the comparison.
+  for (const [a, b] of pairs)
+    assert.ok(
+      !(a.endsWith("-billing") && b.endsWith("-billing")),
+      "namespace siblings are not candidates: " + a + " / " + b,
+    );
 });

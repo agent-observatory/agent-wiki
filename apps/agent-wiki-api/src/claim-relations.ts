@@ -1,6 +1,10 @@
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { AppError } from "../../../packages/core/src/db.js";
+import {
+  loadSubjectAliases,
+  canonicalSubject,
+} from "../../../packages/core/src/subject-aliases.js";
 import { claimEvidenceTimes } from "./evidence-time.js";
 
 export const evidenceInput = z
@@ -81,6 +85,7 @@ export async function storeClaimRelations(
   automaticProducer = defer,
 ): Promise<{ deferred: DeferredRelation[] }> {
   const deferred: DeferredRelation[] = [];
+  const aliases = await loadSubjectAliases(c, ws);
   for (const relation of relations) {
     try {
       const from = (
@@ -130,10 +135,15 @@ export async function storeClaimRelations(
           relation.target.articleId === articleId)
       )
         throw new AppError(400, "CLAIM_TARGET_NOT_PRIOR");
+      // Compared through the subject alias map: one property that ended up
+      // with two slugs is still one property, and a person joined them
+      // deliberately (packages/core/src/subject-aliases.ts). The claims keep
+      // the slug they were published with.
       if (
         !from.subject ||
         !from.scope ||
-        from.subject !== target.subject ||
+        canonicalSubject(aliases, from.subject) !==
+          canonicalSubject(aliases, target.subject) ||
         from.scope !== target.scope
       )
         throw new AppError(400, "CLAIM_SCOPE_MISMATCH");

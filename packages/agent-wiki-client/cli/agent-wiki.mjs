@@ -206,6 +206,7 @@ async function main() {
         "claim retire ID/REVISION/ANCHOR --reason TEXT",
         "claim assert --topic KEY --subject SLUG --scope SCOPE --text TEXT [--supersedes ID/REVISION/ANCHOR]",
         "consolidate TOPIC_KEY | consolidate --all | consolidate plan [TOPIC_KEY|--all] | consolidate status [TOPIC_KEY]",
+    "subject candidates [--min N] | subject alias list | subject alias add --alias SLUG --canonical SLUG --reason TEXT | subject alias remove --alias SLUG",
         "curation queue [--source ID ...]",
       ],
       configuration:
@@ -836,6 +837,50 @@ async function main() {
         method: "POST",
         body: sourceIds.length ? { sourceIds } : {},
       }),
+    );
+  }
+  // `subject` is the property a claim decides, and the same property kept
+  // arriving under two slugs, so Consolidation never compared the two. A
+  // person joins them here; nothing is joined automatically.
+  if (command === "subject") {
+    if (args[0] === "candidates") {
+      const min = option("min");
+      return output(
+        await request(
+          "/subject-aliases/candidates" +
+            (min ? "?min=" + encodeURIComponent(min) : ""),
+        ),
+      );
+    }
+    if (args[0] === "alias" && args[1] === "list")
+      return output(await request("/subject-aliases"));
+    if (args[0] === "alias" && args[1] === "add") {
+      const alias = option("alias"),
+        canonical = option("canonical"),
+        reason = option("reason");
+      if (!alias || !canonical || !reason)
+        throw new Error(
+          "Use subject alias add --alias SLUG --canonical SLUG --reason TEXT",
+        );
+      return output(
+        await request("/subject-aliases", {
+          method: "POST",
+          body: { alias, canonical, reason },
+        }),
+      );
+    }
+    if (args[0] === "alias" && args[1] === "remove") {
+      const alias = option("alias");
+      if (!alias) throw new Error("Use subject alias remove --alias SLUG");
+      return output(
+        await request("/subject-aliases/remove", {
+          method: "POST",
+          body: { alias },
+        }),
+      );
+    }
+    throw new Error(
+      "Use subject candidates [--min N] | subject alias list|add|remove",
     );
   }
   if (command === "consolidate") {

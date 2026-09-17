@@ -19,6 +19,9 @@ export function prepareProposal(
   output: unknown,
   input: any,
   diagnostics: Record<string, unknown>,
+  // Kept out of `input` on purpose: that object is what goes to the model, and
+  // the alias map is our bookkeeping, not context for it.
+  subjectAliases: Map<string, string> = new Map(),
 ) {
   const proposal = expandProposalContent(output);
   const result = z
@@ -179,6 +182,8 @@ export function prepareProposal(
           a.anchor === target.anchor,
       );
     };
+    const canonical = (subject: string) =>
+      subjectAliases.get(subject) ?? subject;
     const crossScope = change.claimRelations.filter((relation) => {
       const from = change.claims.find((c) => c.anchor === relation.anchor);
       const to = endOf(relation.anchor, relation.target);
@@ -187,7 +192,7 @@ export function prepareProposal(
         to &&
         (!from.subject ||
           !from.scope ||
-          from.subject !== to.subject ||
+          canonical(from.subject) !== canonical(to.subject) ||
           from.scope !== to.scope)
       );
     });

@@ -27,6 +27,10 @@ import {
   effectiveClaimState,
 } from "../../agent-wiki-api/src/claim-relations.js";
 import { refreshWikiPages } from "../../agent-wiki-api/src/wiki-pages.js";
+import {
+  loadSubjectAliases,
+  canonicalSubject,
+} from "../../../packages/core/src/subject-aliases.js";
 import { log } from "../../../packages/core/src/log.js";
 
 export const CONSOLIDATION_PROMPT_VERSION = "consolidation-2";
@@ -132,6 +136,7 @@ type RelationRef = {
 };
 export type Group = {
   subject: string;
+  aliases?: string[];
   scope: string;
   claims: ClaimRow[];
   existingRelations: RelationRef[];
@@ -265,9 +270,13 @@ export async function gatherTopic(
   ).rows;
   let recordSeq = 0;
   const nextRecordId = () => `record-${++recordSeq}`;
+  // One property that ended up with two slugs is still one property. Group by
+  // the canonical subject a person joined them under, so the two are finally
+  // compared; each claim keeps the slug it was published with.
+  const aliases = await loadSubjectAliases(c, ws);
   const byGroup = new Map<string, ClaimRow[]>();
   for (const row of claimRows) {
-    const key = row.subject + " " + row.scope;
+    const key = canonicalSubject(aliases, row.subject) + " " + row.scope;
     const claim: ClaimRow = {
       articleId: row.article_id,
       revision: row.revision,
@@ -356,8 +365,13 @@ export async function gatherTopic(
         toAnchor: r.to_anchor,
         relation: r.relation,
       }));
+    const subjects = [...new Set(claims.map((c) => c.subject))].sort();
+    const canonical = canonicalSubject(aliases, claims[0].subject);
     groups.push({
-      subject: claims[0].subject,
+      subject: canonical,
+      // What was joined into this group, so the plan and the model input say
+      // so instead of silently showing one name for two.
+      ...(subjects.length > 1 ? { aliases: subjects } : {}),
       scope: claims[0].scope,
       claims: claims.filter((c) => isLive(c.effectiveState)),
       existingRelations: existingForGroup,
