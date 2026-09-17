@@ -381,7 +381,12 @@ test("Alibaba Qwen disables thinking using its native option and rejects unsuppo
     );
     assert.equal(bodies[2].reasoning_effort, "none");
     assert.equal(bodies[2].enable_thinking, undefined);
-    assert.equal(bodies[2].response_format, undefined);
+    // An unrecognised model on the Alibaba endpoint still gets the JSON
+    // response format: it is a capability of the endpoint, not of the two
+    // families we recognise. This assertion used to require the opposite, and
+    // that is what broke the glm fallback — never told to answer in JSON, it
+    // wrote prose until it hit the output ceiling and returned no content.
+    assert.deepEqual(bodies[2].response_format, { type: "json_object" });
   } finally {
     globalThis.fetch = original;
     if (oldHosts === undefined) delete process.env.AI_ALLOWED_HOSTS;

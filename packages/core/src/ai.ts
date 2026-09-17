@@ -125,6 +125,17 @@ export function isAlibabaDeepSeek(config: ModelIdentity) {
 export function isAlibabaThinkingModel(config: ModelIdentity) {
   return isAlibabaQwen(config) || isAlibabaDeepSeek(config);
 }
+// Any model served by the Alibaba OpenAI-compatible endpoint, recognised family
+// or not. The JSON response format is an endpoint capability, not a property of
+// the two families we happen to know: gating it on those meant a fallback model
+// on the same endpoint was never told to answer in JSON, wrote free prose until
+// it hit the output ceiling, and returned zero content characters.
+export function isAlibabaEndpoint(config: ModelIdentity) {
+  return (
+    config.provider === "openai-compatible" &&
+    new URL(config.baseUrl).hostname.endsWith(".aliyuncs.com")
+  );
+}
 // The model the Worker actually calls: the fallback once the first model's
 // free quota is exhausted for this Workspace, otherwise the primary model.
 export function effectiveModelConfig(
@@ -295,7 +306,7 @@ export async function callModel(
         messages,
         stream: false,
         // Every caller expects a JSON object (curation or the Hello test).
-        ...(isAlibabaThinkingModel(config)
+        ...(isAlibabaEndpoint(config)
           ? { response_format: { type: "json_object" } }
           : {}),
         ...(isAlibabaThinkingModel(config) &&
