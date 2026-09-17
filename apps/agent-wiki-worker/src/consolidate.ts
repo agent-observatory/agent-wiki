@@ -67,10 +67,19 @@ const modelOutput = z
             subject: z.string().min(1).max(200),
             scope: z.string().min(1).max(200),
             from: claimRef,
-            relation: z.enum(["supersedes", "retracts", "contradicts", "supports"]),
+            relation: z.enum([
+              "supersedes",
+              "retracts",
+              "contradicts",
+              "supports",
+            ]),
             target: claimRef,
             evidence: z
-              .array(z.object({ recordId: z.string().regex(/^record-\d+$/) }).strict())
+              .array(
+                z
+                  .object({ recordId: z.string().regex(/^record-\d+$/) })
+                  .strict(),
+              )
               .min(1)
               .max(10),
           })
@@ -173,11 +182,14 @@ export function groupFingerprint(g: Group) {
       g.subject,
       g.scope,
       g.claims
-        .map((c) => claimKey(c.articleId, c.revision, c.anchor) + ":" + c.effectiveState)
+        .map(
+          (c) =>
+            claimKey(c.articleId, c.revision, c.anchor) +
+            ":" +
+            c.effectiveState,
+        )
         .sort(),
-      g.existingRelations
-        .map((r) => JSON.stringify(r))
-        .sort(),
+      g.existingRelations.map((r) => JSON.stringify(r)).sort(),
       g.inboxRelations.map((r) => r.inboxId).sort(),
     ]),
   );
@@ -349,7 +361,8 @@ export async function gatherTopic(
   }
   const judged = groups.map((g) => [g, groupFingerprint(g)] as const);
   const open = judged.filter(
-    ([g, fingerprint]) => g.inboxRelations.length > 0 || !settled.has(fingerprint),
+    ([g, fingerprint]) =>
+      g.inboxRelations.length > 0 || !settled.has(fingerprint),
   );
   return {
     groups: open.map(([g]) => g),
@@ -385,7 +398,8 @@ async function fitGatherOutput(gathered: GatherOutput, config: any) {
 function evidenceIndex(gathered: GatherOutput) {
   const map = new Map<string, EvidenceItem>();
   for (const g of gathered.groups)
-    for (const c of g.claims) for (const e of c.evidence) map.set(e.recordId, e);
+    for (const c of g.claims)
+      for (const e of c.evidence) map.set(e.recordId, e);
   return map;
 }
 function modelPrompt(gathered: GatherOutput) {
@@ -415,7 +429,8 @@ function freshSteps(): Record<StepName, StepState> {
   ) as Record<StepName, StepState>;
 }
 function nextPendingStep(steps: Record<StepName, StepState>): StepName | null {
-  for (const name of STEP_NAMES) if (steps[name].status === "pending") return name;
+  for (const name of STEP_NAMES)
+    if (steps[name].status === "pending") return name;
   return null;
 }
 async function advanceJob(
@@ -434,7 +449,13 @@ async function advanceJob(
         done ? "completed" : "pending",
         JSON.stringify(steps),
         done ? null : nextPendingStep(steps),
-        done ? JSON.stringify({ steps: Object.fromEntries(STEP_NAMES.map((n) => [n, steps[n].status])) }) : null,
+        done
+          ? JSON.stringify({
+              steps: Object.fromEntries(
+                STEP_NAMES.map((n) => [n, steps[n].status]),
+              ),
+            })
+          : null,
       ],
     )
   ).rows[0];
@@ -452,12 +473,7 @@ async function advanceJob(
 // flag rather than creating a second Job, so the person's request simply
 // vanished when the Job then failed. The partial unique index only covers
 // pending/running rows, so a fresh Job can be scheduled right here.
-async function failJob(
-  c: PoolClient,
-  ws: string,
-  jobId: string,
-  code: string,
-) {
+async function failJob(c: PoolClient, ws: string, jobId: string, code: string) {
   const row = (
     await c.query(
       "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running' RETURNING rerun_requested,topic_key",
@@ -492,7 +508,10 @@ async function runGatherStep(owner: string, ws: string, task: any) {
     // it, so a topic that outgrew the input budget could only fail at the
     // provider. Take as many groups as fit and leave the rest unjudged — their
     // fingerprints are not recorded, so the follow-up Job picks them up.
-    const { gathered, deferredGroups } = await fitGatherOutput(all, task.config);
+    const { gathered, deferredGroups } = await fitGatherOutput(
+      all,
+      task.config,
+    );
     const steps: Record<StepName, StepState> = { ...task.steps };
     const inputHash = hash(JSON.stringify(gathered));
     const deferredHashes = new Set(deferredGroups.map(groupFingerprint));
@@ -582,7 +601,12 @@ async function runModelStep(
   ]);
   let reportedUsage: Record<string, unknown> | undefined;
   try {
-    await waitForModelSlot(owner, task.gateKey, callSignal, config.requestsPerMinute);
+    await waitForModelSlot(
+      owner,
+      task.gateKey,
+      callSignal,
+      config.requestsPerMinute,
+    );
     const messages = [
       { role: "system", content: instruction },
       { role: "user", content: JSON.stringify(modelPrompt(gathered)) },
@@ -597,11 +621,18 @@ async function runModelStep(
       task.secret,
       messages,
       callSignal,
-      () => waitForModelSlot(owner, task.gateKey, callSignal, config.requestsPerMinute),
+      () =>
+        waitForModelSlot(
+          owner,
+          task.gateKey,
+          callSignal,
+          config.requestsPerMinute,
+        ),
       (event) => {
         if (event.type === "response") diagnostics.httpStatus = event.status;
         if (event.type === "usage") reportedUsage = event.usage;
-        if (event.type === "completion") diagnostics.finishReason = event.finishReason;
+        if (event.type === "completion")
+          diagnostics.finishReason = event.finishReason;
       },
     );
     reportedUsage = response.usage;
@@ -609,7 +640,8 @@ async function runModelStep(
     const index = evidenceIndex(gathered);
     for (const r of parsed.relations)
       for (const e of r.evidence)
-        if (!index.has(e.recordId)) throw new ModelError("AI_EVIDENCE_REFERENCE_INVALID");
+        if (!index.has(e.recordId))
+          throw new ModelError("AI_EVIDENCE_REFERENCE_INVALID");
     const resolved = parsed.relations.map((r) => ({
       subject: r.subject,
       scope: r.scope,
@@ -663,14 +695,24 @@ async function runModelStep(
     await tx(owner, ws, async (c) => {
       await c.query(
         "UPDATE refinement_runs SET status='completed',finished_at=now(),usage=$3,output=$4,diagnostics=diagnostics||$5::jsonb WHERE workspace_id=$1 AND id=$2",
-        [ws, runId, JSON.stringify(reportedUsage ?? {}), JSON.stringify(response.output), JSON.stringify(diagnostics)],
+        [
+          ws,
+          runId,
+          JSON.stringify(reportedUsage ?? {}),
+          JSON.stringify(response.output),
+          JSON.stringify(diagnostics),
+        ],
       );
       const steps: Record<StepName, StepState> = { ...task.steps };
       steps.model = {
         status: "done",
         attempts: steps.model.attempts + 1,
         input_hash: steps.gather.input_hash,
-        output: { relations: resolved, leaveUnresolved: parsed.leaveUnresolved, inboxTouched },
+        output: {
+          relations: resolved,
+          leaveUnresolved: parsed.leaveUnresolved,
+          inboxTouched,
+        },
       };
       steps.validate = { ...steps.validate, output: undefined };
       await c.query(
@@ -728,7 +770,12 @@ async function runModelStep(
         const steps: Record<StepName, StepState> = { ...task.steps };
         // Spread the existing step: a rebuilt literal dropped steps.model
         // .output, which is where gather left its result.
-        steps.model = { ...steps.model, status: "pending", attempts, error_code: code };
+        steps.model = {
+          ...steps.model,
+          status: "pending",
+          attempts,
+          error_code: code,
+        };
         await c.query(
           "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='model',error_code=$4,available_at=now()+interval '30 seconds',updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
           [ws, task.id, JSON.stringify(steps), code],
@@ -748,22 +795,40 @@ async function runModelStep(
         return;
       }
       const delay = transient
-        ? await coolDownModel(c, owner, task.gateKey, e instanceof ModelError ? e.retryAfter : 0, config.retryDelaySeconds)
+        ? await coolDownModel(
+            c,
+            owner,
+            task.gateKey,
+            e instanceof ModelError ? e.retryAfter : 0,
+            config.retryDelaySeconds,
+          )
         : retryDelay(null, Math.random(), config.retryDelaySeconds);
       const steps: Record<StepName, StepState> = { ...task.steps };
-      steps.model = { ...steps.model, status: "pending", attempts, error_code: code };
+      steps.model = {
+        ...steps.model,
+        status: "pending",
+        attempts,
+        error_code: code,
+      };
       await c.query(
         "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='model',error_code=$4,available_at=now()+make_interval(secs=>$5),updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
         [ws, task.id, JSON.stringify(steps), code, delay],
       );
     });
-    log(transient || (outputError && task.steps.model.attempts + 1 < MAX_MODEL_STRIKES) ? "warn" : "error", "consolidation_model_failed", {
-      job_id: task.id,
-      topic_key: task.topic_key,
-      error_code: code,
-      attempts: task.steps.model.attempts + 1,
-      detail: code === "CONSOLIDATION_MODEL_FAILED" ? detail : undefined,
-    });
+    log(
+      transient ||
+        (outputError && task.steps.model.attempts + 1 < MAX_MODEL_STRIKES)
+        ? "warn"
+        : "error",
+      "consolidation_model_failed",
+      {
+        job_id: task.id,
+        topic_key: task.topic_key,
+        error_code: code,
+        attempts: task.steps.model.attempts + 1,
+        detail: code === "CONSOLIDATION_MODEL_FAILED" ? detail : undefined,
+      },
+    );
   }
 }
 
@@ -778,15 +843,30 @@ async function runValidateStep(owner: string, ws: string, task: any) {
       from: { articleId: string; revision: number; anchor: string };
       relation: "supersedes" | "retracts" | "contradicts" | "supports";
       target: { articleId: string; revision: number; anchor: string };
-      evidence: { sourceId: string; revision: 1; lines: [number, number]; quote: string }[];
+      evidence: {
+        sourceId: string;
+        revision: 1;
+        lines: [number, number];
+        quote: string;
+      }[];
     }[];
     const passed: typeof proposed = [];
-    const rejected: { relation: (typeof proposed)[number]; code: string }[] = [];
+    const rejected: { relation: (typeof proposed)[number]; code: string }[] =
+      [];
     for (const r of proposed) {
       const alreadyRejected = (
         await c.query(
           `SELECT 1 FROM claim_relation_rejections WHERE workspace_id=$1 AND from_article_id=$2 AND from_revision=$3 AND from_anchor=$4 AND to_article_id=$5 AND to_revision=$6 AND to_anchor=$7 AND relation=$8`,
-          [ws, r.from.articleId, r.from.revision, r.from.anchor, r.target.articleId, r.target.revision, r.target.anchor, r.relation],
+          [
+            ws,
+            r.from.articleId,
+            r.from.revision,
+            r.from.anchor,
+            r.target.articleId,
+            r.target.revision,
+            r.target.anchor,
+            r.relation,
+          ],
         )
       ).rowCount;
       if (alreadyRejected) {
@@ -800,7 +880,14 @@ async function runValidateStep(owner: string, ws: string, task: any) {
           r.from.articleId,
           r.from.revision,
           randomUUID(),
-          [{ anchor: r.from.anchor, relation: r.relation, target: r.target, evidence: r.evidence }],
+          [
+            {
+              anchor: r.from.anchor,
+              relation: r.relation,
+              target: r.target,
+              evidence: r.evidence,
+            },
+          ],
           new Set(),
           false,
           true,
@@ -834,11 +921,17 @@ async function runPublishStep(owner: string, ws: string, task: any) {
         from: { articleId: string; revision: number; anchor: string };
         relation: "supersedes" | "retracts" | "contradicts" | "supports";
         target: { articleId: string; revision: number; anchor: string };
-        evidence: { sourceId: string; revision: 1; lines: [number, number]; quote: string }[];
+        evidence: {
+          sourceId: string;
+          revision: 1;
+          lines: [number, number];
+          quote: string;
+        }[];
       }[];
       rejected: unknown[];
     };
-    const inboxIds: string[] = (task.steps.model.output.inboxTouched as string[]) ?? [];
+    const inboxIds: string[] =
+      (task.steps.model.output.inboxTouched as string[]) ?? [];
     if (!passed.length && !inboxIds.length) {
       const steps: Record<StepName, StepState> = { ...task.steps };
       steps.publish = { status: "skipped", attempts: 0 };
@@ -847,68 +940,82 @@ async function runPublishStep(owner: string, ws: string, task: any) {
     }
     let publicationId: string | null = null;
     if (passed.length) {
-    try {
-      publicationId = randomUUID();
-      await c.query(
-        "INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason) VALUES($1,$2,$3,$4,$5,$6)",
-        [
-          publicationId,
-          ws,
-          // Keyed on what this run actually gathered, not on a counter. attempt
-          // only advances on a restart after an error, so a rerun triggered by
-          // new claims reused the finished run's key and died on the
-          // publications unique index. The gather hash also makes the key
-          // honestly idempotent: identical input publishes once, changed input
-          // publishes again.
+      try {
+        // Keyed on what this run actually gathered, not on a counter. attempt
+        // only advances on a restart after an error, so a rerun triggered by new
+        // claims reused the finished run's key and died on the publications
+        // unique index. The gather hash also makes the key honestly idempotent:
+        // identical input publishes once, changed input publishes again.
+        const idempotencyKey =
           "consolidation-" +
-            task.id +
-            "-" +
-            task.attempt +
-            "-" +
-            String(task.steps.gather?.input_hash ?? "no-hash").slice(0, 32),
-          hash(JSON.stringify(passed)),
-          JSON.stringify({
-            type: "agent",
-            client: "consolidation-worker",
-            model: task.config.provider + ":" + task.config.model,
-            actorId: owner,
-          }),
-          "통합 · " + task.topic_key,
-        ],
-      );
-      const groups = new Map<string, typeof passed>();
-      for (const r of passed) {
-        const key = r.from.articleId + " " + r.from.revision;
-        (groups.get(key) ?? groups.set(key, []).get(key)!).push(r);
+          task.id +
+          "-" +
+          task.attempt +
+          "-" +
+          String(task.steps.gather?.input_hash ?? "no-hash").slice(0, 32);
+        // An honest key still needs the lookup that goes with it. If the publish
+        // committed and the Job then failed before recording it, the bare INSERT
+        // hit the unique index and the Step could only fail again. Reuse the row
+        // instead; storeClaimRelations below is ON CONFLICT DO NOTHING, so
+        // replaying it writes nothing new.
+        const prior = (
+          await c.query(
+            "SELECT id FROM publications WHERE workspace_id=$1 AND idempotency_key=$2",
+            [ws, idempotencyKey],
+          )
+        ).rows[0];
+        const publicationRowId: string = prior?.id ?? randomUUID();
+        publicationId = publicationRowId;
+        if (!prior)
+          await c.query(
+            "INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason) VALUES($1,$2,$3,$4,$5,$6)",
+            [
+              publicationRowId,
+              ws,
+              idempotencyKey,
+              hash(JSON.stringify(passed)),
+              JSON.stringify({
+                type: "agent",
+                client: "consolidation-worker",
+                model: task.config.provider + ":" + task.config.model,
+                actorId: owner,
+              }),
+              "통합 · " + task.topic_key,
+            ],
+          );
+        const groups = new Map<string, typeof passed>();
+        for (const r of passed) {
+          const key = r.from.articleId + " " + r.from.revision;
+          (groups.get(key) ?? groups.set(key, []).get(key)!).push(r);
+        }
+        for (const [key, relations] of groups) {
+          const [articleId, revisionStr] = key.split(" ");
+          await storeClaimRelations(
+            c,
+            ws,
+            articleId,
+            Number(revisionStr),
+            publicationRowId,
+            relations.map((r) => ({
+              anchor: r.from.anchor,
+              relation: r.relation,
+              target: r.target,
+              evidence: r.evidence,
+            })),
+            new Set(),
+            false,
+            false,
+            true, // automaticProducer: consolidation-worker, subject to FEEDBACK_REQUIRES_HUMAN
+          );
+        }
+      } catch (e) {
+        if (e instanceof AppError) {
+          await restartJob(c, ws, task.id, task.attempt, e.code);
+          return;
+        }
+        throw e;
       }
-      for (const [key, relations] of groups) {
-        const [articleId, revisionStr] = key.split(" ");
-        await storeClaimRelations(
-          c,
-          ws,
-          articleId,
-          Number(revisionStr),
-          publicationId,
-          relations.map((r) => ({
-            anchor: r.from.anchor,
-            relation: r.relation,
-            target: r.target,
-            evidence: r.evidence,
-          })),
-          new Set(),
-          false,
-          false,
-          true, // automaticProducer: consolidation-worker, subject to FEEDBACK_REQUIRES_HUMAN
-        );
-      }
-    } catch (e) {
-      if (e instanceof AppError) {
-        await restartJob(c, ws, task.id, task.attempt, e.code);
-        return;
-      }
-      throw e;
-    }
-    await refreshWikiPages(c, ws);
+      await refreshWikiPages(c, ws);
     }
     if (inboxIds.length)
       await c.query(
@@ -992,7 +1099,8 @@ export async function runConsolidation(
           Date.now() - new Date(job.created_at).getTime() >= 10 * 60 * 1000;
         if (busy && !waitedLongEnough) return null;
       }
-      const fallbackActive = !!settings.fallback_active_since && !!baseConfig.fallback;
+      const fallbackActive =
+        !!settings.fallback_active_since && !!baseConfig.fallback;
       const config = effectiveModelConfig(baseConfig, fallbackActive);
       const active = (
         await c.query(
@@ -1004,7 +1112,8 @@ export async function runConsolidation(
       const secret = decryptSecret(settings.encrypted_key);
       const gateKey = modelGateKey(config.baseUrl, secret);
       const leaseSeconds = leaseSecondsFor(config);
-      const steps: Record<StepName, StepState> = Object.keys(job.steps ?? {}).length
+      const steps: Record<StepName, StepState> = Object.keys(job.steps ?? {})
+        .length
         ? job.steps
         : freshSteps();
       // gather/validate/publish never call the model: only the model Step
@@ -1020,7 +1129,11 @@ export async function runConsolidation(
             [ws],
           )
         ).rows[0].n;
-        if (baseConfig.dailyCalls !== null && calls >= baseConfig.dailyCalls && job.trigger !== "manual")
+        if (
+          baseConfig.dailyCalls !== null &&
+          calls >= baseConfig.dailyCalls &&
+          job.trigger !== "manual"
+        )
           return null;
       }
       await c.query(
@@ -1042,25 +1155,28 @@ export async function runConsolidation(
     const step = nextPendingStep(task.steps);
     try {
       if (step === "gather") await runGatherStep(owner, ws, task);
-      else if (step === "model") await runModelStep(owner, ws, task, signal, modelCall);
+      else if (step === "model")
+        await runModelStep(owner, ws, task, signal, modelCall);
       else if (step === "validate") await runValidateStep(owner, ws, task);
       else if (step === "publish") await runPublishStep(owner, ws, task);
-      else
-        await tx(owner, ws, (c) => advanceJob(c, ws, task.id, task.steps));
+      else await tx(owner, ws, (c) => advanceJob(c, ws, task.id, task.steps));
     } catch (e) {
       // e.name on a pg error is the literal "error", which recorded a useless
       // code and left the Job retrying every minute with the cause invisible.
       // Carry the SQLSTATE when there is one and log the message either way.
       const sqlState =
-        e && typeof e === "object" && typeof (e as { code?: unknown }).code === "string" &&
+        e &&
+        typeof e === "object" &&
+        typeof (e as { code?: unknown }).code === "string" &&
         /^[0-9A-Z]{5}$/.test((e as { code: string }).code)
           ? (e as { code: string }).code
           : null;
-      const code = e instanceof AppError
-        ? e.code
-        : sqlState
-          ? "CONSOLIDATION_DB_" + sqlState
-          : "CONSOLIDATION_STEP_FAILED";
+      const code =
+        e instanceof AppError
+          ? e.code
+          : sqlState
+            ? "CONSOLIDATION_DB_" + sqlState
+            : "CONSOLIDATION_STEP_FAILED";
       // This retried every 60 seconds for ever with no counter — the general
       // form of the model-Step bug that reached 73 attempts. A DB error that
       // has not cleared in twelve tries is not going to.
