@@ -52,7 +52,8 @@ async function consolidateClaim(
       `SELECT a.*,cl.anchor FROM articles a JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
      WHERE a.workspace_id=$1 AND a.deleted_at IS NULL AND (SELECT count(*) FROM claims siblings WHERE siblings.workspace_id=a.workspace_id AND siblings.article_id=a.id AND siblings.revision=a.revision)=1 AND a.kind=$2 AND cl.text=$3 AND cl.subject=$4 AND cl.scope=$5 AND cl.type=$6 AND (${effectiveClaimState("cl")})=$7
      AND NOT EXISTS(SELECT 1 FROM revisions r WHERE r.workspace_id=a.workspace_id AND r.article_id=a.id AND r.revision=a.revision AND r.publication_id=$8)
-     ORDER BY a.created_at,a.id LIMIT 2`,
+     AND a.topic_key=$9
+     ORDER BY a.created_at,a.id LIMIT 1`,
       [
         ws,
         change.kind,
@@ -62,10 +63,18 @@ async function consolidateClaim(
         incoming.type,
         incoming.state,
         publicationId,
+        // Same topic only. The claim belongs on this chunk's page; merging it
+        // into another topic's article would move it off the page it was
+        // extracted for.
+        change.topic?.key ?? "",
       ],
     )
   ).rows;
-  if (matches.length !== 1) return change; // Ambiguous existing duplicates need review.
+  // Two duplicates used to be treated as ambiguous, so a third copy was
+  // created and the reader saw the same sentence three times. There is nothing
+  // ambiguous about it: the ORDER BY is a total order, so attach to the oldest
+  // — the same one the single-match path would have picked.
+  if (!matches.length) return change;
   const article = matches[0];
   const claims = (
     await c.query(

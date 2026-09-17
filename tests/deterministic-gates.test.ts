@@ -285,3 +285,86 @@ test("AI_INFERENCE_NOT_CURRENT stops an automatic publish of an adopted interpre
   const result = await publishAutomatic([ok]);
   assert.equal(result.items.length, 1);
 });
+
+// Two existing duplicates were treated as ambiguous, so a third copy was made
+// and the reader saw the same sentence three times. Production had 29 such
+// groups. The ORDER BY is a total order; there is nothing to disambiguate.
+test("an identical automatic claim merges into the existing one, but not across topics", async () => {
+  const content = "같은 문장이 여러 번 도착해도 지식은 하나다";
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const src = await source([
+      JSON.stringify({ event: 1, field: '["payload","role"]', text: "user" }),
+      JSON.stringify({ event: 1, field: '["payload","content"]', text: content }),
+    ]);
+    const result = await publishAutomatic([
+      decisionChange("a", "merge-topic", src.id, 2, src.lines[1], content),
+    ]);
+    ids.push(result.items[0].id);
+  }
+  assert.equal(new Set(ids).size, 1, "one knowledge id, got " + ids.join(", "));
+  const copies = await admin.query(
+    `SELECT count(*)::int n FROM articles a JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
+     WHERE a.workspace_id=$1 AND a.topic_key='merge-topic' AND a.deleted_at IS NULL AND cl.text=$2`,
+    [ws, content],
+  );
+  assert.equal(copies.rows[0].n, 1, "no second copy of the claim");
+  // Another topic keeps its own copy: the claim belongs on the page it was
+  // extracted for, and merging across topics would move it off that page.
+  const otherSource = await source([
+    JSON.stringify({ event: 1, field: '["payload","role"]', text: "user" }),
+    JSON.stringify({ event: 1, field: '["payload","content"]', text: content }),
+  ]);
+  const other = await publishAutomatic([
+    decisionChange("a", "merge-other-topic", otherSource.id, 2, otherSource.lines[1], content),
+  ]);
+  assert.notEqual(other.items[0].id, ids[0]);
+
+  // Now the state that produced the third copies: two identical claims already
+  // in the same topic. The old rule called that ambiguous and made a third.
+  const twin = randomUUID(),
+    twinPub = randomUUID();
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','twin')`,
+    [twinPub, ws, twinPub],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,$3,$3,'memory',1,'merge-topic')",
+    [twin, ws, content],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,$3,$3,'{}',$4)",
+    [ws, twin, content, twinPub],
+  );
+  await admin.query(
+    "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,'decision',$3,'user_decision',$4,'production','current')",
+    [ws, twin, content, "gate-subject-merge-topic"],
+  );
+  const twinSource = await source([
+    JSON.stringify({ event: 1, field: '["payload","role"]', text: "user" }),
+    JSON.stringify({ event: 1, field: '["payload","content"]', text: content }),
+  ]);
+  await admin.query(
+    "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,1,'decision',$3,1,2,2,$4)",
+    [ws, twin, twinSource.id, twinSource.lines[1]],
+  );
+  const third = await source([
+    JSON.stringify({ event: 1, field: '["payload","role"]', text: "user" }),
+    JSON.stringify({ event: 1, field: '["payload","content"]', text: content }),
+  ]);
+  const merged = await publishAutomatic([
+    decisionChange("a", "merge-topic", third.id, 2, third.lines[1], content),
+  ]);
+  assert.equal(
+    merged.items[0].id,
+    ids[0],
+    "merges into the oldest duplicate instead of making a third",
+  );
+  const after = await admin.query(
+    `SELECT count(*)::int n FROM articles a JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
+     WHERE a.workspace_id=$1 AND a.topic_key='merge-topic' AND a.deleted_at IS NULL AND cl.text=$2`,
+    [ws, content],
+  );
+  assert.equal(after.rows[0].n, 2, "still the two that existed, no third");
+});
