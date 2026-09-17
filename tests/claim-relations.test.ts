@@ -343,9 +343,12 @@ test("history follows fixed revisions even when the replacement is another versi
   invalid.changes[0].baseRevision = 2;
   relate(invalid, id);
   invalid.changes[0].claimRelations[0].target.revision = 3;
+  // The fixture's own name for this is "잘못된 자기 참조": the claim points at
+  // itself. CLAIM_RELATION_SELF names that directly, where CLAIM_TARGET_NOT_PRIOR
+  // only said the target was not an earlier change.
   assert.equal(
     (await call("POST", "/publications", invalid)).json().error,
-    "CLAIM_TARGET_NOT_PRIOR",
+    "CLAIM_RELATION_SELF",
   );
 });
 
@@ -411,3 +414,4 @@ test("a jobless conversation-kind source counts as unprocessed for recall and qu
   assert.equal(overview.status, "not_found_with_unprocessed_inputs");
   assert.equal(overview.hasUnprocessedInputs, true);
 });
+

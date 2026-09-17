@@ -1120,8 +1120,11 @@ test("an oversized topic sends what fits and schedules the rest", async () => {
       );
     }
   const sent: number[] = [];
+  const subjectsSent: string[][] = [];
   const counting: any = async (_c: any, _s: any, messages: any[]) => {
-    sent.push(JSON.parse(messages[1].content).groups.length);
+    const groups = JSON.parse(messages[1].content).groups;
+    sent.push(groups.length);
+    subjectsSent.push(groups.map((g: any) => g.subject).sort());
     return {
       output: { relations: [], leaveUnresolved: [] },
       usage: { total_tokens: 20 },
@@ -1154,4 +1157,23 @@ test("an oversized topic sends what fits and schedules the rest", async () => {
     "only the groups actually judged are remembered as settled",
   );
   assert.ok(job.steps.gather.output.deferredGroups > 0);
+
+  // The follow-up must carry on, not start over. The rerun reuses this same
+  // row, so the Job stops being 'completed' and a lookup that only reads
+  // completed Jobs finds nothing: the groups just judged would reopen, fit the
+  // budget again, and the rest would be deferred for ever.
+  for (let i = 0; i < 10 && sent.length < 2; i++) {
+    await admin.query(
+      "UPDATE consolidation_jobs SET available_at=now() WHERE workspace_id=$1 AND status='pending'",
+      [ws4],
+    );
+    await runConsolidation(owner, signal, counting);
+    await sleep(600);
+  }
+  assert.equal(sent.length, 2, "the deferred groups are asked about");
+  assert.deepEqual(
+    subjectsSent[0].filter((s) => subjectsSent[1].includes(s)),
+    [],
+    "the second request repeats nothing from the first",
+  );
 });

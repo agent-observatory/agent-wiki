@@ -71,6 +71,8 @@ type Relation = {
   producer_client?: string | null;
   published_at?: string | null;
 };
+// MUST match claimKey in packages/core/src/wiki-page.ts, which is what the
+// snapshot's cluster membership is written with.
 function claimKey(c: ClaimRef) {
   return `${c.article_id}:${c.revision}:${c.anchor}`;
 }

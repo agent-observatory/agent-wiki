@@ -44,6 +44,17 @@ export async function addClaimRelation(
       )
     ).rows[0],
   );
+  // A claim cannot stand in any relation to itself. Checked on the refs the
+  // caller passed, not after the fact: republishChange bumps FROM to a new
+  // revision first, so by the time storeClaimRelations sees it the two refs no
+  // longer look identical and a self-supersedes would retire the claim on its
+  // own authority.
+  if (
+    input.from.articleId === input.to.articleId &&
+    input.from.revision === input.to.revision &&
+    input.from.anchor === input.to.anchor
+  )
+    throw new AppError(400, "CLAIM_RELATION_SELF");
   // The FROM claim must be the article's current Version: republishChange
   // always republishes the current content, so a stale ref here would
   // silently attach the relation to different claims than the caller saw.

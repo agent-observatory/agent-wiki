@@ -275,6 +275,18 @@ test("relation add publishes a corrective Version of FROM and stores the relatio
   // Nothing proposed a relation between a and b yet; both are still current.
   const beforeA = await detail(a.id);
   assert.equal(claimByAnchor(beforeA, "decision").state, "current");
+  // A claim cannot stand in any relation to itself. Nothing rejected this, and
+  // a self-supersedes passed every other gate and then made
+  // effectiveClaimState retire the claim on its own authority.
+  const self = await call("POST", "/claim-relations/add", {
+    from: { articleId: a.id, revision: 1, anchor: "decision" },
+    to: { articleId: a.id, revision: 1, anchor: "decision" },
+    relation: "supersedes",
+    client: "claude",
+    reason: "테스트: 자기 자신을 대체할 수는 없다",
+  });
+  assert.equal(self.statusCode, 400, self.body);
+  assert.equal(self.json().error, "CLAIM_RELATION_SELF");
   const added = await call("POST", "/claim-relations/add", {
     from: { articleId: b.id, revision: 1, anchor: "decision" },
     to: { articleId: a.id, revision: 1, anchor: "decision" },

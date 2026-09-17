@@ -48,12 +48,18 @@ export type SupportCluster = {
   representative: PageClaim;
   members: PageClaim[];
 };
+// MUST match the web's own claimKey in
+// apps/agent-wiki-web/components/wiki/knowledge-claims.tsx. The snapshot
+// carries cluster membership as these strings, and the web looks each one up
+// in a map it builds with its own key — a different separator made every
+// lookup miss, so the page text folded and the list on screen did not. Pinned
+// in tests/wiki-page.test.ts.
 export function claimKey(c: {
   article_id: string;
   revision: number;
   anchor: string;
 }) {
-  return c.article_id + "|" + c.revision + "|" + c.anchor;
+  return c.article_id + ":" + c.revision + ":" + c.anchor;
 }
 // Consolidation's dominant verdict is `supports`, and a page that prints every
 // member of a support chain shows the reader the same assertion five times.

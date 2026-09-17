@@ -227,3 +227,52 @@ test("wiki output nested in result blocks is omitted, and a named wiki tool too"
   );
   assert.deepEqual(kept.omitted, []);
 });
+
+// The gate must fire on the wiki being RUN, never on its name appearing. The
+// repository directory, the Kubernetes namespace and the CLI file all carry
+// the name, so a substring match would have blanked most of the agent's real
+// tool output — exactly the observations the wiki is supposed to keep.
+test("the echo gate matches a wiki invocation, not the wiki's name", () => {
+  const row = (event: number, field: (string | number)[], text: string) =>
+    JSON.stringify({ event, field: JSON.stringify(field), text });
+  const claude = (command: string) =>
+    curationInput(
+      [
+        row(1, ["payload", "content", 0, "id"], "c1"),
+        row(1, ["payload", "content", 0, "input", "command"], command),
+        row(2, ["payload", "content", 0, "tool_use_id"], "c1"),
+        row(2, ["payload", "content", 0, "content"], "도구 출력"),
+      ].join("\n"),
+    ).omitted.length > 0;
+  const codex = (args: string) =>
+    curationInput(
+      [
+        row(1, ["payload", "type"], "function_call"),
+        row(1, ["payload", "call_id"], "c1"),
+        row(1, ["payload", "arguments"], args),
+        row(2, ["payload", "type"], "function_call_output"),
+        row(2, ["payload", "call_id"], "c1"),
+        row(2, ["payload", "output"], "도구 출력"),
+      ].join("\n"),
+    ).omitted.length > 0;
+  for (const command of [
+    "agent-wiki pages",
+    "cd /repo && agent-wiki review conflicts",
+    "node packages/agent-wiki-client/cli/agent-wiki.mjs pages",
+    "npx agent-wiki search x",
+  ])
+    assert.ok(claude(command), "should be omitted: " + command);
+  for (const command of [
+    "cd /Users/x/github/agent-wiki && git status",
+    "kubectl -n agent-wiki get pods",
+    "cat packages/agent-wiki-client/cli/agent-wiki.mjs",
+    "ls /Users/x/github/agent-wiki",
+  ])
+    assert.ok(!claude(command), "should be kept: " + command);
+  // Codex wraps every call as ["bash","-lc","<command>"] inside arguments.
+  assert.ok(codex('{"command":["bash","-lc","agent-wiki recall --project x"]}'));
+  assert.ok(
+    !codex('{"command":["bash","-lc","cd /repo/agent-wiki && npm test"]}'),
+  );
+  assert.ok(codex('{"command":["bash","-lc","cd /r && node cli/agent-wiki.mjs pages"]}'));
+});

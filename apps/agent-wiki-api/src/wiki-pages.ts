@@ -121,7 +121,7 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       references,
     );
     const snapshot = {
-      assemblyVersion: "topic-sections-6",
+      assemblyVersion: "topic-sections-7",
       claims,
       relations,
       references,

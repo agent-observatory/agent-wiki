@@ -113,10 +113,30 @@ export function prepareProposal(
       // and regenerating forever. supports and contradicts carry no such rule
       // and were being thrown away with them: the demotion is about who
       // asserted the claim, not about whether it agrees with another one.
+      // contradicts toward a user_decision goes too: the server refuses it
+      // (DECISION_AUTHORITY_MISMATCH), that refusal fails the whole publish,
+      // and regenerating only makes the model propose it again until the chunk
+      // is parked and its claims are lost. Measured twice in production the
+      // day this rule shipped.
+      const targetType = (target: any) => {
+        if (!target) return undefined;
+        if ("clientRef" in target)
+          return result.changes
+            .find((item) => item.clientRef === target.clientRef)
+            ?.claims.find((c) => c.anchor === target.anchor)?.type;
+        return input.related.find(
+          (a: any) =>
+            a.id === target.articleId &&
+            a.revision === target.revision &&
+            a.anchor === target.anchor,
+        )?.type;
+      };
       const dropped = change.claimRelations.filter(
         (r) =>
           downgraded.has(r.anchor) &&
-          ["supersedes", "retracts"].includes(r.relation),
+          (["supersedes", "retracts"].includes(r.relation) ||
+            (r.relation === "contradicts" &&
+              targetType(r.target) === "user_decision")),
       );
       if (dropped.length) {
         diagnostics.droppedRelations = [
@@ -124,14 +144,15 @@ export function prepareProposal(
           ...dropped.map((r) => ({
             anchor: r.anchor,
             relation: r.relation,
-            reason: "CLAIM_REPLACEMENT_NOT_CURRENT",
+            reason:
+              r.relation === "contradicts"
+                ? "DECISION_AUTHORITY_MISMATCH"
+                : "CLAIM_REPLACEMENT_NOT_CURRENT",
           })),
         ];
       }
       change.claimRelations = change.claimRelations.filter(
-        (r) =>
-          !downgraded.has(r.anchor) ||
-          !["supersedes", "retracts"].includes(r.relation),
+        (r) => !dropped.includes(r),
       );
     }
     if (change.articleId || change.baseRevision || change.supersedes.length)

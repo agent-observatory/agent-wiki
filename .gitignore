@@ -22,3 +22,8 @@ __pycache__/
 # Installed copy; canonical Skill is distributed in packages/agent-wiki-client/skill
 .agents/skills/agent-wiki/
 .claude/skills/agent-wiki/
+
+# Scratch probes against the production database; never part of the product.
+*.scratch.mjs
+*.scratch.ts
+*.scratch.json

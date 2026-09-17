@@ -15,7 +15,45 @@ type Omission = {
 // tool output is exactly what a legitimate observation cites, and `kubectl get
 // pods` and `agent-wiki pages` are both tool output. So cut the loop at the
 // one place it is decidable — the command that produced it.
-const WIKI_COMMAND = /(^|[\s;&|/])agent-wiki(\s|$)|agent-wiki\.mjs/;
+// Only in command position. A substring match blanked `cd /repo/agent-wiki &&
+// git status`, `kubectl -n agent-wiki get pods` and `cat .../agent-wiki.mjs` —
+// the repository directory, the Kubernetes namespace and the file itself all
+// carry the name, so most of the agent's real tool output would have gone.
+const WIKI_BINARY = /(^|\/)agent-wiki(\.mjs)?$/;
+// Wrappers that run the next token rather than being the command themselves.
+const RUNNERS = new Set([
+  "node",
+  "npx",
+  "bun",
+  "deno",
+  "sudo",
+  "env",
+  "time",
+  // Codex wraps every call as ["bash","-lc","<command>"].
+  "bash",
+  "sh",
+  "zsh",
+]);
+function runsWikiCli(text: string) {
+  let command = text;
+  try {
+    const parsed = JSON.parse(text);
+    const inner = parsed?.command ?? parsed?.cmd;
+    if (Array.isArray(inner)) command = inner.join(" ");
+    else if (typeof inner === "string") command = inner;
+  } catch {}
+  for (const segment of command.split(/;|\n|&&|\|\||\|/)) {
+    const tokens = segment.trim().split(/\s+/).filter(Boolean);
+    for (const token of tokens) {
+      // Shell wrappers and their flags, plus leading VAR=value assignments.
+      if (RUNNERS.has(token) || /^-/.test(token) || /^[A-Z_][A-Z0-9_]*=/.test(token))
+        continue;
+      if (WIKI_BINARY.test(token.replace(/^["']|["']$/g, ""))) return true;
+      break;
+    }
+  }
+  return false;
+}
 // A tool named for the wiki rather than a shell command that runs it.
 const WIKI_TOOL_NAME = /(^|_)agent[-_]wiki(_|$)/;
 // The path up to and including its last array index: one tool call or one
@@ -46,10 +84,16 @@ function wikiCallIds(originalLines: string[]) {
   for (const own of fields.values()) {
     const ran = [...own.entries()].some(
       ([relative, text]) =>
-        (['["input","command"]', '["arguments"]', '["input","cmd"]'].includes(
-          relative,
-        ) &&
-          WIKI_COMMAND.test(text)) ||
+        ([
+          '["input","command"]',
+          '["arguments"]',
+          '["input","cmd"]',
+          // Codex writes the whole call here, as JSON or as raw text.
+          '["input"]',
+          '["payload","input"]',
+          '["payload","arguments"]',
+        ].includes(relative) &&
+          runsWikiCli(text)) ||
         (['["name"]', '["payload","name"]'].includes(relative) &&
           WIKI_TOOL_NAME.test(text)),
     );

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   renderWikiPage,
   supportClusters,
+  claimKey,
   type PageClaim,
 } from "../packages/core/src/wiki-page.js";
 const a: PageClaim = {
@@ -199,5 +200,16 @@ test("folding never crosses subject or scope, and ignores a self-edge", () => {
   assert.deepEqual(
     selfEdge.map((c) => [c.representative.anchor, c.members.map((m) => m.anchor)]),
     [["a", ["b"]]],
+  );
+});
+
+// The snapshot carries cluster membership as these exact strings and the web
+// looks each one up in a map built with its own claimKey. A different
+// separator made every lookup miss: the page text folded, the list on screen
+// did not, and nothing failed. Pin the format on this side.
+test("claimKey matches the format the web builds its lookup with", () => {
+  assert.equal(
+    claimKey({ article_id: "a1", revision: 2, anchor: "x-y" }),
+    "a1:2:x-y",
   );
 });

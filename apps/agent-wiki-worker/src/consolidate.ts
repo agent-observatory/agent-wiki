@@ -198,6 +198,12 @@ export function groupFingerprint(g: Group) {
 // too: the CLI is how consolidation actually runs today, so exempting manual
 // would leave the re-billing exactly as it was. Re-judging a settled group
 // needs a real change to it, not a repeated request.
+export function settledOf(steps: Record<StepName, StepState> | undefined) {
+  const output = steps?.gather?.output as
+    | { groupHashes?: string[] }
+    | undefined;
+  return output?.groupHashes ?? [];
+}
 export async function settledGroupHashes(
   c: PoolClient,
   ws: string,
@@ -462,11 +468,22 @@ async function advanceJob(
   // A trigger that arrived while this Job was open only set rerun_requested
   // (docs/l2-l3-memory.md#job과-step); roll straight into a fresh gather
   // instead of waiting for a separate pick.
-  if (done && row?.rerun_requested)
+  if (done && row?.rerun_requested) {
+    // Carry the fingerprints forward. This rerun reuses the same row, so the
+    // Job stops being 'completed' and settledGroupHashes — which reads the
+    // last completed Job — would find nothing: every group this run just
+    // judged would reopen, the same ones would fit the budget again, and the
+    // rest would be deferred for ever, one model call per lap.
+    const carried: Record<StepName, StepState> = freshSteps();
+    carried.gather = {
+      ...carried.gather,
+      output: { groupHashes: settledOf(steps) },
+    };
     await c.query(
       "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='gather',rerun_requested=false,result=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2",
-      [ws, jobId, JSON.stringify(freshSteps())],
+      [ws, jobId, JSON.stringify(carried)],
     );
+  }
 }
 // A Job that ends in failure used to drop rerun_requested on the floor. A
 // manual trigger that arrived while the Job was running is absorbed into that
@@ -476,12 +493,20 @@ async function advanceJob(
 async function failJob(c: PoolClient, ws: string, jobId: string, code: string) {
   const row = (
     await c.query(
-      "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running' RETURNING rerun_requested,topic_key",
+      "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running' RETURNING rerun_requested,topic_key,trigger",
       [ws, jobId, code],
     )
   ).rows[0];
+  // Same trigger the lost request had. A cycle Job's rerun flag is not a
+  // person asking, and reviving it as manual would bypass the auto flag and
+  // the daily limit.
   if (row?.rerun_requested && row.topic_key)
-    await scheduleConsolidation(c, ws, row.topic_key, "manual");
+    await scheduleConsolidation(
+      c,
+      ws,
+      row.topic_key,
+      row.trigger === "manual" ? "manual" : "deferred",
+    );
 }
 async function restartJob(
   c: PoolClient,
@@ -502,7 +527,10 @@ async function restartJob(
 
 async function runGatherStep(owner: string, ws: string, task: any) {
   await tx(owner, ws, async (c) => {
-    const settled = await settledGroupHashes(c, ws, task.topic_key);
+    const settled = new Set([
+      ...settledOf(task.steps),
+      ...(await settledGroupHashes(c, ws, task.topic_key)),
+    ]);
     const all = await gatherTopic(c, ws, task.topic_key, settled);
     // The model Step sends the whole topic in one request and never measured
     // it, so a topic that outgrew the input budget could only fail at the
@@ -530,8 +558,12 @@ async function runGatherStep(owner: string, ws: string, task: any) {
     };
     // Ask again for what did not fit. The Job is still running, so this only
     // flags a rerun, which advanceJob rolls into a fresh gather when it ends.
+    // Keep this Job's own trigger. Asking again for what did not fit is the
+    // machine finishing its own work, and scheduling it as "manual" would hand
+    // it the exemptions a person's request carries: the enabled flag, the auto
+    // flag, the daily call limit and the extraction-in-progress veto.
     if (deferredGroups.length)
-      await scheduleConsolidation(c, ws, task.topic_key, "manual");
+      await scheduleConsolidation(c, ws, task.topic_key, task.trigger);
     if (!gathered.groups.length) {
       steps.model = { status: "skipped", attempts: 0 };
       steps.validate = { status: "skipped", attempts: 0 };

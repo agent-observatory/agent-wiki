@@ -102,6 +102,15 @@ export async function storeClaimRelations(
       ).rows[0];
       if (!from || !target || target.deleted_at)
         throw new AppError(400, "CLAIM_RELATION_TARGET_INVALID");
+      // A claim cannot stand in any relation to itself. Nothing rejected this,
+      // and a self-supersedes would pass every other gate and then make
+      // effectiveClaimState retire the claim on its own authority.
+      if (
+        relation.target.articleId === articleId &&
+        relation.target.revision === revision &&
+        relation.target.anchor === relation.anchor
+      )
+        throw new AppError(400, "CLAIM_RELATION_SELF");
       if (
         ["supersedes", "retracts", "contradicts"].includes(
           relation.relation,
@@ -271,6 +280,18 @@ export const effectiveClaimState = (alias: string) => `CASE
        AND ((done.to_article_id=cr.from_article_id AND done.to_revision=cr.from_revision AND done.to_anchor=cr.from_anchor
              AND NOT (cr.from_article_id=${alias}.article_id AND cr.from_revision=${alias}.revision AND cr.from_anchor=${alias}.anchor))
          OR (done.to_article_id=cr.to_article_id AND done.to_revision=cr.to_revision AND done.to_anchor=cr.to_anchor
+             AND NOT (cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor))))
+   -- Both ends must be adopted for the conflict to be the reader's problem.
+   -- An unconfirmed agent statement disagreeing with a verified observation is
+   -- not a contradiction in the knowledge, it is one assertion nobody has
+   -- adopted; flagging the observation for it pushed a claim the user had
+   -- confirmed out of the current list. Seen in production on a DeepSeek
+   -- reasoning observation.
+   AND EXISTS(SELECT 1 FROM claims other
+     WHERE other.workspace_id=cr.workspace_id AND other.state='current'
+       AND ((other.article_id=cr.from_article_id AND other.revision=cr.from_revision AND other.anchor=cr.from_anchor
+             AND NOT (cr.from_article_id=${alias}.article_id AND cr.from_revision=${alias}.revision AND cr.from_anchor=${alias}.anchor))
+         OR (other.article_id=cr.to_article_id AND other.revision=cr.to_revision AND other.anchor=cr.to_anchor
              AND NOT (cr.to_article_id=${alias}.article_id AND cr.to_revision=${alias}.revision AND cr.to_anchor=${alias}.anchor))))
    ) THEN 'conflicted'
  ELSE ${alias}.state END`;
