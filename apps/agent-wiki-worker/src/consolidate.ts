@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { PoolClient } from "pg";
 import { tx, AppError } from "../../../packages/core/src/db.js";
 import { hash } from "../../../packages/core/src/storage.js";
+import { inputTokenCounter } from "../../../packages/core/src/input-tokens.js";
 import { scheduleConsolidation } from "../../../packages/core/src/consolidation.js";
 import {
   aiConfig,
@@ -358,6 +359,29 @@ export async function gatherTopic(
   };
 }
 
+// One request per Job, as large as the budget allows. A single group that does
+// not fit on its own is still sent: splitting inside a group would ask the
+// model to judge a pair without the rest of its own subject, which is worse
+// than one provider error naming the real limit.
+async function fitGatherOutput(gathered: GatherOutput, config: any) {
+  const counter = await inputTokenCounter(config);
+  const limit = config.maxInputTokens;
+  const size = (groups: Group[]) =>
+    counter.count(
+      instruction + JSON.stringify(modelPrompt({ ...gathered, groups })),
+    );
+  if (!gathered.groups.length || size(gathered.groups) <= limit)
+    return { gathered, deferredGroups: [] as Group[] };
+  const taken: Group[] = [];
+  for (const group of gathered.groups) {
+    if (taken.length && size([...taken, group]) > limit) break;
+    taken.push(group);
+  }
+  return {
+    gathered: { ...gathered, groups: taken },
+    deferredGroups: gathered.groups.slice(taken.length),
+  };
+}
 function evidenceIndex(gathered: GatherOutput) {
   const map = new Map<string, EvidenceItem>();
   for (const g of gathered.groups)
@@ -463,15 +487,32 @@ async function restartJob(
 async function runGatherStep(owner: string, ws: string, task: any) {
   await tx(owner, ws, async (c) => {
     const settled = await settledGroupHashes(c, ws, task.topic_key);
-    const gathered = await gatherTopic(c, ws, task.topic_key, settled);
+    const all = await gatherTopic(c, ws, task.topic_key, settled);
+    // The model Step sends the whole topic in one request and never measured
+    // it, so a topic that outgrew the input budget could only fail at the
+    // provider. Take as many groups as fit and leave the rest unjudged — their
+    // fingerprints are not recorded, so the follow-up Job picks them up.
+    const { gathered, deferredGroups } = await fitGatherOutput(all, task.config);
     const steps: Record<StepName, StepState> = { ...task.steps };
     const inputHash = hash(JSON.stringify(gathered));
+    const deferredHashes = new Set(deferredGroups.map(groupFingerprint));
     steps.gather = {
       status: "done",
       attempts: steps.gather.attempts + 1,
       input_hash: inputHash,
-      output: { groupHashes: gathered.groupHashes ?? [] },
+      output: {
+        groupHashes: (all.groupHashes ?? []).filter(
+          (fingerprint) => !deferredHashes.has(fingerprint),
+        ),
+        ...(deferredGroups.length
+          ? { deferredGroups: deferredGroups.length }
+          : {}),
+      },
     };
+    // Ask again for what did not fit. The Job is still running, so this only
+    // flags a rerun, which advanceJob rolls into a fresh gather when it ends.
+    if (deferredGroups.length)
+      await scheduleConsolidation(c, ws, task.topic_key, "manual");
     if (!gathered.groups.length) {
       steps.model = { status: "skipped", attempts: 0 };
       steps.validate = { status: "skipped", attempts: 0 };

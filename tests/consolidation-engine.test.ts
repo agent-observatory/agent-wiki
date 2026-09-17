@@ -1055,3 +1055,103 @@ test("a second run over an unchanged topic asks the model nothing", async () => 
   assert.equal(second.status, "completed");
   assert.equal(second.steps.model.status, "skipped");
 });
+
+// The model Step sent a whole topic in one request and never measured it, so a
+// topic that outgrew the input budget could only fail at the provider. Take
+// what fits, leave the rest unjudged, and ask again.
+test("an oversized topic sends what fits and schedules the rest", async () => {
+  const ws4 = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    ws4,
+    owner,
+    "Input budget",
+  ]);
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      ws4,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        retryDelaySeconds: 5,
+        // The schema floor, on the slot that owns it. One subject fits under
+        // it, two do not.
+        primary: { ...defaults.primary, maxInputTokens: 12000 },
+      }),
+      encryptSecret("synthetic-budget"),
+    ],
+  );
+  const topic4 = "budget-topic";
+  const src4 = randomUUID(),
+    pub4 = randomUUID(),
+    art4 = randomUUID();
+  const long = "예산 검증 주장 ".repeat(400);
+  const key4 = ws4 + "/" + hash(long) + ".txt.gz";
+  await putSource(key4, long);
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'budget','conversation','synthetic',$5,$5,$3,1,$4,true)`,
+    [src4, ws4, key4, src4, hash(long)],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','budget')`,
+    [pub4, ws4, pub4],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'예산','본문','memory',1,$3)",
+    [art4, ws4, topic4],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'예산','본문','{}',$3)",
+    [ws4, art4, pub4],
+  );
+  for (const subject of ["budget-one", "budget-two", "budget-three"])
+    for (const anchor of ["a", "b"]) {
+      await admin.query(
+        "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$4,'user_decision',$5,'production','current')",
+        [ws4, art4, subject + "-" + anchor, long + subject + anchor, subject],
+      );
+      await admin.query(
+        "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,1,$3,$4,1,1,1,$5)",
+        [ws4, art4, subject + "-" + anchor, src4, long],
+      );
+    }
+  const sent: number[] = [];
+  const counting: any = async (_c: any, _s: any, messages: any[]) => {
+    sent.push(JSON.parse(messages[1].content).groups.length);
+    return {
+      output: { relations: [], leaveUnresolved: [] },
+      usage: { total_tokens: 20 },
+    };
+  };
+  const signal = new AbortController().signal;
+  await tx(owner, ws4, (c) => scheduleConsolidation(c, ws4, topic4, "manual"));
+  for (let i = 0; i < 8 && !sent.length; i++) {
+    await admin.query(
+      "UPDATE consolidation_jobs SET available_at=now() WHERE workspace_id=$1 AND status='pending'",
+      [ws4],
+    );
+    await runConsolidation(owner, signal, counting);
+    await sleep(600);
+  }
+  assert.equal(sent.length, 1, "one request");
+  assert.ok(
+    sent[0] < 3,
+    "the oversized topic is not sent whole, got " + sent[0] + " groups",
+  );
+  const job = (
+    await admin.query(
+      "SELECT steps,rerun_requested FROM consolidation_jobs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [ws4],
+    )
+  ).rows[0];
+  assert.equal(
+    job.steps.gather.output.groupHashes.length,
+    sent[0],
+    "only the groups actually judged are remembered as settled",
+  );
+  assert.ok(job.steps.gather.output.deferredGroups > 0);
+});
