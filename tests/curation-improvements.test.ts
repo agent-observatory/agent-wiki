@@ -342,7 +342,15 @@ test("demotion drops a replacement relation but keeps supports and contradicts",
           },
         ],
       },
-      related: [{ id: target.articleId, revision: 1, anchor: "old" }],
+      related: [
+        {
+          id: target.articleId,
+          revision: 1,
+          anchor: "old",
+          subject: "database-hosting",
+          scope: "production",
+        },
+      ],
     },
     diagnostics,
   );
@@ -356,5 +364,83 @@ test("demotion drops a replacement relation but keeps supports and contradicts",
   );
   assert.deepEqual(diagnostics.droppedRelations, [
     { anchor: "d", relation: "supersedes", reason: "CLAIM_REPLACEMENT_NOT_CURRENT" },
+  ]);
+});
+
+// subject and scope are the relation gate, and storeClaimRelations refusing a
+// cross-scope relation failed the whole publish — so one bad relation threw
+// away every claim in the chunk. One production chunk burned seven calls
+// regenerating and proposing it again before being parked, losing its claims.
+test("a relation whose ends disagree on scope is dropped, not allowed to fail the chunk", () => {
+  const text = "범위가 다른 대상에 관계를 건 주장";
+  const evidence = [{ recordId: "record-1" }];
+  const target = {
+    articleId: "00000000-0000-4000-8000-000000000009",
+    revision: 1,
+    anchor: "old",
+  };
+  const diagnostics: Record<string, unknown> = {};
+  const result = prepareProposal(
+    {
+      changes: [
+        {
+          clientRef: "a",
+          topic: { key: "scope-drop", title: "범위" },
+          title: "제목",
+          kind: "memory",
+          tags: [],
+          claims: [
+            {
+              anchor: "d",
+              text,
+              type: "observation",
+              subject: "database-hosting",
+              scope: "production",
+              state: "current",
+              evidence,
+            },
+          ],
+          claimRelations: [
+            { anchor: "d", relation: "supports", target, evidence },
+          ],
+        },
+      ],
+    },
+    {
+      source: {
+        id: "00000000-0000-4000-8000-000000000001",
+        revision: 1,
+        start: 1,
+        end: 1,
+        text,
+        roles: ["tool"],
+        omittedLines: [],
+        spans: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            start: 1,
+            end: 1,
+            offset: 0,
+          },
+        ],
+      },
+      // Same subject, different scope: the gate can never let this through and
+      // it can never become valid later either.
+      related: [
+        {
+          id: target.articleId,
+          revision: 1,
+          anchor: "old",
+          subject: "database-hosting",
+          scope: "local",
+        },
+      ],
+    },
+    diagnostics,
+  );
+  assert.equal(result.changes[0].claims.length, 1, "the claim survives");
+  assert.deepEqual(result.changes[0].claimRelations, []);
+  assert.deepEqual(diagnostics.droppedRelations, [
+    { anchor: "d", relation: "supports", reason: "CLAIM_SCOPE_MISMATCH" },
   ]);
 });

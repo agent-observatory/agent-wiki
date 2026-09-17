@@ -957,9 +957,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
         "",
         "AI_INVALID_JSON",
         "EVIDENCE_MISMATCH",
-        "CLAIM_SCOPE_MISMATCH",
         "AI_UNKNOWN_CLAIM_TARGET",
-        "CLAIM_REPLACEMENT_NOT_CURRENT",
       ][calls],
     );
     assert.ok(input.validationRetry.previousRunId);
@@ -975,20 +973,12 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
             content: quote,
             kind: "memory",
             claimRelations:
-              calls >= 3 && calls <= 5
+              calls === 3
                 ? [
                     {
                       anchor: "decision",
-                      // Call 5: an unconfirmed claim may not replace a decision.
-                      relation: calls === 5 ? "supersedes" : "supports",
-                      target:
-                        calls === 4
-                          ? { clientRef: "missing", anchor: "decision" }
-                          : {
-                              articleId: input.related[0].id,
-                              revision: input.related[0].revision,
-                              anchor: input.related[0].anchor,
-                            },
+                      relation: "supports",
+                      target: { clientRef: "missing", anchor: "decision" },
                       evidence: [
                         { sourceId, revision: 1, lines: [1, 1], quote },
                       ],
@@ -1019,7 +1009,14 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
       usage: { total_tokens: 10 },
     };
   };
-  for (let attempt = 0; attempt < 5; attempt++) {
+  // Two codes left this chain when the worker started dropping a cross-scope
+  // relation instead of letting it fail the publish: CLAIM_SCOPE_MISMATCH,
+  // which the worker now handles, and CLAIM_REPLACEMENT_NOT_CURRENT, which
+  // needs a target sharing subject and scope and so cannot be reached from
+  // this fixture's related context. Both gates stay pinned elsewhere —
+  // tests/claim-relations.test.ts, tests/claim-authoring.test.ts and the
+  // worker-side drop in tests/curation-improvements.test.ts.
+  for (let attempt = 0; attempt < 3; attempt++) {
     assert.equal(
       await runOne(owner, new AbortController().signal, model),
       true,
@@ -1052,9 +1049,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
       [
         "AI_INVALID_JSON",
         "EVIDENCE_MISMATCH",
-        "CLAIM_SCOPE_MISMATCH",
         "AI_UNKNOWN_CLAIM_TARGET",
-        "CLAIM_REPLACEMENT_NOT_CURRENT",
       ][attempt],
     );
     assert.equal(
@@ -1094,7 +1089,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
     );
   }
   assert.equal(await runOne(owner, new AbortController().signal, model), true);
-  assert.equal(calls, 6);
+  assert.equal(calls, 4);
   const final = await tx(owner, ws, async (c) => ({
     job: (
       await c.query(
@@ -1117,7 +1112,7 @@ test("invalid JSON, quotations, scope and missing targets regenerate without rep
   assert.deepEqual(final.evidence, [{ quote: raw }]);
   assert.deepEqual(
     final.runs.map((r) => r.status),
-    ["failed", "failed", "failed", "failed", "failed", "completed"],
+    ["failed", "failed", "failed", "completed"],
   );
   assert.equal(
     final.runs[1].output.changes[0].claims[0].evidence[0].quote,

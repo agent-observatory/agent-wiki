@@ -136,6 +136,53 @@ export function prepareProposal(
     }
     if (change.articleId || change.baseRevision || change.supersedes.length)
       throw new ModelError("AI_WHOLE_ARTICLE_REPLACEMENT_FORBIDDEN");
+    // subject and scope are the relation gate: storeClaimRelations refuses a
+    // relation whose ends disagree on either, and that refusal failed the whole
+    // publish, so one bad relation threw away every claim in the chunk. The
+    // chunk then regenerated and the model proposed it again — one production
+    // chunk burned seven calls that way before being parked, losing its claims
+    // for good. Unlike a moved target this can never become valid later, so it
+    // does not belong in the inbox either: drop the relation, keep the claims,
+    // and say so in the diagnostics.
+    const endOf = (anchor: string, target: any) => {
+      if ("clientRef" in target) {
+        const prior = result.changes.find(
+          (item) => item.clientRef === target.clientRef,
+        );
+        return prior?.claims.find((c) => c.anchor === target.anchor);
+      }
+      return input.related.find(
+        (a: any) =>
+          a.id === target.articleId &&
+          a.revision === target.revision &&
+          a.anchor === target.anchor,
+      );
+    };
+    const crossScope = change.claimRelations.filter((relation) => {
+      const from = change.claims.find((c) => c.anchor === relation.anchor);
+      const to = endOf(relation.anchor, relation.target);
+      return (
+        from &&
+        to &&
+        (!from.subject ||
+          !from.scope ||
+          from.subject !== to.subject ||
+          from.scope !== to.scope)
+      );
+    });
+    if (crossScope.length) {
+      diagnostics.droppedRelations = [
+        ...((diagnostics.droppedRelations as unknown[]) ?? []),
+        ...crossScope.map((r) => ({
+          anchor: r.anchor,
+          relation: r.relation,
+          reason: "CLAIM_SCOPE_MISMATCH",
+        })),
+      ];
+      change.claimRelations = change.claimRelations.filter(
+        (r) => !crossScope.includes(r),
+      );
+    }
     for (const relation of change.claimRelations) {
       // Only an adopted assertion replaces or withdraws an older one. Reject
       // here so the model regenerates instead of failing at publish.
