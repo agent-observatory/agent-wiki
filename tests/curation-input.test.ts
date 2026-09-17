@@ -117,3 +117,69 @@ test("explicit developer/system messages are omitted, including nested snapshots
     { start: 6, end: 7, reason: "agent_instructions" },
   ]);
 });
+
+// The wiki reading itself back. An agent that runs the Wiki CLI gets wiki
+// content in its tool output, that output is collected as L1, extracted as an
+// observation, and returns as knowledge: 87% of current claims once came from
+// the single session that built this wiki. The role gate cannot catch it —
+// tool output is exactly what a legitimate observation cites — so the loop is
+// cut at the command that produced it.
+test("wiki CLI output is omitted from curation input; other tool output is not", () => {
+  const row = (event: number, field: (string | number)[], text: string) =>
+    JSON.stringify({ event, field: JSON.stringify(field), text });
+  const wikiContent = "주장 5개 · K3s는 OCI VM 한 대에서 돈다";
+  const lines = [
+    row(1, ["payload", "content", 0, "type"], "tool_use"),
+    row(1, ["payload", "content", 0, "id"], "call-wiki"),
+    row(
+      1,
+      ["payload", "content", 0, "input", "command"],
+      "agent-wiki review conflicts",
+    ),
+    row(2, ["payload", "content", 0, "type"], "tool_result"),
+    row(2, ["payload", "content", 0, "tool_use_id"], "call-wiki"),
+    row(2, ["payload", "content", 0, "content"], wikiContent),
+    row(3, ["payload", "content", 0, "type"], "tool_use"),
+    row(3, ["payload", "content", 0, "id"], "call-kube"),
+    row(3, ["payload", "content", 0, "input", "command"], "kubectl get pods"),
+    row(4, ["payload", "content", 0, "type"], "tool_result"),
+    row(4, ["payload", "content", 0, "tool_use_id"], "call-kube"),
+    row(4, ["payload", "content", 0, "content"], "agent-wiki-worker Running"),
+  ];
+  const result = curationInput(lines.join("\n"));
+  assert.ok(
+    !result.text.includes(wikiContent),
+    "the wiki's own answer never reaches the model",
+  );
+  assert.ok(
+    result.text.includes("agent-wiki-worker Running"),
+    "a real observation is kept even when the wiki's name appears in it",
+  );
+  assert.deepEqual(result.omitted, [{ start: 1, end: 6, reason: "wiki_echo" }]);
+  assert.equal(
+    result.text.split("\n").length,
+    lines.length,
+    "absolute line numbers are preserved",
+  );
+});
+
+// The Codex shape pairs on call_id instead of tool_use_id.
+test("a Codex function call to the Wiki CLI is omitted the same way", () => {
+  const row = (event: number, field: (string | number)[], text: string) =>
+    JSON.stringify({ event, field: JSON.stringify(field), text });
+  const lines = [
+    row(1, ["payload", "type"], "function_call"),
+    row(1, ["payload", "call_id"], "c1"),
+    row(
+      1,
+      ["payload", "arguments"],
+      '{"command":["bash","-lc","node packages/agent-wiki-client/cli/agent-wiki.mjs pages"]}',
+    ),
+    row(2, ["payload", "type"], "function_call_output"),
+    row(2, ["payload", "call_id"], "c1"),
+    row(2, ["payload", "output"], "지식 목록 14개"),
+  ];
+  const result = curationInput(lines.join("\n"));
+  assert.ok(!result.text.includes("지식 목록 14개"));
+  assert.deepEqual(result.omitted, [{ start: 1, end: 6, reason: "wiki_echo" }]);
+});
