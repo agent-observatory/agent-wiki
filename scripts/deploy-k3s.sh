@@ -30,6 +30,14 @@ done
 rollback() {
  trap - ERR
  echo 'Application rollout failed; restoring previous app images.'
+ # The migration Job is deleted on the next deploy, so its Pod logs are the
+ # only record of why it timed out — print them before they are gone. A
+ # deploy that failed on a lock wait showed nothing but "timed out waiting
+ # for the condition" until someone SSHed in, and by then the Pod was gone.
+ echo '--- migration job state and logs ---'
+ k -n agent-wiki describe job/agent-wiki-migrate-${tag:0:12} 2>&1 | sed -n '/Events:/,$p' || true
+ k -n agent-wiki logs job/agent-wiki-migrate-${tag:0:12} --tail=60 2>&1 || true
+ echo '--- end migration logs ---'
  for role in api web worker; do
   k -n agent-wiki set image deployment/agent-wiki-$role agent-wiki-$role="ghcr.io/agent-observatory/agent-wiki-$role:$old_tag" || true
  done

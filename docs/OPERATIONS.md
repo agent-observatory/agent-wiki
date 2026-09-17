@@ -1299,3 +1299,15 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 - `PROMPT_VERSION`을 `remote-curation-19`로 올렸다. `ai_inference`를 `current`로 발행하지 못하게 한 서버 규칙이 그 전 실행과 구분되지 않았다.
 
 미해결로 남긴 것: 통합 model Step에 입력 예산 검사가 없다. 강등된 주장의 관계를 버린다(`curation-proposal.ts`). 근사 중복은 병합되지 않는다(정확 일치만). `failed` Job의 `rerun_requested`는 읽히지 않는다. 그리고 여전히 현재 주장의 87%가 이 위키를 만든 세션 자체에서 나온다.
+
+## 배포 실패가 이유를 말하지 않았다 (2026-09-17)
+
+`a734355` 배포에서 migration Job이 180초 안에 끝나지 않아 롤백됐다. CI 로그에는 `timed out waiting for the condition` 한 줄뿐이었고, 롤백이 Job을 정리한 뒤라 VM에 접속했을 때는 Pod도 로그도 없었다. 같은 커밋을 그대로 재실행하니 성공했다 — 스키마 변경이 없는 배포였으므로 원인은 그 순간의 잠금 대기이거나 이미지 준비 지연이다. **어느 쪽인지 확인할 방법이 없었다는 것이 진짜 문제다.**
+
+`scripts/deploy-k3s.sh`의 롤백 경로가 Job의 Events와 Pod 로그 60줄을 먼저 출력하도록 고쳤다. 다음 실패는 스스로를 설명한다.
+
+## knowledge-design 통합 재실행 — 픽스 확인 (2026-09-17)
+
+배포 후 `consolidate knowledge-design`을 1회 수동 실행했다. **1회차에 HTTP 200·`finish=stop`으로 완료**했다. 73회 시도하고도 못 하던 주제다. 관계 40개 반영·5개 규칙 거절.
+
+다만 반영된 40개가 **전부 `supports`**다. 전체 관계는 157개가 됐고 그중 `supports` 143 · `supersedes` 9 · `contradicts` 4 · `retracts` 1이다. 통합이 만들어내는 거의 유일한 판정이 "서로 뒷받침한다"이고, 화면에서는 아무것도 접히지 않는다. 통과한 관계의 근거를 열어보면 `✓ Compiled successfully` 같은 도구 출력이 인용돼 있다 — 자기 순환 수집의 잔재다. 파이프라인은 이제 돌지만, 그 산출물이 독자에게 주는 것은 아직 거의 없다.
