@@ -248,3 +248,40 @@ test("DECISION_EVIDENCE_NOT_USER accepts a decision citing a user line alongside
   const result = await publishAutomatic([change]);
   assert.equal(result.items.length, 1, "one user-authored citation is enough");
 });
+
+// The worker downgrades ai_inference/current in its own proposal validation,
+// but that rule lived only there — four such claims reached the wiki as
+// settled fact beside the user's own decisions before it existed. Enforced on
+// the server for the same reason DECISION_EVIDENCE_NOT_USER is: every
+// automatic publisher passes through here.
+test("AI_INFERENCE_NOT_CURRENT stops an automatic publish of an adopted interpretation", async () => {
+  const content = "정제 하네스는 게이트와 모델 판단을 분리한다는 해석";
+  const src = await source([content]);
+  const change = decisionChange(
+    "a",
+    "gate-inference-current",
+    src.id,
+    1,
+    src.lines[0],
+    content,
+  );
+  change.claims[0].type = "ai_inference";
+  await assert.rejects(
+    publishAutomatic([change]),
+    (e: any) => e.code === "AI_INFERENCE_NOT_CURRENT",
+  );
+  // The same claim as a proposal is fine: the assertion is worth keeping, its
+  // adoption is not the model's to claim.
+  const ok = decisionChange(
+    "a",
+    "gate-inference-proposed",
+    src.id,
+    1,
+    src.lines[0],
+    content,
+  );
+  ok.claims[0].type = "ai_inference";
+  ok.claims[0].state = "proposed";
+  const result = await publishAutomatic([ok]);
+  assert.equal(result.items.length, 1);
+});

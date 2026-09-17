@@ -327,6 +327,14 @@ export async function publish(
         !["author_statement", "agent_statement"].includes(claim.type)
       )
         throw new AppError(400, "EVIDENCE_REQUIRED");
+      // An AI interpretation is a proposal until a person adopts it. The
+      // worker downgrades this in its own proposal validation; enforced here
+      // too, for the same reason DECISION_EVIDENCE_NOT_USER lives on this
+      // side — every automatic publisher passes through here, and four such
+      // claims reached the wiki as settled fact before the worker-side
+      // downgrade existed.
+      if (automatic && claim.type === "ai_inference" && claim.state === "current")
+        throw new AppError(400, "AI_INFERENCE_NOT_CURRENT");
       for (const ev of claim.evidence) {
         if (!sources.has(ev.sourceId)) {
           const row = requireRow(

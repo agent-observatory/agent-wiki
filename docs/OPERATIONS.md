@@ -1323,3 +1323,7 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 ## 실패한 Job이 사람의 재실행 요청을 삼켰다 (2026-09-17)
 
 Job이 실행 중일 때 도착한 수동 트리거는 두 번째 Job을 만들지 않고 그 Job의 `rerun_requested`로 흡수된다. 그런데 `rerun_requested`는 Job이 **완료**될 때만 읽혔다. 그 Job이 실패하면 사람이 누른 요청은 아무 데도 남지 않고 사라졌다. 이제 실패 처리가 그 플래그를 확인하고 새 수동 Job을 만든다(고유 인덱스가 `pending`·`running`만 덮으므로 실패한 행 옆에 바로 만들 수 있다).
+
+## `ai_inference`가 `current`로 발행되는 것을 서버에서 막는다 (2026-09-17)
+
+"AI 해석은 사람이 채택하기 전까지 제안"이라는 규칙이 Worker의 제안 검증에만 있었다. 그 규칙이 생기기 전에 발행된 `ai_inference`·`current` 주장 4개가 지금도 사용자의 결정 옆에 확정 사실처럼 보인다. `DECISION_EVIDENCE_NOT_USER`를 서버에 둔 것과 같은 이유로 — 모든 자동 발행자가 여기를 지나간다 — `AI_INFERENCE_NOT_CURRENT`를 발행 경로에 추가했다. 기존 4개는 그대로 남아 있으며 별도 정정 대상이다.
