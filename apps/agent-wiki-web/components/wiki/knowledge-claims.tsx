@@ -13,6 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { When } from "./common";
+import { foldClaims, claimKeyOf } from "@/lib/clusters";
 // Structured claims list + lineage panel, drawn from the same Wiki Page
 // Version snapshot the markdown already used (no new API, no new storage).
 // docs/l2-l3-memory.md#knowledge-화면--현재-주장-목록과-리니지-패널.
@@ -71,11 +72,7 @@ type Relation = {
   producer_client?: string | null;
   published_at?: string | null;
 };
-// MUST match claimKey in packages/core/src/wiki-page.ts, which is what the
-// snapshot's cluster membership is written with.
-function claimKey(c: ClaimRef) {
-  return `${c.article_id}:${c.revision}:${c.anchor}`;
-}
+const claimKey = claimKeyOf;
 function relationRef(r: Relation, side: "from" | "to"): ClaimRef {
   return side === "from"
     ? {
@@ -183,22 +180,12 @@ export function KnowledgeClaims({
   // each support chain to one representative with a deterministic rule
   // (packages/core/src/wiki-page.ts); the list renders that decision rather
   // than re-deriving it. An older Version has no clusters and draws flat.
-  const clusters: { representative: string; members: string[] }[] =
-    snapshot.clusters ?? [];
-  const membersOf = new Map<string, any[]>();
-  const foldedInto = new Map<string, string>();
-  for (const cluster of clusters) {
-    const members = cluster.members
-      .map((k) => byKey.get(k))
-      .filter((c) => c && c.state === "current");
-    if (members.length) membersOf.set(cluster.representative, members);
-    for (const k of cluster.members) foldedInto.set(k, cluster.representative);
-  }
-  const foldedCount = [...membersOf.values()].reduce((n, m) => n + m.length, 0);
   const allCurrent = claims.filter((c) => c.state === "current");
-  const current = clusters.length
-    ? allCurrent.filter((c) => !foldedInto.has(claimKey(c)))
-    : allCurrent;
+  const {
+    rows: current,
+    membersOf,
+    foldedCount,
+  } = foldClaims(allCurrent, snapshot.clusters);
   const needle = filter.trim().toLowerCase();
   const matches = (c: any) =>
     !needle ||

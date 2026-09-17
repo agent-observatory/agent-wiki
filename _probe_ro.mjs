@@ -1,0 +1,12 @@
+import pg from "pg"; import { readFileSync } from "node:fs";
+const c = new pg.Client({ host: process.env.PG_ADMIN_HOST, port: Number(process.env.PG_ADMIN_PORT), database: process.env.PG_ADMIN_DATABASE, user: process.env.PG_ADMIN_USER, password: process.env.PG_ADMIN_PASSWORD, ssl: { ca: readFileSync(process.env.PG_ADMIN_SSLROOTCERT) } });
+await c.connect(); await c.query("SET default_transaction_read_only=on");
+const q = async (s, p=[]) => (await c.query(s, p)).rows;
+console.log("workspaces", await q("SELECT id,name FROM workspaces"));
+console.log("claims by ws", await q("SELECT workspace_id,count(*)::int n, count(DISTINCT subject)::int subjects FROM claims GROUP BY 1"));
+console.log("glossary", await q("SELECT count(*)::int n FROM articles WHERE kind='glossary' AND deleted_at IS NULL"));
+console.log("aliases nonempty", await q("SELECT count(*)::int n FROM articles WHERE cardinality(aliases)>0 AND deleted_at IS NULL"));
+console.log("runs with droppedRelations", await q("SELECT count(*)::int n, min(created_at) first, max(created_at) last FROM refinement_runs WHERE diagnostics ? 'droppedRelations'"));
+console.log("dropped sample", await q("SELECT id, job_id, chunk_index, status, error_code, diagnostics->'droppedRelations' d, created_at FROM refinement_runs WHERE diagnostics ? 'droppedRelations' ORDER BY created_at DESC LIMIT 3"));
+console.log("run columns", await q("SELECT column_name FROM information_schema.columns WHERE table_name='refinement_runs' ORDER BY ordinal_position"));
+await c.end();

@@ -1446,3 +1446,19 @@ Codex 원문 10개(6,036행)만 재추출해 **10개 작업 전부 완료**했�
 통합 기억이 실제로 작동한다: 같은 corpus를 다시 돌리면 열린 묶음이 115에서 5로, 다시 1로 줄어든다. 새 관계가 생기면 그 묶음의 지문이 한 번 바뀌므로 한 바퀴 더 도는 것이 정상이고, 그 뒤로는 변화가 없는 한 모델을 부르지 않는다.
 
 남은 것: `documentation` · `design` 두 주제의 cycle Job이 `auto=false`라 대기 중이다(정상). `diagnostics.droppedRelations`를 읽는 화면이 아직 없다. `subject` 갈라짐을 잇는 용어집은 비어 있다.
+
+## 화면의 접기를 실제 스냅샷으로 확인했다 (2026-09-17)
+
+접기 로직을 `apps/agent-wiki-web/lib/clusters.ts`로 꺼내 테스트 가능하게 만들고, **운영 Version 스냅샷 6개에 화면과 같은 코드를 그대로 돌렸다.**
+
+| 주제 | current | 화면 줄 | 접힌 수 |
+| --- | --- | --- | --- |
+| infrastructure | 456 | 390 | 66 |
+| collection | 135 | 117 | 18 |
+| knowledge-design | 134 | 105 | 29 |
+| documentation-conventions | 34 | 29 | 5 |
+| project-structure | 26 | 17 | 9 |
+| technology-selection | 17 | 17 | 0 |
+| **합계** | **802** | **675** | **127** |
+
+회귀 테스트는 구분자가 어긋난 형식으로 쓴 멤버십이 **아무것도 접지 않는다**는 것까지 고정한다 — 그게 하루 종일 조용히 실패하던 모습이다. 그리고 core의 `claimKey`와 웹의 `claimKeyOf`가 같은 문자열을 만드는지 테스트가 직접 비교한다.
