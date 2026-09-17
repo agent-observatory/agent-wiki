@@ -727,3 +727,109 @@ test("a rerun with new claims publishes under a new key instead of colliding", a
   ).rows[0].n;
   assert.equal(keys, 2, "the rerun published under its own key");
 });
+
+// Only the classified output errors were capped. An unclassified failure fell
+// through to the transient branch and retried forever: a production Job reached
+// 51 model attempts, spending a call each time, with the cause recorded only as
+// the generic CONSOLIDATION_MODEL_FAILED.
+test("an unclassified model failure stops at the attempt ceiling instead of retrying forever", async () => {
+  const capWs = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    capWs,
+    owner,
+    "Model attempt cap",
+  ]);
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      capWs,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        retryDelaySeconds: 5,
+      }),
+      encryptSecret("synthetic-cap"),
+    ],
+  );
+  const topic = "model-cap-topic";
+  await tx(owner, capWs, (c) => scheduleConsolidation(c, capWs, topic, "manual"));
+  // gather finds nothing to compare, so the model Step is never reached and the
+  // Job completes; seed two current claims so the model Step actually runs.
+  const src = randomUUID(),
+    pub = randomUUID(),
+    art = randomUUID();
+  const text = "모델 상한 검증 주장";
+  const key = capWs + "/" + hash(text) + ".txt.gz";
+  await putSource(key, text);
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'cap','conversation','synthetic',$5,$5,$3,1,$4,true)`,
+    [src, capWs, key, src, hash(text)],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','cap')`,
+    [pub, capWs, pub],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'상한','본문','memory',1,$3)",
+    [art, capWs, topic],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'상한','본문','{}',$3)",
+    [capWs, art, pub],
+  );
+  for (const anchor of ["a", "b"]) {
+    await admin.query(
+      "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$4,'user_decision','cap-subject','production','current')",
+      [capWs, art, anchor, text + " " + anchor],
+    );
+    await admin.query(
+      "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,1,$3,$4,1,1,1,$5)",
+      [capWs, art, anchor, src, text],
+    );
+  }
+  // An error the classifier does not recognise: not a ModelError, not zod.
+  const broken = async () => {
+    throw new TypeError("synthetic unclassified provider failure");
+  };
+  const signal = new AbortController().signal;
+  // Start one below the ceiling: the shared rate gate makes driving twelve real
+  // attempts slow, and what matters is that the twelfth stops rather than
+  // deferring again.
+  await runConsolidation(owner, signal, broken);
+  await admin.query(
+    `UPDATE consolidation_jobs
+     SET steps=jsonb_set(steps,'{model,attempts}','11'::jsonb), available_at=now()
+     WHERE workspace_id=$1`,
+    [capWs],
+  );
+  for (let i = 0; i < 20; i++) {
+    await admin.query(
+      "UPDATE consolidation_jobs SET available_at=now() WHERE workspace_id=$1",
+      [capWs],
+    );
+    await runConsolidation(owner, signal, broken);
+    const row = (
+      await admin.query(
+        "SELECT status FROM consolidation_jobs WHERE workspace_id=$1",
+        [capWs],
+      )
+    ).rows[0];
+    if (row.status === "failed") break;
+    await sleep(20);
+  }
+  const job = (
+    await admin.query(
+      "SELECT status,steps FROM consolidation_jobs WHERE workspace_id=$1",
+      [capWs],
+    )
+  ).rows[0];
+  assert.equal(job.status, "failed", "the Job stops instead of retrying forever");
+  assert.ok(
+    job.steps.model.attempts <= 12,
+    "attempts stay at or under the ceiling, got " + job.steps.model.attempts,
+  );
+});
