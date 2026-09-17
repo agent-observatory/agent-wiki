@@ -111,6 +111,27 @@ JOIN sources s ON s.id=e.source_id WHERE e.workspace_id=$1 GROUP BY 1 ORDER BY 2
 
 모델 4개를 모두 소진하고 `glm-5.2`로 넘어갔다. 오후에 고친 `enable_thinking` 해제 불가 건이 없었으면 여기서 정제가 멈췄다.
 
+### 다섯 번째 모델이 드러낸 두 가지
+
+전환 직후 `AI_OUTPUT_LIMIT`이 반복됐다. 길이 문제가 아니었다.
+
+```
+completion_tokens 16385   ← 상한 초과
+prompt_tokens      3276   ← 입력은 작다
+completion_tokens_details.reasoning_tokens 16384
+outputChars           0   ← 본문 0자
+```
+
+**출력 예산 전부가 추론에 들어가고 본문에 1토큰도 안 남았다.** 원인 두 개가 겹쳐 있었다.
+
+1. `response_format: {type:'json_object'}`가 `isAlibabaThinkingModel` 조건에 묶여 있었다. qwen3·deepseek-v4 계열만 JSON을 요청받고 **같은 엔드포인트의 다른 모델은 아무 지시 없이** 자유 서술을 했다. 코드 주석은 이미 "모든 호출자가 JSON 객체를 기대한다"고 적혀 있었는데 조건이 아는 계열로만 좁혀져 있었다. JSON 모드는 엔드포인트 능력이지 모델 계열 속성이 아니다. `isAlibabaEndpoint`로 바꿨다(`b181550`). **테스트가 이 버그를 고정하고 있었다** — "인식 못 하는 모델은 `response_format`을 안 받는다"를 명시적으로 검증했다.
+2. 그것만으로는 안 풀렸다. `reasoning: "default"`는 요청에 아무것도 넣지 않아 모델이 자기 기본값(추론 on)으로 돈다. `reasoning: "none"`으로 바꾸니 Hello의 완성 토큰이 **16,385 → 5, 추론 0**이 됐고, 막혀 있던 작업의 오류가 `AI_OUTPUT_LIMIT` → `AI_INVALID_OUTPUT`(재시도 대상)으로 바뀌었다. 설정 Version 76.
+
+교훈: **모델 슬롯의 `reasoning` 기본값은 모델마다 다른 뜻이다.** `default`는 "적당히"가 아니라 "제공자가 정한 대로"이며, 추론 모델에서는 출력 예산을 통째로 쓸 수 있다. 새 모델을 2번 슬롯에 걸 때는 Hello의 `completion_tokens_details.reasoning_tokens`를 확인한다.
+
+오늘 `AI_OUTPUT_LIMIT`을 재시도 목록에 넣은 것이 여기서 값을 했다. 세 번 재생성해 **세 번 다 같은 실패**라는 것이 드러나 "길이가 아니라 다른 문제"라는 신호가 됐다. 한 번 죽고 끝났으면 원인을 못 봤다.
+
+
 ### 남은 것
 
 - **평가용 세트가 없다.** corpus의 91%가 하네스를 만든 대화라 어떤 품질 측정도 그 순환을 잰다. 위키 이전의 오래된 세션을 골라 고정하고 다시 재야 한다.
