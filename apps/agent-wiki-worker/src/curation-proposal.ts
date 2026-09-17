@@ -223,6 +223,36 @@ export function prepareProposal(
       item.evidence = item.evidence.flatMap((e) =>
         originalEvidence(e, input.source.spans),
       );
+    // A relation may only cite evidence the FROM claim already carries. The
+    // server enforces it, and that refusal failed the whole publish and parked
+    // the chunk on the FIRST occurrence — the claims went with it. Same call as
+    // the cross-scope drop: the relation is the model's mistake, the claims are
+    // not, so drop the one and keep the others.
+    const ungrounded = change.claimRelations.filter((relation) => {
+      const from = change.claims.find((c) => c.anchor === relation.anchor);
+      if (!from) return false;
+      const cited = new Set(
+        from.evidence.map((e: any) =>
+          JSON.stringify([e.sourceId, e.revision, e.lines, e.quote]),
+        ),
+      );
+      return !relation.evidence.every((e: any) =>
+        cited.has(JSON.stringify([e.sourceId, e.revision, e.lines, e.quote])),
+      );
+    });
+    if (ungrounded.length) {
+      diagnostics.droppedRelations = [
+        ...((diagnostics.droppedRelations as unknown[]) ?? []),
+        ...ungrounded.map((r) => ({
+          anchor: r.anchor,
+          relation: r.relation,
+          reason: "CLAIM_RELATION_EVIDENCE_REQUIRED",
+        })),
+      ];
+      change.claimRelations = change.claimRelations.filter(
+        (r) => !ungrounded.includes(r),
+      );
+    }
   }
   const localHistory = normalizeLocalHistoryStates(result.changes);
   result.changes = localHistory.changes;

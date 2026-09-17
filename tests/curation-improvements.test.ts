@@ -444,3 +444,88 @@ test("a relation whose ends disagree on scope is dropped, not allowed to fail th
     { anchor: "d", relation: "supports", reason: "CLAIM_SCOPE_MISMATCH" },
   ]);
 });
+
+// A relation may only cite evidence the FROM claim already carries. The server
+// refusal failed the whole publish and parked the chunk on the FIRST
+// occurrence — the claims went with it, and nothing even retried.
+test("a relation citing evidence its claim does not have is dropped, not fatal", () => {
+  const text = "근거가 어긋난 관계를 단 주장";
+  const target = {
+    articleId: "00000000-0000-4000-8000-000000000009",
+    revision: 1,
+    anchor: "old",
+  };
+  const diagnostics: Record<string, unknown> = {};
+  const result = prepareProposal(
+    {
+      changes: [
+        {
+          clientRef: "a",
+          topic: { key: "evidence-drop", title: "근거" },
+          title: "제목",
+          kind: "memory",
+          tags: [],
+          claims: [
+            {
+              anchor: "d",
+              text,
+              type: "observation",
+              subject: "database-hosting",
+              scope: "production",
+              state: "current",
+              evidence: [{ recordId: "record-1" }],
+            },
+          ],
+          claimRelations: [
+            {
+              anchor: "d",
+              relation: "supports",
+              target,
+              // A different line of the same source: valid as a citation, but
+              // not one this claim carries.
+              evidence: [{ recordId: "record-2" }],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      source: {
+        id: "00000000-0000-4000-8000-000000000001",
+        revision: 1,
+        start: 1,
+        end: 2,
+        text: text + "\n두 번째 줄",
+        roles: ["tool", "tool"],
+        omittedLines: [],
+        spans: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            start: 1,
+            end: 2,
+            offset: 0,
+          },
+        ],
+      },
+      related: [
+        {
+          id: target.articleId,
+          revision: 1,
+          anchor: "old",
+          subject: "database-hosting",
+          scope: "production",
+        },
+      ],
+    },
+    diagnostics,
+  );
+  assert.equal(result.changes[0].claims.length, 1, "the claim survives");
+  assert.deepEqual(result.changes[0].claimRelations, []);
+  assert.deepEqual(diagnostics.droppedRelations, [
+    {
+      anchor: "d",
+      relation: "supports",
+      reason: "CLAIM_RELATION_EVIDENCE_REQUIRED",
+    },
+  ]);
+});

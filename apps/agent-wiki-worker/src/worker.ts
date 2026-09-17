@@ -103,6 +103,9 @@ export const OUTPUT_RETRY_CODES = [
   "AI_INVALID_OUTPUT",
   "CLAIM_RELATION_TARGET_INVALID",
   "AI_EVIDENCE_REFERENCE_INVALID",
+  // Backstop for publishers other than the extraction path, which now drops
+  // an ungrounded relation before it can fail the publish.
+  "CLAIM_RELATION_EVIDENCE_REQUIRED",
   "AI_TOPIC_REQUIRED",
   "AI_UNKNOWN_CLAIM_TARGET",
   "CURATION_CONTEXT_CHANGED",

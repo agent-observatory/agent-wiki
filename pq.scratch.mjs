@@ -1,0 +1,10 @@
+import pg from "pg"; import { readFileSync } from "node:fs";
+const c = new pg.Client({ host: process.env.PG_ADMIN_HOST, port: Number(process.env.PG_ADMIN_PORT||5432), database: process.env.PG_ADMIN_DATABASE, user: process.env.PG_ADMIN_USER, password: process.env.PG_ADMIN_PASSWORD, ssl: { ca: readFileSync(process.env.PG_ADMIN_SSLROOTCERT) } });
+await c.connect(); await c.query("SET default_transaction_read_only=on");
+const j = (await c.query(`SELECT status,count(*)::int n FROM refinement_jobs GROUP BY 1 ORDER BY 1`)).rows;
+const ch = (await c.query(`SELECT count(*)::int done FROM refinement_runs WHERE kind='curation' AND status='completed'`)).rows[0];
+const cl = (await c.query(`SELECT count(*)::int n FROM claims WHERE state='current'`)).rows[0];
+const calls = (await c.query(`SELECT count(*)::int n FROM refinement_runs WHERE created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`)).rows[0].n;
+const err = (await c.query(`SELECT error_code,count(*)::int n FROM refinement_runs WHERE status='failed' AND created_at>now()-interval '20 minutes' GROUP BY 1 ORDER BY 2 DESC`)).rows;
+console.log(new Date().toISOString().slice(11,19), JSON.stringify(j), "current", cl.n, "runs_today", calls, "err20m", JSON.stringify(err));
+await c.end();
