@@ -1279,3 +1279,23 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 ## 지식 용어·그림 논의
 
 2026-09-14. 사용자 요청으로 구현·배포를 보류하고 Claim(주장)·Decision(결정 유형)·Wiki Page(주제별 페이지) 용어를 제안했다. 당시 두 개의 개념 초안을 추가했다. 최종 구현에서는 `wiki-knowledge-model.svg` 하나로 통합했다. L1–L5 이름은 유지하고 L3 내부 저장 결과와 L2 처리 책임을 구분한다. SVG XML·문서 상대 링크와 PNG 렌더링의 글자·잘림을 확인했다. 실제 정제·DB·모델 호출·초기화는 수행하지 않았다.
+
+## 통합 model Step의 재시도가 한 번도 모델에 닿지 않았다 (2026-09-17)
+
+`knowledge-design` 주제의 Consolidation Job이 model Step에서 73회 시도하고도 실패만 반복했다. 오늘의 AI 호출 수가 84 → 102 → 120으로 계속 올라가서 무한 재시도를 먼저 막았고(`MAX_MODEL_ATTEMPTS = 12`), 그 뒤 실제 원인을 찾았다.
+
+- 진짜 실패는 **1회차 한 번뿐**이다. glm-5.2가 HTTP 200으로 응답했고 출력이 계약과 달라 `AI_INVALID_OUTPUT`이 됐다.
+- 2회차부터 71회는 **모델을 부르지도 않은 유령 시도**였다. HTTP 상태 없음·usage null·소요 0초.
+- 원인: gather는 결과를 `steps.model.output`에 넣는데, model Step의 실패 분기 두 곳이 `steps.model`을 새 객체 리터럴로 다시 만들면서 `output`을 떨어뜨렸다. 다음 시도는 `modelPrompt(undefined)`에서 TypeError로 죽었고, 분류기에는 ModelError도 ZodError도 아니어서 일반 버킷(`CONSOLIDATION_MODEL_FAILED`)으로만 남았다.
+- 즉 "출력 오류는 3회까지 새 응답을 받는다"는 규칙은 **한 번도 작동한 적이 없다**. 첫 출력 오류에서 사실상 Job이 죽는다.
+- 기존 회귀 테스트는 이 버그가 있어도 통과했다. mock이 `gathered`를 쓰기 전에 예외를 던져서, 2회차에 모델이 호출됐는지를 아무도 확인하지 않았다.
+
+함께 고친 것:
+
+- 재시도 시 `steps.model`을 spread로 보존한다. `output`이 없으면 모델을 부르지 않고 gather부터 다시 한다.
+- 호출 집계 기준인 `requestedAt`을 프롬프트 조립 **뒤**로 옮겼다. 프롬프트를 만들다 죽는 건 우리 버그이지 모델 호출이 아니다. 유령 71회가 오늘 호출 수에 들어가 있었다.
+- 실패한 run에 `detail`·`usage`·`schemaIssues`를 남긴다. 그 전에는 코드만 남아서 1회차의 진짜 원인을 지금도 알 수 없다.
+- `AppError`(`AI_ENDPOINT_NOT_ALLOWED`·`AI_REASONING_NOT_SUPPORTED`)를 분류에 추가했다. 맨 `TypeError`는 일부러 일반 버킷에 둔다. 추출처럼 `AI_CONNECTION_FAILED`로 매핑하면 프로그래밍 오류가 일시 오류로 위장해 조용히 재시도한다.
+- `PROMPT_VERSION`을 `remote-curation-19`로 올렸다. `ai_inference`를 `current`로 발행하지 못하게 한 서버 규칙이 그 전 실행과 구분되지 않았다.
+
+미해결로 남긴 것: 통합 model Step에 입력 예산 검사가 없다. 강등된 주장의 관계를 버린다(`curation-proposal.ts`). 근사 중복은 병합되지 않는다(정확 일치만). `failed` Job의 `rerun_requested`는 읽히지 않는다. 그리고 여전히 현재 주장의 87%가 이 위키를 만든 세션 자체에서 나온다.

@@ -73,7 +73,7 @@ import {
   modelResponded,
   retryDelay,
 } from "../../../packages/core/src/model-gate.js";
-export const PROMPT_VERSION = "remote-curation-18";
+export const PROMPT_VERSION = "remote-curation-19";
 // Subjects offered per topic. Bounds the model input; a healthy topic sits
 // well under this, and a topic that exceeds it is itself the signal to look.
 export const TOPIC_SUBJECT_LIMIT = 24;

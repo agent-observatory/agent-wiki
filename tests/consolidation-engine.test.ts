@@ -4,7 +4,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 import { pool, tx } from "../packages/core/src/db.js";
 import { putSource, hash } from "../packages/core/src/storage.js";
-import { defaults, encryptSecret } from "../packages/core/src/ai.js";
+import { defaults, encryptSecret, ModelError } from "../packages/core/src/ai.js";
 import { publish } from "../apps/agent-wiki-api/src/knowledge.js";
 import { runConsolidation } from "../apps/agent-wiki-worker/src/consolidate.js";
 import { scheduleConsolidation } from "../packages/core/src/consolidation.js";
@@ -831,5 +831,105 @@ test("an unclassified model failure stops at the attempt ceiling instead of retr
   assert.ok(
     job.steps.model.attempts <= 12,
     "attempts stay at or under the ceiling, got " + job.steps.model.attempts,
+  );
+});
+
+// The ceiling above stopped the bleeding; this pins the wound. gather leaves
+// its result in steps.model.output, and the failure branches used to rebuild
+// that step from a literal, dropping it. Every retry after the first then died
+// inside modelPrompt() with a TypeError before any HTTP call — so the
+// "three fresh responses" rule had never once produced a second response.
+test("a retry after a model failure still reaches the model with the gather result", async () => {
+  const ws2 = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    ws2,
+    owner,
+    "Model retry keeps gather",
+  ]);
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      ws2,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        retryDelaySeconds: 5,
+      }),
+      encryptSecret("synthetic-retry"),
+    ],
+  );
+  const topic2 = "model-retry-topic";
+  await tx(owner, ws2, (c) => scheduleConsolidation(c, ws2, topic2, "manual"));
+  const src2 = randomUUID(),
+    pub2 = randomUUID(),
+    art2 = randomUUID();
+  const text2 = "재시도 검증 주장";
+  const key2 = ws2 + "/" + hash(text2) + ".txt.gz";
+  await putSource(key2, text2);
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'retry','conversation','synthetic',$5,$5,$3,1,$4,true)`,
+    [src2, ws2, key2, src2, hash(text2)],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','retry')`,
+    [pub2, ws2, pub2],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'재시도','본문','memory',1,$3)",
+    [art2, ws2, topic2],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'재시도','본문','{}',$3)",
+    [ws2, art2, pub2],
+  );
+  for (const anchor of ["a", "b"]) {
+    await admin.query(
+      "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$4,'user_decision','retry-subject','production','current')",
+      [ws2, art2, anchor, text2 + " " + anchor],
+    );
+    await admin.query(
+      "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,1,$3,$4,1,1,1,$5)",
+      [ws2, art2, anchor, src2, text2],
+    );
+  }
+  // A classified output error: the retry path that is supposed to ask again.
+  const prompts: string[] = [];
+  const failing: any = async (_c: any, _s: any, messages: any[]) => {
+    prompts.push(messages[1].content);
+    throw new ModelError("AI_INVALID_JSON", false);
+  };
+  const signal = new AbortController().signal;
+  // The first tick only runs gather; the model Step follows, and the rate gate
+  // (120 rpm) holds the pick for half a second after each call, so wait it out.
+  for (let i = 0; i < 6 && prompts.length < 2; i++) {
+    await admin.query(
+      "UPDATE consolidation_jobs SET available_at=now() WHERE workspace_id=$1",
+      [ws2],
+    );
+    await runConsolidation(owner, signal, failing);
+    await sleep(600);
+  }
+  assert.ok(
+    prompts.length >= 2,
+    "the model is asked a second time, got " + prompts.length + " call(s)",
+  );
+  for (const p of prompts)
+    assert.ok(
+      JSON.parse(p).groups?.length > 0,
+      "each attempt carries the gathered groups",
+    );
+  const job2 = (
+    await admin.query(
+      "SELECT steps FROM consolidation_jobs WHERE workspace_id=$1",
+      [ws2],
+    )
+  ).rows[0];
+  assert.ok(
+    job2.steps.model.output?.groups?.length > 0,
+    "the gather result survives a failed model attempt",
   );
 });

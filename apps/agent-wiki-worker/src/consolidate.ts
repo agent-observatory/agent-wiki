@@ -418,8 +418,30 @@ async function runModelStep(
   signal: AbortSignal,
   modelCall: typeof callModel,
 ) {
-  const gathered = task.steps.model.output as GatherOutput;
+  const gathered = task.steps.model.output as GatherOutput | undefined;
   const config = task.config;
+  // The gather result lives in steps.model.output. A retry that lost it used
+  // to reach modelPrompt() below and die on a TypeError before any HTTP call,
+  // which the classifier could only record as the generic bucket: 71 such
+  // ghost attempts on one Job, each counted as a model call, none of them one.
+  // Re-gather instead. Cheap, deterministic, and it keeps the Job moving.
+  if (!gathered) {
+    await tx(owner, ws, async (c) => {
+      const steps: Record<StepName, StepState> = { ...task.steps };
+      steps.gather = { ...steps.gather, status: "pending" };
+      steps.model = { ...steps.model, status: "pending" };
+      await c.query(
+        "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='gather',available_at=now(),updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
+        [ws, task.id, JSON.stringify(steps)],
+      );
+    });
+    log("warn", "consolidation_gather_output_missing", {
+      job_id: task.id,
+      topic_key: task.topic_key,
+      attempts: task.steps.model.attempts,
+    });
+    return;
+  }
   const runId = randomUUID();
   const diagnostics: Record<string, unknown> = {
     version: 1,
@@ -448,12 +470,15 @@ async function runModelStep(
   let reportedUsage: Record<string, unknown> | undefined;
   try {
     await waitForModelSlot(owner, task.gateKey, callSignal, config.requestsPerMinute);
-    diagnostics.requestedAt = new Date().toISOString();
-    diagnostics.httpRequests = 1;
     const messages = [
       { role: "system", content: instruction },
       { role: "user", content: JSON.stringify(modelPrompt(gathered)) },
     ];
+    // After the prompt is built, not before: anything that throws while
+    // assembling it is our bug, not a model call, and must not land in the
+    // daily call count.
+    diagnostics.requestedAt = new Date().toISOString();
+    diagnostics.httpRequests = 1;
     const response = await modelCall(
       config,
       task.secret,
@@ -542,19 +567,33 @@ async function runModelStep(
       await advanceJob(c, ws, task.id, steps);
     });
   } catch (e) {
+    // A bare TypeError deliberately stays in the generic bucket. Mapping it to
+    // AI_CONNECTION_FAILED the way extraction does would make every
+    // programming error look transient and retry behind a reassuring name.
     const code =
       e instanceof ModelError
         ? e.code
-        : e instanceof z.ZodError
-          ? "AI_INVALID_OUTPUT"
-          : callSignal.aborted && !signal.aborted
-            ? "AI_TIMEOUT"
-            : signal.aborted
-              ? "WORKER_STOPPED"
-              : "CONSOLIDATION_MODEL_FAILED";
+        : e instanceof AppError
+          ? e.code
+          : e instanceof z.ZodError
+            ? "AI_INVALID_OUTPUT"
+            : callSignal.aborted && !signal.aborted
+              ? "AI_TIMEOUT"
+              : signal.aborted
+                ? "WORKER_STOPPED"
+                : "CONSOLIDATION_MODEL_FAILED";
     // The generic bucket above hides why. Carry the message so a repeated
     // failure names itself instead of retrying anonymously.
     const detail = e instanceof Error ? e.message.slice(0, 300) : undefined;
+    // Without these a failed run recorded a code and nothing else, so the one
+    // real failure in a retry chain could not be diagnosed after the fact.
+    diagnostics.detail = detail;
+    if (reportedUsage) diagnostics.usage = reportedUsage;
+    if (e instanceof z.ZodError)
+      diagnostics.schemaIssues = e.issues.slice(0, 20).map((i) => ({
+        path: i.path.join("."),
+        code: i.code,
+      }));
     const outputError = [
       "AI_INVALID_OUTPUT",
       "AI_INVALID_JSON",
@@ -574,7 +613,9 @@ async function runModelStep(
       const attempts = task.steps.model.attempts + 1;
       if (outputError && attempts < MAX_MODEL_STRIKES) {
         const steps: Record<StepName, StepState> = { ...task.steps };
-        steps.model = { status: "pending", attempts, error_code: code };
+        // Spread the existing step: a rebuilt literal dropped steps.model
+        // .output, which is where gather left its result.
+        steps.model = { ...steps.model, status: "pending", attempts, error_code: code };
         await c.query(
           "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='model',error_code=$4,available_at=now()+interval '30 seconds',updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
           [ws, task.id, JSON.stringify(steps), code],
@@ -603,7 +644,7 @@ async function runModelStep(
         ? await coolDownModel(c, owner, task.gateKey, e instanceof ModelError ? e.retryAfter : 0, config.retryDelaySeconds)
         : retryDelay(null, Math.random(), config.retryDelaySeconds);
       const steps: Record<StepName, StepState> = { ...task.steps };
-      steps.model = { status: "pending", attempts, error_code: code };
+      steps.model = { ...steps.model, status: "pending", attempts, error_code: code };
       await c.query(
         "UPDATE consolidation_jobs SET status='pending',steps=$3,current_step='model',error_code=$4,available_at=now()+make_interval(secs=>$5),updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
         [ws, task.id, JSON.stringify(steps), code, delay],
