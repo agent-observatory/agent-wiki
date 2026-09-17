@@ -1061,15 +1061,26 @@ export async function runConsolidation(
         : sqlState
           ? "CONSOLIDATION_DB_" + sqlState
           : "CONSOLIDATION_STEP_FAILED";
+      // This retried every 60 seconds for ever with no counter — the general
+      // form of the model-Step bug that reached 73 attempts. A DB error that
+      // has not cleared in twelve tries is not going to.
+      const attempts = (step ? (task.steps[step]?.attempts ?? 0) : 0) + 1;
       await tx(owner, ws, async (c) => {
+        if (attempts >= MAX_MODEL_ATTEMPTS) {
+          await failJob(c, ws, task.id, code);
+          return;
+        }
+        const steps: Record<StepName, StepState> = { ...task.steps };
+        if (step) steps[step] = { ...steps[step], attempts };
         await c.query(
-          "UPDATE consolidation_jobs SET status='pending',error_code=$3,available_at=now()+interval '60 seconds',updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
-          [ws, task.id, code],
+          "UPDATE consolidation_jobs SET status='pending',steps=$4,error_code=$3,available_at=now()+interval '60 seconds',updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
+          [ws, task.id, code, JSON.stringify(steps)],
         );
       });
       log("error", "consolidation_step_failed", {
         job_id: task.id,
         step,
+        attempts,
         error_code: code,
         // No user text here: a DB message names constraints and columns only.
         detail: e instanceof Error ? e.message.slice(0, 300) : undefined,
