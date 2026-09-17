@@ -87,6 +87,9 @@ export async function consolidationPlan(
 async function summarizeGroup(c: PoolClient, ws: string, g: Group) {
   return {
     subject: g.subject,
+    // The slugs a person joined into this subject, so the plan says what was
+    // merged instead of showing one name for two.
+    ...(g.aliases ? { aliases: g.aliases } : {}),
     scope: g.scope,
     claims: await Promise.all(
       g.claims.map(async (claim) => {
