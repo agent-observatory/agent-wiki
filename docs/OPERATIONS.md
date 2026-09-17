@@ -1319,3 +1319,7 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 실제로 버려야 하는 건 `supersedes`·`retracts`뿐이다 — 채택된 주장만 다른 주장을 대체·철회할 수 있으므로 강등된 주장의 대체 제안은 성립하지 않고, 그대로 두면 청크가 `CLAIM_REPLACEMENT_NOT_CURRENT`로 계속 재생성된다. `supports`·`contradicts`에는 그런 규칙이 없다. 강등은 **누가 말했는지**에 대한 판정이지 두 주장이 서로 어떤 관계인지에 대한 판정이 아닌데, 후자까지 같이 지우고 있었다.
 
 이제 대체 계열만 걸러내고 그 목록을 `diagnostics.droppedRelations`에 이유와 함께 남긴다.
+
+## 실패한 Job이 사람의 재실행 요청을 삼켰다 (2026-09-17)
+
+Job이 실행 중일 때 도착한 수동 트리거는 두 번째 Job을 만들지 않고 그 Job의 `rerun_requested`로 흡수된다. 그런데 `rerun_requested`는 Job이 **완료**될 때만 읽혔다. 그 Job이 실패하면 사람이 누른 요청은 아무 데도 남지 않고 사라졌다. 이제 실패 처리가 그 플래그를 확인하고 새 수동 Job을 만든다(고유 인덱스가 `pending`·`running`만 덮으므로 실패한 행 옆에 바로 만들 수 있다).

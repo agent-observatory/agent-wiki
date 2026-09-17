@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { PoolClient } from "pg";
 import { tx, AppError } from "../../../packages/core/src/db.js";
 import { hash } from "../../../packages/core/src/storage.js";
+import { scheduleConsolidation } from "../../../packages/core/src/consolidation.js";
 import {
   aiConfig,
   decryptSecret,
@@ -370,6 +371,26 @@ async function advanceJob(
       [ws, jobId, JSON.stringify(freshSteps())],
     );
 }
+// A Job that ends in failure used to drop rerun_requested on the floor. A
+// manual trigger that arrived while the Job was running is absorbed into that
+// flag rather than creating a second Job, so the person's request simply
+// vanished when the Job then failed. The partial unique index only covers
+// pending/running rows, so a fresh Job can be scheduled right here.
+async function failJob(
+  c: PoolClient,
+  ws: string,
+  jobId: string,
+  code: string,
+) {
+  const row = (
+    await c.query(
+      "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running' RETURNING rerun_requested,topic_key",
+      [ws, jobId, code],
+    )
+  ).rows[0];
+  if (row?.rerun_requested && row.topic_key)
+    await scheduleConsolidation(c, ws, row.topic_key, "manual");
+}
 async function restartJob(
   c: PoolClient,
   ws: string,
@@ -378,10 +399,7 @@ async function restartJob(
   code: string,
 ) {
   if (attempt >= MAX_JOB_RESTARTS) {
-    await c.query(
-      "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
-      [ws, jobId, code],
-    );
+    await failJob(c, ws, jobId, code);
     return;
   }
   await c.query(
@@ -623,10 +641,7 @@ async function runModelStep(
         return;
       }
       if (outputError) {
-        await c.query(
-          "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
-          [ws, task.id, code],
-        );
+        await failJob(c, ws, task.id, code);
         return;
       }
       // Every retry is capped, not only the classified output errors. An
@@ -634,10 +649,7 @@ async function runModelStep(
       // Job reached 51 model attempts, burning a call each time, with the cause
       // recorded only as the generic CONSOLIDATION_MODEL_FAILED.
       if (attempts >= MAX_MODEL_ATTEMPTS) {
-        await c.query(
-          "UPDATE consolidation_jobs SET status='failed',error_code=$3,updated_at=now(),lease_until=NULL WHERE workspace_id=$1 AND id=$2 AND status='running'",
-          [ws, task.id, code],
-        );
+        await failJob(c, ws, task.id, code);
         return;
       }
       const delay = transient

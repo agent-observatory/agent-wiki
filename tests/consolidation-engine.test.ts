@@ -800,9 +800,13 @@ test("an unclassified model failure stops at the attempt ceiling instead of retr
   // attempts slow, and what matters is that the twelfth stops rather than
   // deferring again.
   await runConsolidation(owner, signal, broken);
+  // Also stand in for a manual trigger that arrived while this Job was
+  // running: it is absorbed into rerun_requested rather than creating a second
+  // Job, and used to vanish when the Job then failed.
   await admin.query(
     `UPDATE consolidation_jobs
-     SET steps=jsonb_set(steps,'{model,attempts}','11'::jsonb), available_at=now()
+     SET steps=jsonb_set(steps,'{model,attempts}','11'::jsonb), available_at=now(),
+         rerun_requested=true
      WHERE workspace_id=$1`,
     [capWs],
   );
@@ -823,7 +827,7 @@ test("an unclassified model failure stops at the attempt ceiling instead of retr
   }
   const job = (
     await admin.query(
-      "SELECT status,steps FROM consolidation_jobs WHERE workspace_id=$1",
+      "SELECT status,steps FROM consolidation_jobs WHERE workspace_id=$1 AND status='failed'",
       [capWs],
     )
   ).rows[0];
@@ -832,6 +836,14 @@ test("an unclassified model failure stops at the attempt ceiling instead of retr
     job.steps.model.attempts <= 12,
     "attempts stay at or under the ceiling, got " + job.steps.model.attempts,
   );
+  const reran = (
+    await admin.query(
+      "SELECT trigger,status FROM consolidation_jobs WHERE workspace_id=$1 AND status='pending'",
+      [capWs],
+    )
+  ).rows;
+  assert.equal(reran.length, 1, "the pending rerun request survives the failure");
+  assert.equal(reran[0].trigger, "manual");
 });
 
 // The ceiling above stopped the bleeding; this pins the wound. gather leaves
