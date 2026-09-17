@@ -54,6 +54,10 @@ function SourcesContent() {
     router.push(`?${next}`, { scroll: false });
   }
   const jobs = useApi(base + "/refinements?" + query, 15000);
+  // Relations the gates could never accept, dropped so their claims could
+  // still be published. They used to exist only as a number in a diagnostics
+  // blob: nothing on screen, nothing to act on.
+  const review = useApi(base + "/review/conflicts", 60000);
   // Consolidation is the L2 stage after extraction (docs/l2-l3-memory.md
   // #통합--consolidation); its model calls already count in "오늘 모델 호출"
   // and 호출 이력, so its Job state belongs on this tab next to them.
@@ -319,6 +323,7 @@ function SourcesContent() {
                 onScheduled={consolidations.reload}
               />
               <RefinementHealth data={jobs.data.health} />
+              <DroppedRelations data={review.data} root={`/workspaces/${workspaceId}/knowledge`} />
               {!!jobs.data.runs.length && (
                 <Section id="curation-call-history" title="호출 이력">
                   <div className="divide-y border-y">
@@ -571,6 +576,65 @@ const stages: Record<string, string> = {
   publish: "지식 반영",
   completed: "완료",
 };
+// Read-only, like the rest of this page: the wiki shows what curation could
+// not do, and the fix is a CLI command the row names.
+function DroppedRelations({ data, root }: { data: any; root: string }) {
+  const items: any[] = data?.needsHuman ?? [];
+  if (!items.length) return null;
+  const byReason: Record<string, number> = data.needsHumanByReason ?? {};
+  return (
+    <Section
+      id="curation-needs-human"
+      title={`사람 판단이 필요한 관계 · ${items.length.toLocaleString()}`}
+    >
+      <div className="mb-3 flex flex-wrap gap-2">
+        {Object.entries(byReason).map(([code, n]) => (
+          <StatusBadge key={code} status="failed">
+            {reasons[code] ?? code} {n}
+          </StatusBadge>
+        ))}
+      </div>
+      <div className="divide-y border-y">
+        {items.slice(0, 20).map((r) => (
+          <div key={r.id} className="space-y-1 py-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status="failed">
+                {reasons[r.errorCode] ?? r.errorCode}
+              </StatusBadge>
+              <span className="text-muted-foreground">{r.relation}</span>
+              <span className="text-muted-foreground">
+                {r.from.subject} / {r.from.scope} → {r.to.subject} /{" "}
+                {r.to.scope}
+              </span>
+            </div>
+            <p className="break-words">
+              <a
+                className="underline underline-offset-2"
+                href={`${root}/${r.from.articleId}?revision=${r.from.revision}#${r.from.anchor}`}
+              >
+                {r.from.text.slice(0, 90)}
+              </a>
+            </p>
+            <p className="break-words text-muted-foreground">
+              <a
+                className="underline underline-offset-2"
+                href={`${root}/${r.to.articleId}?revision=${r.to.revision}#${r.to.anchor}`}
+              >
+                {r.to.text.slice(0, 90)}
+              </a>
+            </p>
+            <p className="text-muted-foreground">{r.suggestion?.hint}</p>
+          </div>
+        ))}
+      </div>
+      {items.length > 20 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {`상위 20건만 표시합니다. 전체는 agent-wiki review conflicts로 봅니다.`}
+        </p>
+      )}
+    </Section>
+  );
+}
 function RefinementHealth({ data }: { data: any }) {
   if (!data) return null;
   if (!data.errors.length) return null;

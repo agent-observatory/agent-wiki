@@ -145,8 +145,11 @@ export function prepareProposal(
         diagnostics.droppedRelations = [
           ...((diagnostics.droppedRelations as unknown[]) ?? []),
           ...dropped.map((r) => ({
+            clientRef: change.clientRef,
             anchor: r.anchor,
             relation: r.relation,
+            target: r.target,
+            evidence: r.evidence,
             reason:
               r.relation === "contradicts"
                 ? "DECISION_AUTHORITY_MISMATCH"
@@ -200,8 +203,11 @@ export function prepareProposal(
       diagnostics.droppedRelations = [
         ...((diagnostics.droppedRelations as unknown[]) ?? []),
         ...crossScope.map((r) => ({
+          clientRef: change.clientRef,
           anchor: r.anchor,
           relation: r.relation,
+          target: r.target,
+          evidence: r.evidence,
           reason: "CLAIM_SCOPE_MISMATCH",
         })),
       ];
@@ -270,8 +276,11 @@ export function prepareProposal(
       diagnostics.droppedRelations = [
         ...((diagnostics.droppedRelations as unknown[]) ?? []),
         ...ungrounded.map((r) => ({
+          clientRef: change.clientRef,
           anchor: r.anchor,
           relation: r.relation,
+          target: r.target,
+          evidence: r.evidence,
           reason: "CLAIM_RELATION_EVIDENCE_REQUIRED",
         })),
       ];

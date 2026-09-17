@@ -215,7 +215,7 @@ CREATE INDEX IF NOT EXISTS retrieval_events_trace ON retrieval_events(workspace_
 -- Consolidation (design in docs/l2-l3-memory.md): a relation-only publish
 -- failure carries its intended relation here instead of discarding the whole
 -- extraction; the next Consolidation Job for that topic resolves it.
-CREATE TABLE IF NOT EXISTS consolidation_inbox(workspace_id uuid NOT NULL,id uuid NOT NULL DEFAULT gen_random_uuid(),from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,source_run_id uuid,error_code text NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','resolved')),resolved_job_id uuid,created_at timestamptz NOT NULL DEFAULT now(),resolved_at timestamptz,PRIMARY KEY(workspace_id,id),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor));
+CREATE TABLE IF NOT EXISTS consolidation_inbox(workspace_id uuid NOT NULL,id uuid NOT NULL DEFAULT gen_random_uuid(),from_article_id uuid NOT NULL,from_revision int NOT NULL,from_anchor text NOT NULL,to_article_id uuid NOT NULL,to_revision int NOT NULL,to_anchor text NOT NULL,relation text NOT NULL CHECK(relation IN ('supersedes','retracts','contradicts','supports')),evidence jsonb NOT NULL,source_run_id uuid,error_code text NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','resolved','needs_human')),resolved_job_id uuid,created_at timestamptz NOT NULL DEFAULT now(),resolved_at timestamptz,PRIMARY KEY(workspace_id,id),FOREIGN KEY(workspace_id,from_article_id,from_revision,from_anchor) REFERENCES claims(workspace_id,article_id,revision,anchor));
 CREATE INDEX IF NOT EXISTS consolidation_inbox_pending ON consolidation_inbox(workspace_id,from_article_id) WHERE status='pending';
 -- One open Job (pending/running) per topic at a time; a Job is 4 Steps
 -- (gather/model/validate/publish) each independently tracked in `steps`.
@@ -289,6 +289,16 @@ DO $$ BEGIN
                  AND pg_get_constraintdef(oid) LIKE '%ON DELETE SET NULL%') THEN
     ALTER TABLE refinement_runs DROP CONSTRAINT IF EXISTS refinement_runs_job_id_fkey;
     ALTER TABLE refinement_runs ADD CONSTRAINT refinement_runs_job_id_fkey FOREIGN KEY(job_id) REFERENCES refinement_jobs(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+-- 'needs_human' is a relation the gates can never accept (a cross-scope pair,
+-- a citation the claim does not carry): not 'pending', which means "not judged
+-- yet", and not dropped in silence either.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='consolidation_inbox_status_check'
+                 AND pg_get_constraintdef(oid) LIKE '%needs_human%') THEN
+    ALTER TABLE consolidation_inbox DROP CONSTRAINT IF EXISTS consolidation_inbox_status_check;
+    ALTER TABLE consolidation_inbox ADD CONSTRAINT consolidation_inbox_status_check CHECK(status IN ('pending','resolved','needs_human'));
   END IF;
 END $$;
 DO $$ DECLARE t text; BEGIN

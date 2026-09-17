@@ -508,3 +508,109 @@ test("encrypted-only input finishes without an AI call and records the omitted c
   assert.equal(run.diagnostics.httpRequests, 0);
   assert.equal(run.usage.total_tokens, 0);
 });
+
+// A relation the gates can never accept is dropped so its claims can still be
+// published, and the reason used to live only as a number in a diagnostics
+// blob — nothing on screen, nothing to act on. It is recorded against the
+// claims that now exist, as needs_human so Consolidation does not send it back
+// to the model: this is not "unjudged", it is "impossible as proposed".
+test("a dropped relation becomes a reviewable row against the published claims", async () => {
+  const src = randomUUID(),
+    dropJob = randomUUID();
+  const text = Array.from({ length: 6 }, (_, i) =>
+    JSON.stringify({ event: 0, role: "user", text: "범위 폐기 검증 기록 " + i }),
+  ).join("\n");
+  const key = ws + "/" + hash(text) + ".txt.gz";
+  await putSource(key, text);
+  await tx(owner, ws, async (c) => {
+    await c.query(
+      "INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked) VALUES($1::uuid,$2,'drop','conversation','synthetic',$3,$3,$4,6,$5,true)",
+      [src, ws, hash(text), key, src],
+    );
+    await c.query(
+      "INSERT INTO refinement_jobs(id,workspace_id,source_id) VALUES($1,$2,$3)",
+      [dropJob, ws, src],
+    );
+    await c.query(
+      "UPDATE refinement_jobs SET available_at=now()+interval '1 day' WHERE workspace_id=$1 AND id<>$2 AND status='pending'",
+      [ws, dropJob],
+    );
+    // An earlier test in this file turns curation off; this one needs a call.
+    await c.query(
+      "UPDATE ai_settings SET config=jsonb_set(config,'{enabled}','true'),version=version+1 WHERE workspace_id=$1",
+      [ws],
+    );
+  });
+  await releaseGate();
+  // The two claims share a subject but not a scope, so the relation between
+  // them can never be stored — while both claims themselves are fine.
+  await runOne(owner, new AbortController().signal, async (_c, _k, m) => {
+    const input = JSON.parse(
+      z.object({ content: z.string() }).parse(m[1]).content,
+    );
+    const evidence = [{ recordId: input.source.records[0].recordId }];
+    const claim = (anchor: string, scope: string) => ({
+      anchor,
+      text: "범위 폐기 검증 주장 " + anchor,
+      type: "observation",
+      subject: "drop-subject",
+      scope,
+      state: "current",
+      evidence,
+    });
+    return {
+      output: {
+        changes: [
+          {
+            clientRef: "first",
+            topic: { key: "drop-topic", title: "폐기" },
+            title: "첫 주장",
+            kind: "memory",
+            claims: [claim("one", "production")],
+            claimRelations: [],
+          },
+          {
+            clientRef: "second",
+            topic: { key: "drop-topic", title: "폐기" },
+            title: "둘째 주장",
+            kind: "memory",
+            claims: [claim("two", "local")],
+            claimRelations: [
+              {
+                anchor: "two",
+                relation: "supports",
+                target: { clientRef: "first", anchor: "one" },
+                evidence,
+              },
+            ],
+          },
+        ],
+      },
+      usage: { total_tokens: 20 },
+    };
+  });
+  const rows = await tx(owner, ws, async (c) => ({
+    inbox: (
+      await c.query(
+        "SELECT status,error_code,relation,from_anchor,to_anchor FROM consolidation_inbox WHERE workspace_id=$1 AND status='needs_human' AND from_anchor='two'",
+        [ws],
+      )
+    ).rows,
+    claims: (
+      await c.query(
+        "SELECT count(*)::int AS n FROM claims cl JOIN evidence e USING(workspace_id,article_id,revision,anchor) WHERE e.source_id=$1",
+        [src],
+      )
+    ).rows[0].n,
+  }));
+  assert.equal(rows.claims, 2, "both claims are published");
+  assert.deepEqual(rows.inbox, [
+    {
+      status: "needs_human",
+      error_code: "CLAIM_SCOPE_MISMATCH",
+      relation: "supports",
+      from_anchor: "two",
+      to_anchor: "one",
+    },
+  ]);
+});

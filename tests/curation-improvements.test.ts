@@ -366,9 +366,12 @@ test("demotion drops a replacement relation but keeps supports and contradicts",
     ["contradicts", "supports"],
     "only the relations that require an adopted claim are dropped",
   );
-  assert.deepEqual(diagnostics.droppedRelations, [
-    { anchor: "d", relation: "supersedes", reason: "CLAIM_REPLACEMENT_NOT_CURRENT" },
-  ]);
+  // The entry also carries the target and evidence so the worker can record it
+  // against the published claims; assert what identifies it.
+  assert.deepEqual(
+    (diagnostics.droppedRelations as any[]).map((r) => [r.anchor, r.relation, r.reason]),
+    [["d", "supersedes", "CLAIM_REPLACEMENT_NOT_CURRENT"]],
+  );
 });
 
 // subject and scope are the relation gate, and storeClaimRelations refusing a
@@ -444,9 +447,10 @@ test("a relation whose ends disagree on scope is dropped, not allowed to fail th
   );
   assert.equal(result.changes[0].claims.length, 1, "the claim survives");
   assert.deepEqual(result.changes[0].claimRelations, []);
-  assert.deepEqual(diagnostics.droppedRelations, [
-    { anchor: "d", relation: "supports", reason: "CLAIM_SCOPE_MISMATCH" },
-  ]);
+  assert.deepEqual(
+    (diagnostics.droppedRelations as any[]).map((r) => [r.anchor, r.relation, r.reason]),
+    [["d", "supports", "CLAIM_SCOPE_MISMATCH"]],
+  );
 });
 
 // A relation may only cite evidence the FROM claim already carries. The server
@@ -525,13 +529,10 @@ test("a relation citing evidence its claim does not have is dropped, not fatal",
   );
   assert.equal(result.changes[0].claims.length, 1, "the claim survives");
   assert.deepEqual(result.changes[0].claimRelations, []);
-  assert.deepEqual(diagnostics.droppedRelations, [
-    {
-      anchor: "d",
-      relation: "supports",
-      reason: "CLAIM_RELATION_EVIDENCE_REQUIRED",
-    },
-  ]);
+  assert.deepEqual(
+    (diagnostics.droppedRelations as any[]).map((r) => [r.anchor, r.relation, r.reason]),
+    [["d", "supports", "CLAIM_RELATION_EVIDENCE_REQUIRED"]],
+  );
 });
 
 // The subject vocabulary is capped per topic, and the cap used to cut

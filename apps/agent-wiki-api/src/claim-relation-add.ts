@@ -102,5 +102,24 @@ export async function addClaimRelation(
     },
     { userId: identity.userId, scope },
   );
-  return { ok: true, publicationId: result.id };
+  // A relation the extraction had to drop is settled once a person adds it, so
+  // it leaves the review list instead of sitting there for ever.
+  const settled = await c.query(
+    `UPDATE consolidation_inbox SET status='resolved',resolved_at=now()
+     WHERE workspace_id=$1 AND status='needs_human' AND relation=$2
+       AND from_anchor=$3 AND to_article_id=$4 AND to_revision=$5 AND to_anchor=$6`,
+    [
+      ws,
+      input.relation,
+      input.from.anchor,
+      input.to.articleId,
+      input.to.revision,
+      input.to.anchor,
+    ],
+  );
+  return {
+    ok: true,
+    publicationId: result.id,
+    ...(settled.rowCount ? { resolvedNeedsHuman: settled.rowCount } : {}),
+  };
 }
