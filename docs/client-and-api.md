@@ -171,7 +171,18 @@ macOS는 기기당 launchd 하나로 기본 10분마다 실행한다. `intervalM
 | 키 발급 | `agent-wiki api POST /keys --file key-request.json --secret-output private-key.json` |
 | 자동 반영된 관계 되돌리기 | `agent-wiki relation reject --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes\|retracts\|contradicts\|supports --client claude --reason "..."` |
 | 주제 하나 지금 통합 | `agent-wiki consolidate TOPIC_KEY` |
+| 대상이 있는 주제를 한꺼번에 | `agent-wiki consolidate --all` |
+| 무엇을 비교할지 미리 보기(모델 호출 0회) | `agent-wiki consolidate plan [TOPIC_KEY\|--all]` |
 | 통합 Job·Step 상태 확인 | `agent-wiki consolidate status [TOPIC_KEY]` |
+| 사람이 볼 검수 큐(충돌·대기함·미해결) | `agent-wiki review conflicts [--topic KEY]` |
+| 뒤집힌 결정 철회 | `agent-wiki claim retire ID/REVISION/ANCHOR --reason "..."` |
+| 사용자가 직접 주장 쓰기 | `agent-wiki claim assert --topic KEY --subject SLUG --scope SCOPE --text "..." [--supersedes ID/REVISION/ANCHOR]` |
+| 관계 직접 연결 | `agent-wiki relation add --from ID/REVISION/ANCHOR --to ID/REVISION/ANCHOR --relation supersedes\|retracts\|contradicts\|supports --client claude --reason "..."` |
+| 정제 안 된 원문을 큐에 넣기 | `agent-wiki curation queue [--source ID ...]` |
+
+`claim retire`·`claim assert`·`relation add`는 사용자의 말도 L1에 넣는다. CLI가 `feedback:<로그인>` origin의 짧은 note 원문을 먼저 등록하고 그것을 근거로 주장을 발행하므로 새 `type`도 새 테이블도 없고 "모든 주장은 근거를 갖는다"가 유지된다. 자동 발행(추출·통합)은 그렇게 만들어진 주장을 `supersedes`·`retracts` 할 수 없다(`FEEDBACK_REQUIRES_HUMAN`). 이견은 `contradicts`로 남고 사람이 판정한다.
+
+`curation queue`는 지식을 건드리지 않고 작업 행만 넣는다. 범위를 좁힌 `rebuild`가 남긴 원문이 다시 정제되는 유일한 경로이며, `rebuild`는 L3를 지우므로 피드백 주장까지 사라진다.
 
 계약은 [통합 · Consolidation](l2-l3-memory.md#통합--consolidation--구현-완료--운영-검증-전)에 있다.
 

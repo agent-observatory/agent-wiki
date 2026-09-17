@@ -56,6 +56,67 @@
 - 재추출 중 발견해 고친 결함(`remote-curation-17`): 서버는 `user_decision`을 `user_decision`으로만 대체할 수 있게 강제하는데(`DECISION_AUTHORITY_MISMATCH`) **프롬프트에 그 규칙이 없었고**, 이 코드는 출력 오류 재시도 목록에도 없었다. 모델이 관찰·추론으로 결정을 대체하려 하면 청크 추출 전체가 버려지고 확인 필요로 죽은 채 끝났다. 규칙을 프롬프트에 적고(이견은 `contradicts`이지 대체가 아니다) 재시도 목록에 넣었다. 실제로 작업 1개가 이 코드로 죽은 것을 보고 찾았다.
 - 남은 것: `topic_key`는 여전히 모델이 짓는다(최근 40개 재사용 힌트만 있음). 그림의 AI 추출 카드가 이 사실을 그대로 적고 있다.
 
+## 하네스 적대적 리뷰 · 결함 7건 · 측정이 무효였던 이유
+
+2026-09-17. 하루 동안 결함이 계속 나오는 패턴을 Fable에 적대적 리뷰로 넘겼다. "잘 했는지"가 아니라 "무엇을 틀렸는지"를 물었고, 운영 DB 읽기 권한을 줘서 코드만이 아니라 실제 상태와 대조하게 했다.
+
+### 검증 공백의 정체
+
+일곱 결함이 한 모양을 공유한다: **검사를 "코드가 만들 상태"에 대고 썼고 "시스템이 이미 가진 상태"는 확인하지 않았다.** 넷은 그대로 가정의 실패다 — 락, 역할, 제약 정의, 기존 관계. 로컬 테스트는 자기 세계를 만들어 통과하고, 운영은 역사를 갖고 있어서 실패한다.
+
+구조적 원인 네 가지: 로컬 DB를 절대 새로 만들지 않는다(`test-local-db.sh`가 컨테이너를 재사용); 마이그레이션을 "돌았다"로 검증하고 "스키마가 말한 대로인가"로는 검증하지 않는다; 큐·멱등 테스트에 **방해 행이 없다**(원하는 Job만 넣고 그것만 집는다); corpus에 대한 서술을 **쿼리 전에** 한다.
+
+마지막은 내가 같은 날 두 번 저질렀다. 근사 중복 7쌍을 보고 "통합이 놓쳤다"고 단정하고 프롬프트를 고치려 했는데, 재보니 corpus 전체의 근사 중복 9쌍이 **전부 이미 연결**돼 있었다. 텍스트만 보고 `claim_relations`를 확인하지 않았다.
+
+### 측정이 무효였다
+
+| 출처 | current 주장 |
+| --- | --- |
+| `claude:c2715289` (하네스를 만든 그 대화) | **216** |
+| `codex:01a094be` | 18 |
+| `codex:01a09eba` | 3 |
+| `feedback:Hyune-c` | 1 |
+
+**91%가 한 세션이다.** "결정 과분류가 57% → 23%로 잡혔다", "관계가 17 → 28로 늘었다" 같은 오늘의 수치는 전부 **위키를 만드는 대화를 추출한 결과**지 제품의 품질이 아니다. 슬라이스는 몇 분 만에 슬라이스가 아니게 됐고, 나는 "Collector가 계속 넣는다"고 기록만 하고 결론까지 따라가지 않았다.
+
+재현 쿼리(읽기 전용, `PG_ADMIN_*`):
+
+```sql
+WITH cur AS (SELECT DISTINCT cl.article_id,cl.revision,cl.anchor FROM claims cl
+   JOIN articles a ON a.workspace_id=cl.workspace_id AND a.id=cl.article_id
+     AND a.revision=cl.revision AND a.deleted_at IS NULL
+   WHERE cl.workspace_id=$1 AND NOT EXISTS(SELECT 1 FROM claim_relations cr
+     WHERE cr.workspace_id=$1 AND cr.to_article_id=cl.article_id
+       AND cr.to_revision=cl.revision AND cr.to_anchor=cl.anchor
+       AND cr.relation IN ('retracts','supersedes')))
+SELECT s.origin, count(DISTINCT (cur.article_id,cur.anchor))
+FROM cur JOIN evidence e ON (e.article_id,e.revision,e.anchor)=(cur.article_id,cur.revision,cur.anchor)
+JOIN sources s ON s.id=e.source_id WHERE e.workspace_id=$1 GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**앞으로 corpus 수치를 적을 때는 그것을 만든 쿼리를 함께 남긴다.**
+
+### 고친 것
+
+| 결함 | 내용 |
+| --- | --- |
+| 자기 순환 | Claude 수집을 다시 껐다. `AGENTS.md`가 원래 "전체 비활성화"라고 적어둔 상태이며 09-14에 켜고 문서를 안 고쳤다. 껐어도 이미 업로드된 262개 원문의 추출 백로그는 남는다 |
+| `claim retire`의 topic 누락 | 사용자 수정이 `topic_key=''`로 떨어져 어느 페이지에도, 어떤 통합에도 안 잡혔다. 서버는 `topic_key`를 이미 돌려주고 있었고 CLI가 안 쓴 것뿐. 테스트가 CLI 모양을 안 거쳐서 못 잡았다 |
+| 마이그레이션 락 (절반만 고쳤던 것) | 제약 6개만 가드하고 `ADD COLUMN IF NOT EXISTS` 24개·`DROP NOT NULL`·26개 테이블 RLS는 그대로였다. **진짜 범인은 그것들을 다 가드한 뒤에도 남은 `DROP POLICY`+`CREATE POLICY`**였고 문장 단위 이분 탐색으로 찾았다. `lock_timeout` 15초와 원인 메시지를 넣었다. 쓰기 트랜잭션을 연 채 마이그레이션을 돌려 검증했다 |
+| 되돌아간 교훈 | `DROP → UPDATE → ADD` 순서를 이 문서에 적어놓고 같은 날 뒤집었다. 복구했다 |
+| `republishChange`의 raw state | 관계는 고정 (Article, Version, anchor)를 가리켜 새 Version으로 안 옮겨간다. 저장된 `state`를 복사하면 **대체·철회된 형제 주장이 되살아난다**. `consolidateClaim`은 같은 이유로 이미 `effective_state`를 쓰고 있었다. 미발현이며 픽스를 빼면 실패하는 회귀 테스트로 검증 |
+| rebuild 막다른 길 | 범위 지정 rebuild가 남긴 658개 원문이 큐로 돌아갈 길이 없었고, 유일한 방법인 rebuild는 사용자 피드백 주장을 지운다. `curation queue`를 추가했다(지식 미변경, 멱등) |
+| `AI_OUTPUT_LIMIT` 미재시도 | 마지막 쿼타가 소진돼 `glm-5.2`로 전환되자 몇 분 만에 드러났다. 잘린 응답은 다른 출력 오류와 같은 종류인데 이것만 바로 확인 필요로 죽었다. 출력 상한은 이미 스키마 최대치라 재생성이 유일한 수단 |
+| 게이트 주석의 거짓 | `DECISION_EVIDENCE_NOT_USER` 주석이 "병합이 붙이는 미검증 근거를 막는다"고 했지만 실제 검사는 "하나라도 user면 통과"다. 조이는 건 틀렸으므로(사용자 발언+도구 출력 결정이 정상) 주석을 사실대로 고치고 혼합 근거 케이스를 테스트로 못박았다 |
+
+모델 4개를 모두 소진하고 `glm-5.2`로 넘어갔다. 오후에 고친 `enable_thinking` 해제 불가 건이 없었으면 여기서 정제가 멈췄다.
+
+### 남은 것
+
+- **평가용 세트가 없다.** corpus의 91%가 하네스를 만든 대화라 어떤 품질 측정도 그 순환을 잰다. 위키 이전의 오래된 세션을 골라 고정하고 다시 재야 한다.
+- `supports`가 중복을 잇지만 화면은 둘 다 보여준다. 접기는 평가용 세트가 생긴 뒤에 판단한다.
+- `consolidation.auto`는 `false`다. 순환을 막기 전에는 켜지 않는다.
+
 ## 정제 하네스 · 슬라이스 재추출 · 예측과 결과
 
 2026-09-17. 사용자가 "하네스를 만들라"고 했다. Alibaba `open-code-review`·OpenMetadata처럼 **엔지니어링이 단위·후보군·열거형·게이트·재시도를 소유하고 모델은 그 안에서 판단하며 사람 검수가 최후 방어선**인 구조다. 전체 재추출 대신 **슬라이스로 검증**한다.
