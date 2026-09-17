@@ -1327,3 +1327,13 @@ Job이 실행 중일 때 도착한 수동 트리거는 두 번째 Job을 만들�
 ## `ai_inference`가 `current`로 발행되는 것을 서버에서 막는다 (2026-09-17)
 
 "AI 해석은 사람이 채택하기 전까지 제안"이라는 규칙이 Worker의 제안 검증에만 있었다. 그 규칙이 생기기 전에 발행된 `ai_inference`·`current` 주장 4개가 지금도 사용자의 결정 옆에 확정 사실처럼 보인다. `DECISION_EVIDENCE_NOT_USER`를 서버에 둔 것과 같은 이유로 — 모든 자동 발행자가 여기를 지나간다 — `AI_INFERENCE_NOT_CURRENT`를 발행 경로에 추가했다. 기존 4개는 그대로 남아 있으며 별도 정정 대상이다.
+
+## supports 편중을 다룬다 — 접기·좁히기·기억 (2026-09-17)
+
+관계 157개 중 143개가 `supports`였다. 통합은 돌지만 화면에서는 아무것도 줄지 않았다. 세 가지를 함께 했다.
+
+1. **결정적 접기.** `supports`로 이어진 `current` 주장의 연결 성분을 대표 하나로 접는다. 대표 선정 규칙은 권한 → 다른 주장을 supports하지 않는 것(재진술이 아닌 원 진술) → 가장 이른 `recorded` 근거 시각 → 근거 수 → 주장 ID. 전순서라 행 순서와 무관하게 같은 결과가 나온다. 규칙은 `packages/core/src/wiki-page.ts` 한 곳에 있고 Version 스냅샷의 `clusters` 필드로 웹에 전달된다 — 웹은 그 결정을 그릴 뿐 다시 계산하지 않는다. 조립 버전 `topic-sections-6`.
+2. **프롬프트 좁히기.** `supports`는 "출발 주장이 대상과 **같은 진술**을 다시 말하거나 그 진술의 새 근거일 때"로 좁혔다. 한 subject에 대한 서로 다른 참인 사실 둘은 `leave_unresolved(parallel)`이다. `CONSOLIDATION_PROMPT_VERSION`은 `consolidation-2`.
+3. **판단 끝난 묶음 기억.** `current`가 2개 이상인 묶음은 실행할 때마다 후보였다. 그래서 그냥 둘 다 참인 사실 한 쌍이 14개 Job에 걸쳐 계속 재과금되고 `supports`가 계속 붙었다. 이제 묶음 지문을 `steps.gather.output.groupHashes`에 남기고 직전 completed Job과 같으면 모델에 보내지 않는다. **수동 실행도 이 기억을 따른다** — CLI가 지금 통합이 실제로 도는 유일한 경로라 수동을 예외로 두면 재과금이 그대로다. `consolidate plan`·`--all`도 같은 기억을 읽어 "이번엔 0개"가 정직하게 보인다.
+
+회귀 테스트: 같은 corpus에 두 번 실행 → 두 번째 모델 호출 0회. 접기 규칙은 입력을 뒤집어도 같은 대표를 고르는지 확인한다.

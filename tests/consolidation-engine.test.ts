@@ -945,3 +945,113 @@ test("a retry after a model failure still reaches the model with the gather resu
     "the gather result survives a failed model attempt",
   );
 });
+
+// A (subject, scope) group with two current claims was a candidate on every
+// run, so two facts that are simply both true kept being re-sent and re-billed:
+// 14 production Jobs did this and kept adding `supports`. A group the last
+// completed Job already judged is not asked about again until something in it
+// changes.
+test("a second run over an unchanged topic asks the model nothing", async () => {
+  const ws3 = randomUUID();
+  await admin.query("INSERT INTO workspaces(id,owner_id,name) VALUES($1,$2,$3)", [
+    ws3,
+    owner,
+    "Settled groups",
+  ]);
+  await admin.query(
+    "INSERT INTO ai_settings(workspace_id,config,encrypted_key) VALUES($1,$2,$3)",
+    [
+      ws3,
+      JSON.stringify({
+        ...defaults,
+        enabled: true,
+        baseUrl: "https://api.deepseek.com/v1",
+        requestsPerMinute: 120,
+        retryDelaySeconds: 5,
+      }),
+      encryptSecret("synthetic-settled"),
+    ],
+  );
+  const topic3 = "settled-topic";
+  const src3 = randomUUID(),
+    pub3 = randomUUID(),
+    art3 = randomUUID();
+  const text3 = "정착 검증 주장";
+  const key3 = ws3 + "/" + hash(text3) + ".txt.gz";
+  await putSource(key3, text3);
+  await admin.query(
+    `INSERT INTO sources(id,workspace_id,name,kind,origin,content_hash,payload_hash,object_key,line_count,idempotency_key,masked)
+     VALUES($1,$2,'settled','conversation','synthetic',$5,$5,$3,1,$4,true)`,
+    [src3, ws3, key3, src3, hash(text3)],
+  );
+  await admin.query(
+    `INSERT INTO publications(id,workspace_id,idempotency_key,payload_hash,producer,reason)
+     VALUES($1,$2,$3,'h','{"type":"agent","client":"synthetic"}','settled')`,
+    [pub3, ws3, pub3],
+  );
+  await admin.query(
+    "INSERT INTO articles(id,workspace_id,title,content,kind,revision,topic_key) VALUES($1,$2,'정착','본문','memory',1,$3)",
+    [art3, ws3, topic3],
+  );
+  await admin.query(
+    "INSERT INTO revisions(workspace_id,article_id,revision,title,content,metadata,publication_id) VALUES($1,$2,1,'정착','본문','{}',$3)",
+    [ws3, art3, pub3],
+  );
+  for (const anchor of ["a", "b"]) {
+    await admin.query(
+      "INSERT INTO claims(workspace_id,article_id,revision,anchor,text,type,subject,scope,state) VALUES($1,$2,1,$3,$4,'user_decision','settled-subject','production','current')",
+      [ws3, art3, anchor, text3 + " " + anchor],
+    );
+    await admin.query(
+      "INSERT INTO evidence(workspace_id,article_id,revision,anchor,source_id,source_revision,line_start,line_end,quote) VALUES($1,$2,1,$3,$4,1,1,1,$5)",
+      [ws3, art3, anchor, src3, text3],
+    );
+  }
+  // Two parallel facts: the model leaves them unresolved and adds no relation,
+  // so nothing about the group changes.
+  let calls = 0;
+  const parallel: any = async () => {
+    calls += 1;
+    return {
+      output: {
+        relations: [],
+        leaveUnresolved: [
+          { subject: "settled-subject", scope: "production", reason: "parallel" },
+        ],
+      },
+      usage: { total_tokens: 20 },
+    };
+  };
+  const signal = new AbortController().signal;
+  const drive = async () => {
+    for (let i = 0; i < 8; i++) {
+      await admin.query(
+        "UPDATE consolidation_jobs SET available_at=now() WHERE workspace_id=$1 AND status='pending'",
+        [ws3],
+      );
+      await runConsolidation(owner, signal, parallel);
+      const open = (
+        await admin.query(
+          "SELECT count(*)::int n FROM consolidation_jobs WHERE workspace_id=$1 AND status IN ('pending','running')",
+          [ws3],
+        )
+      ).rows[0].n;
+      if (!open) return;
+      await sleep(600);
+    }
+  };
+  await tx(owner, ws3, (c) => scheduleConsolidation(c, ws3, topic3, "manual"));
+  await drive();
+  assert.equal(calls, 1, "the first run asks once");
+  await tx(owner, ws3, (c) => scheduleConsolidation(c, ws3, topic3, "manual"));
+  await drive();
+  assert.equal(calls, 1, "the second run over the same corpus asks nothing");
+  const second = (
+    await admin.query(
+      "SELECT status,steps FROM consolidation_jobs WHERE workspace_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [ws3],
+    )
+  ).rows[0];
+  assert.equal(second.status, "completed");
+  assert.equal(second.steps.model.status, "skipped");
+});

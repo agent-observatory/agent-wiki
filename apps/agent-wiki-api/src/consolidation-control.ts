@@ -2,7 +2,11 @@ import type { PoolClient } from "pg";
 import { z } from "zod";
 import { AppError } from "../../../packages/core/src/db.js";
 import { scheduleConsolidation } from "../../../packages/core/src/consolidation.js";
-import { gatherTopic, type Group } from "../../agent-wiki-worker/src/consolidate.js";
+import {
+  gatherTopic,
+  settledGroupHashes,
+  type Group,
+} from "../../agent-wiki-worker/src/consolidate.js";
 import { claimEvidenceTimes } from "./evidence-time.js";
 // Manual trigger and status for `agent-wiki consolidate` / `consolidate status`
 // (docs/l2-l3-memory.md#언제-실행하나). Runs even while automatic curation is
@@ -41,7 +45,12 @@ async function workspaceTopics(c: PoolClient, ws: string) {
 export async function triggerAllConsolidations(c: PoolClient, ws: string) {
   const scheduled: string[] = [];
   for (const topicKey of await workspaceTopics(c, ws)) {
-    const gathered = await gatherTopic(c, ws, topicKey);
+    const gathered = await gatherTopic(
+      c,
+      ws,
+      topicKey,
+      await settledGroupHashes(c, ws, topicKey),
+    );
     if (!gathered.groups.length) continue;
     await scheduleConsolidation(c, ws, topicKey, "manual");
     scheduled.push(topicKey);
@@ -60,7 +69,12 @@ export async function consolidationPlan(
   const topics = topicKey ? [topicKey] : await workspaceTopics(c, ws);
   const topicPlans: { topicKey: string; groups: unknown[] }[] = [];
   for (const key of topics) {
-    const gathered = await gatherTopic(c, ws, key);
+    const gathered = await gatherTopic(
+      c,
+      ws,
+      key,
+      await settledGroupHashes(c, ws, key),
+    );
     if (!topicKey && !gathered.groups.length) continue;
     topicPlans.push({
       topicKey: key,

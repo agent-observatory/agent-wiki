@@ -164,6 +164,7 @@ export function KnowledgeClaims({
   const [selected, setSelected] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState("");
   const [active, setActive] = useState<string>("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -175,7 +176,27 @@ export function KnowledgeClaims({
     const key = claimKey(c);
     lineageByKey.set(key, lineageOf(key, relations));
   }
-  const current = claims.filter((c) => c.state === "current");
+  // Consolidation's dominant verdict is `supports`, so the list used to print
+  // the same assertion several times over. The Version snapshot already folded
+  // each support chain to one representative with a deterministic rule
+  // (packages/core/src/wiki-page.ts); the list renders that decision rather
+  // than re-deriving it. An older Version has no clusters and draws flat.
+  const clusters: { representative: string; members: string[] }[] =
+    snapshot.clusters ?? [];
+  const membersOf = new Map<string, any[]>();
+  const foldedInto = new Map<string, string>();
+  for (const cluster of clusters) {
+    const members = cluster.members
+      .map((k) => byKey.get(k))
+      .filter((c) => c && c.state === "current");
+    if (members.length) membersOf.set(cluster.representative, members);
+    for (const k of cluster.members) foldedInto.set(k, cluster.representative);
+  }
+  const foldedCount = [...membersOf.values()].reduce((n, m) => n + m.length, 0);
+  const allCurrent = claims.filter((c) => c.state === "current");
+  const current = clusters.length
+    ? allCurrent.filter((c) => !foldedInto.has(claimKey(c)))
+    : allCurrent;
   const needle = filter.trim().toLowerCase();
   const matches = (c: any) =>
     !needle ||
@@ -185,9 +206,13 @@ export function KnowledgeClaims({
     String(c.subject ?? "")
       .toLowerCase()
       .includes(needle);
+  // A folded member still has to be findable: matching one keeps its
+  // representative in the list and opens the fold.
+  const matchesCluster = (c: any) =>
+    matches(c) || (membersOf.get(claimKey(c)) ?? []).some(matches);
   const groupMap = new Map<string, Group>();
   for (const c of current) {
-    if (!matches(c)) continue;
+    if (!matchesCluster(c)) continue;
     const subject = c.subject ? String(c.subject) : "";
     let g = groupMap.get(subject);
     if (!g) {
@@ -221,6 +246,13 @@ export function KnowledgeClaims({
     (c) => lineageByKey.get(claimKey(c))!.total,
   ).length;
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
+  const toggleFold = (key: string) =>
+    setUnfolded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   // Highlight the subject the reader is actually looking at. Re-registered
   // whenever the visible set changes, because filtering removes sections.
   const groupKeys = groups.map((g) => g.key).join("\u0000");
@@ -258,8 +290,12 @@ export function KnowledgeClaims({
     <div className="space-y-6">
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          현재 주장 {current.length.toLocaleString()}개 · Subject{" "}
-          {groups.length}개 · 관계가 연결된 주장 {linkedTotal}개.
+          현재 주장 {allCurrent.length.toLocaleString()}개 · Subject{" "}
+          {groups.length}개 · 관계가 연결된 주장 {linkedTotal}개
+          {foldedCount > 0
+            ? ` · 같은 진술 ${foldedCount.toLocaleString()}개를 대표로 접었습니다`
+            : ""}
+          .
           {linkedTotal > 0
             ? " 주장을 누르면 근거 원문과 리니지를 봅니다."
             : " 아직 통합이 연결한 관계가 없습니다."}
@@ -352,6 +388,12 @@ export function KnowledgeClaims({
                   {visible.map((c) => {
                     const key = claimKey(c);
                     const lineage = lineageByKey.get(key)!;
+                    const folded = membersOf.get(key) ?? [];
+                    // A search that matched a folded member opens that fold,
+                    // otherwise the reader searches and finds nothing.
+                    const showFolded =
+                      unfolded.has(key) ||
+                      (!!needle && folded.some(matches) && !matches(c));
                     const body = (
                       <>
                         <div className="min-w-0 flex-1">
@@ -372,6 +414,11 @@ export function KnowledgeClaims({
                               <FileText />
                               Evidence {(c.evidence ?? []).length}
                             </Badge>
+                            {folded.length > 0 && (
+                              <Badge variant="secondary">
+                                재확인 {folded.length}건
+                              </Badge>
+                            )}
                           </div>
                           <p className="whitespace-pre-wrap leading-7">
                             {c.text}
@@ -388,20 +435,54 @@ export function KnowledgeClaims({
                     // as "this one has no evidence", which was never true —
                     // evidence and lineage are different things.
                     return (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-pressed={open && selected === key}
-                        onClick={() => {
-                          setSelected(key);
-                          setOpen(true);
-                        }}
-                        className={`flex w-full items-start gap-4 px-4 py-3 text-left transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                          open && selected === key ? "bg-accent/40" : ""
-                        }`}
-                      >
-                        {body}
-                      </button>
+                      <div key={key}>
+                        <button
+                          type="button"
+                          aria-pressed={open && selected === key}
+                          onClick={() => {
+                            setSelected(key);
+                            setOpen(true);
+                          }}
+                          className={`flex w-full items-start gap-4 px-4 py-3 text-left transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                            open && selected === key ? "bg-accent/40" : ""
+                          }`}
+                        >
+                          {body}
+                        </button>
+                        {folded.length > 0 && (
+                          <div className="px-4 pb-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-2 text-muted-foreground"
+                              onClick={() => toggleFold(key)}
+                              aria-expanded={showFolded}
+                            >
+                              {showFolded
+                                ? "재확인 접기"
+                                : `같은 진술 ${folded.length}개 보기`}
+                            </Button>
+                            {showFolded && (
+                              <ul className="mt-1 space-y-1 border-l pl-3">
+                                {folded.map((m) => (
+                                  <li key={claimKey(m)}>
+                                    <button
+                                      type="button"
+                                      className="text-left text-sm text-muted-foreground hover:text-foreground"
+                                      onClick={() => {
+                                        setSelected(claimKey(m));
+                                        setOpen(true);
+                                      }}
+                                    >
+                                      {m.text}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

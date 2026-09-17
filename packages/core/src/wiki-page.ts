@@ -34,6 +34,123 @@ const types: Record<string, string> = {
   agent_statement: "Agent Statement",
   author_statement: "Author Statement",
 };
+// Who asserted a claim, ranked. A decision must never hide behind an
+// observation that merely restates it. author_statement sits with
+// user_decision because both are a person's own words.
+const AUTHORITY_RANK: Record<string, number> = {
+  user_decision: 0,
+  author_statement: 1,
+  observation: 2,
+  ai_inference: 3,
+  agent_statement: 4,
+};
+export type SupportCluster = {
+  representative: PageClaim;
+  members: PageClaim[];
+};
+export function claimKey(c: {
+  article_id: string;
+  revision: number;
+  anchor: string;
+}) {
+  return c.article_id + "|" + c.revision + "|" + c.anchor;
+}
+// Consolidation's dominant verdict is `supports`, and a page that prints every
+// member of a support chain shows the reader the same assertion five times.
+// Fold each connected component of current claims down to one representative.
+// The choice is fully deterministic — engineering owns the unit, the model only
+// proposed the edges — so the same corpus always folds the same way regardless
+// of row order:
+//   1. authority (a decision outranks an observation of it)
+//   2. a claim that supports nothing else: the original statement, not a
+//      restatement of it
+//   3. earliest 'recorded' evidence time (recovered and missing times last,
+//      since their ordering is not trustworthy)
+//   4. most evidence
+//   5. the claim's own identity, so ties still resolve
+export function supportClusters(
+  claims: PageClaim[],
+  relations: PageRelation[],
+): SupportCluster[] {
+  const nodes = new Map<string, PageClaim>();
+  const order: string[] = [];
+  for (const c of claims)
+    if (c.state === "current" && !nodes.has(claimKey(c))) {
+      nodes.set(claimKey(c), c);
+      order.push(claimKey(c));
+    }
+  const parent = new Map<string, string>(order.map((k) => [k, k]));
+  const root = (x: string): string => {
+    const p = parent.get(x)!;
+    if (p === x) return x;
+    const r = root(p);
+    parent.set(x, r);
+    return r;
+  };
+  const supportsOthers = new Set<string>();
+  for (const r of relations) {
+    if (r.relation !== "supports") continue;
+    const from = claimKey({
+        article_id: r.from_article_id,
+        revision: r.from_revision,
+        anchor: r.from_anchor,
+      }),
+      to = claimKey({
+        article_id: r.to_article_id,
+        revision: r.to_revision,
+        anchor: r.to_anchor,
+      });
+    if (!nodes.has(from) || !nodes.has(to)) continue;
+    supportsOthers.add(from);
+    const a = root(from),
+      b = root(to);
+    // Merge toward the lexicographically smaller root so the component is
+    // built the same way whatever order the relations arrive in.
+    if (a !== b) parent.set(a < b ? b : a, a < b ? a : b);
+  }
+  const recordedAt = (c: PageClaim) => {
+    const times = (c.evidence_times ?? [])
+      .filter((t) => t.kind === "recorded" && Number.isFinite(Date.parse(t.at)))
+      .map((t) => t.at)
+      .sort();
+    return times[0] ?? null;
+  };
+  const rank = (k: string): (string | number)[] => {
+    const c = nodes.get(k)!;
+    const at = recordedAt(c);
+    return [
+      AUTHORITY_RANK[c.type] ?? 9,
+      supportsOthers.has(k) ? 1 : 0,
+      at === null ? 1 : 0,
+      at ?? "",
+      -(c.evidence_times?.length ?? 0),
+      k,
+    ];
+  };
+  const better = (a: string, b: string) => {
+    const x = rank(a),
+      y = rank(b);
+    for (let i = 0; i < x.length; i++)
+      if (x[i] !== y[i]) return x[i] < y[i] ? a : b;
+    return a;
+  };
+  const groups = new Map<string, string[]>();
+  for (const k of order) {
+    const r = root(k);
+    groups.set(r, [...(groups.get(r) ?? []), k]);
+  }
+  const clusters: SupportCluster[] = [];
+  for (const k of order) {
+    const members = groups.get(root(k));
+    if (!members || root(k) !== k) continue;
+    const pick = members.reduce(better);
+    clusters.push({
+      representative: nodes.get(pick)!,
+      members: members.filter((m) => m !== pick).map((m) => nodes.get(m)!),
+    });
+  }
+  return clusters;
+}
 export function renderWikiPage(
   title: string,
   claims: PageClaim[],
@@ -67,7 +184,19 @@ export function renderWikiPage(
   };
   const paragraph = (c: PageClaim) =>
     `${c.text}\n\n[${types[c.type] ?? "Claim"} · ${c.scope || "범위 미지정"} · ${timeLabel(c)} · 근거](${href(c)})`;
-  const current = claims.filter((c) => c.state === "current");
+  const clusters = supportClusters(claims, relations);
+  const memberLinks = new Map<string, string>(
+    clusters
+      .filter((c) => c.members.length)
+      .map((c) => [
+        claimKey(c.representative),
+        "재확인 " +
+          c.members.length +
+          "건 · " +
+          c.members.map((m) => `[${m.title}](${href(m)})`).join(" · "),
+      ]),
+  );
+  const current = clusters.map((c) => c.representative);
   const unresolved = claims.filter((c) =>
     ["proposed", "unconfirmed", "conflicted"].includes(c.state),
   );
@@ -91,7 +220,10 @@ export function renderWikiPage(
                   .filter((c) => c.title === title)
                   .map(
                     (c) =>
-                      `${c.state === "current" ? "" : `**${states[c.state]}**\n\n`}${paragraph(c)}`,
+                      `${c.state === "current" ? "" : `**${states[c.state]}**\n\n`}${paragraph(c)}` +
+                      (memberLinks.has(claimKey(c))
+                        ? `\n\n${memberLinks.get(claimKey(c))}`
+                        : ""),
                   )
                   .join("\n\n"),
             )

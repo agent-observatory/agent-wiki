@@ -1,7 +1,11 @@
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { hash } from "../../../packages/core/src/storage.js";
-import { renderWikiPage } from "../../../packages/core/src/wiki-page.js";
+import {
+  renderWikiPage,
+  supportClusters,
+  claimKey,
+} from "../../../packages/core/src/wiki-page.js";
 import { effectiveClaimState } from "./claim-relations.js";
 import { AppError } from "../../../packages/core/src/db.js";
 import { pagination, paged } from "./pagination.js";
@@ -117,12 +121,19 @@ export async function refreshWikiPages(c: PoolClient, ws: string) {
       references,
     );
     const snapshot = {
-      assemblyVersion: "topic-sections-5",
+      assemblyVersion: "topic-sections-6",
       claims,
       relations,
       references,
       rejections,
       tags,
+      // The support folding the page text already applies, so the web renders
+      // the same grouping without re-deriving the rule. Identity only: the
+      // claims themselves are right above.
+      clusters: supportClusters(claims, relations).map((cluster) => ({
+        representative: claimKey(cluster.representative),
+        members: cluster.members.map(claimKey),
+      })),
     };
     const fingerprint = hash(JSON.stringify({ title, content, snapshot }));
     if (old?.input_hash === fingerprint) continue;
