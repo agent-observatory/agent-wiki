@@ -193,7 +193,7 @@ end('docs/assets/wiki-architecture.svg')
 # table each stage reads or writes; Decision is not a table but claims.type) and the 'ai' fill
 # (model judgment; every other card is code). Band offsets below are derived so a taller card
 # moves everything under it.
-canvas(1760,2508,'wiki-l1-l3-curation','L1 → L3 · 지식 정제 · 추출과 통합','L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제한다. 입력 조립은 세션 메타데이터·암호화 본문·시스템/개발자 지침과 함께 Wiki CLI를 실행한 도구 호출과 그 출력 블록을 통째로 비운다. 위키가 자기 출력을 다시 읽어 지식으로 올리는 순환을 끊는 결정적 게이트이며 L1 원문과 줄 번호는 그대로 둔다. L3 현재 주장의 BM25 후보를 입력 조립에 되돌리고 출력 오류는 같은 청크를 다시 보낸다. 서버 검증은 인용·Version·순환·출발 상태와 어휘·범위·발화 권한·시간 순서 부류의 게이트를 적용하며 게이트 코드는 문서의 표에 있다. 범위 불일치·근거 불일치·강등된 주장의 대체 관계는 그 관계만 버리고 이유를 진단에 남기며 같은 청크의 주장은 그대로 반영한다. 나중에 유효해질 수 있는 관계만 통합 대기함으로 넘긴다. 02 통합 전 L3에는 같은 subject·scope에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. 03 Consolidation Job은 cycle 완료·대기함 관계(deferred)·수동 consolidate TOPIC 또는 --all로 만들어지고 주제당 열린 Job은 1개이며 수동 Job이 대기 중인 자동 Job을 인수한다. gather는 (subject, scope)별로 묶어 current가 둘 이상인 묶음만 후보로 삼고, 묶음 지문이 직전 완료 Job과 같고 대기함이 비었으면 모델에 보내지 않는다. 이어서 model → validate → publish가 관계만 판단해 자동 반영한다. Step별 상태를 따로 기록하고 실패한 Step부터 재시도한다. 04 Wiki Page 새 Version은 현재 주장만 나열한다. supports로 이어진 current 주장의 연결 성분은 대표 하나로 접어 한 번만 싣고, 대표 선정은 권한 → 다른 주장을 supports하지 않는 것 → 가장 이른 recorded 근거 시각 → 근거 수 → 주장 ID의 전순서라 모델이 아니라 코드가 정한다. 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. 검토의 relation reject는 정정 Version을 발행하고 거절을 기억해 재제안을 막는다. 카드 아래의 데이터베이스 기호 줄은 그 단계가 읽거나 쓰는 테이블이다. Decision은 테이블이 아니라 claims.type = user_decision이며 type은 발화 권한, state는 채택 상태다. 연보라 카드(AI 추출, model Step)만 모델 판단이고 그 외 카드는 코드가 정한다. Consolidation·통합 대기함·리니지 패널·relation reject는 구현·배포했고 실제 세션 자료의 운영 검증은 docs/OPERATIONS.md를 따른다. NVIDIA → Alibaba 예시는 합성이다.')
+canvas(1760,2696,'wiki-l1-l3-curation','L1 → L3 · 지식 정제 · 추출과 통합','L1부터 L3까지 한 장. 01 세션 증분을 Worker가 청킹·입력 조립·AI 추출·서버 검증·반영으로 정제한다. 입력 조립은 세션 메타데이터·암호화 본문·시스템/개발자 지침과 함께 Wiki CLI를 실행한 도구 호출과 그 출력 블록을 통째로 비운다. 위키가 자기 출력을 다시 읽어 지식으로 올리는 순환을 끊는 결정적 게이트이며 L1 원문과 줄 번호는 그대로 둔다. L3 현재 주장의 BM25 후보를 입력 조립에 되돌리고 출력 오류는 같은 청크를 다시 보낸다. 서버 검증은 인용·Version·순환·출발 상태와 어휘·범위·발화 권한·시간 순서 부류의 게이트를 적용하며 게이트 코드는 문서의 표에 있다. 어긋난 관계는 그 관계만 떼어 통합 대기함에 넘기고 같은 청크의 주장은 그대로 반영한다. 대기함은 두 상태다. 대상 Version 변경(409)처럼 나중에 유효해질 수 있는 관계는 pending으로 남아 다음 통합이 모델에 다시 보내고, 양끝 subject·scope 불일치·출발 주장이 갖지 않은 근거·강등된 주장의 대체처럼 게이트가 절대 받을 수 없는 관계는 needs_human으로 남아 모델로 돌아가지 않고 review conflicts와 웹 Curation 탭에서 사람이 판단한다. 02 통합 전 L3에는 정본 subject ai-provider·scope general에 current 주장 A·B가 함께 남고 제안 D와 대기함의 관계가 있다. B의 slug는 curation-provider인데 사람이 subject alias로 ai-provider에 이어 두 주장이 비교된다. 후보 계산은 모델 없이 하고 주장에 저장된 slug는 바꾸지 않으며 관계 게이트·통합 묶음 키·어휘 힌트·페이지 조립이 정본 이름으로 비교한다. 03 Consolidation Job은 cycle 완료·대기함 관계(deferred)·수동 consolidate TOPIC 또는 --all로 만들어지고 주제당 열린 Job은 1개이며 수동 Job이 대기 중인 자동 Job을 인수한다. gather는 (subject, scope)별로 묶어 current가 둘 이상인 묶음만 후보로 삼고, 묶음 지문이 직전 완료 Job과 같고 대기함이 비었으면 모델에 보내지 않는다. model은 요청 크기를 재어 maxInputTokens 안에 드는 묶음까지만 보내고 남은 묶음은 지문을 기록하지 않아 미판단으로 남기며 후속 Job이 이어받는다. 이어서 validate → publish가 관계만 판단해 자동 반영한다. Step별 상태를 따로 기록하고 실패한 Step부터 재시도한다. 04 Wiki Page 새 Version은 현재 주장만 나열한다. supports로 이어진 current 주장의 연결 성분은 대표 하나로 접어 한 번만 싣고, 대표 선정은 권한 → 다른 주장을 supports하지 않는 것 → 가장 이른 recorded 근거 시각 → 근거 수 → 주장 ID의 전순서라 모델이 아니라 코드가 정한다. 클릭한 주장의 리니지 패널이 B가 A를 대체한 관계와 이유를 보여준다. contradicts는 양끝이 모두 current일 때만 conflicted를 만든다. 검토의 review conflicts는 needs_human 관계를 사람에게 보여 별칭·관계·철회 중 하나를 고르게 하고, relation reject는 정정 Version을 발행하고 거절을 기억해 재제안을 막는다. 카드 아래의 데이터베이스 기호 줄은 그 단계가 읽거나 쓰는 테이블이다. Decision은 테이블이 아니라 claims.type = user_decision이며 type은 발화 권한, state는 채택 상태다. 연보라 카드(AI 추출, model Step)만 모델 판단이고 그 외 카드는 코드가 정한다. Consolidation·통합 대기함·리니지 패널·relation reject는 구현·배포했고 실제 세션 자료의 운영 검증은 docs/OPERATIONS.md를 따른다. NVIDIA → Alibaba 예시는 합성이다.')
 legend(900,80,'정제·반영','ingest');legend(1100,80,'지연·재시도','ingest',True);legend(1300,80,'조회·읽기','query');legend(1500,80,'대체 관계','relation')
 legend(1100,112,'기록·기준','ops',True);legend_store(1300,112,'저장 테이블');legend_fill(1500,112,'모델 판단 · 그 외 코드','ai')
 def section(y,label):text(40,y,label,FONT['group'],True)
@@ -212,7 +212,7 @@ cols=[72,400,728,1060,1392];R1=G1+80;H1=192;MID1=R1+H1//2
 # Two deterministic gates sit on either side of it and both are code, so neither card is lilac:
 # input assembly blanks the Wiki CLI call and its output block (the self-echo cycle), and
 # validation drops only the offending relation while the chunk's claims still publish.
-pipeline=[('청킹',['요청·도구 묶음 경계 우선','예산 초과는 재귀 분할'],'ingest','tabler-cpu',None),('입력 조립',['새 청크 + 세션 맥락','+ 기존 주장 최대 6개','생략 · 세션 메타 · 암호화 · 지침','생략 · Wiki CLI 출력 · 순환 차단'],'ingest','tabler-book-2',None),('AI · 추출·관계 판단',['주장 · 관계 제안','근거는 recordId에서 선택','subject·scope는 주어진 목록에서','topic 키는 아직 모델이 지음'],'ai','openai',None),('서버 검증',['인용 · Version · 출발 상태','어휘 · 범위 · 발화 권한 · 시간 순서','순환 없음 · 위반은 코드로 기록','어긋난 관계만 버림 · 주장은 반영'],'ingest','tabler-clipboard-check',None),('반영 · publish',['주장·근거·관계 한 트랜잭션','바뀐 주제 페이지 새 Version'],'data','postgresql',['쓰기 claims · evidence','claim_relations · wiki_pages'])]
+pipeline=[('청킹',['요청·도구 묶음 경계 우선','예산 초과는 재귀 분할'],'ingest','tabler-cpu',None),('입력 조립',['새 청크 + 세션 맥락','+ 기존 주장 최대 6개','생략 · 세션 메타 · 암호화 · 지침','생략 · Wiki CLI 출력 · 순환 차단'],'ingest','tabler-book-2',None),('AI · 추출·관계 판단',['주장 · 관계 제안','근거는 recordId에서 선택','subject·scope는 주어진 목록에서','topic 키는 아직 모델이 지음'],'ai','openai',None),('서버 검증',['인용 · Version · 출발 상태','어휘 · 범위 · 발화 권한 · 시간 순서','순환 없음 · 위반은 코드로 기록','어긋난 관계는 대기함 · 주장은 반영'],'ingest','tabler-clipboard-check',None),('반영 · publish',['주장·근거·관계 한 트랜잭션','바뀐 주제 페이지 새 Version'],'data','postgresql',['쓰기 claims · evidence','claim_relations · wiki_pages'])]
 for i,(title,lines,role,ico,store) in enumerate(pipeline):
  card(cols[i],R1,296,H1,title,lines,role,ico,store=store)
  if i<4:path(f'M{cols[i]+296} {MID1} H{cols[i+1]}',flow='ingest')
@@ -222,15 +222,17 @@ card(cols[1],R2,296,192,'L3 참고 · 후보',['BM25 후보 24 → 규칙 재정
 path(f'M548 {R2} V{R1+H1}',flow='query');text(564,R2-32,'선택 후보',FONT['label'],True,FLOW_COLORS['query'])
 G2=G1+576+64                # band 02 top
 path(f'M548 {G2} V{R2+192}',flow='query');text(564,G2-20,'Workspace 현재 주장 읽기',FONT['label'],True,FLOW_COLORS['query'])
-# Output errors re-send the same chunk (dashed ingest). Only this loop calls the model again.
-card(cols[3],R2,296,156,'Retry · 출력 오류만',['같은 청크 새 응답 · 캐시 비움','3회 연속 → 확인 필요','성공 청크·처리 위치 유지'],'ops','tabler-clipboard-check')
-path(f'M1208 {R1+H1} V{R1+H1+44} H876 V{R1+H1}',True,flow='ingest');text(1224,R1+H1+32,'검증 실패 → 새 응답',FONT['label'],True,FLOW_COLORS['ingest'])
+# Output errors re-send the same chunk (dashed ingest). Only this loop calls the model again; the
+# per-Step retry rules (cache reset, three strikes, kept progress) live in the doc's Step table.
+path(f'M1208 {R1+H1} V{R1+H1+44} H876 V{R1+H1}',True,flow='ingest');text(1224,R1+H1+32,'출력 오류 → 새 응답 · 3회면 확인 필요',FONT['label'],True,FLOW_COLORS['ingest'])
 # Verified claims (and relations that pass) go to L3. A relation-only failure keeps the claims and
-# defers just that relation to the topic's consolidation inbox.
-path(f'M1544 {R1+H1} V{G2}',flow='ingest');text(1364,G2-20,'검증된 주장·관계 → L3',FONT['label'],True,FLOW_COLORS['ingest'])
-path(f'M1600 {R1+H1} V{G2}',True,flow='ingest');text(1616,(R1+H1+G2)//2,'관계만 지연',FONT['label'],True,FLOW_COLORS['ingest'])
+# hands just that relation to the topic's consolidation inbox: `pending` when it may become valid,
+# `needs_human` when no gate can ever accept it. Both statuses are spelled out on the inbox card.
+path(f'M1536 {R1+H1} V{G2}',flow='ingest');text(1364,G2-20,'검증된 주장·관계 → L3',FONT['label'],True,FLOW_COLORS['ingest'])
+path(f'M1592 {R1+H1} V{G2}',True,flow='ingest');text(1604,(R1+H1+G2)//2,'관계만 대기함',FONT['label'],True,FLOW_COLORS['ingest'])
 
-group(40,G2,1680,340)
+B2=528                      # band 02 height: 80 + white subject box 416 + 32
+group(40,G2,1680,B2)
 text(64,G2+36,'02 · '+layer_label(3)+' · 통합 전 · 같은 subject·scope에 current가 둘 남아 있다',FONT['group'],True,'#FFFFFF')
 C2=G2+80                    # claim card row
 # Claim cards show the record shape the reader asked about: type (authority) and state (adoption)
@@ -239,21 +241,31 @@ card(72,C2,256,156,'Claim D · proposed',['“Qwen도 괜찮을까?”','type ai
 card(360,C2,256,156,'Claim C · current',['API 동시 실행 = 5','type user_decision','state current · 별도 묶음'],'data','tabler-book-2')
 text(72,C2+188,'Decision은 별도 테이블이 아님 · claims.type = user_decision',FONT['label'])
 text(72,C2+216,'type은 발화 권한 · state는 채택 · 표시 상태는 claim_relations로 계산',FONT['label'])
-box(648,C2,736,228,'#FFFFFF','#929EAD')
-text(668,C2+28,'subject ai-provider · scope general · current 2개 → 통합 대상',FONT['label'],True)
-card(680,C2+48,320,156,'Claim A · current',['정제 Provider = NVIDIA','type user_decision · Decision','state current · 근거 09:00'],'data','tabler-book-2')
-card(1032,C2+48,320,156,'Claim B · current',['정제 Provider = Alibaba','type user_decision · Decision','state current · 이유: 호출 지연'],'data','tabler-book-2')
-# inbox = "not decided yet", never "impossible": a relation whose ends can never match is dropped
-# at validation instead, so the last line separates the two.
-card(1416,C2,272,220,'통합 대기함 · 지연된 관계',['B supersedes A · 409','대상 Version 변경 (409)','주장은 반영 · 관계만 대기','나중에 유효해질 수 있는 관계만'],'ingest','tabler-cloud-upload',store=['consolidation_inbox'])
-G3=G2+340+56                # band 03 top
+# The white box is one consolidation group: its key is the CANONICAL subject + scope. The two
+# claims keep the slug the model wrote (part of the immutable Revision); B's slug is a split of the
+# same property that a person joined with `subject alias`. From then on every place that compares
+# subjects (relation gate, grouping key, vocabulary hint, page assembly) sees one name, and the
+# vocabulary hint no longer offers the alias, so the split does not reopen. Candidates are computed
+# without a model; the join itself is a person's decision, hence the ops fill and the title.
+box(648,C2,704,416,'#FFFFFF','#929EAD')
+text(668,C2+28,'정본 subject ai-provider · scope general · current 2개 → 통합 대상',FONT['label'],True)
+card(680,C2+48,304,188,'Claim A · current',['정제 Provider = NVIDIA','subject ai-provider','type user_decision · Decision','state current · 근거 09:00'],'data','tabler-book-2')
+card(1016,C2+48,304,188,'Claim B · current',['정제 Provider = Alibaba','subject curation-provider','type user_decision · Decision','state current · 이유: 호출 지연'],'data','tabler-book-2')
+card(680,C2+268,640,124,'subject alias · 사람이 잇는다',['curation-provider → ai-provider · 후보 계산은 모델 없이','게이트 · 묶음 키 · 어휘 힌트 · 페이지 조립이 정본으로 비교 · 저장된 slug는 불변'],'ops','tabler-clipboard-check')
+# The inbox holds relations only and has two statuses. `pending` = not judged yet (a 409 because the
+# target Version moved): the next Consolidation sends it to the model again. `needs_human` = no gate
+# can ever accept it (subject/scope mismatch, evidence the claim does not have, a demoted claim's
+# supersedes/contradicts): gather never reads it; `review conflicts` and the web Curation tab show it
+# to a person with one deterministic next command. Either way the chunk's claims were published.
+card(1384,C2,304,252,'통합 대기함 · 두 상태',['주장은 반영 · 관계만 대기','pending · B supersedes A · 409','→ 다음 통합이 모델에 다시','needs_human · 게이트가 못 받음','→ review conflicts · 사람이 판단'],'ingest','tabler-cloud-upload',store=['consolidation_inbox'])
+G3=G2+B2+56                 # band 03 top
 # Both inputs land above the gather step.
-path(f'M520 {G2+340} V{G3}',flow='ingest');text(420,G3-12,'통합 전 주장',FONT['label'],True,FLOW_COLORS['ingest'])
-path(f'M1552 {C2+220} V{G3-28} H560 V{G3}',True,flow='ingest');text(1568,C2+248,'다음 통합 입력',FONT['label'],True,FLOW_COLORS['ingest'])
+path(f'M520 {G2+B2} V{G3}',flow='ingest');text(420,G3-12,'통합 전 주장',FONT['label'],True,FLOW_COLORS['ingest'])
+path(f'M1536 {C2+252} V{G3-28} H560 V{G3}',True,flow='ingest');text(1552,C2+280,'다음 통합 입력',FONT['label'],True,FLOW_COLORS['ingest'])
 
 group(40,G3,1680,540)
 text(64,G3+36,'03 · Consolidation Job · 주제별 1회 · 관계만 판단 · 새 주장 없음',FONT['group'],True,'#FFFFFF')
-R3=G3+80;H3=192;MID3=R3+H3//2
+R3=G3+80;H3=220;MID3=R3+H3//2
 # Three triggers share one open Job per topic; a manual Job takes over a pending automatic one.
 card(72,R3,296,220,'트리거',['cycle 완료 → 주제마다 1회','대기함 관계 · deferred','수동 · consolidate TOPIC · --all','열린 Job 주제당 1개 · 수동이 인수'],'ops','clock',store=['consolidation_jobs'])
 path(f'M368 {MID3} H400',flow='ingest')
@@ -264,7 +276,10 @@ path(f'M368 {MID3} H400',flow='ingest')
 # Job and an empty inbox means no model call at all, so a pair of parallel truths is not re-billed.
 # The rejection-memory exclusion is already carried by the arrow from the card below, so it is not
 # repeated as a body line, and "no model call" is already the legend's lilac rule.
-steps=[('gather · 수집',['주제 주장 + 대기함 관계','subject·scope별 · current 2+만','묶음 지문이 직전과 같으면 생략'],'ingest','tabler-cpu',['읽기 claims · claim_relations']),('model · 관계 판단',['BYOK 1회 · 새 주장 없음','supersedes · retracts','supports · contradicts','leave_unresolved · 이유 필수'],'ai','openai',None),('validate · 검증',['publish와 같은 규칙','범위 · 발화 권한 · 시간 순서','Version · 순환 · 거절 기억','위반은 코드와 함께 기록'],'ingest','tabler-clipboard-check',None),('publish · 자동 반영',['관계 저장 · 페이지 새 Version','같은 트랜잭션 · 검토는 나중'],'data','postgresql',['쓰기 claim_relations','wiki_pages · 대기함 resolved'])]
+# model measures the request: groups are sent in order until maxInputTokens is reached; the rest are
+# left unjudged with no fingerprint recorded, so the follow-up Job picks them up. "새 주장 없음" is
+# already the group title and is not repeated on the card.
+steps=[('gather · 수집',['주제 주장 + 대기함 관계','subject·scope별 · current 2+만','묶음 지문이 직전과 같으면 생략'],'ingest','tabler-cpu',['읽기 claims · claim_relations']),('model · 관계 판단',['BYOK 1회 · 예산 안 묶음까지','supersedes · retracts','supports · contradicts','leave_unresolved · 이유 필수','남은 묶음 미판단 → 후속 Job'],'ai','openai',None),('validate · 검증',['publish와 같은 규칙','범위 · 발화 권한 · 시간 순서','Version · 순환 · 거절 기억','위반은 코드와 함께 기록'],'ingest','tabler-clipboard-check',None),('publish · 자동 반영',['관계 저장 · 페이지 새 Version','같은 트랜잭션 · 검토는 나중'],'data','postgresql',['쓰기 claim_relations','wiki_pages · 대기함 resolved'])]
 xs=[400,728,1056,1384]
 for i,(title,lines,role,ico,store) in enumerate(steps):
  card(xs[i],R3,296,H3,title,lines,role,ico,store=store)
@@ -281,7 +296,10 @@ path(f'M220 {G4} V{G3+540}',True,flow='ops');text(236,G4-24,'거절 저장',FONT
 group(40,G4,1680,368)
 text(64,G4+36,'04 · '+layer_label(3)+' · 통합 후 · Wiki Page 새 Version · Knowledge 화면과 검토',FONT['group'],True,'#FFFFFF')
 R4=G4+80;H4=256
-card(72,R4,472,H4,'검토 · review · relation reject',['review queue · diff → 새 관계 확인','relation reject → 정정 Version 발행','대상 주장을 관계 전 상태로 복원','거절 기억에 저장 → 재제안 제외','자동 반영 ≠ 검토 완료 · 승인은 사용자'],'ops','tabler-clipboard-check',store=['쓰기 revisions · claim_relation_rejections'])
+# `review conflicts` is where a `needs_human` inbox row reaches a person, with one deterministic next
+# command per reason (add an alias, add the relation, retire the claim). "거절 기억에 저장" is not a
+# body line: the dashed arrow into the rejection-memory card above already says it.
+card(72,R4,472,H4,'검토 · review · relation reject',['review queue · diff → 새 관계 확인','review conflicts · needs_human → 별칭 · 관계 · 철회','relation reject → 정정 Version 발행','대상 주장을 관계 전 상태로 복원','자동 반영 ≠ 검토 완료 · 승인은 사용자'],'ops','tabler-clipboard-check',store=['쓰기 revisions · claim_relation_rejections'])
 # The page prints one representative per supports-linked component of current claims. The model
 # proposes the relations; choosing the representative is a total order in code (authority ->
 # supports nothing else -> earliest recorded evidence -> evidence count -> claim id), carried to
@@ -297,7 +315,9 @@ box(1168,R4+60,196,64,'#FFFFFF','#74AA98');text(1180,R4+84,'Claim B · current',
 box(1476,R4+60,196,64,'#FFFFFF','#929EAD');text(1488,R4+84,'Claim A · superseded',FONT['label'],True);text(1488,R4+108,'정제 Provider = NVIDIA',FONT['label'])
 path(f'M1364 {R4+92} H1476',flow='relation');text(1376,R4+80,'supersedes',FONT['label'],True,FLOW_COLORS['relation'])
 text(1172,R4+160,'변경 이유 · 호출 지연 · 근거 10:00 · Version 고정',FONT['body'])
-text(1172,R4+192,'후속이 둘이면 둘 다 표시 · contradicts는 배지',FONT['body'])
+# conflicted is computed, not stored: a contradicts edge counts only when both ends are adopted
+# (current), so one unadopted statement cannot push a confirmed observation into "unresolved".
+text(1172,R4+192,'contradicts → conflicted · 양끝 모두 current일 때만',FONT['body'])
 text(1172,R4+224,'거절된 관계는 정정 Version과 함께 표시',FONT['body'])
 end('docs/assets/wiki-l1-l3-curation.svg')
 
