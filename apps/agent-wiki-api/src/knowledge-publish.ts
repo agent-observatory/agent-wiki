@@ -360,9 +360,13 @@ export async function publish(
       // structure only exists for collected conversation sources, which is
       // exactly what the automatic (worker) pipeline reads; a manual/human
       // publish has no such structure to check and is left alone. Checked
-      // here, not only in the worker's own proposal validation, because
-      // consolidateClaim (above) can attach fresh, unchecked evidence to an
-      // already-existing user_decision claim during automatic consolidation.
+      // here, not only in the worker's own proposal validation, so every
+      // automatic publisher passes it rather than each one re-implementing it.
+      // Scope, precisely: at least one cited line must be user-authored. A
+      // decision backed by a user line plus a tool output stays valid, and
+      // consolidateClaim's merge can still attach assistant-role evidence to a
+      // claim that already has its user citation — the claim's authority rests
+      // on that citation, and extra corroboration does not revoke it.
       // Skipped when none of the cited evidence resolves to any known role at
       // all (plain, non-transport text): role data is genuinely unavailable
       // there, not evidence of a non-user author.

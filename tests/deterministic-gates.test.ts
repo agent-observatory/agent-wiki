@@ -217,3 +217,34 @@ test("SUPERSEDES_BACKWARD_IN_TIME is skipped when the superseding side has only 
   ]);
   assert.equal(result.items.length, 1);
 });
+
+// The gate means "at least one cited line is the user's", not "every line is".
+// A decision backed by a user line plus a tool output is legitimate, and the
+// merge path may add assistant-role corroboration to a claim that already has
+// its user citation. Pinned so the rule is not silently tightened later.
+test("DECISION_EVIDENCE_NOT_USER accepts a decision citing a user line alongside a non-user line", async () => {
+  const userText = "사용자가 직접 말한 결정 문장";
+  const toolText = "도구가 출력한 확인 결과";
+  const src = await source([
+    JSON.stringify({ event: 1, field: '["payload","role"]', text: "user" }),
+    JSON.stringify({ event: 1, field: '["payload","content"]', text: userText }),
+    JSON.stringify({ event: 2, field: '["payload","role"]', text: "tool" }),
+    JSON.stringify({ event: 2, field: '["payload","content"]', text: toolText }),
+  ]);
+  const change = decisionChange(
+    "a",
+    "gate-mixed-evidence",
+    src.id,
+    2,
+    src.lines[1],
+    userText,
+  );
+  change.claims[0].evidence.push({
+    sourceId: src.id,
+    revision: 1,
+    lines: [4, 4],
+    quote: src.lines[3],
+  });
+  const result = await publishAutomatic([change]);
+  assert.equal(result.items.length, 1, "one user-authored citation is enough");
+});
