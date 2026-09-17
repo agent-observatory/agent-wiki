@@ -170,3 +170,34 @@ test("only current claims form clusters", () => {
     [["now", 0]],
   );
 });
+
+// The relation gate should make this unreachable, but folding across subjects
+// would hide a claim inside another subject's group — it would read as if the
+// claim had never been made. A self-edge must not make a claim look like a
+// restatement of itself either.
+test("folding never crosses subject or scope, and ignores a self-edge", () => {
+  const other = supportClusters(
+    [cluster({ anchor: "a" }), cluster({ anchor: "b", subject: "other" })],
+    [supports("b", "a")],
+  );
+  assert.deepEqual(
+    other.map((c) => [c.representative.anchor, c.members.length]).sort(),
+    [
+      ["a", 0],
+      ["b", 0],
+    ],
+  );
+  const scoped = supportClusters(
+    [cluster({ anchor: "a" }), cluster({ anchor: "b", scope: "local" })],
+    [supports("b", "a")],
+  );
+  assert.equal(scoped.length, 2, "a different scope is a different question");
+  const selfEdge = supportClusters(
+    [cluster({ anchor: "a", type: "user_decision" }), cluster({ anchor: "b" })],
+    [supports("a", "a"), supports("b", "a")],
+  );
+  assert.deepEqual(
+    selfEdge.map((c) => [c.representative.anchor, c.members.map((m) => m.anchor)]),
+    [["a", ["b"]]],
+  );
+});

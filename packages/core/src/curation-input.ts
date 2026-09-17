@@ -16,6 +16,8 @@ type Omission = {
 // pods` and `agent-wiki pages` are both tool output. So cut the loop at the
 // one place it is decidable — the command that produced it.
 const WIKI_COMMAND = /(^|[\s;&|/])agent-wiki(\s|$)|agent-wiki\.mjs/;
+// A tool named for the wiki rather than a shell command that runs it.
+const WIKI_TOOL_NAME = /(^|_)agent[-_]wiki(_|$)/;
 // The path up to and including its last array index: one tool call or one
 // result block, so a command can be matched with the id sitting beside it.
 function containerPrefix(path: unknown[]) {
@@ -44,9 +46,12 @@ function wikiCallIds(originalLines: string[]) {
   for (const own of fields.values()) {
     const ran = [...own.entries()].some(
       ([relative, text]) =>
-        ['["input","command"]', '["arguments"]', '["input","cmd"]'].includes(
+        (['["input","command"]', '["arguments"]', '["input","cmd"]'].includes(
           relative,
-        ) && WIKI_COMMAND.test(text),
+        ) &&
+          WIKI_COMMAND.test(text)) ||
+        (['["name"]', '["payload","name"]'].includes(relative) &&
+          WIKI_TOOL_NAME.test(text)),
     );
     if (!ran) continue;
     for (const name of ['["id"]', '["call_id"]', '["tool_use_id"]']) {
@@ -143,8 +148,14 @@ export function curationInput(original: string) {
       if (["provenance", "id"].includes(path[0])) reason = "session_metadata";
       if (metadataEvents.has(row.event)) reason = "session_metadata";
       if (key === '["payload","encrypted_content"]') reason = "encrypted";
+      // Match any ancestor, not just this line's own container: a tool result
+      // whose content is an array of blocks sits one level deeper than the
+      // tool_use_id that identifies it, and checking only the exact container
+      // left the wiki's answer in the input.
       if (
-        echoContainers.has(JSON.stringify([row.event, containerPrefix(path)]))
+        path.some((_: unknown, i: number) =>
+          echoContainers.has(JSON.stringify([row.event, path.slice(0, i + 1)])),
+        )
       )
         reason = "wiki_echo";
       if (

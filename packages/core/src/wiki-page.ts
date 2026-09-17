@@ -100,7 +100,18 @@ export function supportClusters(
         revision: r.to_revision,
         anchor: r.to_anchor,
       });
-    if (!nodes.has(from) || !nodes.has(to)) continue;
+    if (!nodes.has(from) || !nodes.has(to) || from === to) continue;
+    // storeClaimRelations already refuses a relation whose ends disagree on
+    // subject or scope, so this should never fire. Check anyway: folding
+    // across subjects would hide a claim inside another subject's group, and
+    // it would read as if the claim had never been made.
+    const fromClaim = nodes.get(from)!,
+      toClaim = nodes.get(to)!;
+    if (
+      fromClaim.subject !== toClaim.subject ||
+      fromClaim.scope !== toClaim.scope
+    )
+      continue;
     supportsOthers.add(from);
     const a = root(from),
       b = root(to);

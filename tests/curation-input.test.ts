@@ -183,3 +183,47 @@ test("a Codex function call to the Wiki CLI is omitted the same way", () => {
   assert.ok(!result.text.includes("지식 목록 14개"));
   assert.deepEqual(result.omitted, [{ start: 1, end: 6, reason: "wiki_echo" }]);
 });
+
+// The realistic Claude shape: a tool result whose content is an array of
+// blocks. Those lines sit one level deeper than the tool_use_id that
+// identifies the call, so matching only the exact container left the wiki's
+// own answer in the model input — the thing the gate exists to remove.
+test("wiki output nested in result blocks is omitted, and a named wiki tool too", () => {
+  const row = (event: number, field: (string | number)[], text: string) =>
+    JSON.stringify({ event, field: JSON.stringify(field), text });
+  const nested = curationInput(
+    [
+      row(1, ["payload", "content", 0, "type"], "tool_use"),
+      row(1, ["payload", "content", 0, "id"], "c1"),
+      row(1, ["payload", "content", 0, "input", "command"], "agent-wiki pages"),
+      row(2, ["payload", "content", 0, "tool_use_id"], "c1"),
+      row(2, ["payload", "content", 0, "content", 0, "text"], "지식 목록 14개"),
+    ].join("\n"),
+  );
+  assert.ok(!nested.text.includes("지식 목록 14개"));
+  assert.deepEqual(nested.omitted, [{ start: 1, end: 5, reason: "wiki_echo" }]);
+
+  const named = curationInput(
+    [
+      row(1, ["payload", "content", 0, "id"], "c2"),
+      row(1, ["payload", "content", 0, "name"], "mcp__agent-wiki__search"),
+      row(2, ["payload", "content", 0, "tool_use_id"], "c2"),
+      row(2, ["payload", "content", 0, "content"], "주장 5개"),
+    ].join("\n"),
+  );
+  assert.ok(!named.text.includes("주장 5개"));
+
+  // Neither the wiki's name inside another tool's output nor a person talking
+  // about the wiki is an echo.
+  const kept = curationInput(
+    [
+      row(1, ["payload", "content", 0, "id"], "k1"),
+      row(1, ["payload", "content", 0, "input", "command"], "kubectl get pods"),
+      row(2, ["payload", "content", 0, "tool_use_id"], "k1"),
+      row(2, ["payload", "content", 0, "content", 0, "text"], "agent-wiki-worker Running"),
+      row(3, ["payload", "role"], "user"),
+      row(3, ["payload", "content"], "agent-wiki 를 어떻게 쓰지"),
+    ].join("\n"),
+  );
+  assert.deepEqual(kept.omitted, []);
+});
