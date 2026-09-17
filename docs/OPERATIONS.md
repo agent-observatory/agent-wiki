@@ -1489,3 +1489,27 @@ Worker가 세 이유로 관계를 버리는데(범위 불일치·근거 불일�
 - 진단에 남던 `anchor`만으로는 **주장을 특정할 수 없었다**(anchor 97개 중 46개가 여러 문서에 같은 문자열로 존재). 이제 발행 직후 확정된 articleId·revision으로 기록한다.
 - `agent-wiki review conflicts`와 웹 **Sources → Curation 탭**이 양끝 주장·subject·scope와 함께 **이유별 결정적 행동 한 줄**을 보여준다. 모델은 쓰지 않는다.
 - 사람이 `relation add`로 같은 관계를 실제로 이으면 그 행은 `resolved`가 된다.
+
+## 별칭이 실제로 갈라진 주장을 잇는 것을 확인했다 (2026-09-17)
+
+`subject candidates`가 운영 126개 subject에서 **4쌍**을 냈고, 표면 갈라짐이 분명한 둘을 이었다.
+
+- `graph-storage-and-visualization` → `graph-storage-visualization` (불용어 `and`만 다름)
+- `container-instance-dns-storage` → `container-instance-storage` (DNS와 스토리지를 한 slug에 붙였고 주장 내용은 스토리지다)
+
+나머지 둘(`oci-always-free` ↔ `-instances` / `-constraints`)은 **잇지 않았다.** 같은 대상의 서로 다른 측면이라 합치면 묶음만 커지고 판단이 어려워진다.
+
+이은 직후 그 두 묶음의 지문이 바뀌어 다시 열렸고, 통합이 돌아 **`supports` 3개와 `supersedes` 1개**를 새로 맺었다. 별칭이 없었다면 두 slug는 영영 비교되지 않았을 관계다.
+
+## 오늘 최종 상태 (2026-09-17)
+
+| 항목 | 값 |
+| --- | --- |
+| 페이지 | 6개 · current 주장 801개 → 화면 675줄(126개 접힘) |
+| 관계 | `supports` 734 · `supersedes` 88 · `contradicts` 27 |
+| 관계에서 도출된 상태 | `superseded` 45건(저장된 값은 전부 `current`) |
+| 자기 순환 | 위키를 만든 세션을 근거로 하는 current 주장 **0개** |
+| subject 별칭 | 2개 |
+| 오늘 AI 호출 | 857회 |
+
+남은 것: 재구성 이전에 만들어진 **정확히 같은 문장의 주장 묶음 28개**가 아직 남아 있다(대부분 `supports`로 이어져 화면에서는 접힌다). 새로 생기는 것은 병합 픽스가 막지만 기존 것을 소급해 합치지는 않는다. `needs_human` 행은 다음 추출부터 쌓인다 — 폐기는 추출 발행 시점에 기록되므로 지금은 0이다.
