@@ -380,16 +380,25 @@ export async function runOne(
           // instead of inventing one per chunk: engineering supplies the
           // candidate set, the model only selects. Deterministic ordering and a
           // per-topic cap keep the input stable and bounded.
+          //
+          // The cap is chosen BY USE, not alphabetically. One production topic
+          // had 101 subjects: an alphabetical cut showed the model the first 24
+          // and hid the rest, including every heavily used one, so it minted a
+          // new slug for a property the wiki already had a name for. Ordering
+          // by claim count shows the vocabulary that actually carries the
+          // topic; the alphabetical tiebreak keeps the input stable between
+          // runs.
           const topics = (
             await c.query(
               `SELECT p.topic_key AS key,p.title,
-                 COALESCE((SELECT array_agg(s.subject ORDER BY s.subject)
-                           FROM (SELECT DISTINCT cl.subject
+                 COALESCE((SELECT array_agg(s.subject ORDER BY s.uses DESC,s.subject)
+                           FROM (SELECT cl.subject,count(*)::int AS uses
                                  FROM articles a
                                  JOIN claims cl ON cl.workspace_id=a.workspace_id AND cl.article_id=a.id AND cl.revision=a.revision
                                  WHERE a.workspace_id=p.workspace_id AND a.topic_key=p.topic_key
                                    AND a.deleted_at IS NULL AND cl.subject<>''
-                                 ORDER BY cl.subject LIMIT ${TOPIC_SUBJECT_LIMIT}) s),'{}') AS subjects
+                                 GROUP BY cl.subject
+                                 ORDER BY count(*) DESC,cl.subject LIMIT ${TOPIC_SUBJECT_LIMIT}) s),'{}') AS subjects
                FROM wiki_pages p WHERE p.workspace_id=$1 ORDER BY p.updated_at DESC LIMIT 40`,
               [ws],
             )

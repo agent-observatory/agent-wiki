@@ -6,7 +6,10 @@ import {
   expandProposalContent,
   prepareProposal,
 } from "../apps/agent-wiki-worker/src/curation-proposal.js";
-import { OUTPUT_RETRY_CODES } from "../apps/agent-wiki-worker/src/worker.js";
+import {
+  OUTPUT_RETRY_CODES,
+  fitTopicVocabulary,
+} from "../apps/agent-wiki-worker/src/worker.js";
 import { changeInput } from "../apps/agent-wiki-api/src/knowledge.js";
 import {
   renderWikiPage,
@@ -528,4 +531,31 @@ test("a relation citing evidence its claim does not have is dropped, not fatal",
       reason: "CLAIM_RELATION_EVIDENCE_REQUIRED",
     },
   ]);
+});
+
+// The subject vocabulary is capped per topic, and the cap used to cut
+// alphabetically. One production topic had 101 subjects: the model saw the
+// first 24 and none of the heavily used ones, so it minted a new slug for a
+// property the wiki already had a name for. A cap that hides the vocabulary
+// that actually carries the topic is worse than no cap.
+test("the vocabulary hint keeps the most used subjects, not the alphabetically first", () => {
+  const many = Array.from({ length: 40 }, (_, i) => "aaa-" + i);
+  const kept = fitTopicVocabulary([
+    { key: "t", title: "T", subjects: [...many, "zzz-heavily-used"] },
+  ]);
+  assert.ok(
+    kept[0].subjects?.includes("zzz-heavily-used"),
+    "the ordering the query supplies is preserved, not re-sorted",
+  );
+  // The budget drops a whole topic's list rather than truncating it, so a
+  // topic either shows its ranked vocabulary or none of it.
+  const tight = fitTopicVocabulary(
+    [
+      { key: "a", title: "A", subjects: ["one", "two"] },
+      { key: "b", title: "B", subjects: many },
+    ],
+    30,
+  );
+  assert.deepEqual(tight[0].subjects, ["one", "two"]);
+  assert.equal(tight[1].subjects, undefined);
 });

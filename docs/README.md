@@ -52,6 +52,10 @@
 
 10. [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design). 2026-09-15 확인. 삭제 우선·밀도 상한·4px 그리드·직교 연결선·라벨 간격 규칙을 [DESIGN.md](DESIGN.md#밀도와-연결선)에 옮겼다. 흰 배경 금지·전용 글꼴(한글 미지원)·단일 코랄 강조는 채택하지 않았다.
 
+### 어노테이션·시맨틱 레이어·온톨로지의 구분
+
+11. [요즘IT — 10분 만에 온톨로지(Ontology) 이해하기](https://yozm.wishket.com/magazine/detail/3951/). 김영욱. 2026-09-17 확인. **어노테이션**(낱개 오브젝트의 설명 라벨, 연결도 계산도 없다) · **시맨틱 레이어**(지표를 한 곳에서 한 번 정의해 모든 도구가 같은 계산을 하게 하는 층, 정의하지 않은 사실은 만들지 못한다) · **온톨로지**(클래스·관계·규칙으로 아무도 적지 않은 결론을 스스로 도출한다)의 구분. 판별 한 줄은 "직접 입력하지 않은 결론을 규칙과 사실을 엮어 꺼낼 수 있는가"다. 권고는 시맨틱 레이어로 핵심 지표부터 모으고 온톨로지는 용어집 수준으로 가볍게 시작하라는 것이다. 우리 대응: Claim의 본문·근거가 어노테이션, `scope`·`type`의 닫힌 목록과 관계 게이트·`effectiveClaimState`가 시맨틱 레이어, 저장되지 않은 `superseded`·`conflicted`와 대표 주장을 도출하는 `effectiveClaimState`·`supportClusters`가 아주 작은 온톨로지다. **우리와 다른 점:** 그쪽 규칙은 속성값("매출 100만 초과")에서 결론을 내지만 우리 규칙은 관계의 모양에서만 상태를 내며 시각·유사도로 대체를 도출하지 않는다. 그리고 `subject`는 아직 정의 층이 없는 라벨이고, 이 글이 말하는 "용어집"에 해당하는 `glossary`·`aliases`는 스키마와 검색 경로만 있을 뿐 운영 데이터가 비어 있다.
+
 ### 공식 기술 문서
 
-- [W3C PROV-DM](https://www.w3.org/TR/prov-dm/) · [SKOS](https://www.w3.org/TR/skos-primer/). 구체적인 비교·적용 범위는 아키텍처에 기록한다.
+- [W3C PROV-DM](https://www.w3.org/TR/prov-dm/) · [SKOS](https://www.w3.org/TR/skos-primer/). 출처·파생 관계와 개념 어휘의 용어를 참고했다. 제품에 두 표준을 구현하지는 않았고, 우리 `subject` 어휘는 SKOS의 개념 체계가 아니라 주제별 slug 목록이다.
