@@ -281,3 +281,80 @@ test("a truncated response regenerates instead of parking the chunk", () => {
   for (const code of ["AI_INVALID_JSON", "EVIDENCE_MISMATCH", "CLAIM_SCOPE_MISMATCH"])
     assert.ok(OUTPUT_RETRY_CODES.includes(code), code + " stays retried");
 });
+
+// A claim demoted to agent_statement lost every relation it proposed. Only
+// supersedes/retracts need an adopted claim on the from side; supports and
+// contradicts do not, and dropping those threw away the only judgements the
+// pipeline had about how two claims relate.
+test("demotion drops a replacement relation but keeps supports and contradicts", () => {
+  const text = "어시스턴트가 결정처럼 적은 문장";
+  const evidence = [{ recordId: "record-1" }];
+  const target = {
+    articleId: "00000000-0000-4000-8000-000000000009",
+    revision: 1,
+    anchor: "old",
+  };
+  const diagnostics: Record<string, unknown> = {};
+  const result = prepareProposal(
+    {
+      changes: [
+        {
+          clientRef: "a",
+          topic: { key: "demote", title: "강등" },
+          title: "제목",
+          kind: "memory",
+          tags: [],
+          claims: [
+            {
+              anchor: "d",
+              text,
+              type: "user_decision",
+              subject: "database-hosting",
+              scope: "production",
+              state: "current",
+              evidence,
+            },
+          ],
+          claimRelations: [
+            { anchor: "d", relation: "supersedes", target, evidence },
+            { anchor: "d", relation: "supports", target, evidence },
+            { anchor: "d", relation: "contradicts", target, evidence },
+          ],
+        },
+      ],
+    },
+    {
+      source: {
+        id: "00000000-0000-4000-8000-000000000001",
+        revision: 1,
+        start: 1,
+        end: 1,
+        text,
+        // The cited line is the assistant's, so a user_decision cannot stand.
+        roles: ["assistant"],
+        omittedLines: [],
+        spans: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            start: 1,
+            end: 1,
+            offset: 0,
+          },
+        ],
+      },
+      related: [{ id: target.articleId, revision: 1, anchor: "old" }],
+    },
+    diagnostics,
+  );
+  const claim = result.changes[0].claims[0];
+  assert.equal(claim.type, "agent_statement");
+  assert.equal(claim.state, "unconfirmed");
+  assert.deepEqual(
+    result.changes[0].claimRelations.map((r: any) => r.relation).sort(),
+    ["contradicts", "supports"],
+    "only the relations that require an adopted claim are dropped",
+  );
+  assert.deepEqual(diagnostics.droppedRelations, [
+    { anchor: "d", relation: "supersedes", reason: "CLAIM_REPLACEMENT_NOT_CURRENT" },
+  ]);
+});

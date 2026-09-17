@@ -107,8 +107,31 @@ export function prepareProposal(
     if (downgraded.size) {
       diagnostics.unconfirmedClaims =
         Number(diagnostics.unconfirmedClaims ?? 0) + downgraded.size;
+      // Only an adopted assertion may replace or withdraw another, so a
+      // demoted claim's supersedes/retracts cannot stand — dropping them here
+      // is what keeps the chunk from failing on CLAIM_REPLACEMENT_NOT_CURRENT
+      // and regenerating forever. supports and contradicts carry no such rule
+      // and were being thrown away with them: the demotion is about who
+      // asserted the claim, not about whether it agrees with another one.
+      const dropped = change.claimRelations.filter(
+        (r) =>
+          downgraded.has(r.anchor) &&
+          ["supersedes", "retracts"].includes(r.relation),
+      );
+      if (dropped.length) {
+        diagnostics.droppedRelations = [
+          ...((diagnostics.droppedRelations as unknown[]) ?? []),
+          ...dropped.map((r) => ({
+            anchor: r.anchor,
+            relation: r.relation,
+            reason: "CLAIM_REPLACEMENT_NOT_CURRENT",
+          })),
+        ];
+      }
       change.claimRelations = change.claimRelations.filter(
-        (r) => !downgraded.has(r.anchor),
+        (r) =>
+          !downgraded.has(r.anchor) ||
+          !["supersedes", "retracts"].includes(r.relation),
       );
     }
     if (change.articleId || change.baseRevision || change.supersedes.length)

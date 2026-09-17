@@ -1311,3 +1311,11 @@ OCI 원본 JSON을 보내던 Connector Hub는 `INACTIVE`다. 시험용 Topic·Sl
 배포 후 `consolidate knowledge-design`을 1회 수동 실행했다. **1회차에 HTTP 200·`finish=stop`으로 완료**했다. 73회 시도하고도 못 하던 주제다. 관계 40개 반영·5개 규칙 거절.
 
 다만 반영된 40개가 **전부 `supports`**다. 전체 관계는 157개가 됐고 그중 `supports` 143 · `supersedes` 9 · `contradicts` 4 · `retracts` 1이다. 통합이 만들어내는 거의 유일한 판정이 "서로 뒷받침한다"이고, 화면에서는 아무것도 접히지 않는다. 통과한 관계의 근거를 열어보면 `✓ Compiled successfully` 같은 도구 출력이 인용돼 있다 — 자기 순환 수집의 잔재다. 파이프라인은 이제 돌지만, 그 산출물이 독자에게 주는 것은 아직 거의 없다.
+
+## 강등된 주장의 `supports`·`contradicts`를 더 이상 버리지 않는다 (2026-09-17)
+
+근거가 사용자·도구의 것이 아니면 `user_decision`·`observation` 주장을 `agent_statement`로 강등하는데, 그때 그 주장이 제안한 **관계를 전부 지우고 숫자만 진단에 남겼다.** `l2-l3-memory.md`가 "관계를 버려 통과시키지 않는다"고 적어둔 것과 정면으로 어긋난다.
+
+실제로 버려야 하는 건 `supersedes`·`retracts`뿐이다 — 채택된 주장만 다른 주장을 대체·철회할 수 있으므로 강등된 주장의 대체 제안은 성립하지 않고, 그대로 두면 청크가 `CLAIM_REPLACEMENT_NOT_CURRENT`로 계속 재생성된다. `supports`·`contradicts`에는 그런 규칙이 없다. 강등은 **누가 말했는지**에 대한 판정이지 두 주장이 서로 어떤 관계인지에 대한 판정이 아닌데, 후자까지 같이 지우고 있었다.
+
+이제 대체 계열만 걸러내고 그 목록을 `diagnostics.droppedRelations`에 이유와 함께 남긴다.
